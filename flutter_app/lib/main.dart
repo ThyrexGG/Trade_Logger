@@ -6,7 +6,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 // - Streamlit Cloud example: "https://your-app-name.streamlit.app"
 // - Emulator testing (points to host PC localhost): "http://10.0.2.2:8502"
 // - Real phone local testing: "http://<YOUR_PC_IP_ADDRESS>:8502"
-const String dashboardUrl = "http://10.0.2.2:8502";
+const String dashboardUrl = "https://tradelogger-bfepaizstq8o8xwrj3sdj5.streamlit.app";
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
