@@ -1,0 +1,14 @@
+# Local credentials and database
+.env
+*.db
+
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
