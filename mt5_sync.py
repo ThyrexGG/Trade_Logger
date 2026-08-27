@@ -1,8 +1,16 @@
-import MetaTrader5 as mt5
 import os
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 import database
+
+# MetaTrader5 is a Windows-only package. On Linux/cloud it will not be available.
+# The sync button in the UI will show an error message instead of crashing the app.
+try:
+    import MetaTrader5 as mt5
+    MT5_AVAILABLE = True
+except ImportError:
+    mt5 = None
+    MT5_AVAILABLE = False
 
 # Load environment variables
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
@@ -16,6 +24,11 @@ def clean_symbol(symbol):
     return symbol.upper()
 
 def sync_mt5():
+    # Guard: MetaTrader5 is only available on Windows.
+    if not MT5_AVAILABLE:
+        print("MetaTrader5 is not available on this platform (Linux/Cloud). MT5 sync only works locally on Windows.")
+        return False
+
     # Initialize MT5 connection
     login_str = os.getenv("MT5_LOGIN")
     password = os.getenv("MT5_PASSWORD")
