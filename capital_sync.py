@@ -27,17 +27,27 @@ def clean_symbol(symbol):
     return mapping.get(symbol, symbol)
 
 def sync_capital():
-    api_key = os.getenv("CAPITAL_API_KEY")
-    email = os.getenv("CAPITAL_EMAIL")
-    password = os.getenv("CAPITAL_PASSWORD")
-    account_id = os.getenv("CAPITAL_ACCOUNT_ID")
-    is_demo = os.getenv("CAPITAL_IS_DEMO", "true").lower() == "true"
-    
+    # Load from environment variables (local .env) OR Streamlit Cloud secrets
+    try:
+        import streamlit as st
+        _secrets = st.secrets
+        api_key  = _secrets.get("CAPITAL_API_KEY",  os.getenv("CAPITAL_API_KEY"))
+        email    = _secrets.get("CAPITAL_EMAIL",     os.getenv("CAPITAL_EMAIL"))
+        password = _secrets.get("CAPITAL_PASSWORD",  os.getenv("CAPITAL_PASSWORD"))
+        account_id = str(_secrets.get("CAPITAL_ACCOUNT_ID", os.getenv("CAPITAL_ACCOUNT_ID") or ""))
+        is_demo  = str(_secrets.get("CAPITAL_IS_DEMO", os.getenv("CAPITAL_IS_DEMO", "true"))).lower() == "true"
+    except Exception:
+        api_key    = os.getenv("CAPITAL_API_KEY")
+        email      = os.getenv("CAPITAL_EMAIL")
+        password   = os.getenv("CAPITAL_PASSWORD")
+        account_id = os.getenv("CAPITAL_ACCOUNT_ID")
+        is_demo    = os.getenv("CAPITAL_IS_DEMO", "true").lower() == "true"
+
     # Initialize the database
     database.init_db()
 
     if not all([api_key, email, password, account_id]):
-        print("Capital.com credentials missing in .env file. Skipping sync.")
+        print("Capital.com credentials missing. Skipping sync.")
         return False
 
     base_url = DEMO_API_URL if is_demo else LIVE_API_URL
