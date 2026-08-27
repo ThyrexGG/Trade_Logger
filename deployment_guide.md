@@ -59,37 +59,38 @@ Render provides free hosting inside persistent Linux containers (Web Services):
 
 ---
 
-## Phase 3: Splicing the Deployed URL into the Android App
+## Phase 3: Splicing the Deployed URL into the Flutter App
 
 Once the web application is running live in the cloud:
 
-1. Open the Android source file: [`MainActivity.kt`](file:///c:/Users/Asus/Desktop/Trade_Logger/android_app/app/src/main/java/com/example/tradelogger/MainActivity.kt)
-2. Locate line 24:
-   ```kotlin
-   const val DASHBOARD_URL = "http://10.0.2.2:8502"
+1. Open the Flutter main source file: [`main.dart`](file:///c:/Users/Asus/Desktop/Trade_Logger/flutter_app/lib/main.dart)
+2. Locate line 9:
+   ```dart
+   const String dashboardUrl = "http://10.0.2.2:8502";
    ```
 3. Swap it with your deployed Streamlit Cloud URL:
-   ```kotlin
-   const val DASHBOARD_URL = "https://your-app-name.streamlit.app"
+   ```dart
+   const String dashboardUrl = "https://your-app-name.streamlit.app";
    ```
 4. Save the file.
 
 ---
 
-## Phase 4: Compiling the APK
+## Phase 4: Compiling the APK with Flutter
 
-To build the APK and generate the installer package:
+To compile the Flutter project into an installable Android APK:
 
-1. Open your terminal in the `android_app` folder:
+1. Open your terminal in the `flutter_app` folder:
    ```powershell
-   cd C:\Users\Asus\Desktop\Trade_Logger\android_app
+   cd C:\Users\Asus\Desktop\Trade_Logger\flutter_app
    ```
-2. Compile the APK package:
+2. Run the Flutter build command:
    ```powershell
-   .\gradlew assembleDebug
+   flutter build apk --debug
    ```
+   *(For final publication, you can run `flutter build apk --release` to build an optimized, smaller production bundle).*
 3. Once the build finishes, your compiled installer file will be located at:
-   * `android_app/app/build/outputs/apk/debug/app-debug.apk`
+   * `flutter_app/build/app/outputs/flutter-apk/app-debug.apk`
 
 ---
 
@@ -98,4 +99,4 @@ To build the APK and generate the installer package:
 1. Transfer the `app-debug.apk` file to your Android phone (via Google Drive, USB cable, email, or messaging app).
 2. Open the APK file on your phone.
 3. Tap **Install**. (If prompted, enable "Install from Unknown Sources" or "Allow from this source" in your phone's browser or file manager settings).
-4. Launch the **TradeLogger** app. It will open your trading journal in a full-screen app format, formatted perfectly for mobile usage!
+4. Launch the **TradeLogger** app. It will open your trading journal in a full-screen, high-performance Flutter app!
