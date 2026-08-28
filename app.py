@@ -1369,6 +1369,85 @@ else:
         """)
 
         # ------------------
+        # LIVE ACTIVE OPEN POSITIONS BANNER / TRAY (Prominent Hero Placement)
+        # ------------------
+        if not df_open.empty:
+            open_rows_hero = ""
+            for idx, pos in df_open.iterrows():
+                pos_id_raw = str(pos["position_id"])
+                t_disp = "#" + pos_id_raw.replace("MT5_", "").replace("CAP_", "")
+                acc_label = "Funded MT5" if pos_id_raw.startswith("MT5_") else "Capital Real"
+                sym = str(pos["symbol"]).upper()
+                dir_str = str(pos["direction"]).upper()
+                dir_badge = f'<span class="badge-dir-long">↑ {dir_str}</span>' if "BUY" in dir_str or "LONG" in dir_str else f'<span class="badge-dir-short">↓ {dir_str}</span>'
+                vol = float(pos.get("volume", 0.0))
+                vol_disp = f"{vol:,.2f}" if vol < 1000 else f"{vol:,.0f}"
+                entry_px = float(pos.get("entry_price", 0.0))
+                curr_px = float(pos.get("current_price", 0.0))
+                fl_pnl = float(pos.get("floating_pnl", 0.0))
+                sl_val = float(pos.get("sl", 0.0))
+                tp_val = float(pos.get("tp", 0.0))
+                sl_disp = f"{sl_val:.5f}" if sl_val > 0 else "—"
+                tp_disp = f"{tp_val:.5f}" if tp_val > 0 else "—"
+                
+                pnl_badge = f'<span class="badge-pnl-win" style="font-size:13px;">+${fl_pnl:,.2f}</span>' if fl_pnl > 0 else (f'<span class="badge-pnl-loss" style="font-size:13px;">-${abs(fl_pnl):,.2f}</span>' if fl_pnl < 0 else '<span style="color:#8a99ad; font-weight:600;">$0.00</span>')
+                open_t_str = pd.to_datetime(pos["open_time"]).strftime("%b %d, %H:%M")
+                
+                open_rows_hero += f"""
+                <tr>
+                    <td style="font-family:monospace; font-size:11px; color:#8a99ad;">{t_disp}</td>
+                    <td style="font-size:11px; color:#c084fc;">{acc_label}</td>
+                    <td style="font-weight:700; color:#ffffff; font-size:13px;">{sym}</td>
+                    <td>{dir_badge}</td>
+                    <td style="font-family:monospace;">{vol_disp}</td>
+                    <td style="font-family:monospace; color:#8a99ad;">{entry_px:.5f}</td>
+                    <td style="font-family:monospace; color:#00ffcc;">{curr_px:.5f}</td>
+                    <td style="font-family:monospace; color:#ff5555; font-size:11px;">{sl_disp}</td>
+                    <td style="font-family:monospace; color:#00ffcc; font-size:11px;">{tp_disp}</td>
+                    <td>{pnl_badge}</td>
+                    <td style="font-size:11px; color:#8a99ad;">{open_t_str}</td>
+                </tr>
+                """
+                
+            render_html(f"""
+            <div style="margin-top:16px; margin-bottom: 20px; background: rgba(13, 17, 26, 0.7); border: 1px solid rgba(0, 255, 204, 0.35); border-radius: 12px; padding: 14px 18px; box-shadow: 0 4px 20px rgba(0,255,204,0.06);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#00ffcc; box-shadow: 0 0 12px #00ffcc;"></span>
+                        <span style="font-size:15px; font-weight:800; color:#ffffff; letter-spacing:-0.2px;">LIVE OPEN POSITIONS ({len(df_open)})</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:16px;">
+                        <span style="font-size:12px; color:#8a99ad;">Total Floating P&L:</span>
+                        <span style="font-size:16px; font-weight:800; color:{unrealized_color};">{unrealized_sign}${abs(unrealized_pnl):,.2f}</span>
+                    </div>
+                </div>
+                
+                <div class="journal-table-wrapper" style="border: 1px solid rgba(255, 255, 255, 0.08); max-height: 250px;">
+                    <table class="journal-table">
+                        <thead>
+                            <tr>
+                                <th>Ticket</th>
+                                <th>Account</th>
+                                <th>Symbol</th>
+                                <th>Direction</th>
+                                <th>Size</th>
+                                <th>Entry Price</th>
+                                <th>Current Price</th>
+                                <th>Stop Loss</th>
+                                <th>Take Profit</th>
+                                <th>Floating PnL</th>
+                                <th>Open Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {open_rows_hero}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            """)
+
+        # ------------------
         # ROW 1 GRID
         # ------------------
         col_hero_chart, col_hero_side = st.columns([2.0, 1.0])
