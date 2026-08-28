@@ -895,6 +895,28 @@ st.markdown("""
         border: 1px solid rgba(0, 255, 204, 0.45) !important;
         box-shadow: 0 0 15px rgba(0, 255, 204, 0.25) !important;
     }
+
+    /* Completely eliminate all dimming / opacity fading during background auto-sync */
+    [data-stale="true"],
+    .stFragment[data-stale="true"],
+    [data-testid="stAppViewContainer"][data-stale="true"],
+    [data-testid="stVerticalBlock"][data-stale="true"],
+    [data-testid="stHorizontalBlock"][data-stale="true"],
+    div[data-testid="stBlock"][data-stale="true"],
+    .element-container[data-stale="true"],
+    div[data-testid="stApp"][data-stale="true"] {
+        opacity: 1 !important;
+        filter: none !important;
+        transition: none !important;
+        pointer-events: auto !important;
+    }
+
+    /* Hide running status widget to keep sync 100% silent and backgrounded */
+    div[data-testid="stStatusWidget"],
+    .stStatusWidget {
+        display: none !important;
+        visibility: hidden !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
