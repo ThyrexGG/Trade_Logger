@@ -475,7 +475,119 @@ st.markdown("""
     }
 
     /* ---------------------------------- */
-    /* RESPONSIVE PHONE & MOBILE VIEW     */
+    /* PREMIUM TRADES JOURNAL TABLE CSS   */
+    /* ---------------------------------- */
+    .journal-table-wrapper {
+        width: 100%;
+        overflow-x: auto;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: #0d111a;
+        margin-top: 8px;
+        margin-bottom: 16px;
+    }
+    .journal-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+        text-align: left;
+        white-space: nowrap;
+    }
+    .journal-table th {
+        background: rgba(255, 255, 255, 0.03);
+        color: #8a99ad;
+        font-weight: 600;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 12px 14px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .journal-table td {
+        padding: 10px 14px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        color: #ffffff;
+        vertical-align: middle;
+    }
+    .journal-table tr:hover {
+        background: rgba(255, 255, 255, 0.02);
+    }
+    .badge-pnl-win {
+        color: #00ffcc !important;
+        background: rgba(0, 255, 204, 0.12) !important;
+        border: 1px solid rgba(0, 255, 204, 0.3) !important;
+        padding: 4px 9px !important;
+        border-radius: 5px !important;
+        font-weight: 800 !important;
+        font-size: 12px !important;
+        display: inline-block;
+        box-shadow: 0 0 10px rgba(0, 255, 204, 0.15);
+    }
+    .badge-pnl-loss {
+        color: #ff5555 !important;
+        background: rgba(255, 85, 85, 0.12) !important;
+        border: 1px solid rgba(255, 85, 85, 0.3) !important;
+        padding: 4px 9px !important;
+        border-radius: 5px !important;
+        font-weight: 800 !important;
+        font-size: 12px !important;
+        display: inline-block;
+        box-shadow: 0 0 10px rgba(255, 85, 85, 0.15);
+    }
+    .badge-dir-long {
+        color: #38bdf8;
+        background: rgba(56, 189, 248, 0.1);
+        border: 1px solid rgba(56, 189, 248, 0.25);
+        padding: 2px 7px;
+        border-radius: 4px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+    }
+    .badge-dir-short {
+        color: #f472b6;
+        background: rgba(244, 114, 182, 0.1);
+        border: 1px solid rgba(244, 114, 182, 0.25);
+        padding: 2px 7px;
+        border-radius: 4px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+    }
+    .badge-quality {
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 10px;
+        font-weight: 700;
+        display: inline-block;
+    }
+    .badge-quality-high {
+        background: rgba(0, 255, 204, 0.12);
+        color: #00ffcc;
+        border: 1px solid rgba(0, 255, 204, 0.3);
+    }
+    .badge-quality-med {
+        background: rgba(251, 191, 36, 0.12);
+        color: #fbbf24;
+        border: 1px solid rgba(251, 191, 36, 0.3);
+    }
+    .badge-quality-low {
+        background: rgba(248, 113, 113, 0.12);
+        color: #f87171;
+        border: 1px solid rgba(248, 113, 113, 0.3);
+    }
+    .badge-tag-pill {
+        background: rgba(255, 255, 255, 0.05);
+        color: #8a99ad;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 2px 7px;
+        border-radius: 4px;
+        font-size: 10px;
+        font-weight: 600;
+    }
+    
+    /* ---------------------------------- */
+    /* RESPONSIVE DESIGN BREAKPOINTS      */
     /* ---------------------------------- */
     @media (max-width: 991px) {
         .prop-roadmap {
@@ -1578,53 +1690,140 @@ else:
         tab_journal, tab_charts = st.tabs(["Closed Trades Journal", "Trade Performance Charts"])
         
         with tab_journal:
-            st.write("Double-click on the **setup_tag** column below to categorize your trades. Click **Save Tags** to write changes.")
-            
             df_display = filtered_df.sort_values(by="exit_time", ascending=False).copy()
             
-            edited_df = st.data_editor(
-                df_display[[
-                    "trade_id", "account_id", "symbol", "direction", "volume", 
-                    "entry_price", "exit_price", "net_profit", "entry_time", 
-                    "exit_time", "duration_minutes", "setup_tag"
-                ]],
-                column_config={
-                    "trade_id": st.column_config.TextColumn("Trade ID", disabled=True),
-                    "account_id": st.column_config.TextColumn("Account", disabled=True),
-                    "symbol": st.column_config.TextColumn("Symbol", disabled=True),
-                    "direction": st.column_config.TextColumn("Dir", disabled=True),
-                    "volume": st.column_config.NumberColumn("Lots", disabled=True, format="%.2f"),
-                    "entry_price": st.column_config.NumberColumn("Entry Px", disabled=True, format="%.5f"),
-                    "exit_price": st.column_config.NumberColumn("Exit Px", disabled=True, format="%.5f"),
-                    "net_profit": st.column_config.NumberColumn("Net PnL ($)", disabled=True, format="$%.2f"),
-                    "entry_time": st.column_config.DatetimeColumn("Entry Time", disabled=True),
-                    "exit_time": st.column_config.DatetimeColumn("Exit Time", disabled=True),
-                    "duration_minutes": st.column_config.NumberColumn("Duration (Min)", disabled=True, format="%.1f"),
-                    "setup_tag": st.column_config.TextColumn("Setup Tag")
-                },
-                hide_index=True,
-                use_container_width=True
-            )
-
-            if st.button("Save Tags", type="primary"):
-                changes_saved = 0
-                for idx, row in edited_df.iterrows():
-                    trade_id = row["trade_id"]
-                    new_tag = row["setup_tag"]
-                    
-                    original_tag = df_display[df_display["trade_id"] == trade_id]["setup_tag"].values[0]
-                    original_tag = None if pd.isna(original_tag) else str(original_tag)
-                    new_tag = None if pd.isna(new_tag) or new_tag == "" or new_tag is None else str(new_tag)
-                    
-                    if original_tag != new_tag:
-                        database.update_setup_tag(trade_id, new_tag)
-                        changes_saved += 1
-                
-                if changes_saved > 0:
-                    st.success(f"Saved {changes_saved} setup tags to the database!")
-                    st.rerun()
+            # Build Rich Styled HTML Table with Profit Green and Loss Red
+            table_rows_html = ""
+            for idx, row in df_display.iterrows():
+                trade_id_raw = str(row["trade_id"])
+                # Clean ticket presentation
+                if trade_id_raw.startswith("MT5_"):
+                    ticket_disp = "#" + trade_id_raw.split("_")[-1]
+                    acc_disp = "MT5 (Funded)"
                 else:
-                    st.info("No tag modifications detected.")
+                    ticket_disp = "#" + trade_id_raw.split("-")[1] if "-" in trade_id_raw else "#" + trade_id_raw[:8]
+                    acc_disp = "Capital (Real)"
+                    
+                sym = str(row["symbol"]).upper()
+                direction = str(row["direction"]).upper()
+                dir_badge = f'<span class="badge-dir-long">↑ {direction}</span>' if "LONG" in direction or "BUY" in direction else f'<span class="badge-dir-short">↓ {direction}</span>'
+                
+                vol = float(row.get("volume", 0.0))
+                vol_disp = f"{vol:,.2f}" if vol < 1000 else f"{vol:,.0f}"
+                
+                entry_px = float(row.get("entry_price", 0.0))
+                exit_px = float(row.get("exit_price", 0.0))
+                net_pnl = float(row.get("net_profit", 0.0))
+                
+                if net_pnl > 0:
+                    pnl_badge = f'<span class="badge-pnl-win">+${net_pnl:,.2f}</span>'
+                elif net_pnl < 0:
+                    pnl_badge = f'<span class="badge-pnl-loss">-${abs(net_pnl):,.2f}</span>'
+                else:
+                    pnl_badge = '<span style="color:#8a99ad; font-weight:600;">$0.00</span>'
+                    
+                # Quality Score computation
+                pnl_pct = abs(net_pnl) / initial_balance * 100
+                if net_pnl > 0:
+                    q_score = min(98, int(75 + (net_pnl / initial_balance * 500)))
+                    q_badge = f'<span class="badge-quality badge-quality-high">{q_score} GOOD</span>'
+                else:
+                    q_score = max(12, int(65 - (pnl_pct * 30)))
+                    if q_score >= 40:
+                        q_badge = f'<span class="badge-quality badge-quality-med">{q_score} AVG</span>'
+                    else:
+                        q_badge = f'<span class="badge-quality badge-quality-low">{q_score} POOR</span>'
+                        
+                entry_time_str = pd.to_datetime(row["entry_time"]).strftime("%Y-%m-%d %H:%M")
+                exit_time_str = pd.to_datetime(row["exit_time"]).strftime("%Y-%m-%d %H:%M")
+                dur = float(row.get("duration_minutes", 0.0))
+                dur_str = f"{dur:.1f} min" if dur < 60 else f"{dur/60:.1f} hrs"
+                
+                tag_raw = row.get("setup_tag")
+                tag_disp = f'<span class="badge-tag-pill">{tag_raw}</span>' if pd.notna(tag_raw) and str(tag_raw).strip() != "" and str(tag_raw) != "None" else '<span style="color:#4a5568; font-size:10px;">—</span>'
+                
+                table_rows_html += f"""
+                <tr>
+                    <td style="font-family:monospace; font-size:11px; color:#8a99ad;">{ticket_disp}</td>
+                    <td style="font-size:11px; color:#c084fc;">{acc_disp}</td>
+                    <td style="font-weight:700; color:#ffffff;">{sym}</td>
+                    <td>{dir_badge}</td>
+                    <td style="font-family:monospace;">{vol_disp}</td>
+                    <td style="font-family:monospace; color:#8a99ad;">{entry_px:.5f}</td>
+                    <td style="font-family:monospace; color:#8a99ad;">{exit_px:.5f}</td>
+                    <td>{pnl_badge}</td>
+                    <td>{q_badge}</td>
+                    <td style="font-size:11px; color:#8a99ad;">{entry_time_str}</td>
+                    <td style="font-size:11px; color:#8a99ad;">{exit_time_str}</td>
+                    <td style="font-size:11px; color:#8a99ad;">{dur_str}</td>
+                    <td>{tag_disp}</td>
+                </tr>
+                """
+                
+            render_html(f"""
+            <div class="journal-table-wrapper">
+                <table class="journal-table">
+                    <thead>
+                        <tr>
+                            <th>Ticket</th>
+                            <th>Account</th>
+                            <th>Symbol</th>
+                            <th>Direction</th>
+                            <th>Size</th>
+                            <th>Entry Px</th>
+                            <th>Exit Px</th>
+                            <th>Net PnL</th>
+                            <th>Quality</th>
+                            <th>Entry Time</th>
+                            <th>Exit Time</th>
+                            <th>Duration</th>
+                            <th>Setup Tag</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {table_rows_html}
+                    </tbody>
+                </table>
+            </div>
+            """)
+            
+            with st.expander("Tag Editor (Categorize Setups)", expanded=False):
+                st.write("Double-click on the **setup_tag** column below to categorize your trades. Click **Save Tags** to write changes.")
+                edited_df = st.data_editor(
+                    df_display[[
+                        "trade_id", "symbol", "direction", "net_profit", "exit_time", "setup_tag"
+                    ]],
+                    column_config={
+                        "trade_id": st.column_config.TextColumn("Trade ID", disabled=True),
+                        "symbol": st.column_config.TextColumn("Symbol", disabled=True),
+                        "direction": st.column_config.TextColumn("Dir", disabled=True),
+                        "net_profit": st.column_config.NumberColumn("Net PnL ($)", disabled=True, format="$%.2f"),
+                        "exit_time": st.column_config.DatetimeColumn("Exit Time", disabled=True),
+                        "setup_tag": st.column_config.TextColumn("Setup Tag")
+                    },
+                    hide_index=True,
+                    use_container_width=True
+                )
+
+                if st.button("Save Tags", type="primary"):
+                    changes_saved = 0
+                    for idx, row in edited_df.iterrows():
+                        trade_id = row["trade_id"]
+                        new_tag = row["setup_tag"]
+                        
+                        original_tag = df_display[df_display["trade_id"] == trade_id]["setup_tag"].values[0]
+                        original_tag = None if pd.isna(original_tag) else str(original_tag)
+                        new_tag = None if pd.isna(new_tag) or new_tag == "" or new_tag is None else str(new_tag)
+                        
+                        if original_tag != new_tag:
+                            database.update_setup_tag(trade_id, new_tag)
+                            changes_saved += 1
+                    
+                    if changes_saved > 0:
+                        st.success(f"Saved {changes_saved} setup tags to the database!")
+                        st.rerun()
+                    else:
+                        st.info("No tag modifications detected.")
                     
         with tab_charts:
             st.subheader("Performance Breakdown")
