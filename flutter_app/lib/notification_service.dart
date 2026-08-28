@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationService {
@@ -32,7 +33,7 @@ class NotificationService {
   Future<void> showNotification({required String title, required String body, String? payload}) async {
     try {
       const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-        'trade_alerts_channel_v4',
+        'trade_alerts_channel_v5',
         'Trade Alerts',
         channelDescription: 'Real-time trade close and risk limit notifications',
         importance: Importance.max,
@@ -40,7 +41,8 @@ class NotificationService {
         showWhen: true,
         enableVibration: true,
         playSound: true,
-        icon: '@mipmap/ic_launcher',
+        icon: 'ic_stat_trade',
+        color: Color(0xFF00FFCC),
       );
 
       const NotificationDetails platformDetails = NotificationDetails(android: androidDetails);
