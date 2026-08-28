@@ -1181,14 +1181,25 @@ def render_live_dashboard():
                                 console.log("Audio notice:", e);
                             }
 
-                            // 2. Native Flutter App Bridge
-                            const flutterBridge = window.TradeAlert || (window.parent && window.parent.TradeAlert);
-                            if (flutterBridge) {
-                                flutterBridge.postMessage(JSON.stringify({
-                                    title: "Trade Closed: XAUUSD (+$125.50)",
-                                    body: "Funded MT5 • BUY • PnL: +$125.50 • Duration: 34.2m"
-                                }));
-                            }
+                            // 2. Native Flutter App Bridge (Direct + Custom URI Scheme)
+                            try {
+                                const flutterBridge = window.TradeAlert || (window.parent && window.parent.TradeAlert) || (window.top && window.top.TradeAlert);
+                                if (flutterBridge) {
+                                    flutterBridge.postMessage(JSON.stringify({
+                                        title: "Trade Closed: XAUUSD (+$125.50)",
+                                        body: "Funded MT5 • BUY • PnL: +$125.50 • Duration: 34.2m"
+                                    }));
+                                }
+                            } catch(e) {}
+
+                            try {
+                                const alertUrl = "tradealert://closed?title=" + encodeURIComponent("Trade Closed: XAUUSD (+$125.50)") + "&body=" + encodeURIComponent("Funded MT5 • BUY • PnL: +$125.50 • Duration: 34.2m");
+                                const alertFrame = document.createElement("iframe");
+                                alertFrame.style.display = "none";
+                                alertFrame.src = alertUrl;
+                                document.body.appendChild(alertFrame);
+                                setTimeout(() => alertFrame.remove(), 1000);
+                            } catch(e) {}
                         </script>
                         """, height=0)
                         

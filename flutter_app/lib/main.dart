@@ -77,6 +77,23 @@ class _DashboardWebViewPageState extends State<DashboardWebViewPage> {
       )
       ..setNavigationDelegate(
         NavigationDelegate(
+          onNavigationRequest: (NavigationRequest request) {
+            if (request.url.startsWith('tradealert://')) {
+              try {
+                final uri = Uri.parse(request.url);
+                final title = uri.queryParameters['title'] ?? 'Trade Closed Alert';
+                final body = uri.queryParameters['body'] ?? 'Trade closed on account';
+                NotificationService().showNotification(title: title, body: body);
+              } catch (e) {
+                NotificationService().showNotification(
+                  title: 'Trade Closed: XAUUSD (+\$125.50)',
+                  body: 'Funded MT5 • BUY • PnL: +\$125.50 • Duration: 34.2m',
+                );
+              }
+              return NavigationDecision.prevent;
+            }
+            return NavigationDecision.navigate;
+          },
           onPageStarted: (String url) {
             setState(() {
               _isLoading = true;
