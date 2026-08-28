@@ -1187,14 +1187,14 @@ def render_live_dashboard():
                                 const flutterBridge = window.TradeAlert || (window.parent && window.parent.TradeAlert) || (window.top && window.top.TradeAlert);
                                 if (flutterBridge) {
                                     flutterBridge.postMessage(JSON.stringify({
-                                        title: "Trade Closed: XAUUSD (+$125.50)",
-                                        body: "Funded MT5 • BUY • PnL: +$125.50 • Duration: 34.2m"
+                                        title: "🟢 Profit: +$125.50 • XAUUSD",
+                                        body: "BUY on Funded MT5 • Net PnL: +$125.50 • Held: 34.2m"
                                     }));
                                 }
                             } catch(e) {}
 
                             try {
-                                const alertUrl = "tradealert://closed?title=" + encodeURIComponent("Trade Closed: XAUUSD (+$125.50)") + "&body=" + encodeURIComponent("Funded MT5 • BUY • PnL: +$125.50 • Duration: 34.2m");
+                                const alertUrl = "tradealert://closed?title=" + encodeURIComponent("🟢 Profit: +$125.50 • XAUUSD") + "&body=" + encodeURIComponent("BUY on Funded MT5 • Net PnL: +$125.50 • Held: 34.2m");
                                 const alertFrame = document.createElement("iframe");
                                 alertFrame.style.display = "none";
                                 alertFrame.src = alertUrl;
@@ -1204,7 +1204,7 @@ def render_live_dashboard():
                         </script>
                         """, height=0)
                         
-                        st.toast("🟢 Trade Closed: XAUUSD (+$125.50)\nFunded MT5 • BUY • PnL: +$125.50 • Duration: 34.2m", icon="🔔")
+                        st.toast("🟢 Profit: +$125.50 • XAUUSD\nBUY on Funded MT5 • Net PnL: +$125.50 • Held: 34.2m", icon="🔔")
                         st.success("Test alert dispatched! Added to Live In-App Alerts feed above.")
 
             # Filter base dataframe by selected account

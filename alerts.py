@@ -92,9 +92,12 @@ def notify_trade_closed(trade):
     dur_str = f"{dur:.1f}m" if dur < 60 else f"{dur/60:.1f}h"
     acc = str(trade.get("account_id", ""))
     acc_label = "Funded MT5" if acc.startswith("MT5_") else "Capital Real"
+    is_win = pnl >= 0
+    status_label = "Profit" if is_win else "Loss"
+    emoji = "🟢" if is_win else "🔴"
     
-    title = f"Trade Closed: {sym} ({pnl_sign}${abs(pnl):,.2f})"
-    msg = f"{acc_label} • {dir_str} • PnL: {pnl_sign}${abs(pnl):,.2f} • Duration: {dur_str}"
+    title = f"{emoji} {status_label}: {pnl_sign}${abs(pnl):,.2f} • {sym}"
+    msg = f"{dir_str} on {acc_label} • Net PnL: {pnl_sign}${abs(pnl):,.2f} • Held: {dur_str}"
     
     # 1. Native Windows Desktop Notification
     send_windows_toast(title, msg)
