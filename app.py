@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 from datetime import datetime, timezone, timedelta
 import calendar
 import os
+import time
 
 import database
 import mt5_sync
