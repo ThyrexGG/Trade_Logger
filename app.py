@@ -458,39 +458,88 @@ st.markdown("""
     }
 
     /* ---------------------------------- */
-    /* DESKTOP-FIRST PROPORTIONAL LAYOUT  */
+    /* RESPONSIVE PHONE & MOBILE VIEW     */
     /* ---------------------------------- */
     @media (max-width: 991px) {
         .prop-roadmap {
             overflow-x: auto;
             padding-bottom: 8px;
         }
+        .top-stats-container {
+            grid-template-columns: repeat(3, 1fr) !important;
+            gap: 10px !important;
+        }
     }
     
     @media (max-width: 768px) {
-        /* Maintain clean desktop container padding */
+        /* Mobile padding */
         .stMainBlockContainer {
-            padding-left: 1.5rem !important;
-            padding-right: 1.5rem !important;
-            padding-top: 1rem !important;
+            padding-left: 0.85rem !important;
+            padding-right: 0.85rem !important;
+            padding-top: 0.5rem !important;
+        }
+
+        /* 2-column top stats bar on phone */
+        .top-stats-container {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 8px !important;
+        }
+
+        .top-stat-box {
+            padding: 10px 12px !important;
+        }
+
+        .top-stat-label {
+            font-size: 9px !important;
+        }
+
+        .top-stat-value {
+            font-size: 16px !important;
+        }
+
+        /* 2-column prop objectives cards on phone */
+        .prop-objectives-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 8px !important;
+        }
+
+        .prop-hub-container {
+            padding: 14px !important;
+        }
+
+        /* 1-column gauge matrix on phone */
+        .gauge-matrix {
+            grid-template-columns: 1fr !important;
+            gap: 10px !important;
+        }
+
+        /* Compact, clean 7-day calendar for phone screens */
+        .calendar-grid {
+            gap: 3px !important;
         }
         
-        /* Keep calendar cells proportional */
         .calendar-cell {
-            min-height: 56px !important;
-            padding: 6px !important;
+            min-height: 48px !important;
+            padding: 4px !important;
+            border-radius: 4px !important;
         }
         
+        .calendar-day-header {
+            font-size: 10px !important;
+            padding: 2px 0 !important;
+        }
+
         .calendar-day-num {
-            font-size: 11px !important;
+            font-size: 10px !important;
         }
         
         .calendar-day-val {
-            font-size: 11px !important;
+            font-size: 10px !important;
+            font-weight: 700 !important;
         }
         
         .calendar-day-pct {
-            font-size: 9px !important;
+            font-size: 8px !important;
         }
     }
 
@@ -601,7 +650,7 @@ else:
     # Initialize per-account initial balances in session state
     if "account_balances" not in st.session_state:
         st.session_state.account_balances = {
-            "ALL": 11000.0,
+            "ALL": 10300.0,
         }
 
     unique_accounts = sorted(list(df_trades["account_id"].unique()))
@@ -621,7 +670,7 @@ else:
             if str(acc).startswith("MT5_"):
                 st.session_state.account_balances[acc] = 10000.0
             else:
-                st.session_state.account_balances[acc] = 1000.0
+                st.session_state.account_balances[acc] = 300.0
 
     # Header
     st.markdown("""
@@ -694,12 +743,12 @@ else:
             date_range = st.date_input("Date Range", value=(min_date, max_date), min_value=min_date, max_value=max_date)
             
         with col_bal:
-            current_default_bal = st.session_state.account_balances.get(selected_account, 1000.0)
+            current_default_bal = st.session_state.account_balances.get(selected_account, 300.0)
             initial_balance = st.number_input(
                 "Starting Balance ($)",
                 min_value=10.0,
                 value=float(current_default_bal),
-                step=100.0,
+                step=50.0,
                 key=f"bal_{selected_account}"
             )
             st.session_state.account_balances[selected_account] = initial_balance
