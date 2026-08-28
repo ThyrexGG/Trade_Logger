@@ -90,6 +90,33 @@ def sync_mt5():
     account_id = f"MT5_{acc_info.login}"
     print(f"Successfully connected to MT5 Account: {acc_info.login} ({acc_info.company})")
 
+    # Sync Live Open Positions
+    try:
+        open_positions_raw = mt5.positions_get()
+        parsed_open = []
+        if open_positions_raw:
+            for pos in open_positions_raw:
+                dir_str = "BUY" if pos.type == 0 else "SELL"
+                parsed_open.append({
+                    "position_id": f"MT5_{pos.ticket}",
+                    "account_id": account_id,
+                    "symbol": clean_symbol(pos.symbol),
+                    "direction": dir_str,
+                    "volume": float(pos.volume),
+                    "entry_price": float(pos.price_open),
+                    "current_price": float(pos.price_current),
+                    "sl": float(pos.sl) if pos.sl else 0.0,
+                    "tp": float(pos.tp) if pos.tp else 0.0,
+                    "floating_pnl": float(pos.profit),
+                    "swap": float(pos.swap) if pos.swap else 0.0,
+                    "open_time": datetime.fromtimestamp(pos.time, tz=timezone.utc).isoformat(),
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                })
+        database.save_open_positions(account_id, parsed_open)
+        print(f"Synced {len(parsed_open)} live open positions for {account_id}.")
+    except Exception as pos_err:
+        print(f"Error syncing open positions: {pos_err}")
+
     # Determine start timestamp for incremental sync
     last_ts = database.get_last_deal_timestamp(account_id)
     if last_ts > 0:

@@ -1151,6 +1151,17 @@ else:
         most_prof_sess = session_pnls.idxmax() if not session_pnls.empty else "-"
         least_prof_sess = session_pnls.idxmin() if not session_pnls.empty else "-"
 
+        # Fetch live open positions from database
+        try:
+            df_open = database.get_open_positions(selected_account)
+        except Exception:
+            df_open = pd.DataFrame()
+            
+        unrealized_pnl = float(df_open["floating_pnl"].sum()) if not df_open.empty and "floating_pnl" in df_open.columns else 0.0
+        open_trades_count = len(df_open)
+        unrealized_color = "#00ffcc" if unrealized_pnl > 0 else ("#ff5555" if unrealized_pnl < 0 else "#ffffff")
+        unrealized_sign = "+" if unrealized_pnl > 0 else ("-" if unrealized_pnl < 0 else "")
+
         # ------------------
         # THE5ERS PROP FIRM EVALUATION & OBJECTIVES HUB (Only for MT5 Funded Account)
         # ------------------
@@ -1197,7 +1208,7 @@ else:
                         </div>
                         <div>
                             <div style="font-size:10px; color:#8a99ad; text-transform:uppercase; font-weight:600;">Unrealized</div>
-                            <div style="font-size:20px; font-weight:800; color:#ffffff;">$0.00</div>
+                            <div style="font-size:20px; font-weight:800; color:{unrealized_color};">{unrealized_sign}${abs(unrealized_pnl):,.2f}</div>
                         </div>
                         <div>
                             <div style="font-size:10px; color:#8a99ad; text-transform:uppercase; font-weight:600;">Daily P&L</div>
@@ -1276,11 +1287,11 @@ else:
                     <div class="prop-obj-card">
                         <div class="prop-obj-header">
                             <span class="prop-obj-title">Unrealized <span class="info-tip">?<span class="info-tip-text">Live floating profit or loss across currently open positions.</span></span></span>
-                            <span class="prop-obj-status">In progress</span>
+                            <span class="prop-obj-status" style="{'background:rgba(0,255,204,0.1); color:#00ffcc; border-color:rgba(0,255,204,0.25);' if open_trades_count>0 else ''}">{'● Live' if open_trades_count>0 else '0 Open'}</span>
                         </div>
                         <div>
-                            <div class="prop-obj-value">$0.00</div>
-                            <div class="prop-obj-sub">0 Open Trades</div>
+                            <div class="prop-obj-value" style="color:{unrealized_color};">{unrealized_sign}${abs(unrealized_pnl):,.2f}</div>
+                            <div class="prop-obj-sub">{open_trades_count} Open Trade{'s' if open_trades_count != 1 else ''}</div>
                         </div>
                     </div>
                     
@@ -1835,9 +1846,105 @@ else:
         # ROW 3 TABS (Journal & Analytics Charts)
         # ------------------
         st.markdown("---")
-        tab_journal, tab_charts = st.tabs(["Closed Trades Journal", "Trade Performance Charts"])
+        tab_journal, tab_charts = st.tabs(["Trades Journal & Open Positions", "Trade Performance Charts"])
         
         with tab_journal:
+            # ------------------------------------
+            # 1. LIVE ACTIVE OPEN POSITIONS TRAY
+            # ------------------------------------
+            if not df_open.empty:
+                open_rows_html = ""
+                for idx, pos in df_open.iterrows():
+                    pos_id_raw = str(pos["position_id"])
+                    t_disp = "#" + pos_id_raw.replace("MT5_", "").replace("CAP_", "")
+                    sym = str(pos["symbol"]).upper()
+                    dir_str = str(pos["direction"]).upper()
+                    dir_badge = f'<span class="badge-dir-long">↑ {dir_str}</span>' if "BUY" in dir_str or "LONG" in dir_str else f'<span class="badge-dir-short">↓ {dir_str}</span>'
+                    vol = float(pos.get("volume", 0.0))
+                    vol_disp = f"{vol:,.2f}" if vol < 1000 else f"{vol:,.0f}"
+                    entry_px = float(pos.get("entry_price", 0.0))
+                    curr_px = float(pos.get("current_price", 0.0))
+                    fl_pnl = float(pos.get("floating_pnl", 0.0))
+                    sl_val = float(pos.get("sl", 0.0))
+                    tp_val = float(pos.get("tp", 0.0))
+                    sl_disp = f"{sl_val:.5f}" if sl_val > 0 else "—"
+                    tp_disp = f"{tp_val:.5f}" if tp_val > 0 else "—"
+                    
+                    if fl_pnl > 0:
+                        pnl_badge = f'<span class="badge-pnl-win">+${fl_pnl:,.2f}</span>'
+                    elif fl_pnl < 0:
+                        pnl_badge = f'<span class="badge-pnl-loss">-${abs(fl_pnl):,.2f}</span>'
+                    else:
+                        pnl_badge = '<span style="color:#8a99ad; font-weight:600;">$0.00</span>'
+                        
+                    open_t_str = pd.to_datetime(pos["open_time"]).strftime("%m/%d %H:%M")
+                    
+                    open_rows_html += f"""
+                    <tr>
+                        <td style="font-family:monospace; font-size:11px; color:#8a99ad;">{t_disp}</td>
+                        <td style="font-weight:700; color:#ffffff;">{sym}</td>
+                        <td>{dir_badge}</td>
+                        <td style="font-family:monospace;">{vol_disp}</td>
+                        <td style="font-family:monospace; color:#8a99ad;">{entry_px:.5f}</td>
+                        <td style="font-family:monospace; color:#00ffcc;">{curr_px:.5f}</td>
+                        <td style="font-family:monospace; color:#ff5555; font-size:11px;">{sl_disp}</td>
+                        <td style="font-family:monospace; color:#00ffcc; font-size:11px;">{tp_disp}</td>
+                        <td>{pnl_badge}</td>
+                        <td style="font-size:11px; color:#8a99ad;">{open_t_str}</td>
+                    </tr>
+                    """
+                    
+                render_html(f"""
+                <div style="margin-bottom: 24px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#00ffcc; box-shadow: 0 0 10px #00ffcc;"></span>
+                            <span style="font-size:14px; font-weight:700; color:#ffffff;">Active Open Positions ({len(df_open)})</span>
+                        </div>
+                        <div style="font-size:12px;">
+                            <span style="color:#8a99ad;">Total Floating P&L:</span> 
+                            <b style="color:{unrealized_color}; font-size:14px; margin-left:4px;">{unrealized_sign}${abs(unrealized_pnl):,.2f}</b>
+                        </div>
+                    </div>
+                    
+                    <div class="journal-table-wrapper" style="border: 1px solid rgba(0, 255, 204, 0.25);">
+                        <table class="journal-table">
+                            <thead>
+                                <tr>
+                                    <th>Ticket</th>
+                                    <th>Symbol</th>
+                                    <th>Direction</th>
+                                    <th>Size</th>
+                                    <th>Entry Price</th>
+                                    <th>Current Price</th>
+                                    <th>Stop Loss</th>
+                                    <th>Take Profit</th>
+                                    <th>Floating PnL</th>
+                                    <th>Open Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {open_rows_html}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                """)
+            else:
+                render_html("""
+                <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:10px 16px; margin-bottom:20px;">
+                    <div style="display:flex; align-items:center; gap:8px; font-size:12px; color:#8a99ad;">
+                        <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#8a99ad;"></span>
+                        <span>No active open positions. Watching markets for trade setups.</span>
+                    </div>
+                    <span style="font-size:11px; color:#8a99ad; font-family:monospace;">Floating P&L: $0.00</span>
+                </div>
+                """)
+
+            # ------------------------------------
+            # 2. CLOSED TRADES JOURNAL
+            # ------------------------------------
+            st.markdown('<div style="font-size:14px; font-weight:700; color:#ffffff; margin-bottom:10px;">Closed Trades Journal</div>', unsafe_allow_html=True)
             df_display = filtered_df.sort_values(by="exit_time", ascending=False).copy()
             
             # Build Rich Styled HTML Table with Profit Green and Loss Red

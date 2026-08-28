@@ -267,6 +267,37 @@ def sync_capital():
         database.save_closed_trades(trades_to_save)
         print(f"Reconstructed and saved {len(trades_to_save)} closed trades from Capital.com.")
         
+    # Sync active open positions from Capital.com
+    try:
+        pos_resp = requests.get(f"{base_url}/positions", headers=headers)
+        if pos_resp.status_code == 200:
+            positions_data = pos_resp.json().get("positions", [])
+            parsed_cap_open = []
+            for p in positions_data:
+                pos_info = p.get("position", {})
+                market_info = p.get("market", {})
+                dir_str = "BUY" if pos_info.get("direction") == "BUY" else "SELL"
+                deal_id = str(pos_info.get("dealId", ""))
+                parsed_cap_open.append({
+                    "position_id": f"CAP_{deal_id}",
+                    "account_id": account_id,
+                    "symbol": clean_symbol(market_info.get("instrumentName", pos_info.get("epic", "UNKNOWN"))),
+                    "direction": dir_str,
+                    "volume": float(pos_info.get("size", 0.0)),
+                    "entry_price": float(pos_info.get("level", 0.0)),
+                    "current_price": float(market_info.get("bid", pos_info.get("level", 0.0))),
+                    "sl": float(pos_info.get("stopLevel", 0.0)) if pos_info.get("stopLevel") else 0.0,
+                    "tp": float(pos_info.get("profitLevel", 0.0)) if pos_info.get("profitLevel") else 0.0,
+                    "floating_pnl": float(pos_info.get("upl", 0.0)),
+                    "swap": 0.0,
+                    "open_time": pos_info.get("createdDateUTC", datetime.now(timezone.utc).isoformat()),
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                })
+            database.save_open_positions(account_id, parsed_cap_open)
+            print(f"Synced {len(parsed_cap_open)} active open positions for Capital.com.")
+    except Exception as cap_pos_err:
+        print(f"Error syncing Capital.com open positions: {cap_pos_err}")
+        
     return True
 
 if __name__ == "__main__":

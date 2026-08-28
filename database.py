@@ -80,6 +80,24 @@ def init_db():
                 setup_tag TEXT DEFAULT NULL
             );
         """)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS open_positions (
+                position_id TEXT PRIMARY KEY,
+                account_id TEXT NOT NULL,
+                symbol TEXT NOT NULL,
+                direction TEXT NOT NULL,
+                volume DOUBLE PRECISION NOT NULL,
+                entry_price DOUBLE PRECISION NOT NULL,
+                current_price DOUBLE PRECISION NOT NULL,
+                sl DOUBLE PRECISION DEFAULT 0,
+                tp DOUBLE PRECISION DEFAULT 0,
+                floating_pnl DOUBLE PRECISION DEFAULT 0,
+                swap DOUBLE PRECISION DEFAULT 0,
+                open_time TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+        """)
     else:
         # SQLite Schema
         cursor.execute("""
@@ -115,6 +133,24 @@ def init_db():
                 exit_time TEXT NOT NULL,
                 duration_minutes REAL DEFAULT 0,
                 setup_tag TEXT DEFAULT NULL
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS open_positions (
+                position_id TEXT PRIMARY KEY,
+                account_id TEXT NOT NULL,
+                symbol TEXT NOT NULL,
+                direction TEXT NOT NULL,
+                volume REAL NOT NULL,
+                entry_price REAL NOT NULL,
+                current_price REAL NOT NULL,
+                sl REAL DEFAULT 0,
+                tp REAL DEFAULT 0,
+                floating_pnl REAL DEFAULT 0,
+                swap REAL DEFAULT 0,
+                open_time TEXT NOT NULL,
+                updated_at TEXT NOT NULL
             )
         """)
     
@@ -221,8 +257,6 @@ def get_closed_trades():
     conn = get_connection()
     df = pd.read_sql_query("SELECT * FROM closed_trades ORDER BY exit_time DESC", conn)
     conn.close()
-    return df
-
 def update_setup_tag(trade_id, setup_tag):
     """Updates the subjective setup tag for a specific trade."""
     conn = get_connection()
@@ -235,6 +269,56 @@ def update_setup_tag(trade_id, setup_tag):
         
     conn.commit()
     conn.close()
+
+def save_open_positions(account_id, positions):
+    """Replaces current open positions for an account with the latest snapshot."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    # 1. Clear previous open positions for this account
+    if is_postgres():
+        cursor.execute("DELETE FROM open_positions WHERE account_id = %s", (account_id,))
+    else:
+        cursor.execute("DELETE FROM open_positions WHERE account_id = ?", (account_id,))
+        
+    # 2. Insert active positions if any
+    if positions:
+        if is_postgres():
+            query = """
+                INSERT INTO open_positions 
+                (position_id, account_id, symbol, direction, volume, entry_price, current_price, 
+                 sl, tp, floating_pnl, swap, open_time, updated_at)
+                VALUES 
+                (%(position_id)s, %(account_id)s, %(symbol)s, %(direction)s, %(volume)s, 
+                 %(entry_price)s, %(current_price)s, %(sl)s, %(tp)s, %(floating_pnl)s, 
+                 %(swap)s, %(open_time)s, %(updated_at)s)
+            """
+            cursor.executemany(query, positions)
+        else:
+            cursor.executemany("""
+                INSERT OR REPLACE INTO open_positions 
+                (position_id, account_id, symbol, direction, volume, entry_price, current_price, 
+                 sl, tp, floating_pnl, swap, open_time, updated_at)
+                VALUES 
+                (:position_id, :account_id, :symbol, :direction, :volume, :entry_price, :current_price, 
+                 :sl, :tp, :floating_pnl, :swap, :open_time, :updated_at)
+            """, positions)
+            
+    conn.commit()
+    conn.close()
+
+def get_open_positions(account_id=None):
+    """Returns currently open positions as a pandas DataFrame."""
+    conn = get_connection()
+    if account_id and account_id != "ALL":
+        if is_postgres():
+            df = pd.read_sql_query("SELECT * FROM open_positions WHERE account_id = %s ORDER BY open_time DESC", conn, params=(account_id,))
+        else:
+            df = pd.read_sql_query("SELECT * FROM open_positions WHERE account_id = ? ORDER BY open_time DESC", conn, params=(account_id,))
+    else:
+        df = pd.read_sql_query("SELECT * FROM open_positions ORDER BY open_time DESC", conn)
+    conn.close()
+    return df
 
 if __name__ == "__main__":
     init_db()
