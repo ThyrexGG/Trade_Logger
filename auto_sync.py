@@ -22,7 +22,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
 import mt5_sync
 import capital_sync
 
-SYNC_INTERVAL_SECONDS = 120  # Sync every 2 minutes
+SYNC_INTERVAL_SECONDS = 30  # Sync every 30 seconds for live floating PnL and trade updates
 
 def run_auto_sync():
     log("TRADELOGGER AUTOMATIC CLOUD SYNC DAEMON STARTED")
