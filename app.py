@@ -798,13 +798,16 @@ else:
             with col_mt5:
                 st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
                 if st.button("Sync MT5", key="active_sync_mt5", use_container_width=True):
-                    with st.spinner("Syncing MT5..."):
-                        success = mt5_sync.sync_mt5()
-                        if success:
-                            st.success("MT5 sync completed!")
-                            st.rerun()
-                        else:
-                            st.error("MT5 sync failed.")
+                    if not mt5_sync.MT5_AVAILABLE:
+                        st.info("MT5 sync connects to the MetaTrader 5 terminal on your Windows PC. Syncing on your PC uploads trades directly to your cloud dashboard.")
+                    else:
+                        with st.spinner("Syncing MT5..."):
+                            success = mt5_sync.sync_mt5()
+                            if success:
+                                st.success("MT5 sync completed!")
+                                st.rerun()
+                            else:
+                                st.error("MT5 sync failed. Ensure MT5 is running on your PC.")
             with col_cap:
                 st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
                 if st.button("Sync Capital", key="active_sync_cap", use_container_width=True):
