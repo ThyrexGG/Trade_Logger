@@ -1393,14 +1393,21 @@ else:
                 """)
             
         with col1_3:
-            # Detailed Account Balance Curve on continuous time-series axis
+            # Detailed Account Balance Curve on zoomed active balance range (The5ers Hub style)
             min_entry = filtered_df["entry_time"].min()
-            x_times = [min_entry] + list(filtered_df["exit_time"])
+            start_baseline_time = min_entry - pd.Timedelta(hours=14)
+            x_times = [start_baseline_time] + list(filtered_df["exit_time"])
             y_balances = [initial_balance] + list(filtered_df["balance"])
+            
+            min_b = min(y_balances)
+            max_b = max(y_balances)
+            diff_b = max(max_b - min_b, 10.0)
+            y_min = min_b - (diff_b * 0.15)
+            y_max = max_b + (diff_b * 0.15)
             
             fig_balance = go.Figure()
             
-            # Smooth neon curve with clean time-series area fill
+            # Smooth neon spline with bounded area fill
             fig_balance.add_trace(go.Scatter(
                 x=x_times,
                 y=y_balances,
@@ -1420,9 +1427,11 @@ else:
                     linecolor='rgba(255,255,255,0.08)',
                     tickfont=dict(color='#8a99ad', size=9),
                     tickformat="%m/%d",
-                    nticks=6
+                    nticks=5
                 ),
                 yaxis=dict(
+                    range=[y_min, y_max],
+                    autorange=False,
                     showgrid=True,
                     gridcolor='rgba(255,255,255,0.04)',
                     linecolor='rgba(255,255,255,0.08)',
