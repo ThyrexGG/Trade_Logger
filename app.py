@@ -1730,14 +1730,38 @@ def render_live_dashboard():
             tradingview_widget.render_tradingview_chart(symbol=tv_symbol, interval=tv_interval, height=700)
 
         with tab_journal:
-            # 1. LIVE ACTIVE OPEN POSITIONS TRAY
-            if not df_open.empty:
+            # Account Separation Filter
+            col_j_head1, col_j_head2 = st.columns([2.2, 1.2])
+            with col_j_head1:
+                st.markdown("<h3 style='color:#ffffff;font-size:1.3rem;margin:0 0 4px 0;font-weight:800;text-transform:uppercase;'>Trade Journal & Setup Studio</h3>", unsafe_allow_html=True)
+                st.markdown("<p style='color:#8a99ad;font-size:13px;margin-bottom:12px;'>Isolated account journals with chart screenshots, strategy setups, descriptions, and lessons.</p>", unsafe_allow_html=True)
+            with col_j_head2:
+                # Default to individual accounts first so they are never combined
+                journal_acc_options = [acc for acc in account_options if acc != "ALL"] + ["ALL"]
+                journal_acc_selected = st.selectbox(
+                    "Select Account Journal",
+                    options=journal_acc_options,
+                    format_func=format_account_name,
+                    index=0,
+                    key="journal_account_filter"
+                )
+
+            # Filter data strictly by selected account
+            if journal_acc_selected != "ALL":
+                df_journal_trades = df_trades[df_trades["account_id"] == journal_acc_selected].copy()
+                df_journal_open = df_open[df_open["account_id"] == journal_acc_selected].copy() if not df_open.empty else pd.DataFrame()
+            else:
+                df_journal_trades = df_trades.copy()
+                df_journal_open = df_open.copy() if not df_open.empty else pd.DataFrame()
+
+            # 1. LIVE ACTIVE OPEN POSITIONS TRAY (FOR SELECTED ACCOUNT)
+            if not df_journal_open.empty:
                 open_rows_html = ""
-                unrealized_pnl = float(df_open["floating_pnl"].sum())
+                unrealized_pnl = float(df_journal_open["floating_pnl"].sum())
                 unrealized_color = "#00ffcc" if unrealized_pnl >= 0 else "#ff5555"
                 unrealized_sign = "+" if unrealized_pnl >= 0 else "-"
 
-                for idx, pos in df_open.iterrows():
+                for idx, pos in df_journal_open.iterrows():
                     pos_id_raw = str(pos["position_id"])
                     t_disp = "#" + pos_id_raw.replace("MT5_", "").replace("CAP_", "")
                     sym = str(pos["symbol"]).upper()
@@ -1786,7 +1810,7 @@ def render_live_dashboard():
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
                         <div style="display:flex; align-items:center; gap:8px;">
                             <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#00ffcc; box-shadow: 0 0 10px #00ffcc;"></span>
-                            <span style="font-size:14px; font-weight:700; color:#ffffff;">Active Open Positions ({len(df_open)})</span>
+                            <span style="font-size:14px; font-weight:700; color:#ffffff;">Active Open Positions ({len(df_journal_open)})</span>
                         </div>
                         <div style="font-size:12px;">
                             <span style="color:#8a99ad;">Total Floating P&L:</span> 
@@ -1818,23 +1842,22 @@ def render_live_dashboard():
                 </div>
                 """)
 
-            # 2. INTERACTIVE TRADE SETUP & SCREENSHOT STUDIO (DEDICATED TOP STUDIO)
-            df_display = df_trades.sort_values(by="exit_time", ascending=False).copy()
+            # 2. INTERACTIVE TRADE SETUP & SCREENSHOT STUDIO (FOR SELECTED ACCOUNT)
+            df_display = df_journal_trades.sort_values(by="exit_time", ascending=False).copy()
             
-            st.markdown("<h3 style='color:#ffffff;font-size:1.3rem;margin-bottom:6px;font-weight:800;text-transform:uppercase;'>Trade Journal & Setup Studio</h3>", unsafe_allow_html=True)
-            st.markdown("<p style='color:#8a99ad;font-size:13px;margin-bottom:16px;'>Select any trade to attach chart screenshots, log strategy setups, descriptions, and lessons.</p>", unsafe_allow_html=True)
-
-            with st.container(border=True):
-                st.markdown("<h4 style='color:#00ffcc;font-size:14px;font-weight:700;text-transform:uppercase;margin:0 0 12px 0;'>Log & Review Trade Setup</h4>", unsafe_allow_html=True)
-                
-                trade_choices = []
-                for _, r in df_display.iterrows():
-                    pnl_val = float(r.get("net_profit", 0.0))
-                    pnl_label = f"+${pnl_val:.2f}" if pnl_val >= 0 else f"-${abs(pnl_val):.2f}"
-                    snap_indicator = " [HAS SETUP]" if (pd.notna(r.get("chart_snapshot_url")) and str(r.get("chart_snapshot_url")).strip()) or (pd.notna(r.get("notes")) and str(r.get("notes")).strip()) else ""
-                    trade_choices.append(f"{r['trade_id']} | {r['symbol']} {r['direction']} | {pnl_label} | {str(r['exit_time'])[:16]}{snap_indicator}")
-                
-                if trade_choices:
+            if df_display.empty:
+                st.info(f"No closed trades found for the selected account ({format_account_name(journal_acc_selected)}).")
+            else:
+                with st.container(border=True):
+                    st.markdown("<h4 style='color:#00ffcc;font-size:14px;font-weight:700;text-transform:uppercase;margin:0 0 12px 0;'>Log & Review Trade Setup</h4>", unsafe_allow_html=True)
+                    
+                    trade_choices = []
+                    for _, r in df_display.iterrows():
+                        pnl_val = float(r.get("net_profit", 0.0))
+                        pnl_label = f"+${pnl_val:.2f}" if pnl_val >= 0 else f"-${abs(pnl_val):.2f}"
+                        snap_indicator = " [HAS SETUP]" if (pd.notna(r.get("chart_snapshot_url")) and str(r.get("chart_snapshot_url")).strip()) or (pd.notna(r.get("notes")) and str(r.get("notes")).strip()) else ""
+                        trade_choices.append(f"{r['trade_id']} | {r['symbol']} {r['direction']} | {pnl_label} | {str(r['exit_time'])[:16]}{snap_indicator}")
+                    
                     selected_choice = st.selectbox("Select Trade to Log Setup", options=trade_choices, key="journal_trade_select_top")
                     selected_tid = selected_choice.split(" | ")[0].strip()
                     selected_row = df_display[df_display["trade_id"] == selected_tid].iloc[0]
@@ -1951,113 +1974,113 @@ def render_live_dashboard():
                             st.success(f"Setup details, screenshot, and description saved for trade #{selected_tid}!")
                             st.rerun()
 
-            # 3. CLOSED TRADES TABLE WITH SETUP STATUS
-            st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
-            st.markdown('<div style="font-size:14px; font-weight:800; color:#ffffff; margin-bottom:10px; text-transform:uppercase;">Closed Trades History</div>', unsafe_allow_html=True)
+                # 3. CLOSED TRADES TABLE FOR SELECTED ACCOUNT
+                st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
+                st.markdown(f'<div style="font-size:14px; font-weight:800; color:#ffffff; margin-bottom:10px; text-transform:uppercase;">Closed Trades History ({format_account_name(journal_acc_selected)})</div>', unsafe_allow_html=True)
 
-            table_rows_html = ""
-            for idx, row in df_display.iterrows():
-                trade_id_raw = str(row["trade_id"])
-                if trade_id_raw.startswith("MT5_"):
-                    ticket_disp = "#" + trade_id_raw.split("_")[-1]
-                    acc_disp = "MT5 (Funded)"
-                else:
-                    ticket_disp = "#" + trade_id_raw.split("-")[1] if "-" in trade_id_raw else "#" + trade_id_raw[:8]
-                    acc_disp = "Capital (Real)"
+                table_rows_html = ""
+                for idx, row in df_display.iterrows():
+                    trade_id_raw = str(row["trade_id"])
+                    if trade_id_raw.startswith("MT5_"):
+                        ticket_disp = "#" + trade_id_raw.split("_")[-1]
+                        acc_disp = "MT5 (Funded)"
+                    else:
+                        ticket_disp = "#" + trade_id_raw.split("-")[1] if "-" in trade_id_raw else "#" + trade_id_raw[:8]
+                        acc_disp = "Capital (Real)"
 
-                sym = str(row["symbol"]).upper()
-                direction = str(row["direction"]).upper()
-                dir_badge = f'<span class="badge-dir-long">{direction}</span>' if "LONG" in direction or "BUY" in direction else f'<span class="badge-dir-short">{direction}</span>'
+                    sym = str(row["symbol"]).upper()
+                    direction = str(row["direction"]).upper()
+                    dir_badge = f'<span class="badge-dir-long">{direction}</span>' if "LONG" in direction or "BUY" in direction else f'<span class="badge-dir-short">{direction}</span>'
 
-                vol = float(row.get("volume", 0.0))
-                vol_disp = f"{vol:,.2f}" if vol < 1000 else f"{vol:,.0f}"
+                    vol = float(row.get("volume", 0.0))
+                    vol_disp = f"{vol:,.2f}" if vol < 1000 else f"{vol:,.0f}"
 
-                entry_px = float(row.get("entry_price", 0.0))
-                exit_px = float(row.get("exit_price", 0.0))
-                net_pnl = float(row.get("net_profit", 0.0))
+                    entry_px = float(row.get("entry_price", 0.0))
+                    exit_px = float(row.get("exit_price", 0.0))
+                    net_pnl = float(row.get("net_profit", 0.0))
 
-                entry_px_disp = f"{entry_px:.5f}"
-                exit_px_disp = f"{exit_px:.5f}"
+                    entry_px_disp = f"{entry_px:.5f}"
+                    exit_px_disp = f"{exit_px:.5f}"
 
-                if net_pnl > 0:
-                    pnl_badge = f'<span class="badge-pnl-win">+${net_pnl:,.2f}</span>'
-                elif net_pnl < 0:
-                    pnl_badge = f'<span class="badge-pnl-loss">-${abs(net_pnl):,.2f}</span>'
-                else:
-                    pnl_badge = '<span style="color:#8a99ad; font-weight:600;">$0.00</span>'
+                    if net_pnl > 0:
+                        pnl_badge = f'<span class="badge-pnl-win">+${net_pnl:,.2f}</span>'
+                    elif net_pnl < 0:
+                        pnl_badge = f'<span class="badge-pnl-loss">-${abs(net_pnl):,.2f}</span>'
+                    else:
+                        pnl_badge = '<span style="color:#8a99ad; font-weight:600;">$0.00</span>'
 
-                pnl_pct = abs(net_pnl) / 1000.0 * 100
-                if net_pnl > 0:
-                    q_badge = '<span class="badge-quality badge-quality-high">GOOD</span>'
-                else:
-                    q_badge = '<span class="badge-quality badge-quality-med">AVG</span>' if abs(net_pnl) < 50 else '<span class="badge-quality badge-quality-low">POOR</span>'
+                    pnl_pct = abs(net_pnl) / 1000.0 * 100
+                    if net_pnl > 0:
+                        q_badge = '<span class="badge-quality badge-quality-high">GOOD</span>'
+                    else:
+                        q_badge = '<span class="badge-quality badge-quality-med">AVG</span>' if abs(net_pnl) < 50 else '<span class="badge-quality badge-quality-low">POOR</span>'
 
-                entry_time_str = pd.to_datetime(row["entry_time"]).strftime("%Y-%m-%d %H:%M")
-                exit_time_str = pd.to_datetime(row["exit_time"]).strftime("%Y-%m-%d %H:%M")
-                dur = float(row.get("duration_minutes", 0.0))
-                dur_str = f"{dur:.1f} min" if dur < 60 else f"{dur/60:.1f} hrs"
+                    entry_time_str = pd.to_datetime(row["entry_time"]).strftime("%Y-%m-%d %H:%M")
+                    exit_time_str = pd.to_datetime(row["exit_time"]).strftime("%Y-%m-%d %H:%M")
+                    dur = float(row.get("duration_minutes", 0.0))
+                    dur_str = f"{dur:.1f} min" if dur < 60 else f"{dur/60:.1f} hrs"
 
-                tag_raw = row.get("setup_tag")
-                tag_disp = f'<span class="badge-tag-pill">{tag_raw}</span>' if pd.notna(tag_raw) and str(tag_raw).strip() != "" and str(tag_raw) != "None" else '<span style="color:#4a5568; font-size:10px;">-</span>'
+                    tag_raw = row.get("setup_tag")
+                    tag_disp = f'<span class="badge-tag-pill">{tag_raw}</span>' if pd.notna(tag_raw) and str(tag_raw).strip() != "" and str(tag_raw) != "None" else '<span style="color:#4a5568; font-size:10px;">-</span>'
 
-                has_snap = pd.notna(row.get("chart_snapshot_url")) and str(row.get("chart_snapshot_url")).strip() != "" and str(row.get("chart_snapshot_url")) != "None"
-                has_notes = pd.notna(row.get("notes")) and str(row.get("notes")).strip() != "" and str(row.get("notes")) != "None"
-                
-                if has_snap and has_notes:
-                    setup_status = '<span style="color:#00ffcc; font-size:11px; font-weight:700; background:rgba(0,255,204,0.1); padding:2px 6px; border-radius:4px; border:1px solid rgba(0,255,204,0.3);">SNAP + NOTES</span>'
-                elif has_snap:
-                    setup_status = '<span style="color:#00ffcc; font-size:11px; font-weight:700; background:rgba(0,255,204,0.1); padding:2px 6px; border-radius:4px;">SNAPSHOT</span>'
-                elif has_notes:
-                    setup_status = '<span style="color:#8a99ad; font-size:11px; font-weight:700; background:rgba(255,255,255,0.06); padding:2px 6px; border-radius:4px;">NOTES</span>'
-                else:
-                    setup_status = '<span style="color:#4a5568; font-size:11px;">-</span>'
+                    has_snap = pd.notna(row.get("chart_snapshot_url")) and str(row.get("chart_snapshot_url")).strip() != "" and str(row.get("chart_snapshot_url")) != "None"
+                    has_notes = pd.notna(row.get("notes")) and str(row.get("notes")).strip() != "" and str(row.get("notes")) != "None"
+                    
+                    if has_snap and has_notes:
+                        setup_status = '<span style="color:#00ffcc; font-size:11px; font-weight:700; background:rgba(0,255,204,0.1); padding:2px 6px; border-radius:4px; border:1px solid rgba(0,255,204,0.3);">SNAP + NOTES</span>'
+                    elif has_snap:
+                        setup_status = '<span style="color:#00ffcc; font-size:11px; font-weight:700; background:rgba(0,255,204,0.1); padding:2px 6px; border-radius:4px;">SNAPSHOT</span>'
+                    elif has_notes:
+                        setup_status = '<span style="color:#8a99ad; font-size:11px; font-weight:700; background:rgba(255,255,255,0.06); padding:2px 6px; border-radius:4px;">NOTES</span>'
+                    else:
+                        setup_status = '<span style="color:#4a5568; font-size:11px;">-</span>'
 
-                table_rows_html += f"""
-                <tr>
-                    <td style="font-family:monospace; font-size:11px; color:#8a99ad;">{ticket_disp}</td>
-                    <td style="font-size:11px; color:#c084fc;">{acc_disp}</td>
-                    <td style="font-weight:700; color:#ffffff;">{sym}</td>
-                    <td>{dir_badge}</td>
-                    <td style="font-family:monospace;">{vol_disp}</td>
-                    <td style="font-family:monospace; color:#8a99ad;">{entry_px_disp}</td>
-                    <td style="font-family:monospace; color:#8a99ad;">{exit_px_disp}</td>
-                    <td>{pnl_badge}</td>
-                    <td>{q_badge}</td>
-                    <td style="font-size:11px; color:#8a99ad;">{entry_time_str}</td>
-                    <td style="font-size:11px; color:#8a99ad;">{exit_time_str}</td>
-                    <td style="font-size:11px; color:#8a99ad;">{dur_str}</td>
-                    <td>{tag_disp}</td>
-                    <td>{setup_status}</td>
-                </tr>
-                """
+                    table_rows_html += f"""
+                    <tr>
+                        <td style="font-family:monospace; font-size:11px; color:#8a99ad;">{ticket_disp}</td>
+                        <td style="font-size:11px; color:#c084fc;">{acc_disp}</td>
+                        <td style="font-weight:700; color:#ffffff;">{sym}</td>
+                        <td>{dir_badge}</td>
+                        <td style="font-family:monospace;">{vol_disp}</td>
+                        <td style="font-family:monospace; color:#8a99ad;">{entry_px_disp}</td>
+                        <td style="font-family:monospace; color:#8a99ad;">{exit_px_disp}</td>
+                        <td>{pnl_badge}</td>
+                        <td>{q_badge}</td>
+                        <td style="font-size:11px; color:#8a99ad;">{entry_time_str}</td>
+                        <td style="font-size:11px; color:#8a99ad;">{exit_time_str}</td>
+                        <td style="font-size:11px; color:#8a99ad;">{dur_str}</td>
+                        <td>{tag_disp}</td>
+                        <td>{setup_status}</td>
+                    </tr>
+                    """
 
-            render_html(f"""
-            <div class="journal-table-wrapper">
-                <table class="journal-table">
-                    <thead>
-                        <tr>
-                            <th>Ticket</th>
-                            <th>Account</th>
-                            <th>Symbol</th>
-                            <th>Direction</th>
-                            <th>Size</th>
-                            <th>Entry Px</th>
-                            <th>Exit Px</th>
-                            <th>Net PnL</th>
-                            <th>Quality</th>
-                            <th>Entry Time</th>
-                            <th>Exit Time</th>
-                            <th>Duration</th>
-                            <th>Setup Tag</th>
-                            <th>Setup Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {table_rows_html}
-                    </tbody>
-                </table>
-            </div>
-            """)
+                render_html(f"""
+                <div class="journal-table-wrapper">
+                    <table class="journal-table">
+                        <thead>
+                            <tr>
+                                <th>Ticket</th>
+                                <th>Account</th>
+                                <th>Symbol</th>
+                                <th>Direction</th>
+                                <th>Size</th>
+                                <th>Entry Px</th>
+                                <th>Exit Px</th>
+                                <th>Net PnL</th>
+                                <th>Quality</th>
+                                <th>Entry Time</th>
+                                <th>Exit Time</th>
+                                <th>Duration</th>
+                                <th>Setup Tag</th>
+                                <th>Setup Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {table_rows_html}
+                        </tbody>
+                    </table>
+                </div>
+                """)
 
     with tab_alerts:
         st.markdown("<h3 style='color:#ffffff;font-size:1.3rem;margin-bottom:6px;font-weight:800;text-transform:uppercase;'>Price Alerts & Risk Studio</h3>", unsafe_allow_html=True)
