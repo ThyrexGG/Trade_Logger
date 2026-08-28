@@ -257,6 +257,8 @@ def get_closed_trades():
     conn = get_connection()
     df = pd.read_sql_query("SELECT * FROM closed_trades ORDER BY exit_time DESC", conn)
     conn.close()
+    return df
+
 def update_setup_tag(trade_id, setup_tag):
     """Updates the subjective setup tag for a specific trade."""
     conn = get_connection()
