@@ -315,6 +315,149 @@ st.markdown("""
     }
     
     /* ---------------------------------- */
+    /* THE5ERS PROP FIRM OBJECTIVES HUB   */
+    /* ---------------------------------- */
+    .prop-hub-container {
+        background: #0d111a;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 22px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    }
+    
+    .prop-badge {
+        font-size: 10px;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .prop-badge.forex {
+        background: rgba(168, 85, 247, 0.12);
+        color: #c084fc;
+        border: 1px solid rgba(168, 85, 247, 0.3);
+    }
+    .prop-badge.active {
+        background: rgba(0, 255, 204, 0.12);
+        color: #00ffcc;
+        border: 1px solid rgba(0, 255, 204, 0.3);
+    }
+    .prop-badge.eval {
+        background: rgba(59, 130, 246, 0.12);
+        color: #60a5fa;
+        border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+    
+    /* Roadmap Timeline */
+    .prop-roadmap {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: relative;
+        margin: 20px 0 24px 0;
+        padding: 0 10px;
+    }
+    .prop-roadmap::before {
+        content: '';
+        position: absolute;
+        top: 25px;
+        left: 30px;
+        right: 30px;
+        height: 2px;
+        background: rgba(255, 255, 255, 0.08);
+        z-index: 1;
+    }
+    .prop-roadmap-node {
+        position: relative;
+        z-index: 2;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .prop-roadmap-title {
+        font-size: 9px;
+        color: #8a99ad;
+        margin-bottom: 6px;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    .prop-roadmap-circle {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #121620;
+        border: 2px solid rgba(255, 255, 255, 0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        color: #8a99ad;
+        margin-bottom: 6px;
+    }
+    .prop-roadmap-node.active .prop-roadmap-circle {
+        background: linear-gradient(135deg, #a855f7, #6366f1);
+        border-color: #c084fc;
+        color: #ffffff;
+        box-shadow: 0 0 14px rgba(168, 85, 247, 0.5);
+    }
+    .prop-roadmap-target {
+        font-size: 11px;
+        font-weight: 700;
+        color: #ffffff;
+    }
+    
+    /* 5 Objectives Grid */
+    .prop-objectives-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 12px;
+        margin-top: 16px;
+    }
+    .prop-obj-card {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 8px;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 90px;
+    }
+    .prop-obj-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .prop-obj-title {
+        font-size: 11px;
+        color: #8a99ad;
+        font-weight: 600;
+    }
+    .prop-obj-status {
+        font-size: 9px;
+        font-weight: 700;
+        padding: 2px 6px;
+        border-radius: 3px;
+        background: rgba(59, 130, 246, 0.12);
+        color: #60a5fa;
+        border: 1px solid rgba(59, 130, 246, 0.25);
+    }
+    .prop-obj-value {
+        font-size: 16px;
+        font-weight: 700;
+        margin-top: 4px;
+        color: #ffffff;
+    }
+    .prop-obj-sub {
+        font-size: 10px;
+        color: #8a99ad;
+        margin-top: 2px;
+    }
+
+    /* ---------------------------------- */
     /* RESPONSIVE & MOBILE ACCESSIBILITY  */
     /* ---------------------------------- */
     @media (max-width: 991px) {
@@ -326,9 +469,21 @@ st.markdown("""
         .gauge-matrix {
             grid-template-columns: repeat(2, 1fr) !important;
         }
+
+        .prop-objectives-grid {
+            grid-template-columns: repeat(3, 1fr) !important;
+        }
+
+        .prop-roadmap {
+            overflow-x: auto;
+            padding-bottom: 8px;
+        }
     }
     
     @media (max-width: 768px) {
+        .prop-objectives-grid {
+            grid-template-columns: 1fr !important;
+        }
         /* Stack the main container margins for mobile */
         .stMainBlockContainer {
             padding-left: 1.5rem !important;
@@ -712,6 +867,175 @@ else:
         most_active_sess = filtered_df["session_date"].value_counts().idxmax() if not filtered_df.empty else "-"
         most_prof_sess = session_pnls.idxmax() if not session_pnls.empty else "-"
         least_prof_sess = session_pnls.idxmin() if not session_pnls.empty else "-"
+
+        # ------------------
+        # THE5ERS PROP FIRM EVALUATION & OBJECTIVES HUB
+        # ------------------
+        is_mt5 = str(selected_account).startswith("MT5_")
+        
+        target_profit_goal = initial_balance * 0.10
+        max_daily_loss_limit = initial_balance * 0.05
+        max_total_loss_limit = initial_balance * 0.10
+        
+        today_pnl_val = daily_outcomes[-1] if len(daily_outcomes) > 0 else 0.0
+        daily_loss_remaining = max(0.0, max_daily_loss_limit + (today_pnl_val if today_pnl_val < 0 else 0.0))
+        max_loss_remaining = max(0.0, max_total_loss_limit + (total_pnl if total_pnl < 0 else 0.0))
+        profitable_days_count = len([p for p in daily_outcomes if p > 0])
+        
+        goal_pnl_sign = "+" if total_pnl >= 0 else "-"
+        goal_pnl_color = "#00ffcc" if total_pnl >= 0 else "#ff5555"
+        daily_pnl_color = "#00ffcc" if today_pnl_val >= 0 else "#ff5555"
+        daily_pnl_sign = "+" if today_pnl_val >= 0 else "-"
+        
+        account_order_id = "1000782405" if is_mt5 else "304665047035"
+        account_disp_num = str(selected_account).replace("MT5_", "") if is_mt5 else str(selected_account)
+        broker_name = "Five Percent Online MetaTrader" if is_mt5 else "Capital.com Multi-Asset Broker"
+        program_name = "$10K High Stakes 10%" if is_mt5 else "Trading Performance Evaluation"
+        
+        render_html(f"""
+        <div class="prop-hub-container">
+            <!-- Header Row -->
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:14px;">
+                <div>
+                    <div style="display:flex; gap:6px; margin-bottom:8px;">
+                        <span class="prop-badge forex">Forex</span>
+                        <span class="prop-badge active">● Active</span>
+                        <span class="prop-badge eval">Evaluation</span>
+                    </div>
+                    <div style="font-size:22px; font-weight:800; color:#ffffff; letter-spacing:-0.4px;">{program_name}</div>
+                    <div style="font-size:11px; color:#8a99ad; margin-top:3px;">Order ID #{account_order_id} • Account #{account_disp_num} • {broker_name}</div>
+                </div>
+                
+                <div style="display:flex; gap:28px; text-align:right;">
+                    <div>
+                        <div style="font-size:10px; color:#8a99ad; text-transform:uppercase; font-weight:600;">Balance</div>
+                        <div style="font-size:20px; font-weight:800; color:#ffffff;">${current_balance:,.2f}</div>
+                    </div>
+                    <div>
+                        <div style="font-size:10px; color:#8a99ad; text-transform:uppercase; font-weight:600;">Unrealized</div>
+                        <div style="font-size:20px; font-weight:800; color:#ffffff;">$0.00</div>
+                    </div>
+                    <div>
+                        <div style="font-size:10px; color:#8a99ad; text-transform:uppercase; font-weight:600;">Daily P&L</div>
+                        <div style="font-size:20px; font-weight:800; color:{daily_pnl_color};">{daily_pnl_sign}${abs(today_pnl_val):,.2f}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Scale Up Roadmap -->
+            <div class="prop-roadmap">
+                <div class="prop-roadmap-node active">
+                    <span class="prop-roadmap-title">1st Evaluation</span>
+                    <div class="prop-roadmap-circle">1</div>
+                    <span class="prop-roadmap-target">${initial_balance:,.0f}</span>
+                </div>
+                <div class="prop-roadmap-node">
+                    <span class="prop-roadmap-title">2nd Evaluation</span>
+                    <div class="prop-roadmap-circle">2</div>
+                    <span class="prop-roadmap-target">${initial_balance:,.0f}</span>
+                </div>
+                <div class="prop-roadmap-node">
+                    <span class="prop-roadmap-title">Funded!</span>
+                    <div class="prop-roadmap-circle">F</div>
+                    <span class="prop-roadmap-target">${initial_balance:,.0f}</span>
+                </div>
+                <div class="prop-roadmap-node">
+                    <span class="prop-roadmap-title">Scale Up</span>
+                    <div class="prop-roadmap-circle">↑</div>
+                    <span class="prop-roadmap-target">${initial_balance*1.25:,.0f}</span>
+                </div>
+                <div class="prop-roadmap-node">
+                    <span class="prop-roadmap-title">Scale Up</span>
+                    <div class="prop-roadmap-circle">↑</div>
+                    <span class="prop-roadmap-target">${initial_balance*1.5:,.0f}</span>
+                </div>
+                <div class="prop-roadmap-node">
+                    <span class="prop-roadmap-title">Scale Up</span>
+                    <div class="prop-roadmap-circle">↑</div>
+                    <span class="prop-roadmap-target">${initial_balance*2.0:,.0f}</span>
+                </div>
+                <div class="prop-roadmap-node">
+                    <span class="prop-roadmap-title">Scale Up</span>
+                    <div class="prop-roadmap-circle">↑</div>
+                    <span class="prop-roadmap-target">${initial_balance*2.5:,.0f}</span>
+                </div>
+                <div class="prop-roadmap-node">
+                    <span class="prop-roadmap-title">Scale Up</span>
+                    <div class="prop-roadmap-circle">↑</div>
+                    <span class="prop-roadmap-target">${initial_balance*3.0:,.0f}</span>
+                </div>
+            </div>
+            
+            <!-- Trading Objectives Header -->
+            <div style="font-size:13px; font-weight:700; color:#ffffff; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                <span>Trading Objectives</span>
+                <span style="font-size:10px; color:#8a99ad; text-decoration:underline;">Rules & Compliance</span>
+            </div>
+            
+            <!-- 5 Objective Cards Grid -->
+            <div class="prop-objectives-grid">
+                <!-- Card 1: Profitable Days -->
+                <div class="prop-obj-card">
+                    <div class="prop-obj-header">
+                        <span class="prop-obj-title">Profitable Days</span>
+                        <span class="prop-obj-status">In progress</span>
+                    </div>
+                    <div>
+                        <div class="prop-obj-value">{profitable_days_count} / 3</div>
+                        <div class="prop-obj-sub">Min 3 required</div>
+                    </div>
+                </div>
+                
+                <!-- Card 2: Unrealized Profit -->
+                <div class="prop-obj-card">
+                    <div class="prop-obj-header">
+                        <span class="prop-obj-title">Unrealized Profit</span>
+                        <span class="prop-obj-status">In progress</span>
+                    </div>
+                    <div>
+                        <div class="prop-obj-value">$0.00</div>
+                        <div class="prop-obj-sub">0 Open Trades</div>
+                    </div>
+                </div>
+                
+                <!-- Card 3: Profit Goal -->
+                <div class="prop-obj-card">
+                    <div class="prop-obj-header">
+                        <span class="prop-obj-title">Profit Goal</span>
+                        <span class="prop-obj-status">In progress</span>
+                    </div>
+                    <div>
+                        <div class="prop-obj-value" style="color:{goal_pnl_color};">{goal_pnl_sign}${abs(total_pnl):,.2f}</div>
+                        <div class="prop-obj-sub">Goal: ${target_profit_goal:,.0f} (10%)</div>
+                    </div>
+                </div>
+                
+                <!-- Card 4: Max Daily Loss -->
+                <div class="prop-obj-card">
+                    <div class="prop-obj-header">
+                        <span class="prop-obj-title">Max Daily Loss</span>
+                        <span class="prop-obj-status" style="background:rgba(0,255,204,0.1); color:#00ffcc; border-color:rgba(0,255,204,0.25);">Safe</span>
+                    </div>
+                    <div>
+                        <div class="prop-obj-value" style="color:#00ffcc;">${daily_loss_remaining:,.2f} Left</div>
+                        <div class="prop-obj-sub">Limit: ${max_daily_loss_limit:,.0f} (5%)</div>
+                    </div>
+                </div>
+                
+                <!-- Card 5: Max Loss -->
+                <div class="prop-obj-card">
+                    <div class="prop-obj-header">
+                        <span class="prop-obj-title">Max Loss</span>
+                        <span class="prop-obj-status" style="background:rgba(0,255,204,0.1); color:#00ffcc; border-color:rgba(0,255,204,0.25);">Safe</span>
+                    </div>
+                    <div>
+                        <div class="prop-obj-value" style="color:#00ffcc;">${max_loss_remaining:,.2f} Left</div>
+                        <div class="prop-obj-sub">Limit: ${max_total_loss_limit:,.0f} (10%)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        """)
 
         # ------------------
         # TOP STATS BAR
