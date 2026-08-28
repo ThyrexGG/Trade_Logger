@@ -1331,26 +1331,163 @@ def render_live_dashboard():
 
                 with col2_1:
                     with st.container(border=True):
-                        st.markdown("<div style='font-size:14px; font-weight:700; color:#ffffff; margin-bottom:4px;'>ACCOUNT EQUITY & DAILY DRAWDOWN</div>", unsafe_allow_html=True)
+                        # Header with Trajectory info
+                        pnl_color_cur = "#00ffcc" if total_pnl >= 0 else "#ff5555"
+                        pnl_sign_cur = "+" if total_pnl >= 0 else "-"
+                        render_html(f"""
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:8px;">
+                            <div>
+                                <span style="font-size:14px; font-weight:700; color:#ffffff; text-transform:uppercase;">ACCOUNT BALANCE CURVE</span>
+                                <span style="font-size:11px; color:#8a99ad; margin-left:8px;">Equity & Closed Balance trajectory</span>
+                            </div>
+                            <div style="display:flex; gap:16px; font-size:11px;">
+                                <div><span style="color:#8a99ad;">Total P&L:</span> <b style="color:{pnl_color_cur}; font-size:13px;">{pnl_sign_cur}${abs(total_pnl):,.2f}</b></div>
+                                <div><span style="color:#8a99ad;">Balance:</span> <b style="color:#ffffff; font-size:13px;">${current_balance:,.2f}</b></div>
+                            </div>
+                        </div>
+                        """)
+
+                        # High-Definition Cubic Hermite Spline Interpolation
+                        min_entry = filtered_df["entry_time"].min()
+                        start_baseline_time = min_entry - pd.Timedelta(hours=12)
+                        x_times = [start_baseline_time] + list(filtered_df["exit_time"])
+                        y_balances = [initial_balance] + list(filtered_df["balance"])
+                        n_pts = len(y_balances)
+
+                        if n_pts >= 2:
+                            x_seq = np.arange(n_pts, dtype=float)
+                            dx = np.diff(x_seq)
+                            dy = np.diff(y_balances)
+                            m = dy / dx
+
+                            tang = np.zeros(n_pts)
+                            tang[0] = m[0]
+                            tang[-1] = m[-1]
+                            for i in range(1, n_pts - 1):
+                                if m[i - 1] * m[i] > 0:
+                                    tang[i] = 2.0 / (1.0 / m[i - 1] + 1.0 / m[i])
+                                else:
+                                    tang[i] = 0.0
+
+                            x_dense = np.linspace(0, n_pts - 1, 160)
+                            y_dense = []
+                            for x_val in x_dense:
+                                idx_seg = max(0, min(int(x_val), n_pts - 2))
+                                t = x_val - idx_seg
+                                t2 = t * t
+                                t3 = t2 * t
+                                h00 = 2 * t3 - 3 * t2 + 1
+                                h10 = t3 - 2 * t2 + t
+                                h01 = -2 * t3 + 3 * t2
+                                h11 = t3 - t2
+                                y_interp = h00 * y_balances[idx_seg] + h10 * tang[idx_seg] + h01 * y_balances[idx_seg + 1] + h11 * tang[idx_seg + 1]
+                                y_dense.append(y_interp)
+                        else:
+                            x_dense = [0]
+                            y_dense = y_balances
+
+                        # Y-Axis Active Range Zoom with visual breathing room
+                        min_b = min(y_balances)
+                        max_b = max(y_balances)
+                        diff_b = max(max_b - min_b, 10.0)
+                        y_min = min_b - (diff_b * 0.15)
+                        y_max = max_b + (diff_b * 0.15)
+
+                        # Hover labels with trade details on anchor points
+                        hover_labels = [f"<b>Initial Balance</b><br>Balance: <b>${initial_balance:,.2f}</b>"]
+                        for idx_r, row_r in filtered_df.iterrows():
+                            pnl_val_r = float(row_r['net_profit'])
+                            pnl_sign_r = '+' if pnl_val_r >= 0 else '-'
+                            sym_r = str(row_r['symbol'])
+                            t_str_r = row_r['exit_time'].strftime('%b %d, %H:%M')
+                            pnl_col_r = '#00ffcc' if pnl_val_r >= 0 else '#ff5555'
+                            hover_labels.append(
+                                f"<b>{t_str_r}</b> ({sym_r})<br>Trade PnL: <b style='color:{pnl_col_r}'>{pnl_sign_r}${abs(pnl_val_r):,.2f}</b><br>Balance: <b>${row_r['balance']:,.2f}</b>"
+                            )
+
+                        # Clean Date Checkpoint Ticks along the progression axis
+                        step = max(1, n_pts // 5)
+                        tick_indices = list(range(0, n_pts, step))
+                        if (n_pts - 1) not in tick_indices:
+                            tick_indices.append(n_pts - 1)
+                        tick_texts = [x_times[i].strftime("%b %d") for i in tick_indices]
+
                         fig_eq = go.Figure()
+
+                        # Subtle High Water Mark (HWM) Reference Line
                         fig_eq.add_trace(go.Scatter(
-                            x=filtered_df["exit_time"],
-                            y=filtered_df["balance"],
-                            mode="lines",
-                            name="Balance ($)",
-                            line=dict(color="#00ffcc", width=2.5),
-                            fill="tozeroy",
-                            fillcolor="rgba(0, 255, 204, 0.05)"
+                            x=[-0.5, n_pts - 0.5],
+                            y=[highest_balance, highest_balance],
+                            mode='lines',
+                            line=dict(color='rgba(255, 255, 255, 0.10)', width=1, dash='dot'),
+                            hoverinfo='skip',
+                            name='HWM'
                         ))
+
+                        # 1. Silky Smooth Continuous Neon Curve with subtle gradient fill
+                        fig_eq.add_trace(go.Scatter(
+                            x=x_dense,
+                            y=y_dense,
+                            mode='lines',
+                            line=dict(color='#bef264', width=2.8),
+                            fill='tozeroy',
+                            fillcolor='rgba(190, 242, 100, 0.04)',
+                            hoverinfo='skip',
+                            name='Balance Curve'
+                        ))
+
+                        # 2. Clean Checkpoint Anchor Markers (Interactive on hover)
+                        fig_eq.add_trace(go.Scatter(
+                            x=list(range(n_pts)),
+                            y=y_balances,
+                            mode='markers',
+                            marker=dict(size=4.5, color='#bef264', opacity=0.85, line=dict(color='#0b0f19', width=1)),
+                            hovertext=hover_labels,
+                            hoverinfo="text",
+                            name='Trades'
+                        ))
+
                         fig_eq.update_layout(
-                            paper_bgcolor="rgba(0,0,0,0)",
-                            plot_bgcolor="rgba(0,0,0,0)",
-                            margin=dict(l=10, r=10, t=10, b=10),
-                            height=240,
-                            xaxis=dict(showgrid=False, color="#8a99ad"),
-                            yaxis=dict(gridcolor="rgba(255,255,255,0.05)", color="#8a99ad")
+                            xaxis=dict(
+                                tickmode='array',
+                                tickvals=tick_indices,
+                                ticktext=tick_texts,
+                                range=[-0.4, n_pts - 0.6],
+                                fixedrange=True,
+                                showgrid=False,
+                                linecolor='rgba(255,255,255,0.08)',
+                                tickfont=dict(color='#8a99ad', size=10)
+                            ),
+                            yaxis=dict(
+                                range=[y_min, y_max],
+                                autorange=False,
+                                fixedrange=True,
+                                showgrid=True,
+                                gridcolor='rgba(255,255,255,0.03)',
+                                linecolor='rgba(255,255,255,0.08)',
+                                tickfont=dict(color='#8a99ad', size=10),
+                                tickprefix="$",
+                                tickformat=",.0f"
+                            ),
+                            dragmode=False,
+                            hovermode="closest",
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            margin=dict(l=10, r=20, t=10, b=10),
+                            height=270,
+                            showlegend=False
                         )
-                        st.plotly_chart(fig_eq, use_container_width=True)
+                        st.plotly_chart(
+                            fig_eq, 
+                            use_container_width=True, 
+                            config={
+                                'displayModeBar': False, 
+                                'scrollZoom': False, 
+                                'doubleClick': False, 
+                                'showAxisDragHandles': False,
+                                'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d']
+                            }
+                        )
 
                         # Ratio bars
                         avg_win = filtered_df[filtered_df["net_profit"] > 0]["net_profit"].mean() if winning_trades > 0 else 0.0
