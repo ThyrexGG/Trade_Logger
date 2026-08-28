@@ -869,7 +869,19 @@ if onesignal_app_id:
         await OneSignal.init({{
           appId: "{onesignal_app_id}",
           allowLocalhostAsSecureOrigin: true,
+          notifyButton: {{
+            enable: true,
+            position: 'bottom-left',
+            theme: 'inverse',
+            size: 'medium'
+          }}
         }});
+        // Prompt for notification permission on initial load
+        try {{
+          await OneSignal.Notifications.requestPermission();
+        }} catch(e) {{
+          console.log("OneSignal permission notice:", e);
+        }}
       }});
     </script>
     """, height=0)
@@ -1083,24 +1095,26 @@ def render_live_dashboard():
                             from streamlit.components.v1 import html
                             html("""
                             <script>
-                                // 1. Native Flutter App Bridge
-                                if (window.TradeAlert) {
-                                    window.TradeAlert.postMessage(JSON.stringify({
+                                // 1. Native Flutter App Bridge (Checks both iframe and parent window)
+                                const flutterBridge = window.TradeAlert || (window.parent && window.parent.TradeAlert);
+                                if (flutterBridge) {
+                                    flutterBridge.postMessage(JSON.stringify({
                                         title: "Trade Closed: XAUUSD (+$125.50)",
                                         body: "Funded MT5 • BUY • PnL: +$125.50 • Duration: 34.2m"
                                     }));
                                 }
                                 
-                                // 2. Browser Desktop Notification
-                                if ("Notification" in window) {
-                                    if (Notification.permission === "granted") {
-                                        new Notification("Trade Closed: XAUUSD (+$125.50)", {
+                                // 2. Browser Desktop Notification (Checks both iframe and parent window)
+                                const notifApi = window.Notification || (window.parent && window.parent.Notification);
+                                if (notifApi) {
+                                    if (notifApi.permission === "granted") {
+                                        new notifApi("Trade Closed: XAUUSD (+$125.50)", {
                                             body: "Funded MT5 • BUY • PnL: +$125.50 • Duration: 34.2m"
                                         });
-                                    } else if (Notification.permission !== "denied") {
-                                        Notification.requestPermission().then(function (permission) {
-                                            if (permission === "granted") {
-                                                new Notification("Trade Closed: XAUUSD (+$125.50)", {
+                                    } else if (notifApi.permission !== "denied") {
+                                        notifApi.requestPermission().then(function (perm) {
+                                            if (perm === "granted") {
+                                                new notifApi("Trade Closed: XAUUSD (+$125.50)", {
                                                     body: "Funded MT5 • BUY • PnL: +$125.50 • Duration: 34.2m"
                                                 });
                                             }

@@ -7,6 +7,15 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
 
 ONESIGNAL_APP_ID = os.getenv("ONESIGNAL_APP_ID", "").strip('"\' ')
 ONESIGNAL_API_KEY = os.getenv("ONESIGNAL_API_KEY", "").strip('"\' ')
+try:
+    import streamlit as st
+    if hasattr(st, "secrets"):
+        if "ONESIGNAL_APP_ID" in st.secrets:
+            ONESIGNAL_APP_ID = str(st.secrets["ONESIGNAL_APP_ID"]).strip('"\' ')
+        if "ONESIGNAL_API_KEY" in st.secrets:
+            ONESIGNAL_API_KEY = str(st.secrets["ONESIGNAL_API_KEY"]).strip('"\' ')
+except Exception:
+    pass
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip('"\' ')
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "").strip('"\' ')
 
