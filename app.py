@@ -439,6 +439,31 @@ else:
     df_trades["entry_time"] = pd.to_datetime(df_trades["entry_time"], format="mixed", utc=True).dt.tz_localize(None)
     df_trades["exit_time"] = pd.to_datetime(df_trades["exit_time"], format="mixed", utc=True).dt.tz_localize(None)
     
+    # Initialize per-account initial balances in session state
+    if "account_balances" not in st.session_state:
+        st.session_state.account_balances = {
+            "ALL": 11000.0,
+        }
+
+    unique_accounts = sorted(list(df_trades["account_id"].unique()))
+    account_options = unique_accounts + (["ALL"] if len(unique_accounts) > 1 else [])
+
+    def format_account_name(acc_id):
+        if acc_id == "ALL":
+            return "🌐 All Accounts (Combined)"
+        elif str(acc_id).startswith("MT5_"):
+            return f"⚡ MetaTrader 5 ({str(acc_id).replace('MT5_', '')})"
+        else:
+            return f"🏦 Capital.com ({acc_id})"
+
+    # Populate default starting balances per account
+    for acc in unique_accounts:
+        if acc not in st.session_state.account_balances:
+            if str(acc).startswith("MT5_"):
+                st.session_state.account_balances[acc] = 10000.0
+            else:
+                st.session_state.account_balances[acc] = 1000.0
+
     # Header
     st.markdown("""
     <div style="margin-top: 8px; margin-bottom: 20px;">
@@ -449,25 +474,19 @@ else:
     
     # Unified Control & Filter Card (Active State)
     with st.container(border=True):
-        col_filters, col_actions = st.columns([1.8, 1.2])
+        col_acc_sel, col_sync_btns = st.columns([1.8, 1.2])
         
-        with col_filters:
-            col_act, col_sym, col_date = st.columns([1, 1, 1.2])
-            with col_act:
-                accounts = df_trades["account_id"].unique()
-                selected_accounts = st.multiselect("Accounts", options=accounts, default=list(accounts))
-            with col_sym:
-                symbols = df_trades["symbol"].unique()
-                selected_symbols = st.multiselect("Symbols", options=symbols, default=list(symbols))
-            with col_date:
-                min_date = df_trades["exit_time"].min().date()
-                max_date = df_trades["exit_time"].max().date()
-                date_range = st.date_input("Date Range", value=(min_date, max_date), min_value=min_date, max_value=max_date)
-                
-        with col_actions:
-            col_mt5, col_cap, col_bal = st.columns([1.1, 1.1, 1])
-            with col_bal:
-                initial_balance = st.number_input("Initial Balance ($)", min_value=10.0, value=1000.0, step=100.0, key="active_bal")
+        with col_acc_sel:
+            selected_account = st.selectbox(
+                "🏦 Select Account View",
+                options=account_options,
+                format_func=format_account_name,
+                index=0,
+                key="account_view_selector"
+            )
+            
+        with col_sync_btns:
+            col_mt5, col_cap = st.columns([1, 1])
             with col_mt5:
                 st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
                 if st.button("Sync MT5", key="active_sync_mt5", use_container_width=True):
@@ -488,12 +507,38 @@ else:
                             st.rerun()
                         else:
                             st.error("Capital.com sync failed.")
+
+        # Filter base dataframe by selected account
+        if selected_account != "ALL":
+            acc_filtered_df = df_trades[df_trades["account_id"] == selected_account]
+        else:
+            acc_filtered_df = df_trades
+
+        # Sub-filters: Symbols, Date Range, Starting Balance
+        col_sym, col_date, col_bal = st.columns([1, 1.2, 1])
+        
+        with col_sym:
+            symbols = acc_filtered_df["symbol"].unique()
+            selected_symbols = st.multiselect("Symbols", options=symbols, default=list(symbols))
+            
+        with col_date:
+            min_date = acc_filtered_df["exit_time"].min().date()
+            max_date = acc_filtered_df["exit_time"].max().date()
+            date_range = st.date_input("Date Range", value=(min_date, max_date), min_value=min_date, max_value=max_date)
+            
+        with col_bal:
+            current_default_bal = st.session_state.account_balances.get(selected_account, 1000.0)
+            initial_balance = st.number_input(
+                "Starting Balance ($)",
+                min_value=10.0,
+                value=float(current_default_bal),
+                step=100.0,
+                key=f"bal_{selected_account}"
+            )
+            st.session_state.account_balances[selected_account] = initial_balance
                             
-    # Filter data
-    filtered_df = df_trades[
-        (df_trades["account_id"].isin(selected_accounts)) &
-        (df_trades["symbol"].isin(selected_symbols))
-    ]
+    # Apply symbol & date filters
+    filtered_df = acc_filtered_df[acc_filtered_df["symbol"].isin(selected_symbols)]
     if len(date_range) == 2:
         start_dt = pd.to_datetime(date_range[0])
         end_dt = pd.to_datetime(date_range[1]) + pd.Timedelta(days=1)
