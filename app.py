@@ -1281,45 +1281,34 @@ else:
                 """)
             
         with col1_3:
-            # Detailed Account Balance Curve starting from initial deposit point
-            first_time = filtered_df["exit_time"].min()
-            start_baseline_time = first_time - pd.Timedelta(hours=4)
-            
-            x_times = [start_baseline_time] + list(filtered_df["exit_time"])
+            # Detailed Account Balance Curve on continuous time-series axis
+            min_entry = filtered_df["entry_time"].min()
+            x_times = [min_entry] + list(filtered_df["exit_time"])
             y_balances = [initial_balance] + list(filtered_df["balance"])
-            x_formatted = [t.strftime("%m/%d %H:%M") for t in x_times]
             
             fig_balance = go.Figure()
             
-            # High Water Mark reference line
+            # Smooth neon curve with clean time-series area fill
             fig_balance.add_trace(go.Scatter(
-                x=[x_formatted[0], x_formatted[-1]],
-                y=[highest_balance, highest_balance],
-                mode='lines',
-                line=dict(color='rgba(255, 255, 255, 0.18)', width=1, dash='dot'),
-                hoverinfo='skip',
-                name='HWM'
-            ))
-            
-            # Smooth neon curve with soft glow gradient
-            fig_balance.add_trace(go.Scatter(
-                x=x_formatted,
+                x=x_times,
                 y=y_balances,
-                mode='lines',
+                mode='lines+markers',
+                marker=dict(size=4, color='#bef264'),
                 line=dict(color='#bef264', width=2.5, shape='spline'),
                 fill='tozeroy',
                 fillcolor='rgba(190, 242, 100, 0.08)',
-                hovertemplate="<b>%{x}</b><br>Balance: <b>$%{y:,.2f}</b><extra></extra>",
+                hovertemplate="<b>%{x|%b %d, %H:%M}</b><br>Balance: <b>$%{y:,.2f}</b><extra></extra>",
                 name='Balance'
             ))
             
             fig_balance.update_layout(
                 xaxis=dict(
+                    type='date',
                     showgrid=False,
                     linecolor='rgba(255,255,255,0.08)',
                     tickfont=dict(color='#8a99ad', size=9),
-                    tickmode='auto',
-                    nticks=5
+                    tickformat="%m/%d",
+                    nticks=6
                 ),
                 yaxis=dict(
                     showgrid=True,
