@@ -1019,7 +1019,24 @@ def render_live_dashboard():
                 else:
                     st.session_state.account_balances[acc] = 300.0
 
-        # Header with Cool App Icon
+        # Initialize In-App Notification Feed in Session State
+        if "in_app_alerts" not in st.session_state:
+            initial_alerts = []
+            if not df_trades.empty:
+                for _, r in df_trades.head(4).iterrows():
+                    pnl_val = float(r.get("net_profit", 0.0))
+                    initial_alerts.append({
+                        "id": str(r.get("trade_id", "")),
+                        "symbol": str(r.get("symbol", "")).upper(),
+                        "direction": str(r.get("direction", "")).upper(),
+                        "pnl": pnl_val,
+                        "account": "Funded MT5" if str(r.get("account_id", "")).startswith("MT5_") else "Capital Real",
+                        "time": str(r.get("close_time", ""))[:16],
+                        "duration": f"{float(r.get('duration_minutes', 0.0)):.1f}m"
+                    })
+            st.session_state.in_app_alerts = initial_alerts
+
+        # Header with Cool App Icon & Live In-App Notification Trigger
         icon_b64 = get_app_icon_b64()
         logo_html = f'<img src="data:image/png;base64,{icon_b64}" style="width: 44px; height: 44px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0, 255, 204, 0.25);">' if icon_b64 else """
             <div style="width: 44px; height: 44px; border-radius: 10px; background: linear-gradient(135deg, rgba(0, 255, 204, 0.15), rgba(0, 119, 255, 0.2)); border: 1px solid rgba(0, 255, 204, 0.3); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);">
@@ -1030,7 +1047,7 @@ def render_live_dashboard():
             </div>
         """
         st.markdown(f"""
-        <div style="display: flex; align-items: center; gap: 14px; margin-top: 8px; margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; gap: 14px; margin-top: 8px; margin-bottom: 16px;">
             {logo_html}
             <div>
                 <h1 style="margin: 0; font-size: 1.85rem; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">TradeLogger Analytics</h1>
@@ -1038,6 +1055,43 @@ def render_live_dashboard():
             </div>
         </div>
         """, unsafe_allow_html=True)
+
+        # In-App Notification Center Drawer
+        alert_count = len(st.session_state.in_app_alerts)
+        with st.expander(f"🔔 Live In-App Alerts & Trade Notifications ({alert_count})", expanded=False):
+            if st.session_state.in_app_alerts:
+                c_btn_l, c_btn_r = st.columns([5, 1])
+                with c_btn_r:
+                    if st.button("Clear Alerts", key="clear_in_app_alerts", use_container_width=True):
+                        st.session_state.in_app_alerts = []
+                        st.rerun()
+                
+                for alert in st.session_state.in_app_alerts:
+                    is_win = alert["pnl"] >= 0
+                    pnl_color = "#00ffcc" if is_win else "#ff5555"
+                    pnl_badge = f"+${alert['pnl']:,.2f}" if is_win else f"-${abs(alert['pnl']):,.2f}"
+                    emoji = "🟢" if is_win else "🔴"
+                    
+                    st.markdown(f"""
+                    <div style="background: rgba(18, 24, 38, 0.7); border: 1px solid {'rgba(0, 255, 204, 0.25)' if is_win else 'rgba(255, 85, 85, 0.25)'}; border-left: 4px solid {pnl_color}; border-radius: 12px; padding: 12px 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span style="font-size: 18px;">{emoji}</span>
+                            <div>
+                                <div style="font-weight: 700; font-size: 14px; color: #ffffff;">
+                                    {alert['symbol']} <span style="font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.08); color: #8a99ad; margin-left: 4px;">{alert['direction']}</span>
+                                </div>
+                                <div style="font-size: 12px; color: #8a99ad; margin-top: 2px;">
+                                    {alert['account']} • Duration: {alert['duration']} • {alert['time']}
+                                </div>
+                            </div>
+                        </div>
+                        <div style="font-size: 16px; font-weight: 800; color: {pnl_color}; text-shadow: 0 0 10px {'rgba(0, 255, 204, 0.4)' if is_win else 'rgba(255, 85, 85, 0.4)'};">
+                            {pnl_badge}
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.markdown("<p style='color: #8a99ad; font-size: 13px; margin: 8px 0;'>No recent alerts. New trade closures will appear here live.</p>", unsafe_allow_html=True)
 
         # Unified Control & Filter Card (Active State)
         with st.container(border=True):
@@ -1080,50 +1134,66 @@ def render_live_dashboard():
                 with col_test:
                     st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
                     if st.button("Test Alert", key="active_test_alert", use_container_width=True):
-                        with st.spinner("Sending test alert..."):
-                            import alerts
-                            alerts.notify_trade_closed({
-                                "symbol": "XAUUSD",
-                                "direction": "BUY",
-                                "net_profit": 125.50,
-                                "duration_minutes": 34.2,
-                                "account_id": "MT5_26633147",
-                                "entry_price": 2501.20,
-                                "exit_price": 2513.75
-                            })
-                            # Trigger direct client-side notification for Phone App + Browser
-                            from streamlit.components.v1 import html
-                            html("""
-                            <script>
-                                // 1. Native Flutter App Bridge (Checks both iframe and parent window)
-                                const flutterBridge = window.TradeAlert || (window.parent && window.parent.TradeAlert);
-                                if (flutterBridge) {
-                                    flutterBridge.postMessage(JSON.stringify({
-                                        title: "Trade Closed: XAUUSD (+$125.50)",
-                                        body: "Funded MT5 • BUY • PnL: +$125.50 • Duration: 34.2m"
-                                    }));
-                                }
-                                
-                                // 2. Browser Desktop Notification (Checks both iframe and parent window)
-                                const notifApi = window.Notification || (window.parent && window.parent.Notification);
-                                if (notifApi) {
-                                    if (notifApi.permission === "granted") {
-                                        new notifApi("Trade Closed: XAUUSD (+$125.50)", {
-                                            body: "Funded MT5 • BUY • PnL: +$125.50 • Duration: 34.2m"
-                                        });
-                                    } else if (notifApi.permission !== "denied") {
-                                        notifApi.requestPermission().then(function (perm) {
-                                            if (perm === "granted") {
-                                                new notifApi("Trade Closed: XAUUSD (+$125.50)", {
-                                                    body: "Funded MT5 • BUY • PnL: +$125.50 • Duration: 34.2m"
-                                                });
-                                            }
-                                        });
-                                    }
-                            </script>
-                            """, height=0)
-                            st.toast("🟢 Trade Closed: XAUUSD (+$125.50)\nFunded MT5 • BUY • Duration: 34.2m", icon="🔔")
-                            st.success("Test alert dispatched! Windows banner, mobile push, and in-app toast triggered.")
+                        # Prepend new test alert to in-app live feed
+                        new_alert_item = {
+                            "id": f"test_{int(time.time())}",
+                            "symbol": "XAUUSD",
+                            "direction": "BUY",
+                            "pnl": 125.50,
+                            "account": "Funded MT5",
+                            "time": "Just now",
+                            "duration": "34.2m"
+                        }
+                        if "in_app_alerts" not in st.session_state:
+                            st.session_state.in_app_alerts = []
+                        st.session_state.in_app_alerts.insert(0, new_alert_item)
+                        
+                        import alerts
+                        alerts.notify_trade_closed({
+                            "symbol": "XAUUSD",
+                            "direction": "BUY",
+                            "net_profit": 125.50,
+                            "duration_minutes": 34.2,
+                            "account_id": "MT5_26633147",
+                            "entry_price": 2501.20,
+                            "exit_price": 2513.75
+                        })
+                        
+                        # Audio Synth Chime + Client Notification
+                        from streamlit.components.v1 import html
+                        html("""
+                        <script>
+                            // 1. Play High-Tech Web Audio Notification Chime
+                            try {
+                                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                                const osc = audioCtx.createOscillator();
+                                const gain = audioCtx.createGain();
+                                osc.type = 'sine';
+                                osc.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+                                osc.frequency.exponentialRampToValueAtTime(1320, audioCtx.currentTime + 0.12); // E6
+                                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.35);
+                                osc.connect(gain);
+                                gain.connect(audioCtx.destination);
+                                osc.start();
+                                osc.stop(audioCtx.currentTime + 0.35);
+                            } catch(e) {
+                                console.log("Audio notice:", e);
+                            }
+
+                            // 2. Native Flutter App Bridge
+                            const flutterBridge = window.TradeAlert || (window.parent && window.parent.TradeAlert);
+                            if (flutterBridge) {
+                                flutterBridge.postMessage(JSON.stringify({
+                                    title: "Trade Closed: XAUUSD (+$125.50)",
+                                    body: "Funded MT5 • BUY • PnL: +$125.50 • Duration: 34.2m"
+                                }));
+                            }
+                        </script>
+                        """, height=0)
+                        
+                        st.toast("🟢 Trade Closed: XAUUSD (+$125.50)\nFunded MT5 • BUY • PnL: +$125.50 • Duration: 34.2m", icon="🔔")
+                        st.success("Test alert dispatched! Added to Live In-App Alerts feed above.")
 
             # Filter base dataframe by selected account
             if selected_account != "ALL":
