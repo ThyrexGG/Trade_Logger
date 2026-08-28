@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationService {
@@ -9,7 +10,7 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
 
   Future<void> init() async {
-    const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@drawable/ic_stat_trade_alert');
     const InitializationSettings initSettings = InitializationSettings(android: androidSettings);
 
     await _notificationsPlugin.initialize(
@@ -26,7 +27,16 @@ class NotificationService {
   }
 
   Future<void> showNotification({required String title, required String body, String? payload}) async {
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+    final BigTextStyleInformation bigTextStyle = BigTextStyleInformation(
+      body,
+      htmlFormatBigText: true,
+      contentTitle: title,
+      htmlFormatContentTitle: true,
+      summaryText: 'TradeLogger Live',
+      htmlFormatSummaryText: true,
+    );
+
+    final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       'trade_alerts_channel',
       'Trade Alerts',
       channelDescription: 'Real-time trade close and risk limit notifications',
@@ -35,9 +45,13 @@ class NotificationService {
       showWhen: true,
       enableVibration: true,
       playSound: true,
+      color: const Color(0xFF00FFCC),
+      icon: '@drawable/ic_stat_trade_alert',
+      largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+      styleInformation: bigTextStyle,
     );
 
-    const NotificationDetails platformDetails = NotificationDetails(android: androidDetails);
+    final NotificationDetails platformDetails = NotificationDetails(android: androidDetails);
 
     await _notificationsPlugin.show(
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
