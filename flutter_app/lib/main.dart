@@ -1,19 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:onesignal_flutter/onesignal_flutter.dart';
 
 // Swap this URL with your deployed Streamlit Cloud URL or your local PC IP address:
 // - Streamlit Cloud example: "https://your-app-name.streamlit.app"
 // - Emulator testing (points to host PC localhost): "http://10.0.2.2:8502"
 // - Real phone local testing: "http://<YOUR_PC_IP_ADDRESS>:8502"
 const String dashboardUrl = "https://tradelogger-bfepaizstq8o8xwrj3sdj5.streamlit.app";
+const String oneSignalAppId = "1f707b9d-5a8e-411d-b8cc-13c68a9b7ff4";
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+
+  // Initialize Native OneSignal Push Notifications
+  try {
+    OneSignal.initialize(oneSignalAppId);
+    // Prompt user for push notification permissions
+    OneSignal.Notifications.requestPermission(true);
+  } catch (e) {
+    debugPrint("OneSignal initialization error: $e");
+  }
+
   runApp(const TradeLoggerApp());
 }
 
