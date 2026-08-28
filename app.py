@@ -435,9 +435,9 @@ if df_trades.empty:
                         else:
                             st.error("Capital.com sync failed.")
 else:
-    # Convert dates to pandas datetime objects
-    df_trades["entry_time"] = pd.to_datetime(df_trades["entry_time"])
-    df_trades["exit_time"] = pd.to_datetime(df_trades["exit_time"])
+    # Convert dates to pandas datetime objects (handles mixed timezone and ISO formats)
+    df_trades["entry_time"] = pd.to_datetime(df_trades["entry_time"], format="mixed", utc=True).dt.tz_localize(None)
+    df_trades["exit_time"] = pd.to_datetime(df_trades["exit_time"], format="mixed", utc=True).dt.tz_localize(None)
     
     # Header
     st.markdown("""
