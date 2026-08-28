@@ -1302,9 +1302,22 @@ else:
         with col_hero_chart:
             # Wide Hero Account Balance & Equity Curve (The5ers Hub style)
             min_entry = filtered_df["entry_time"].min()
-            start_baseline_time = min_entry - pd.Timedelta(hours=14)
+            # Start baseline 20 hours before first trade to anchor deposit on 08/26
+            start_baseline_time = min_entry - pd.Timedelta(hours=20)
             x_times = [start_baseline_time] + list(filtered_df["exit_time"])
             y_balances = [initial_balance] + list(filtered_df["balance"])
+            
+            # X-Axis Breathing Room Buffer so edge points are never cut off
+            time_span = x_times[-1] - x_times[0]
+            pad_x = max(time_span * 0.08, pd.Timedelta(hours=4))
+            x_range = [x_times[0] - pad_x, x_times[-1] + pad_x]
+            
+            # Y-Axis Active Range Zoom
+            min_b = min(y_balances)
+            max_b = max(y_balances)
+            diff_b = max(max_b - min_b, 10.0)
+            y_min = min_b - (diff_b * 0.15)
+            y_max = max_b + (diff_b * 0.15)
             
             # Hover text with trade details on anchor points
             hover_labels = [f"<b>Initial Deposit</b><br>Balance: <b>${initial_balance:,.2f}</b>"]
@@ -1317,23 +1330,27 @@ else:
                     f"<b>{t_str}</b> ({sym})<br>Trade PnL: <b style='color:{'#00ffcc' if pnl_val>=0 else '#ff5555'}'>{pnl_sign}${abs(pnl_val):,.2f}</b><br>Balance: <b>${row['balance']:,.2f}</b>"
                 )
             
-            min_b = min(y_balances)
-            max_b = max(y_balances)
-            diff_b = max(max_b - min_b, 10.0)
-            y_min = min_b - (diff_b * 0.15)
-            y_max = max_b + (diff_b * 0.15)
-            
             fig_balance = go.Figure()
             
-            # Smooth neon spline with glowing anchor markers
+            # High Water Mark subtle reference line
+            fig_balance.add_trace(go.Scatter(
+                x=[x_range[0], x_range[1]],
+                y=[highest_balance, highest_balance],
+                mode='lines',
+                line=dict(color='rgba(255, 255, 255, 0.12)', width=1, dash='dot'),
+                hoverinfo='skip',
+                name='HWM'
+            ))
+            
+            # Clean trajectory curve with glowing anchor markers
             fig_balance.add_trace(go.Scatter(
                 x=x_times,
                 y=y_balances,
                 mode='lines+markers',
-                marker=dict(size=7, color='#bef264', line=dict(color='#0d111a', width=1.5)),
-                line=dict(color='#bef264', width=3, shape='spline'),
+                marker=dict(size=6, color='#bef264', line=dict(color='#0d111a', width=1.5)),
+                line=dict(color='#bef264', width=2.5, shape='linear'),
                 fill='tozeroy',
-                fillcolor='rgba(190, 242, 100, 0.07)',
+                fillcolor='rgba(190, 242, 100, 0.06)',
                 hovertext=hover_labels,
                 hoverinfo="text",
                 name='Balance'
@@ -1342,11 +1359,13 @@ else:
             fig_balance.update_layout(
                 xaxis=dict(
                     type='date',
+                    range=x_range,
+                    autorange=False,
                     showgrid=False,
                     linecolor='rgba(255,255,255,0.08)',
                     tickfont=dict(color='#8a99ad', size=10),
                     tickformat="%b %d",
-                    nticks=7
+                    nticks=6
                 ),
                 yaxis=dict(
                     range=[y_min, y_max],
@@ -1360,7 +1379,7 @@ else:
                 ),
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0)',
-                margin=dict(l=10, r=15, t=10, b=10),
+                margin=dict(l=10, r=20, t=10, b=10),
                 height=310,
                 showlegend=False
             )
