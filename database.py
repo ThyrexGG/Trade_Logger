@@ -109,6 +109,27 @@ def init_db():
                 updated_at TEXT NOT NULL
             );
         """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS price_alerts (
+                id SERIAL PRIMARY KEY,
+                symbol TEXT NOT NULL,
+                target_price DOUBLE PRECISION NOT NULL,
+                condition TEXT NOT NULL,
+                account_id TEXT DEFAULT 'ALL',
+                status TEXT DEFAULT 'ACTIVE',
+                created_at TEXT NOT NULL,
+                triggered_at TEXT,
+                notes TEXT
+            );
+        """)
+        
+        # Add migration columns for closed_trades in Postgres safely
+        try:
+            cursor.execute("ALTER TABLE closed_trades ADD COLUMN IF NOT EXISTS chart_snapshot_url TEXT;")
+            cursor.execute("ALTER TABLE closed_trades ADD COLUMN IF NOT EXISTS notes TEXT;")
+            cursor.execute("ALTER TABLE closed_trades ADD COLUMN IF NOT EXISTS rating INTEGER DEFAULT 0;")
+        except Exception:
+            pass
     else:
         # SQLite Schema
         cursor.execute("""
@@ -143,7 +164,10 @@ def init_db():
                 entry_time TEXT NOT NULL,
                 exit_time TEXT NOT NULL,
                 duration_minutes REAL DEFAULT 0,
-                setup_tag TEXT DEFAULT NULL
+                setup_tag TEXT DEFAULT NULL,
+                chart_snapshot_url TEXT DEFAULT NULL,
+                notes TEXT DEFAULT NULL,
+                rating INTEGER DEFAULT 0
             )
         """)
 
@@ -174,6 +198,34 @@ def init_db():
                 updated_at TEXT NOT NULL
             )
         """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS price_alerts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                symbol TEXT NOT NULL,
+                target_price REAL NOT NULL,
+                condition TEXT NOT NULL,
+                account_id TEXT DEFAULT 'ALL',
+                status TEXT DEFAULT 'ACTIVE',
+                created_at TEXT NOT NULL,
+                triggered_at TEXT DEFAULT NULL,
+                notes TEXT DEFAULT NULL
+            )
+        """)
+
+        # Add migration columns for existing closed_trades SQLite table safely
+        try:
+            cursor.execute("ALTER TABLE closed_trades ADD COLUMN chart_snapshot_url TEXT DEFAULT NULL;")
+        except Exception:
+            pass
+        try:
+            cursor.execute("ALTER TABLE closed_trades ADD COLUMN notes TEXT DEFAULT NULL;")
+        except Exception:
+            pass
+        try:
+            cursor.execute("ALTER TABLE closed_trades ADD COLUMN rating INTEGER DEFAULT 0;")
+        except Exception:
+            pass
     
     conn.commit()
     conn.close()
@@ -386,6 +438,122 @@ def get_account_balances():
         }
     return balances
 
+# ----------------- Price Alerts Management -----------------
+
+def create_price_alert(symbol, target_price, condition, account_id="ALL", notes=""):
+    """Creates a new price alert in the database."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    now_iso = datetime.now(timezone.utc).isoformat()
+    
+    if is_postgres():
+        cursor.execute("""
+            INSERT INTO price_alerts (symbol, target_price, condition, account_id, status, created_at, notes)
+            VALUES (%s, %s, %s, %s, 'ACTIVE', %s, %s)
+            RETURNING id
+        """, (str(symbol).upper(), float(target_price), str(condition).upper(), account_id, now_iso, notes))
+        alert_id = cursor.fetchone()[0]
+    else:
+        cursor.execute("""
+            INSERT INTO price_alerts (symbol, target_price, condition, account_id, status, created_at, notes)
+            VALUES (?, ?, ?, ?, 'ACTIVE', ?, ?)
+        """, (str(symbol).upper(), float(target_price), str(condition).upper(), account_id, now_iso, notes))
+        alert_id = cursor.lastrowid
+        
+    conn.commit()
+    conn.close()
+    return alert_id
+
+def get_active_price_alerts():
+    """Returns a list of all ACTIVE price alerts."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, symbol, target_price, condition, account_id, notes, created_at FROM price_alerts WHERE status = 'ACTIVE'")
+    rows = cursor.fetchall()
+    conn.close()
+    
+    alerts = []
+    for r in rows:
+        alerts.append({
+            "id": r[0],
+            "symbol": str(r[1]).upper(),
+            "target_price": float(r[2]),
+            "condition": str(r[3]).upper(),
+            "account_id": str(r[4]),
+            "notes": str(r[5] or ""),
+            "created_at": str(r[6])
+        })
+    return alerts
+
+def get_all_price_alerts(limit=50):
+    """Returns a pandas DataFrame of all price alerts (ACTIVE and TRIGGERED)."""
+    conn = get_connection()
+    if is_postgres():
+        df = pd.read_sql_query("SELECT * FROM price_alerts ORDER BY id DESC LIMIT %s", conn, params=(limit,))
+    else:
+        df = pd.read_sql_query("SELECT * FROM price_alerts ORDER BY id DESC LIMIT ?", conn, params=(limit,))
+    conn.close()
+    return df
+
+def mark_price_alert_triggered(alert_id):
+    """Marks a price alert as TRIGGERED."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    now_iso = datetime.now(timezone.utc).isoformat()
+    if is_postgres():
+        cursor.execute("UPDATE price_alerts SET status = 'TRIGGERED', triggered_at = %s WHERE id = %s", (now_iso, int(alert_id)))
+    else:
+        cursor.execute("UPDATE price_alerts SET status = 'TRIGGERED', triggered_at = ? WHERE id = ?", (now_iso, int(alert_id)))
+    conn.commit()
+    conn.close()
+    return True
+
+def delete_price_alert(alert_id):
+    """Deletes a price alert from database."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    if is_postgres():
+        cursor.execute("DELETE FROM price_alerts WHERE id = %s", (int(alert_id),))
+    else:
+        cursor.execute("DELETE FROM price_alerts WHERE id = ?", (int(alert_id),))
+    conn.commit()
+    conn.close()
+    return True
+
+# ----------------- Trade Journal Snapshots & Notes -----------------
+
+def update_trade_journal(trade_id, chart_snapshot_url=None, setup_tag=None, notes=None, rating=None):
+    """Updates chart snapshot, setup category, notes, and rating for a closed trade."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    updates = []
+    params = []
+    
+    if chart_snapshot_url is not None:
+        updates.append("chart_snapshot_url = %s" if is_postgres() else "chart_snapshot_url = ?")
+        params.append(str(chart_snapshot_url))
+    if setup_tag is not None:
+        updates.append("setup_tag = %s" if is_postgres() else "setup_tag = ?")
+        params.append(str(setup_tag))
+    if notes is not None:
+        updates.append("notes = %s" if is_postgres() else "notes = ?")
+        params.append(str(notes))
+    if rating is not None:
+        updates.append("rating = %s" if is_postgres() else "rating = ?")
+        params.append(int(rating))
+        
+    if not updates:
+        conn.close()
+        return False
+        
+    params.append(str(trade_id))
+    query = f"UPDATE closed_trades SET {', '.join(updates)} WHERE trade_id = {'%s' if is_postgres() else '?'}"
+    cursor.execute(query, tuple(params))
+    conn.commit()
+    conn.close()
+    return True
+
 if __name__ == "__main__":
     init_db()
-    print("Database initialized successfully.")
+    print("Database initialized successfully with Price Alerts and Trade Journal enhancements.")

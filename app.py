@@ -11,6 +11,8 @@ import time
 import database
 import mt5_sync
 import capital_sync
+import tradingview_widget
+import order_execution
 
 def render_html(html_str):
     clean_lines = [line.strip() for line in html_str.splitlines()]
@@ -2243,11 +2245,166 @@ def render_live_dashboard():
                     cal_html += '</div><div style="height: 6px;"></div>'
                     render_html(cal_html)
 
-            # ------------------
-            # ROW 3 TABS (Journal & Analytics Charts)
-            # ------------------
+            # ----------------------------------------------------
+            # TOP-LEVEL APPLICATION WORKSPACE TABS
+            # ----------------------------------------------------
             st.markdown("---")
-            tab_journal, tab_charts = st.tabs(["Trades Journal & Open Positions", "Trade Performance Charts"])
+            tab_analytics, tab_tv, tab_alerts, tab_journal, tab_trade = st.tabs([
+                "📊 Performance Breakdown",
+                "📈 Live TradingView Chart",
+                "🔔 Price Alerts & Risk Studio",
+                "📖 Trade Journal & Snapshots",
+                "⚡ Quick Trading Terminal"
+            ])
+
+            with tab_analytics:
+                st.subheader("Performance Breakdown")
+                col_ch1, col_ch2 = st.columns(2)
+
+                with col_ch1:
+                    symbol_pnl = filtered_df.groupby("symbol")["net_profit"].sum().reset_index()
+                    symbol_pnl = symbol_pnl.sort_values(by="net_profit", ascending=False)
+                    fig_symbol = px.bar(
+                        symbol_pnl,
+                        x="symbol",
+                        y="net_profit",
+                        title="Net Profit by Symbol",
+                        labels={"symbol": "Symbol", "net_profit": "Net PnL ($)"},
+                        color="net_profit",
+                        color_continuous_scale=["#ff5555", "#00ffcc"],
+                        template="plotly_dark"
+                    )
+                    fig_symbol.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                    st.plotly_chart(fig_symbol, use_container_width=True)
+
+                with col_ch2:
+                    tag_pnl = filtered_df.fillna("Untagged").groupby("setup_tag")["net_profit"].sum().reset_index()
+                    fig_tag = px.bar(
+                        tag_pnl,
+                        x="setup_tag",
+                        y="net_profit",
+                        title="Net Profit by Setup Tag",
+                        labels={"setup_tag": "Setup / Strategy", "net_profit": "Net PnL ($)"},
+                        color="net_profit",
+                        color_continuous_scale=["#ff5555", "#00ffcc"],
+                        template="plotly_dark"
+                    )
+                    fig_tag.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                    st.plotly_chart(fig_tag, use_container_width=True)
+
+            with tab_tv:
+                st.markdown("<h3 style='color:#ffffff;font-size:1.3rem;margin-bottom:6px;'>📈 Real-Time TradingView Technical Chart</h3>", unsafe_allow_html=True)
+                st.markdown("<p style='color:#8a99ad;font-size:13px;margin-bottom:16px;'>Interactive real-time charting with multi-timeframe analysis, technical indicators, and drawing tools.</p>", unsafe_allow_html=True)
+                
+                col_sym, col_tf, col_custom = st.columns([1.5, 1, 1.5])
+                with col_sym:
+                    selected_tv_preset = st.selectbox(
+                        "Select Market Asset",
+                        options=list(tradingview_widget.DEFAULT_SYMBOLS.keys()),
+                        index=0,
+                        key="tv_symbol_preset"
+                    )
+                    tv_symbol = tradingview_widget.DEFAULT_SYMBOLS[selected_tv_preset]
+                with col_tf:
+                    tv_interval = st.selectbox(
+                        "Chart Timeframe",
+                        options=["1", "5", "15", "60", "240", "D"],
+                        format_func=lambda x: {"1": "1 Minute", "5": "5 Minutes", "15": "15 Minutes", "60": "1 Hour", "240": "4 Hours", "D": "Daily"}[x],
+                        index=2,
+                        key="tv_interval_sel"
+                    )
+                with col_custom:
+                    custom_sym = st.text_input("Or Custom Ticker", value="", placeholder="e.g. BINANCE:SOLUSDT", key="tv_custom_sym")
+                    if custom_sym.strip():
+                        tv_symbol = custom_sym.strip().upper()
+                        
+                tradingview_widget.render_tradingview_chart(symbol=tv_symbol, interval=tv_interval, height=650)
+
+            with tab_alerts:
+                st.markdown("<h3 style='color:#ffffff;font-size:1.3rem;margin-bottom:6px;'>🔔 Price Alerts & Risk Studio</h3>", unsafe_allow_html=True)
+                st.markdown("<p style='color:#8a99ad;font-size:13px;margin-bottom:16px;'>Set target price cross alerts and configure custom profit targets or risk limits.</p>", unsafe_allow_html=True)
+                
+                sub_t_price, sub_t_rules = st.tabs(["🎯 Live Price Target Alerts", "⚙️ Profit/Loss Alert Rules"])
+                
+                with sub_t_price:
+                    with st.container(border=True):
+                        st.markdown("<h4 style='color:#00ffcc;font-size:15px;margin:0 0 12px 0;'>➕ Create New Price Target Alert</h4>", unsafe_allow_html=True)
+                        col_p1, col_p2, col_p3, col_p4 = st.columns([1.2, 1.2, 1.2, 1.8])
+                        with col_p1:
+                            p_sym = st.text_input("Symbol", value="XAUUSD", placeholder="e.g. XAUUSD, EURUSD", key="input_pa_sym_tab")
+                        with col_p2:
+                            p_target = st.number_input("Target Price ($)", value=2510.0, step=0.5, format="%.2f", key="input_pa_target_tab")
+                        with col_p3:
+                            p_cond = st.selectbox("Condition", options=["ABOVE", "BELOW"], format_func=lambda x: "Rose Above (>=)" if x == "ABOVE" else "Dropped Below (<=)", key="input_pa_cond_tab")
+                        with col_p4:
+                            p_notes = st.text_input("Alert Notes", value="", placeholder="e.g. Resistance breakout / 4H key level", key="input_pa_notes_tab")
+                            
+                        if st.button("Set Price Alert", type="primary", key="btn_set_price_alert_tab", use_container_width=True):
+                            database.create_price_alert(symbol=p_sym, target_price=p_target, condition=p_cond, notes=p_notes)
+                            st.success(f"Price alert set for {p_sym.upper()} {p_cond} ${p_target:,.2f}!")
+                            st.rerun()
+                            
+                    # List of Price Alerts
+                    df_alerts = database.get_all_price_alerts(limit=50)
+                    if not df_alerts.empty:
+                        st.markdown("<h4 style='color:#ffffff;font-size:15px;margin:18px 0 10px 0;'>📋 Your Price Alerts</h4>", unsafe_allow_html=True)
+                        for _, r in df_alerts.iterrows():
+                            is_active = str(r["status"]).upper() == "ACTIVE"
+                            badge_col = "#00ffcc" if is_active else "#8a99ad"
+                            badge_bg = "rgba(0,255,204,0.12)" if is_active else "rgba(255,255,255,0.06)"
+                            col_al_info, col_al_del = st.columns([5, 1])
+                            with col_al_info:
+                                st.markdown(f"""
+                                <div style="background: rgba(18, 24, 38, 0.7); border: 1px solid rgba(255,255,255,0.08); border-left: 4px solid {badge_col}; border-radius: 10px; padding: 10px 14px; margin-bottom: 6px;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                                        <div>
+                                            <span style="font-weight: 700; font-size: 14px; color: #ffffff;">{r['symbol']}</span>
+                                            <span style="font-size: 11px; padding: 2px 6px; border-radius: 4px; background: {badge_bg}; color: {badge_col}; margin-left: 6px;">{r['status']}</span>
+                                            <div style="font-size: 12px; color: #8a99ad; margin-top: 3px;">
+                                                Target: <b>${float(r['target_price']):,.2f}</b> ({r['condition']}) {f"• Note: {r['notes']}" if r.get('notes') else ''} • Created: {str(r['created_at'])[:16]}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                """, unsafe_allow_html=True)
+                            with col_al_del:
+                                st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+                                if st.button("Delete", key=f"del_pa_{r['id']}", use_container_width=True):
+                                    database.delete_price_alert(r["id"])
+                                    st.rerun()
+                    else:
+                        st.info("No active price alerts yet. Set your first price target above!")
+
+                with sub_t_rules:
+                    import alerts
+                    current_rules = alerts.get_alert_rules()
+                    
+                    st.markdown("<p style='color: #8a99ad; font-size: 12px; margin-bottom: 12px;'>Configure your custom alert targets and drawdown risk limits below:</p>", unsafe_allow_html=True)
+                    
+                    c_r1, c_r2 = st.columns(2)
+                    with c_r1:
+                        val_big_win = st.number_input("🎯 Big Win Target Alert ($)", value=float(current_rules.get("big_win_threshold", 100.0)), step=10.0, min_value=0.0, key="rule_big_win_tab")
+                        val_max_loss = st.number_input("⚠️ Max Loss Risk Alert ($)", value=float(current_rules.get("max_loss_threshold", 50.0)), step=10.0, min_value=0.0, key="rule_max_loss_tab")
+                    with c_r2:
+                        val_drawdown = st.number_input("🚨 Daily Drawdown Floor Limit ($)", value=float(current_rules.get("daily_drawdown_limit", 300.0)), step=25.0, min_value=0.0, key="rule_dd_tab")
+                        val_streak = st.number_input("🔥 Win Streak Alert Target", value=int(current_rules.get("streak_alert_target", 3)), step=1, min_value=1, key="rule_streak_tab")
+                        
+                    c_chk, c_save = st.columns([2, 1])
+                    with c_chk:
+                        val_all_trades = st.checkbox("Send notification on every trade close", value=bool(current_rules.get("notify_on_all_trades", True)), key="chk_all_trades_alert_tab")
+                    with c_save:
+                        st.markdown("<div style='height:4px;'></div>", unsafe_allow_html=True)
+                        if st.button("Save Alert Rules", key="save_rules_tab_btn", type="primary", use_container_width=True):
+                            alerts.save_alert_rules({
+                                "big_win_threshold": val_big_win,
+                                "max_loss_threshold": val_max_loss,
+                                "daily_drawdown_limit": val_drawdown,
+                                "streak_alert_target": val_streak,
+                                "notify_on_all_trades": val_all_trades,
+                                "filter_account": "ALL"
+                            })
+                            st.success("Custom alert rules updated successfully!")
+                            st.rerun()
 
             with tab_journal:
                 # ------------------------------------
@@ -2331,28 +2488,16 @@ def render_live_dashboard():
                         </div>
                     </div>
                     """)
-                else:
-                    render_html("""
-                    <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:10px 16px; margin-bottom:20px;">
-                        <div style="display:flex; align-items:center; gap:8px; font-size:12px; color:#8a99ad;">
-                            <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#8a99ad;"></span>
-                            <span>No active open positions. Watching markets for trade setups.</span>
-                        </div>
-                        <span style="font-size:11px; color:#8a99ad; font-family:monospace;">Floating P&L: $0.00</span>
-                    </div>
-                    """)
 
                 # ------------------------------------
                 # 2. CLOSED TRADES JOURNAL
                 # ------------------------------------
-                st.markdown('<div style="font-size:14px; font-weight:700; color:#ffffff; margin-bottom:10px;">Closed Trades Journal</div>', unsafe_allow_html=True)
+                st.markdown('<div style="font-size:14px; font-weight:700; color:#ffffff; margin-bottom:10px;">📖 Trade Journal & Snapshot Review</div>', unsafe_allow_html=True)
                 df_display = filtered_df.sort_values(by="exit_time", ascending=False).copy()
 
-                # Build Rich Styled HTML Table with Profit Green and Loss Red
                 table_rows_html = ""
                 for idx, row in df_display.iterrows():
                     trade_id_raw = str(row["trade_id"])
-                    # Clean ticket presentation
                     if trade_id_raw.startswith("MT5_"):
                         ticket_disp = "#" + trade_id_raw.split("_")[-1]
                         acc_disp = "MT5 (Funded)"
@@ -2378,17 +2523,13 @@ def render_live_dashboard():
                     else:
                         pnl_badge = '<span style="color:#8a99ad; font-weight:600;">$0.00</span>'
 
-                    # Quality Score computation
                     pnl_pct = abs(net_pnl) / initial_balance * 100
                     if net_pnl > 0:
                         q_score = min(98, int(75 + (net_pnl / initial_balance * 500)))
                         q_badge = f'<span class="badge-quality badge-quality-high">{q_score} GOOD</span>'
                     else:
                         q_score = max(12, int(65 - (pnl_pct * 30)))
-                        if q_score >= 40:
-                            q_badge = f'<span class="badge-quality badge-quality-med">{q_score} AVG</span>'
-                        else:
-                            q_badge = f'<span class="badge-quality badge-quality-low">{q_score} POOR</span>'
+                        q_badge = f'<span class="badge-quality badge-quality-med">{q_score} AVG</span>' if q_score >= 40 else f'<span class="badge-quality badge-quality-low">{q_score} POOR</span>'
 
                     entry_time_str = pd.to_datetime(row["entry_time"]).strftime("%Y-%m-%d %H:%M")
                     exit_time_str = pd.to_datetime(row["exit_time"]).strftime("%Y-%m-%d %H:%M")
@@ -2443,79 +2584,153 @@ def render_live_dashboard():
                 </div>
                 """)
 
-                with st.expander("Tag Editor (Categorize Setups)", expanded=False):
-                    st.write("Double-click on the **setup_tag** column below to categorize your trades. Click **Save Tags** to write changes.")
-                    edited_df = st.data_editor(
-                        df_display[[
-                            "trade_id", "symbol", "direction", "net_profit", "exit_time", "setup_tag"
-                        ]],
-                        column_config={
-                            "trade_id": st.column_config.TextColumn("Trade ID", disabled=True),
-                            "symbol": st.column_config.TextColumn("Symbol", disabled=True),
-                            "direction": st.column_config.TextColumn("Dir", disabled=True),
-                            "net_profit": st.column_config.NumberColumn("Net PnL ($)", disabled=True, format="$%.2f"),
-                            "exit_time": st.column_config.DatetimeColumn("Exit Time", disabled=True),
-                            "setup_tag": st.column_config.TextColumn("Setup Tag")
-                        },
-                        hide_index=True,
-                        use_container_width=True
-                    )
+                # Interactive Trade Reviewer & Snapshot Studio
+                with st.expander("🖼️ Trade Snapshot & In-Depth Review Studio", expanded=False):
+                    st.markdown("<p style='color:#8a99ad;font-size:13px;'>Select any trade to attach a TradingView chart snapshot URL, tag your setup strategy, and log personal trade notes:</p>", unsafe_allow_html=True)
+                    
+                    trade_choices = []
+                    for _, r in df_display.iterrows():
+                        pnl_val = float(r.get("net_profit", 0.0))
+                        pnl_label = f"+${pnl_val:.2f}" if pnl_val >= 0 else f"-${abs(pnl_val):.2f}"
+                        trade_choices.append(f"{r['trade_id']} | {r['symbol']} {r['direction']} | {pnl_label} | {str(r['exit_time'])[:16]}")
+                    if trade_choices:
+                        selected_choice = st.selectbox("Select Trade to Review", options=trade_choices, key="journal_trade_select")
+                        selected_tid = selected_choice.split(" | ")[0].strip()
+                        selected_row = df_display[df_display["trade_id"] == selected_tid].iloc[0]
+                        
+                        col_j1, col_j2 = st.columns([1.5, 1])
+                        with col_j1:
+                            curr_snap = str(selected_row.get("chart_snapshot_url", "") or "")
+                            new_snap_url = st.text_input("TradingView Chart Snapshot Link (e.g. https://www.tradingview.com/x/...)", value=curr_snap, placeholder="https://www.tradingview.com/x/...", key="input_snap_url")
+                            
+                            if new_snap_url.strip():
+                                img_url = new_snap_url.strip()
+                                if not img_url.endswith(".png") and "tradingview.com/x/" in img_url:
+                                    img_url = img_url + ".png" if not img_url.endswith(".png") else img_url
+                                try:
+                                    st.image(img_url, caption="Attached TradingView Chart Snapshot", use_container_width=True)
+                                except Exception:
+                                    st.markdown(f"[🔗 Open TradingView Snapshot in New Tab]({new_snap_url})", unsafe_allow_html=True)
+                                    
+                        with col_j2:
+                            curr_setup = str(selected_row.get("setup_tag", "") or "Breakout 🚀")
+                            setup_options = [
+                                "Breakout 🚀", "Support/Resistance Bounce 📈", "Order Block / FVG 🧱", 
+                                "News Scalp ⚡", "Trend Following 🌊", "Mean Reversion 🔄", "Liquidity Grab 💧"
+                            ]
+                            idx_s = setup_options.index(curr_setup) if curr_setup in setup_options else 0
+                            new_setup = st.selectbox("Strategy Setup", options=setup_options, index=idx_s, key="sel_setup_opt")
+                            
+                            curr_notes = str(selected_row.get("notes", "") or "")
+                            new_notes = st.text_area("Personal Trade Notes & Lessons", value=curr_notes, placeholder="What went well? Did you follow your risk management plan?", height=120, key="input_trade_notes")
+                            
+                            if st.button("Save Journal Entry", type="primary", key="save_journal_entry_btn", use_container_width=True):
+                                database.update_trade_journal(
+                                    trade_id=selected_tid,
+                                    chart_snapshot_url=new_snap_url.strip(),
+                                    setup_tag=new_setup,
+                                    notes=new_notes.strip()
+                                )
+                                st.success("Trade journal entry and chart snapshot saved!")
+                                st.rerun()
 
-                    if st.button("Save Tags", type="primary"):
-                        changes_saved = 0
-                        for idx, row in edited_df.iterrows():
-                            trade_id = row["trade_id"]
-                            new_tag = row["setup_tag"]
+            with tab_trade:
+                st.markdown("<h3 style='color:#ffffff;font-size:1.3rem;margin-bottom:6px;'>⚡ Quick Trading Terminal</h3>", unsafe_allow_html=True)
+                st.markdown("<p style='color:#8a99ad;font-size:13px;margin-bottom:16px;'>Place live market orders directly from your dashboard with built-in risk calculator and safety confirmation guards.</p>", unsafe_allow_html=True)
+                
+                with st.container(border=True):
+                    col_t_acc, col_t_sym, col_t_dir = st.columns([1.5, 1.2, 1.2])
+                    with col_t_acc:
+                        trade_acc = st.selectbox(
+                            "Select Execution Broker",
+                            options=["CAPITAL_REAL", "MT5_FUNDED"],
+                            format_func=lambda x: "Capital.com (Real Account • $294.03)" if x == "CAPITAL_REAL" else "MetaTrader 5 (Funded Account • $10,155.01)",
+                            key="term_acc_sel"
+                        )
+                    with col_t_sym:
+                        term_symbol = st.text_input("Asset / Epic", value="GOLD" if trade_acc == "CAPITAL_REAL" else "XAUUSD", placeholder="e.g. GOLD, US100, EURUSD", key="term_sym_input")
+                    with col_t_dir:
+                        term_dir = st.selectbox("Order Direction", options=["BUY", "SELL"], format_func=lambda x: "🟢 BUY (Long)" if x == "BUY" else "🔴 SELL (Short)", key="term_dir_sel")
+                        
+                    col_t_sz, col_t_sl, col_t_tp = st.columns(3)
+                    with col_t_sz:
+                        term_size = st.number_input("Volume / Lot Size", value=0.01 if trade_acc == "MT5_FUNDED" else 1.0, step=0.01 if trade_acc == "MT5_FUNDED" else 0.5, format="%.2f", key="term_size_input")
+                    with col_t_sl:
+                        term_sl = st.number_input("Stop Loss Price (0 = None)", value=0.0, step=1.0, format="%.2f", key="term_sl_input")
+                    with col_t_tp:
+                        term_tp = st.number_input("Take Profit Price (0 = None)", value=0.0, step=1.0, format="%.2f", key="term_tp_input")
+                        
+                    # Live Order Summary
+                    st.markdown(f"""
+                    <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px 14px; margin: 12px 0; display:flex; justify-content:space-between; align-items:center;">
+                        <span style="color:#8a99ad; font-size:13px;">Order Summary: <b style="color:#ffffff;">{term_dir} {term_size} lots of {term_symbol}</b></span>
+                        <span style="color:{'#00ffcc' if term_dir == 'BUY' else '#ff5555'}; font-weight:700; font-size:13px;">{'🟢 Long Position' if term_dir == 'BUY' else '🔴 Short Position'}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    col_btn_buy, col_btn_sell = st.columns(2)
+                    with col_btn_buy:
+                        if st.button("🟢 SUBMIT BUY ORDER", type="primary", key="btn_exec_buy", use_container_width=True):
+                            with st.spinner("Submitting BUY order..."):
+                                if trade_acc == "CAPITAL_REAL":
+                                    ok, msg = order_execution.execute_capital_trade(epic=term_symbol, direction="BUY", size=term_size, stop_loss=term_sl if term_sl > 0 else None, take_profit=term_tp if term_tp > 0 else None)
+                                else:
+                                    ok, msg = order_execution.execute_mt5_trade(symbol=term_symbol, direction="BUY", volume=term_size, stop_loss=term_sl if term_sl > 0 else None, take_profit=term_tp if term_tp > 0 else None)
+                                if ok:
+                                    st.success(msg)
+                                    st.rerun()
+                                else:
+                                    st.error(msg)
+                    with col_btn_sell:
+                        if st.button("🔴 SUBMIT SELL ORDER", key="btn_exec_sell", use_container_width=True):
+                            with st.spinner("Submitting SELL order..."):
+                                if trade_acc == "CAPITAL_REAL":
+                                    ok, msg = order_execution.execute_capital_trade(epic=term_symbol, direction="SELL", size=term_size, stop_loss=term_sl if term_sl > 0 else None, take_profit=term_tp if term_tp > 0 else None)
+                                else:
+                                    ok, msg = order_execution.execute_mt5_trade(symbol=term_symbol, direction="SELL", volume=term_size, stop_loss=term_sl if term_sl > 0 else None, take_profit=term_tp if term_tp > 0 else None)
+                                if ok:
+                                    st.success(msg)
+                                    st.rerun()
+                                else:
+                                    st.error(msg)
 
-                            original_tag = df_display[df_display["trade_id"] == trade_id]["setup_tag"].values[0]
-                            original_tag = None if pd.isna(original_tag) else str(original_tag)
-                            new_tag = None if pd.isna(new_tag) or new_tag == "" or new_tag is None else str(new_tag)
-
-                            if original_tag != new_tag:
-                                database.update_setup_tag(trade_id, new_tag)
-                                changes_saved += 1
-
-                        if changes_saved > 0:
-                            st.success(f"Saved {changes_saved} setup tags to the database!")
-                            st.rerun()
-                        else:
-                            st.info("No tag modifications detected.")
-
-            with tab_charts:
-                st.subheader("Performance Breakdown")
-                col_ch1, col_ch2 = st.columns(2)
-
-                with col_ch1:
-                    # Performance by Symbol
-                    symbol_pnl = filtered_df.groupby("symbol")["net_profit"].sum().reset_index()
-                    symbol_pnl = symbol_pnl.sort_values(by="net_profit", ascending=False)
-                    fig_symbol = px.bar(
-                        symbol_pnl,
-                        x="symbol",
-                        y="net_profit",
-                        title="Net Profit by Symbol",
-                        labels={"symbol": "Symbol", "net_profit": "Net PnL ($)"},
-                        color="net_profit",
-                        color_continuous_scale=["#ff5555", "#00ffcc"],
-                        template="plotly_dark"
-                    )
-                    fig_symbol.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                    st.plotly_chart(fig_symbol, use_container_width=True)
-
-                with col_ch2:
-                    # Performance by Strategy Setup Tag
-                    tag_pnl = filtered_df.fillna("Untagged").groupby("setup_tag")["net_profit"].sum().reset_index()
-                    fig_tag = px.bar(
-                        tag_pnl,
-                        x="setup_tag",
-                        y="net_profit",
-                        title="Net Profit by Setup Tag",
-                        labels={"setup_tag": "Setup / Strategy", "net_profit": "Net PnL ($)"},
-                        color="net_profit",
-                        color_continuous_scale=["#ff5555", "#00ffcc"],
-                        template="plotly_dark"
-                    )
-                    fig_tag.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                    st.plotly_chart(fig_tag, use_container_width=True)
+                # Open positions with Close button
+                if not df_open.empty:
+                    st.markdown("<h4 style='color:#ffffff;font-size:15px;margin:20px 0 10px 0;'>📊 Manage Live Open Positions</h4>", unsafe_allow_html=True)
+                    for _, pos in df_open.iterrows():
+                        pos_id = str(pos["position_id"])
+                        fl_pnl = float(pos.get("floating_pnl", 0.0))
+                        pnl_col = "#00ffcc" if fl_pnl >= 0 else "#ff5555"
+                        pnl_s = "+" if fl_pnl >= 0 else "-"
+                        
+                        col_pos_desc, col_pos_act = st.columns([4.5, 1.5])
+                        with col_pos_desc:
+                            st.markdown(f"""
+                            <div style="background:rgba(18,24,38,0.7); border:1px solid rgba(255,255,255,0.08); border-left:4px solid {pnl_col}; border-radius:10px; padding:10px 14px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+                                <div>
+                                    <span style="font-weight:700; color:#ffffff; font-size:14px;">{pos['symbol']}</span>
+                                    <span style="font-size:11px; padding:2px 6px; border-radius:4px; background:rgba(255,255,255,0.06); color:#8a99ad; margin-left:4px;">{pos['direction']} {float(pos['volume']):.2f}</span>
+                                    <div style="font-size:12px; color:#8a99ad; margin-top:2px;">
+                                        Entry: {float(pos['entry_price']):.5f} ➔ Current: {float(pos['current_price']):.5f} • Open: {str(pos['open_time'])[:16]}
+                                    </div>
+                                </div>
+                                <div style="font-size:16px; font-weight:800; color:{pnl_col};">
+                                    {pnl_s}${abs(fl_pnl):,.2f}
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        with col_pos_act:
+                            st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+                            if st.button("Close Position", key=f"close_pos_{pos_id}", use_container_width=True):
+                                if pos_id.startswith("MT5_"):
+                                    st.info("To close MT5 positions, manage them directly in your MetaTrader terminal.")
+                                else:
+                                    clean_id = pos_id.replace("CAP_", "")
+                                    ok, msg = order_execution.close_capital_position(clean_id)
+                                    if ok:
+                                        st.success(msg)
+                                        st.rerun()
+                                    else:
+                                        st.error(msg)
 
 render_live_dashboard()

@@ -73,6 +73,40 @@ def run_auto_sync():
                         log(f"Alert sent for trade {row['trade_id']} ({row['symbol']} PnL: ${row['net_profit']:.2f})")
         except Exception as alert_err:
             log(f"Alert dispatch error: {alert_err}")
+
+        # 4. Check Active Price Alerts
+        try:
+            active_alerts = database.get_active_price_alerts()
+            if active_alerts:
+                for alert in active_alerts:
+                    sym = alert["symbol"]
+                    target = float(alert["target_price"])
+                    cond = alert["condition"]
+                    
+                    # Fetch current live price for symbol via MT5 or Capital.com
+                    current_price = None
+                    if mt5_sync.MT5_AVAILABLE:
+                        try:
+                            import MetaTrader5 as mt5
+                            tick = mt5.symbol_info_tick(sym)
+                            if tick:
+                                current_price = float(tick.bid)
+                        except Exception:
+                            pass
+                            
+                    if current_price is not None:
+                        triggered = False
+                        if cond == "ABOVE" and current_price >= target:
+                            triggered = True
+                        elif cond == "BELOW" and current_price <= target:
+                            triggered = True
+                            
+                        if triggered:
+                            log(f"Price alert triggered! {sym} at {current_price} ({cond} {target})")
+                            alerts.notify_price_alert(sym, current_price, target, cond, alert.get("notes", ""))
+                            database.mark_price_alert_triggered(alert["id"])
+        except Exception as price_alert_err:
+            log(f"Price alert check error: {price_alert_err}")
             
         log(f"Sleeping for {SYNC_INTERVAL_SECONDS}s...")
         time.sleep(SYNC_INTERVAL_SECONDS)

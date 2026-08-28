@@ -191,5 +191,29 @@ def notify_risk_warning(account_id, current_loss, limit):
     send_telegram_alert(tg_text)
     return title, msg
 
+def notify_price_alert(symbol, current_price, target_price, condition, notes=""):
+    """Dispatches high-priority alert when a live market price crosses an alert target."""
+    sym = str(symbol).upper()
+    cond_label = "rose above" if str(condition).upper() == "ABOVE" else "dropped below"
+    title = f"🔔 Price Alert: {sym} reached ${current_price:,.2f}"
+    msg = f"{sym} {cond_label} target ${target_price:,.2f} (Current: ${current_price:,.2f})"
+    if notes:
+        msg += f" • Note: {notes}"
+        
+    send_windows_toast(title, msg)
+    send_onesignal_push(title, msg, data={"symbol": sym, "price": current_price, "target": target_price})
+    
+    tg_text = (
+        f"🔔 <b>PRICE ALERT TRIGGERED: {sym}</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"<b>Current Price:</b> <b>${current_price:,.2f}</b>\n"
+        f"<b>Target Level:</b> ${target_price:,.2f} ({condition})\n"
+    )
+    if notes:
+        tg_text += f"<b>Notes:</b> {notes}\n"
+    tg_text += "━━━━━━━━━━━━━━━━━━"
+    send_telegram_alert(tg_text)
+    return title, msg
+
 if __name__ == "__main__":
-    print("Alert module ready with Custom Rules Engine.")
+    print("Alert module ready with Price Alerts and Custom Rules Engine.")
