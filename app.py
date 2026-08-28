@@ -642,7 +642,13 @@ else:
         monthly_pnl = filtered_df[filtered_df["exit_time"] >= monthly_cutoff]["net_profit"].sum()
         monthly_ret = (monthly_pnl / initial_balance) * 100
         
-        ann_ret = ((1 + avg_daily_ret/100) ** 252 - 1) * 100 if avg_daily_ret > 0 else 0.0
+        ann_ret = ((1 + avg_daily_ret/100) ** 252 - 1) * 100 if avg_daily_ret > 0 else (avg_daily_ret if avg_daily_ret < 0 else 0.0)
+
+        # Dynamic color coding: Green for positive, Red for negative
+        daily_color = "#00ffcc" if avg_daily_ret > 0 else ("#ff5555" if avg_daily_ret < 0 else "#8a99ad")
+        weekly_color = "#00ffcc" if weekly_ret > 0 else ("#ff5555" if weekly_ret < 0 else "#8a99ad")
+        monthly_color = "#00ffcc" if monthly_ret > 0 else ("#ff5555" if monthly_ret < 0 else "#8a99ad")
+        ann_color = "#00ffcc" if ann_ret > 0 else ("#ff5555" if ann_ret < 0 else "#8a99ad")
 
         # Radar Scores
         stability_score = win_rate
@@ -732,19 +738,19 @@ else:
                 <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:4px; text-align:center; margin-top:10px;">
                     <div>
                         <div class="metric-label" style="font-size:9px;">Daily</div>
-                        <div class="metric-value" style="font-size:12px; color:#00ffcc;">{avg_daily_ret:+.2f}%</div>
+                        <div class="metric-value" style="font-size:12px; color:{daily_color};">{avg_daily_ret:+.2f}%</div>
                     </div>
                     <div>
                         <div class="metric-label" style="font-size:9px;">Weekly</div>
-                        <div class="metric-value" style="font-size:12px; color:#00ffcc;">{weekly_ret:+.2f}%</div>
+                        <div class="metric-value" style="font-size:12px; color:{weekly_color};">{weekly_ret:+.2f}%</div>
                     </div>
                     <div>
                         <div class="metric-label" style="font-size:9px;">Monthly</div>
-                        <div class="metric-value" style="font-size:12px; color:#00ffcc;">{monthly_ret:+.2f}%</div>
+                        <div class="metric-value" style="font-size:12px; color:{monthly_color};">{monthly_ret:+.2f}%</div>
                     </div>
                     <div>
                         <div class="metric-label" style="font-size:9px;">Annualized</div>
-                        <div class="metric-value" style="font-size:12px; color:#00ffcc;">{ann_ret:+.2f}%</div>
+                        <div class="metric-value" style="font-size:12px; color:{ann_color};">{ann_ret:+.2f}%</div>
                     </div>
                 </div>
             </div>
