@@ -146,10 +146,11 @@ def reconstruct_positions(position_ids, account_id):
     
     for pos_id in position_ids:
         # Fetch all deals related to this position, sorted by time
-        cursor.execute("""
+        ph = "%s" if database.is_postgres() else "?"
+        cursor.execute(f"""
             SELECT type, volume, price, commission, swap, profit, timestamp, symbol 
             FROM raw_deals 
-            WHERE position_id = ? 
+            WHERE position_id = {ph} 
             ORDER BY timestamp ASC
         """, (pos_id,))
         
