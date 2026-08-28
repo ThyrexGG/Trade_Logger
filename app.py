@@ -398,9 +398,17 @@ df_trades = database.get_closed_trades()
 if df_trades.empty:
     # Header
     st.markdown("""
-    <div style="margin-top: 8px; margin-bottom: 20px;">
-        <h1 style="margin: 0; font-size: 2.2rem; font-weight: 700; color: #ffffff;">📈 Custom Trading Analytics Dashboard</h1>
-        <p style="margin: 4px 0 0 0; color: #8a99ad; font-size: 14px;">Automated logging and analytics journal for your trading accounts.</p>
+    <div style="display: flex; align-items: center; gap: 14px; margin-top: 8px; margin-bottom: 20px;">
+        <div style="width: 44px; height: 44px; border-radius: 10px; background: linear-gradient(135deg, rgba(0, 255, 204, 0.15), rgba(0, 119, 255, 0.2)); border: 1px solid rgba(0, 255, 204, 0.3); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00ffcc" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
+                <polyline points="16 7 22 7 22 13"></polyline>
+            </svg>
+        </div>
+        <div>
+            <h1 style="margin: 0; font-size: 1.85rem; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">TradeLogger Analytics</h1>
+            <p style="margin: 3px 0 0 0; color: #8a99ad; font-size: 13px; letter-spacing: 0.2px;">Automated journal & performance analytics for multi-broker accounts</p>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -450,11 +458,11 @@ else:
 
     def format_account_name(acc_id):
         if acc_id == "ALL":
-            return "🌐 All Accounts (Combined)"
+            return "All Accounts (Combined)"
         elif str(acc_id).startswith("MT5_"):
-            return f"⚡ MetaTrader 5 ({str(acc_id).replace('MT5_', '')})"
+            return f"MetaTrader 5 ({str(acc_id).replace('MT5_', '')})"
         else:
-            return f"🏦 Capital.com ({acc_id})"
+            return f"Capital.com ({acc_id})"
 
     # Populate default starting balances per account
     for acc in unique_accounts:
@@ -466,9 +474,17 @@ else:
 
     # Header
     st.markdown("""
-    <div style="margin-top: 8px; margin-bottom: 20px;">
-        <h1 style="margin: 0; font-size: 2.2rem; font-weight: 700; color: #ffffff;">📈 Custom Trading Analytics Dashboard</h1>
-        <p style="margin: 4px 0 0 0; color: #8a99ad; font-size: 14px;">Automated logging and analytics journal for your trading accounts.</p>
+    <div style="display: flex; align-items: center; gap: 14px; margin-top: 8px; margin-bottom: 20px;">
+        <div style="width: 44px; height: 44px; border-radius: 10px; background: linear-gradient(135deg, rgba(0, 255, 204, 0.15), rgba(0, 119, 255, 0.2)); border: 1px solid rgba(0, 255, 204, 0.3); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00ffcc" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
+                <polyline points="16 7 22 7 22 13"></polyline>
+            </svg>
+        </div>
+        <div>
+            <h1 style="margin: 0; font-size: 1.85rem; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">TradeLogger Analytics</h1>
+            <p style="margin: 3px 0 0 0; color: #8a99ad; font-size: 13px; letter-spacing: 0.2px;">Automated journal & performance analytics for multi-broker accounts</p>
+        </div>
     </div>
     """, unsafe_allow_html=True)
     
@@ -478,7 +494,7 @@ else:
         
         with col_acc_sel:
             selected_account = st.selectbox(
-                "🏦 Select Account View",
+                "Select Account View",
                 options=account_options,
                 format_func=format_account_name,
                 index=0,
@@ -706,9 +722,6 @@ else:
         
         with col1_1:
             # Winstreak + Period Returns card
-            days_flame = "<span style='font-size: 16px; margin: 0 4px;'>🔥</span>" if current_streak_days > 0 else ""
-            trades_flame = "<span style='font-size: 16px; margin: 0 4px;'>🔥</span>" if current_streak_trades > 0 else ""
-            
             render_html(f"""
             <div class="trading-card" style="height: 100%;">
                 <div class="card-title">Winstreak & Period Returns</div>
@@ -717,7 +730,6 @@ else:
                         <span class="metric-label" style="font-size:10px;">Days Streak</span>
                         <div class="streak-badge-row">
                             <span class="streak-badge">{current_streak_days}</span>
-                            {days_flame}
                             <div class="streak-box active">{max_streak_days}</div>
                             <div class="streak-box">max</div>
                         </div>
@@ -726,7 +738,6 @@ else:
                         <span class="metric-label" style="font-size:10px;">Trades Streak</span>
                         <div class="streak-badge-row">
                             <span class="streak-badge">{current_streak_trades}</span>
-                            {trades_flame}
                             <div class="streak-box active">{max_streak_trades}</div>
                             <div class="streak-box">max</div>
                         </div>
@@ -1076,7 +1087,7 @@ else:
         # ROW 3 TABS (Journal & Analytics Charts)
         # ------------------
         st.markdown("---")
-        tab_journal, tab_charts = st.tabs(["📓 Closed Trades Journal", "📊 Trade Performance Charts"])
+        tab_journal, tab_charts = st.tabs(["Closed Trades Journal", "Trade Performance Charts"])
         
         with tab_journal:
             st.write("Double-click on the **setup_tag** column below to categorize your trades. Click **Save Tags** to write changes.")
