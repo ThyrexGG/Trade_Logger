@@ -2,14 +2,14 @@ import streamlit as st
 from streamlit.components.v1 import html
 
 DEFAULT_SYMBOLS = {
-    "🥇 Gold (XAU/USD)": "OANDA:XAUUSD",
-    "🚀 US Tech 100 (Nasdaq)": "FOREXCOM:NAS100USD",
-    "📊 US 500 (S&P 500)": "FOREXCOM:SPX500USD",
-    "💱 EUR/USD": "FX:EURUSD",
-    "💱 GBP/USD": "FX:GBPUSD",
-    "💱 USD/JPY": "FX:USDJPY",
-    "₿ Bitcoin (BTC/USDT)": "BINANCE:BTCUSDT",
-    "🛢️ US Crude Oil": "TVC:USOIL"
+    "Gold (XAU/USD)": "OANDA:XAUUSD",
+    "US Tech 100 (Nasdaq)": "FOREXCOM:NAS100USD",
+    "US 500 (S&P 500)": "FOREXCOM:SPX500USD",
+    "EUR/USD": "FX:EURUSD",
+    "GBP/USD": "FX:GBPUSD",
+    "USD/JPY": "FX:USDJPY",
+    "Bitcoin (BTC/USDT)": "BINANCE:BTCUSDT",
+    "US Crude Oil": "TVC:USOIL"
 }
 
 def render_tradingview_chart(symbol="OANDA:XAUUSD", interval="15", height=650):

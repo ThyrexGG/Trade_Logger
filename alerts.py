@@ -139,15 +139,14 @@ def notify_trade_closed(trade, rules=None):
     max_loss_thresh = float(rules.get("max_loss_threshold", 50.0))
     
     if is_win and pnl >= big_win_thresh:
-        title = f"🎯 BIG WIN: +${pnl:,.2f} • {sym}"
+        title = f"BIG WIN: +${pnl:,.2f} • {sym}"
         msg = f"Target Exceeded! {dir_str} on {acc_label} • Net PnL: +${pnl:,.2f} • Held: {dur_str}"
     elif not is_win and abs(pnl) >= max_loss_thresh:
-        title = f"⚠️ MAX LOSS ALERT: -${abs(pnl):,.2f} • {sym}"
+        title = f"MAX LOSS ALERT: -${abs(pnl):,.2f} • {sym}"
         msg = f"Risk Limit Exceeded! {dir_str} on {acc_label} • Net PnL: -${abs(pnl):,.2f} • Held: {dur_str}"
     else:
-        status_label = "Profit" if is_win else "Loss"
-        emoji = "🟢" if is_win else "🔴"
-        title = f"{emoji} {status_label}: {pnl_sign}${abs(pnl):,.2f} • {sym}"
+        status_label = "PROFIT" if is_win else "LOSS"
+        title = f"{status_label}: {pnl_sign}${abs(pnl):,.2f} • {sym}"
         msg = f"{dir_str} on {acc_label} • Net PnL: {pnl_sign}${abs(pnl):,.2f} • Held: {dur_str}"
     
     # Check if notify_on_all_trades is enabled or if threshold was met
@@ -155,16 +154,15 @@ def notify_trade_closed(trade, rules=None):
         send_windows_toast(title, msg)
         send_onesignal_push(title, msg, data=trade)
         
-        pnl_emoji = "🟢" if is_win else "🔴"
         tg_text = (
-            f"<b>{pnl_emoji} Trade Closed: {sym}</b>\n"
-            f"━━━━━━━━━━━━━━━━━━\n"
+            f"<b>Trade Closed: {sym}</b>\n"
+            f"\n"
             f"<b>Account:</b> {acc_label}\n"
             f"<b>Direction:</b> {dir_str}\n"
             f"<b>Net PnL:</b> <b>{pnl_sign}${abs(pnl):,.2f}</b>\n"
             f"<b>Duration:</b> {dur_str}\n"
-            f"<b>Entry:</b> {trade.get('entry_price', 0):.5f} ➔ <b>Exit:</b> {trade.get('exit_price', 0):.5f}\n"
-            f"━━━━━━━━━━━━━━━━━━"
+            f"<b>Entry:</b> {trade.get('entry_price', 0):.5f}  <b>Exit:</b> {trade.get('exit_price', 0):.5f}\n"
+            f""
         )
         send_telegram_alert(tg_text)
     
@@ -173,20 +171,20 @@ def notify_trade_closed(trade, rules=None):
 def notify_risk_warning(account_id, current_loss, limit):
     """Dispatches high-priority alert when daily loss reaches dangerous levels."""
     pct = (abs(current_loss) / limit) * 100
-    title = f"⚠️ RISK WARNING: {pct:.0f}% of Daily Limit Hit"
+    title = f"RISK WARNING: {pct:.0f}% of Daily Limit Hit"
     msg = f"Current Daily Drawdown: -${abs(current_loss):,.2f} / ${limit:,.0f} limit. Stop trading to protect funded account!"
     
     send_windows_toast(title, msg)
     send_onesignal_push(title, msg)
     
     tg_text = (
-        f"🚨 <b>PROP FIRM RISK GUARDIAN</b> 🚨\n"
-        f"━━━━━━━━━━━━━━━━━━\n"
+        f"<b>PROP FIRM RISK GUARDIAN</b>\n"
+        f"\n"
         f"<b>Warning:</b> Daily loss reached <b>{pct:.1f}%</b> of limit!\n"
         f"<b>Current Drawdown:</b> -${abs(current_loss):,.2f}\n"
         f"<b>Daily Floor Limit:</b> ${limit:,.0f}\n"
         f"<b>Recommendation:</b> Stop trading immediately to protect your evaluation account!\n"
-        f"━━━━━━━━━━━━━━━━━━"
+        f""
     )
     send_telegram_alert(tg_text)
     return title, msg
@@ -195,7 +193,7 @@ def notify_price_alert(symbol, current_price, target_price, condition, notes="")
     """Dispatches high-priority alert when a live market price crosses an alert target."""
     sym = str(symbol).upper()
     cond_label = "rose above" if str(condition).upper() == "ABOVE" else "dropped below"
-    title = f"🔔 Price Alert: {sym} reached ${current_price:,.2f}"
+    title = f"Price Alert: {sym} reached ${current_price:,.2f}"
     msg = f"{sym} {cond_label} target ${target_price:,.2f} (Current: ${current_price:,.2f})"
     if notes:
         msg += f" • Note: {notes}"
@@ -204,14 +202,14 @@ def notify_price_alert(symbol, current_price, target_price, condition, notes="")
     send_onesignal_push(title, msg, data={"symbol": sym, "price": current_price, "target": target_price})
     
     tg_text = (
-        f"🔔 <b>PRICE ALERT TRIGGERED: {sym}</b>\n"
-        f"━━━━━━━━━━━━━━━━━━\n"
+        f"<b>PRICE ALERT TRIGGERED: {sym}</b>\n"
+        f"\n"
         f"<b>Current Price:</b> <b>${current_price:,.2f}</b>\n"
         f"<b>Target Level:</b> ${target_price:,.2f} ({condition})\n"
     )
     if notes:
         tg_text += f"<b>Notes:</b> {notes}\n"
-    tg_text += "━━━━━━━━━━━━━━━━━━"
+    tg_text += ""
     send_telegram_alert(tg_text)
     return title, msg
 
