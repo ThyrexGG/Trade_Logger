@@ -884,33 +884,174 @@ if hasattr(st, "secrets") and "APP_PIN" in st.secrets:
 if configured_pin:
     if "pin_unlocked" not in st.session_state:
         st.session_state.pin_unlocked = False
+    if "pin_digits" not in st.session_state:
+        st.session_state.pin_digits = ""
+    if "pin_error" not in st.session_state:
+        st.session_state.pin_error = False
 
     if not st.session_state.pin_unlocked:
         icon_b64 = get_app_icon_b64()
-        logo_html = f'<img src="data:image/png;base64,{icon_b64}" style="width: 56px; height: 56px; border-radius: 14px; box-shadow: 0 4px 20px rgba(0, 255, 204, 0.3); margin-bottom: 12px;">' if icon_b64 else ''
+        logo_html = f'<img src="data:image/png;base64,{icon_b64}" style="width: 58px; height: 58px; border-radius: 14px; box-shadow: 0 4px 20px rgba(0, 255, 204, 0.35); margin-bottom: 8px;">' if icon_b64 else ''
         
+        # Build 4 PIN Dot Indicators
+        current_len = len(st.session_state.pin_digits)
+        dot_color = "#ff5555" if st.session_state.pin_error else "#00ffcc"
+        dots_html = ""
+        for i in range(4):
+            if i < current_len:
+                dots_html += f'<div style="width: 14px; height: 14px; border-radius: 50%; background: {dot_color}; box-shadow: 0 0 10px {dot_color}; margin: 0 8px; transition: all 0.2s;"></div>'
+            else:
+                dots_html += '<div style="width: 14px; height: 14px; border-radius: 50%; background: rgba(255, 255, 255, 0.12); border: 1.5px solid rgba(255, 255, 255, 0.25); margin: 0 8px;"></div>'
+
         st.markdown(f"""
-        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 50px; text-align: center;">
-            <div style="background: rgba(18, 24, 38, 0.85); backdrop-filter: blur(16px); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 16px; padding: 28px 24px; max-width: 360px; width: 100%; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 25px rgba(0, 255, 204, 0.08);">
+        <style>
+        .keypad-wrapper {{
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-top: 15px;
+            margin-bottom: 10px;
+        }}
+        .keypad-header-card {{
+            background: rgba(18, 24, 38, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(0, 255, 204, 0.2);
+            border-radius: 18px;
+            padding: 24px 20px 18px 20px;
+            max-width: 330px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 25px rgba(0, 255, 204, 0.08);
+            margin-bottom: 16px;
+        }}
+        div.stButton > button[key^="key_"] {{
+            width: 100% !important;
+            height: 60px !important;
+            border-radius: 12px !important;
+            font-size: 22px !important;
+            font-weight: 700 !important;
+            background: rgba(255, 255, 255, 0.05) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: #ffffff !important;
+            transition: all 0.15s ease-in-out !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }}
+        div.stButton > button[key^="key_"]:hover {{
+            background: rgba(0, 255, 204, 0.15) !important;
+            border-color: rgba(0, 255, 204, 0.5) !important;
+            color: #00ffcc !important;
+            box-shadow: 0 0 14px rgba(0, 255, 204, 0.3) !important;
+            transform: scale(0.98) !important;
+        }}
+        div.stButton > button[key="key_clear"], div.stButton > button[key="key_del"] {{
+            font-size: 14px !important;
+            font-weight: 600 !important;
+            color: #8a99ad !important;
+        }}
+        </style>
+        <div class="keypad-wrapper">
+            <div class="keypad-header-card">
                 {logo_html}
-                <h2 style="color: #ffffff; font-size: 1.4rem; font-weight: 700; margin: 0 0 6px 0; letter-spacing: -0.5px;">TradeLogger Security</h2>
-                <p style="color: #8a99ad; font-size: 12px; margin: 0 0 16px 0;">Enter Master PIN to access live trade terminal</p>
+                <h2 style="color: #ffffff; font-size: 1.35rem; font-weight: 700; margin: 0 0 4px 0; letter-spacing: -0.5px;">TradeLogger Security</h2>
+                <p style="color: #8a99ad; font-size: 12px; margin: 0 0 16px 0;">{"Incorrect PIN! Try again" if st.session_state.pin_error else "Enter PIN on keypad below"}</p>
+                <div style="display: flex; justify-content: center; align-items: center; height: 24px;">
+                    {dots_html}
+                </div>
             </div>
         </div>
         """, unsafe_allow_html=True)
-        
-        col_pad_l, col_pin_box, col_pad_r = st.columns([1.2, 1.4, 1.2])
-        with col_pin_box:
-            with st.form("security_pin_gate"):
-                entered_pin = st.text_input("Master PIN", type="password", placeholder="Enter PIN", label_visibility="collapsed")
-                submit_pin = st.form_submit_button("Unlock Dashboard", use_container_width=True)
-                if submit_pin:
-                    if entered_pin == configured_pin:
-                        st.session_state.pin_unlocked = True
-                        st.success("Access Granted! Unlocking...")
-                        st.rerun()
-                    else:
-                        st.error("Access Denied: Incorrect PIN")
+
+        col_pad_l, col_pad_grid, col_pad_r = st.columns([1.3, 1.4, 1.3])
+        with col_pad_grid:
+            # Row 1: 1, 2, 3
+            k1, k2, k3 = st.columns(3)
+            with k1:
+                if st.button("1", key="key_1", use_container_width=True):
+                    st.session_state.pin_error = False
+                    st.session_state.pin_digits += "1"
+                    st.rerun()
+            with k2:
+                if st.button("2", key="key_2", use_container_width=True):
+                    st.session_state.pin_error = False
+                    st.session_state.pin_digits += "2"
+                    st.rerun()
+            with k3:
+                if st.button("3", key="key_3", use_container_width=True):
+                    st.session_state.pin_error = False
+                    st.session_state.pin_digits += "3"
+                    st.rerun()
+
+            # Row 2: 4, 5, 6
+            k4, k5, k6 = st.columns(3)
+            with k4:
+                if st.button("4", key="key_4", use_container_width=True):
+                    st.session_state.pin_error = False
+                    st.session_state.pin_digits += "4"
+                    st.rerun()
+            with k5:
+                if st.button("5", key="key_5", use_container_width=True):
+                    st.session_state.pin_error = False
+                    st.session_state.pin_digits += "5"
+                    st.rerun()
+            with k6:
+                if st.button("6", key="key_6", use_container_width=True):
+                    st.session_state.pin_error = False
+                    st.session_state.pin_digits += "6"
+                    st.rerun()
+
+            # Row 3: 7, 8, 9
+            k7, k8, k9 = st.columns(3)
+            with k7:
+                if st.button("7", key="key_7", use_container_width=True):
+                    st.session_state.pin_error = False
+                    st.session_state.pin_digits += "7"
+                    st.rerun()
+            with k8:
+                if st.button("8", key="key_8", use_container_width=True):
+                    st.session_state.pin_error = False
+                    st.session_state.pin_digits += "8"
+                    st.rerun()
+            with k9:
+                if st.button("9", key="key_9", use_container_width=True):
+                    st.session_state.pin_error = False
+                    st.session_state.pin_digits += "9"
+                    st.rerun()
+
+            # Row 4: Clear, 0, Del
+            kc, k0, kd = st.columns(3)
+            with kc:
+                if st.button("CLR", key="key_clear", use_container_width=True):
+                    st.session_state.pin_digits = ""
+                    st.session_state.pin_error = False
+                    st.rerun()
+            with k0:
+                if st.button("0", key="key_0", use_container_width=True):
+                    st.session_state.pin_error = False
+                    st.session_state.pin_digits += "0"
+                    st.rerun()
+            with kd:
+                if st.button("⌫", key="key_del", use_container_width=True):
+                    st.session_state.pin_error = False
+                    if len(st.session_state.pin_digits) > 0:
+                        st.session_state.pin_digits = st.session_state.pin_digits[:-1]
+                    st.rerun()
+
+            # Check if 4 digits have been entered
+            if len(st.session_state.pin_digits) >= len(configured_pin):
+                if st.session_state.pin_digits == configured_pin:
+                    st.session_state.pin_unlocked = True
+                    st.session_state.pin_digits = ""
+                    st.session_state.pin_error = False
+                    st.success("Access Granted! Unlocking...")
+                    st.rerun()
+                else:
+                    st.session_state.pin_error = True
+                    st.session_state.pin_digits = ""
+                    st.rerun()
+
         st.stop()
 
 # ----------------------------------------------------
