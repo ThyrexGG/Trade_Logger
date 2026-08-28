@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 import database
 
@@ -99,7 +99,7 @@ def sync_mt5():
         # Default start date (e.g. 5 years ago)
         start_date = datetime(2020, 1, 1, tzinfo=timezone.utc)
         
-    end_date = datetime.now(timezone.utc)
+    end_date = datetime.now(timezone.utc) + timedelta(days=2)
     
     print(f"Fetching deals from {start_date} to {end_date}...")
     deals = mt5.history_deals_get(start_date, end_date)
