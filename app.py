@@ -552,19 +552,22 @@ st.markdown("""
         line-height: 32px;
     }
 
+    /* Force horizontal alignment on ALL screen sizes, including mobile webviews */
     div[data-testid="stHorizontalBlock"]:has(button[key="prev_btn"]),
-    div[data-testid="stHorizontalBlock"]:has(button[key="next_btn"]) {
+    div[data-testid="stHorizontalBlock"]:has(button[key="next_btn"]),
+    div.cal-nav-row {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
         align-items: center !important;
         justify-content: space-between !important;
-        gap: 6px !important;
+        width: 100% !important;
         margin-bottom: 6px !important;
     }
 
     div[data-testid="stHorizontalBlock"]:has(button[key="prev_btn"]) > div[data-testid="column"],
-    div[data-testid="stHorizontalBlock"]:has(button[key="next_btn"]) > div[data-testid="column"] {
+    div[data-testid="stHorizontalBlock"]:has(button[key="next_btn"]) > div[data-testid="column"],
+    div.cal-nav-row > div[data-testid="column"] {
         min-width: 0 !important;
         max-width: none !important;
         width: auto !important;
@@ -572,13 +575,27 @@ st.markdown("""
     }
 
     div[data-testid="stHorizontalBlock"]:has(button[key="prev_btn"]) > div[data-testid="column"]:first-child,
-    div[data-testid="stHorizontalBlock"]:has(button[key="next_btn"]) > div[data-testid="column"]:first-child {
+    div[data-testid="stHorizontalBlock"]:has(button[key="next_btn"]) > div[data-testid="column"]:first-child,
+    div.cal-nav-row > div[data-testid="column"]:first-child {
         flex: 1 1 auto !important;
-        min-width: 120px !important;
+        min-width: 100px !important;
+    }
+
+    div[data-testid="stHorizontalBlock"]:has(button[key="prev_btn"]) > div[data-testid="column"]:nth-child(2),
+    div[data-testid="stHorizontalBlock"]:has(button[key="next_btn"]) > div[data-testid="column"]:nth-child(2),
+    div[data-testid="stHorizontalBlock"]:has(button[key="prev_btn"]) > div[data-testid="column"]:nth-child(3),
+    div[data-testid="stHorizontalBlock"]:has(button[key="next_btn"]) > div[data-testid="column"]:nth-child(3),
+    div.cal-nav-row > div[data-testid="column"]:nth-child(2),
+    div.cal-nav-row > div[data-testid="column"]:nth-child(3) {
+        flex: 0 0 34px !important;
+        width: 34px !important;
+        min-width: 34px !important;
+        max-width: 34px !important;
     }
 
     button[key="prev_btn"], button[key="next_btn"] {
         min-width: 32px !important;
+        max-width: 32px !important;
         width: 32px !important;
         height: 32px !important;
         padding: 0 !important;
@@ -1359,7 +1376,32 @@ else:
                 col_h1, col_h2, col_h3 = st.columns([6, 1, 1], gap="small")
                 with col_h1:
                     month_name = calendar.month_name[st.session_state.cal_month]
-                    render_html(f"<div class='cal-title-text'>{month_name} {st.session_state.cal_year}</div>")
+                    render_html(f"""
+                    <div class='cal-title-text'>{month_name} {st.session_state.cal_year}</div>
+                    <script>
+                    (function() {{
+                        function enforceCal() {{
+                            const btn = document.querySelector('button[key="prev_btn"]');
+                            if (btn) {{
+                                const hBlock = btn.closest('div[data-testid="stHorizontalBlock"]');
+                                if (hBlock) {{
+                                    hBlock.classList.add('cal-nav-row');
+                                    hBlock.style.cssText = 'display:flex !important; flex-direction:row !important; flex-wrap:nowrap !important; align-items:center !important; justify-content:space-between !important; width:100% !important;';
+                                    const cols = hBlock.querySelectorAll('div[data-testid="column"]');
+                                    if (cols && cols.length >= 3) {{
+                                        cols[0].style.cssText = 'flex:1 1 auto !important; width:auto !important; min-width:0 !important;';
+                                        cols[1].style.cssText = 'flex:0 0 34px !important; width:34px !important; min-width:34px !important; max-width:34px !important;';
+                                        cols[2].style.cssText = 'flex:0 0 34px !important; width:34px !important; min-width:34px !important; max-width:34px !important;';
+                                    }}
+                                }}
+                            }}
+                        }}
+                        enforceCal();
+                        setTimeout(enforceCal, 100);
+                        setTimeout(enforceCal, 400);
+                    }})();
+                    </script>
+                    """)
                 with col_h2:
                     if st.button("‹", key="prev_btn", help="Previous Month", use_container_width=True):
                         st.session_state.cal_month -= 1
