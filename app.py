@@ -281,16 +281,18 @@ st.markdown("""
         opacity: 0.8;
     }
     
-    /* Hide Streamlit top header white bar and footer */
-    [data-testid="stHeader"], header {
-        background: transparent !important;
-        background-color: rgba(0, 0, 0, 0) !important;
+    /* Hide Streamlit top header white bar, toolbar, share/star buttons */
+    [data-testid="stHeader"], header, [data-testid="stToolbar"], .stAppDeployButton, [data-testid="stDecoration"], #MainMenu, footer {
+        display: none !important;
+        visibility: hidden !important;
         height: 0px !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
     }
     
     /* Adjust Streamlit main container top padding to remove excessive spacing */
     .stMainBlockContainer {
-        padding-top: 1.5rem !important;
+        padding-top: 1rem !important;
         padding-bottom: 2rem !important;
         padding-left: 3rem !important;
         padding-right: 3rem !important;
@@ -351,13 +353,27 @@ st.markdown("""
     }
     
     /* Roadmap Timeline */
+    .prop-roadmap-wrapper {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 18px 0 22px 0;
+        padding-bottom: 8px;
+    }
+    .prop-roadmap-wrapper::-webkit-scrollbar {
+        height: 4px;
+    }
+    .prop-roadmap-wrapper::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 4px;
+    }
     .prop-roadmap {
         display: flex;
         align-items: center;
         justify-content: space-between;
+        min-width: 620px;
         position: relative;
-        margin: 20px 0 24px 0;
-        padding: 0 10px;
+        padding: 0 16px;
     }
     .prop-roadmap::before {
         content: '';
@@ -376,6 +392,7 @@ st.markdown("""
         display: flex;
         flex-direction: column;
         align-items: center;
+        min-width: 70px;
     }
     .prop-roadmap-title {
         font-size: 9px;
@@ -501,6 +518,22 @@ st.markdown("""
         .prop-objectives-grid {
             grid-template-columns: repeat(2, 1fr) !important;
             gap: 8px !important;
+        }
+
+        .prop-obj-card:last-child {
+            grid-column: span 2 !important;
+        }
+
+        .prop-stats-top-row {
+            display: flex !important;
+            justify-content: space-between !important;
+            width: 100% !important;
+            margin-top: 10px !important;
+            gap: 8px !important;
+        }
+
+        .prop-stats-top-row > div {
+            text-align: left !important;
         }
 
         .prop-hub-container {
@@ -937,7 +970,7 @@ else:
                         <div style="font-size:11px; color:#8a99ad; margin-top:3px;">Order ID #{account_order_id} • Account #{account_disp_num} • {broker_name}</div>
                     </div>
                     
-                    <div style="display:flex; gap:28px; text-align:right;">
+                    <div class="prop-stats-top-row" style="display:flex; gap:28px; text-align:right;">
                         <div>
                             <div style="font-size:10px; color:#8a99ad; text-transform:uppercase; font-weight:600;">Balance</div>
                             <div style="font-size:20px; font-weight:800; color:#ffffff;">${current_balance:,.2f}</div>
@@ -953,47 +986,49 @@ else:
                     </div>
                 </div>
                 
-                <!-- Scale Up Roadmap -->
-                <div class="prop-roadmap">
-                    <div class="prop-roadmap-node active">
-                        <span class="prop-roadmap-title">1st Evaluation</span>
-                        <div class="prop-roadmap-circle">1</div>
-                        <span class="prop-roadmap-target">${initial_balance:,.0f}</span>
-                    </div>
-                    <div class="prop-roadmap-node">
-                        <span class="prop-roadmap-title">2nd Evaluation</span>
-                        <div class="prop-roadmap-circle">2</div>
-                        <span class="prop-roadmap-target">${initial_balance:,.0f}</span>
-                    </div>
-                    <div class="prop-roadmap-node">
-                        <span class="prop-roadmap-title">Funded!</span>
-                        <div class="prop-roadmap-circle">F</div>
-                        <span class="prop-roadmap-target">${initial_balance:,.0f}</span>
-                    </div>
-                    <div class="prop-roadmap-node">
-                        <span class="prop-roadmap-title">Scale Up</span>
-                        <div class="prop-roadmap-circle">↑</div>
-                        <span class="prop-roadmap-target">${initial_balance*1.25:,.0f}</span>
-                    </div>
-                    <div class="prop-roadmap-node">
-                        <span class="prop-roadmap-title">Scale Up</span>
-                        <div class="prop-roadmap-circle">↑</div>
-                        <span class="prop-roadmap-target">${initial_balance*1.5:,.0f}</span>
-                    </div>
-                    <div class="prop-roadmap-node">
-                        <span class="prop-roadmap-title">Scale Up</span>
-                        <div class="prop-roadmap-circle">↑</div>
-                        <span class="prop-roadmap-target">${initial_balance*2.0:,.0f}</span>
-                    </div>
-                    <div class="prop-roadmap-node">
-                        <span class="prop-roadmap-title">Scale Up</span>
-                        <div class="prop-roadmap-circle">↑</div>
-                        <span class="prop-roadmap-target">${initial_balance*2.5:,.0f}</span>
-                    </div>
-                    <div class="prop-roadmap-node">
-                        <span class="prop-roadmap-title">Scale Up</span>
-                        <div class="prop-roadmap-circle">↑</div>
-                        <span class="prop-roadmap-target">${initial_balance*3.0:,.0f}</span>
+                <!-- Scale Up Roadmap with smooth touch scrolling -->
+                <div class="prop-roadmap-wrapper">
+                    <div class="prop-roadmap">
+                        <div class="prop-roadmap-node active">
+                            <span class="prop-roadmap-title">1st Evaluation</span>
+                            <div class="prop-roadmap-circle">1</div>
+                            <span class="prop-roadmap-target">${initial_balance:,.0f}</span>
+                        </div>
+                        <div class="prop-roadmap-node">
+                            <span class="prop-roadmap-title">2nd Evaluation</span>
+                            <div class="prop-roadmap-circle">2</div>
+                            <span class="prop-roadmap-target">${initial_balance:,.0f}</span>
+                        </div>
+                        <div class="prop-roadmap-node">
+                            <span class="prop-roadmap-title">Funded!</span>
+                            <div class="prop-roadmap-circle">F</div>
+                            <span class="prop-roadmap-target">${initial_balance:,.0f}</span>
+                        </div>
+                        <div class="prop-roadmap-node">
+                            <span class="prop-roadmap-title">Scale Up</span>
+                            <div class="prop-roadmap-circle">↑</div>
+                            <span class="prop-roadmap-target">${initial_balance*1.25:,.0f}</span>
+                        </div>
+                        <div class="prop-roadmap-node">
+                            <span class="prop-roadmap-title">Scale Up</span>
+                            <div class="prop-roadmap-circle">↑</div>
+                            <span class="prop-roadmap-target">${initial_balance*1.5:,.0f}</span>
+                        </div>
+                        <div class="prop-roadmap-node">
+                            <span class="prop-roadmap-title">Scale Up</span>
+                            <div class="prop-roadmap-circle">↑</div>
+                            <span class="prop-roadmap-target">${initial_balance*2.0:,.0f}</span>
+                        </div>
+                        <div class="prop-roadmap-node">
+                            <span class="prop-roadmap-title">Scale Up</span>
+                            <div class="prop-roadmap-circle">↑</div>
+                            <span class="prop-roadmap-target">${initial_balance*2.5:,.0f}</span>
+                        </div>
+                        <div class="prop-roadmap-node">
+                            <span class="prop-roadmap-title">Scale Up</span>
+                            <div class="prop-roadmap-circle">↑</div>
+                            <span class="prop-roadmap-target">${initial_balance*3.0:,.0f}</span>
+                        </div>
                     </div>
                 </div>
                 
