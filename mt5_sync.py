@@ -45,23 +45,46 @@ def sync_mt5():
     database.init_db()
 
     print("Connecting to MetaTrader 5 terminal...")
+    try:
+        mt5.shutdown()
+    except Exception:
+        pass
+
+    connected = False
     if login_str and password and server:
-        # Connect using specified credentials
-        login = int(login_str)
-        if not mt5.initialize(login=login, password=password, server=server):
-            print(f"MT5 initialize failed. Error code: {mt5.last_error()}")
-            return False
+        try:
+            login = int(login_str)
+            # Try connecting with credentials
+            if mt5.initialize(login=login, password=password, server=server, timeout=10000):
+                connected = True
+            else:
+                # Fallback to default initialize
+                if mt5.initialize(timeout=10000):
+                    connected = True
+                else:
+                    print(f"MT5 initialize failed. Error code: {mt5.last_error()}")
+        except Exception as e:
+            print(f"MT5 initialization error: {e}")
+            if mt5.initialize():
+                connected = True
     else:
         # Connect to already open terminal on system
-        if not mt5.initialize():
+        if mt5.initialize():
+            connected = True
+        else:
             print("Could not connect to active MT5 terminal. Please make sure the MT5 terminal is open.")
-            return False
+
+    if not connected:
+        return False
             
     # Get active account info to use as the unique account ID
     acc_info = mt5.account_info()
     if not acc_info:
         print("Failed to get account info from MT5.")
-        mt5.shutdown()
+        try:
+            mt5.shutdown()
+        except Exception:
+            pass
         return False
         
     account_id = f"MT5_{acc_info.login}"
