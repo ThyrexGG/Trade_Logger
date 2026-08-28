@@ -857,6 +857,23 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# OneSignal Web Push Client Listener
+onesignal_app_id = os.getenv("ONESIGNAL_APP_ID", "").strip('"\' ')
+if onesignal_app_id:
+    from streamlit.components.v1 import html
+    html(f"""
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(async function(OneSignal) {{
+        await OneSignal.init({{
+          appId: "{onesignal_app_id}",
+          allowLocalhostAsSecureOrigin: true,
+        }});
+      }});
+    </script>
+    """, height=0)
+
 # ----------------------------------------------------
 # MAIN DASHBOARD WITH 30-SECOND REAL-TIME AUTO-REFRESH
 # ----------------------------------------------------
