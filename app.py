@@ -474,6 +474,69 @@ st.markdown("""
         margin-top: 2px;
     }
 
+    /* Tooltip helper icon & popover */
+    .info-tip {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        color: #8a99ad;
+        font-size: 9px;
+        font-weight: 700;
+        cursor: help;
+        margin-left: 5px;
+        vertical-align: middle;
+        transition: all 0.2s ease;
+    }
+    .info-tip:hover {
+        color: #00ffcc;
+        border-color: #00ffcc;
+        background: rgba(0, 255, 204, 0.15);
+    }
+    .info-tip .info-tip-text {
+        visibility: hidden;
+        opacity: 0;
+        width: 230px;
+        background-color: #0b0f19;
+        color: #e2e8f0;
+        text-align: left;
+        border-radius: 8px;
+        padding: 10px 12px;
+        position: absolute;
+        z-index: 99999;
+        bottom: 135%;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 11px;
+        font-weight: 400;
+        line-height: 1.45;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        pointer-events: none;
+        white-space: normal;
+    }
+    .info-tip .info-tip-text::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        margin-left: -5px;
+        border-width: 5px;
+        border-style: solid;
+        border-color: #0b0f19 transparent transparent transparent;
+    }
+    .info-tip:hover .info-tip-text {
+        visibility: visible;
+        opacity: 1;
+        transform: translateX(-50%) translateY(-3px);
+    }
+
     /* ---------------------------------- */
     /* PREMIUM TRADES JOURNAL TABLE CSS   */
     /* ---------------------------------- */
@@ -1200,7 +1263,7 @@ else:
                     <!-- Card 1: Profitable Days -->
                     <div class="prop-obj-card">
                         <div class="prop-obj-header">
-                            <span class="prop-obj-title">Profitable Days</span>
+                            <span class="prop-obj-title">Profitable Days <span class="info-tip">?<span class="info-tip-text">Requires a minimum of 3 profitable trading days with at least 0.5% profit each day.</span></span></span>
                             <span class="prop-obj-status">In progress</span>
                         </div>
                         <div>
@@ -1212,7 +1275,7 @@ else:
                     <!-- Card 2: Unrealized Profit -->
                     <div class="prop-obj-card">
                         <div class="prop-obj-header">
-                            <span class="prop-obj-title">Unrealized Profit</span>
+                            <span class="prop-obj-title">Unrealized <span class="info-tip">?<span class="info-tip-text">Live floating profit or loss across currently open positions.</span></span></span>
                             <span class="prop-obj-status">In progress</span>
                         </div>
                         <div>
@@ -1224,7 +1287,7 @@ else:
                     <!-- Card 3: Profit Goal -->
                     <div class="prop-obj-card">
                         <div class="prop-obj-header">
-                            <span class="prop-obj-title">Profit Goal</span>
+                            <span class="prop-obj-title">Profit Goal <span class="info-tip">?<span class="info-tip-text">The 10% target required to pass the High Stakes evaluation phase ($1,000 target on $10k account).</span></span></span>
                             <span class="prop-obj-status">In progress</span>
                         </div>
                         <div>
@@ -1236,7 +1299,7 @@ else:
                     <!-- Card 4: Max Daily Loss -->
                     <div class="prop-obj-card">
                         <div class="prop-obj-header">
-                            <span class="prop-obj-title">Max Daily Loss</span>
+                            <span class="prop-obj-title">Max Daily Loss <span class="info-tip">?<span class="info-tip-text">Maximum daily drawdown limit of 5% ($500) based on midnight balance/equity. Resets every trading day at 00:00 server time.</span></span></span>
                             <span class="prop-obj-status" style="background:rgba(0,255,204,0.1); color:#00ffcc; border-color:rgba(0,255,204,0.25);">Safe</span>
                         </div>
                         <div>
@@ -1248,7 +1311,7 @@ else:
                     <!-- Card 5: Max Loss -->
                     <div class="prop-obj-card">
                         <div class="prop-obj-header">
-                            <span class="prop-obj-title">Max Loss</span>
+                            <span class="prop-obj-title">Max Loss <span class="info-tip">?<span class="info-tip-text">The maximum total drawdown allowed across the entire evaluation (10% of starting balance - $1,000). This is your absolute floor - do not breach it.</span></span></span>
                             <span class="prop-obj-status" style="background:rgba(0,255,204,0.1); color:#00ffcc; border-color:rgba(0,255,204,0.25);">Safe</span>
                         </div>
                         <div>
@@ -1268,27 +1331,27 @@ else:
         render_html(f"""
         <div class="top-stats-container">
             <div class="top-stat-box">
-                <div class="top-stat-label">Gross Profit (Loss)</div>
+                <div class="top-stat-label">Gross Profit (Loss) <span class="info-tip">?<span class="info-tip-text">Total cumulative gains from winning trades vs losses from losing trades.</span></span></div>
                 <div class="top-stat-value" style="color: #00ffcc;">${gross_wins:,.2f}</div>
             </div>
             <div class="top-stat-box">
-                <div class="top-stat-label">Net Profit</div>
+                <div class="top-stat-label">Net Profit <span class="info-tip">?<span class="info-tip-text">Total realized profit or loss after subtracting all broker commissions and swap fees.</span></span></div>
                 <div class="top-stat-value" style="color: {color_pnl};">{sign_pnl}${abs(total_pnl):,.2f}</div>
             </div>
             <div class="top-stat-box">
-                <div class="top-stat-label">Balance</div>
+                <div class="top-stat-label">Balance <span class="info-tip">?<span class="info-tip-text">Current realized account balance (Initial Capital + Net P&L).</span></span></div>
                 <div class="top-stat-value">${current_balance:,.2f}</div>
             </div>
             <div class="top-stat-box">
-                <div class="top-stat-label">Avg Holding Time</div>
+                <div class="top-stat-label">Avg Holding Time <span class="info-tip">?<span class="info-tip-text">Average duration trades stay open from entry execution to final exit.</span></span></div>
                 <div class="top-stat-value" style="font-size: 18px; line-height: 28px;">{hold_time_str}</div>
             </div>
             <div class="top-stat-box">
-                <div class="top-stat-label">SQN</div>
+                <div class="top-stat-label">SQN <span class="info-tip">?<span class="info-tip-text">System Quality Number. Measures trading edge consistency. Above 2.0 is Good, above 3.0 is Excellent.</span></span></div>
                 <div class="top-stat-value" style="color: {'#00ffcc' if sqn >= 1.5 else ('#ff5555' if sqn < 0 else '#ffffff')};">{sqn:.2f}</div>
             </div>
             <div class="top-stat-box">
-                <div class="top-stat-label">Max Drawdown</div>
+                <div class="top-stat-label">Max Drawdown <span class="info-tip">?<span class="info-tip-text">Maximum percentage peak-to-trough decline experienced in account equity.</span></span></div>
                 <div class="top-stat-value" style="color: #ff5555;">{max_drawdown:.2f}%</div>
             </div>
         </div>
