@@ -1489,25 +1489,18 @@ def render_live_dashboard():
             col_hero_chart, col_hero_side = st.columns([2.0, 1.0])
 
             with col_hero_chart:
-                # Wide Hero Account Balance & Equity Curve (The5ers Hub style)
+                # Wide Hero Account Balance & Equity Curve (Silky Smooth The5ers Progression Style)
                 min_entry = filtered_df["entry_time"].min()
-                # Start baseline 20 hours before first trade to anchor deposit on 08/26
-                start_baseline_time = min_entry - pd.Timedelta(hours=20)
+                start_baseline_time = min_entry - pd.Timedelta(hours=12)
                 x_times = [start_baseline_time] + list(filtered_df["exit_time"])
                 y_balances = [initial_balance] + list(filtered_df["balance"])
-
-                # Generate silky smooth cubic Hermite curve interpolation
                 n_pts = len(y_balances)
-                if n_pts >= 2:
-                    x_num = np.array([t.timestamp() for t in x_times], dtype=float)
-                    # Ensure strictly increasing timestamps by adding gentle visual spacing for same-minute trades
-                    for i in range(1, len(x_num)):
-                        if x_num[i] <= x_num[i-1]:
-                            x_num[i] = x_num[i-1] + 1800.0  # 30 min gentle spacing
 
-                    y_arr = np.array(y_balances, dtype=float)
-                    dx = np.diff(x_num)
-                    dy = np.diff(y_arr)
+                # Generate silky smooth cubic Hermite curve over progression sequence
+                if n_pts >= 2:
+                    x_seq = np.arange(n_pts, dtype=float)
+                    dx = np.diff(x_seq)
+                    dy = np.diff(y_balances)
                     m = dy / dx
 
                     tang = np.zeros(n_pts)
@@ -1519,30 +1512,22 @@ def render_live_dashboard():
                         else:
                             tang[i] = 0.0
 
-                    x_dense = np.linspace(x_num[0], x_num[-1], 120)
+                    x_dense = np.linspace(0, n_pts - 1, 160)
                     y_dense = []
                     for x_val in x_dense:
-                        idx_seg = max(0, min(np.searchsorted(x_num, x_val) - 1, n_pts - 2))
-                        h = x_num[idx_seg + 1] - x_num[idx_seg]
-                        t = (x_val - x_num[idx_seg]) / h
+                        idx_seg = max(0, min(int(x_val), n_pts - 2))
+                        t = x_val - idx_seg
                         t2 = t * t
                         t3 = t2 * t
                         h00 = 2 * t3 - 3 * t2 + 1
                         h10 = t3 - 2 * t2 + t
                         h01 = -2 * t3 + 3 * t2
                         h11 = t3 - t2
-                        y_interp = h00 * y_arr[idx_seg] + h10 * h * tang[idx_seg] + h01 * y_arr[idx_seg + 1] + h11 * h * tang[idx_seg + 1]
+                        y_interp = h00 * y_balances[idx_seg] + h10 * tang[idx_seg] + h01 * y_balances[idx_seg + 1] + h11 * tang[idx_seg + 1]
                         y_dense.append(y_interp)
-
-                    dense_dates = [pd.to_datetime(ts, unit='s') for ts in x_dense]
                 else:
-                    dense_dates = x_times
+                    x_dense = [0]
                     y_dense = y_balances
-
-                # X-Axis Breathing Room Buffer so edge points are never cut off
-                time_span = dense_dates[-1] - dense_dates[0]
-                pad_x = max(time_span * 0.08, pd.Timedelta(hours=4))
-                x_range = [dense_dates[0] - pad_x, dense_dates[-1] + pad_x]
 
                 # Y-Axis Active Range Zoom
                 min_b = min(y_balances)
@@ -1562,11 +1547,19 @@ def render_live_dashboard():
                         f"<b>{t_str}</b> ({sym})<br>Trade PnL: <b style='color:{'#00ffcc' if pnl_val>=0 else '#ff5555'}'>{pnl_sign}${abs(pnl_val):,.2f}</b><br>Balance: <b>${row['balance']:,.2f}</b>"
                     )
 
+                # Clean Date Checkpoint Ticks along the progression axis
+                step = max(1, n_pts // 5)
+                tick_indices = list(range(0, n_pts, step))
+                if (n_pts - 1) not in tick_indices:
+                    tick_indices.append(n_pts - 1)
+                    
+                tick_texts = [x_times[i].strftime("%b %d") for i in tick_indices]
+
                 fig_balance = go.Figure()
 
                 # High Water Mark subtle reference line
                 fig_balance.add_trace(go.Scatter(
-                    x=[x_range[0], x_range[1]],
+                    x=[-0.5, n_pts - 0.5],
                     y=[highest_balance, highest_balance],
                     mode='lines',
                     line=dict(color='rgba(255, 255, 255, 0.10)', width=1, dash='dot'),
@@ -1576,10 +1569,10 @@ def render_live_dashboard():
 
                 # 1. Silky Smooth Continuous Neon Curve & Subtle Ambient Fill
                 fig_balance.add_trace(go.Scatter(
-                    x=dense_dates,
+                    x=x_dense,
                     y=y_dense,
                     mode='lines',
-                    line=dict(color='#bef264', width=2.5),
+                    line=dict(color='#bef264', width=2.8),
                     fill='tozeroy',
                     fillcolor='rgba(190, 242, 100, 0.04)',
                     hoverinfo='skip',
@@ -1588,7 +1581,7 @@ def render_live_dashboard():
 
                 # 2. Clean Checkpoint Anchor Markers (Interactive on hover, zero clutter)
                 fig_balance.add_trace(go.Scatter(
-                    x=x_times,
+                    x=list(range(n_pts)),
                     y=y_balances,
                     mode='markers',
                     marker=dict(size=4.5, color='#bef264', opacity=0.85, line=dict(color='#0b0f19', width=1)),
@@ -1599,15 +1592,14 @@ def render_live_dashboard():
 
                 fig_balance.update_layout(
                     xaxis=dict(
-                        type='date',
-                        range=x_range,
-                        autorange=False,
+                        tickmode='array',
+                        tickvals=tick_indices,
+                        ticktext=tick_texts,
+                        range=[-0.4, n_pts - 0.6],
                         fixedrange=True,
                         showgrid=False,
                         linecolor='rgba(255,255,255,0.08)',
-                        tickfont=dict(color='#8a99ad', size=10),
-                        tickformat="%b %d",
-                        nticks=6
+                        tickfont=dict(color='#8a99ad', size=10)
                     ),
                     yaxis=dict(
                         range=[y_min, y_max],
