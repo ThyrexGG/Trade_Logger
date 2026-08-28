@@ -16,8 +16,25 @@ def render_html(html_str):
     clean_html = "\n".join(clean_lines)
     st.markdown(clean_html, unsafe_allow_html=True)
 
-# Page Config
-st.set_page_config(page_title="Trade Logger & Analytics", layout="wide", page_icon="📈")
+import base64
+
+def get_app_icon_b64():
+    icon_path = os.path.join(os.path.dirname(__file__), "app_icon.png")
+    if os.path.exists(icon_path):
+        try:
+            with open(icon_path, "rb") as f:
+                return base64.b64encode(f.read()).decode()
+        except:
+            return ""
+    return ""
+
+# Page Config with Cool App Icon
+icon_file = os.path.join(os.path.dirname(__file__), "app_icon.png")
+st.set_page_config(
+    page_title="Trade Logger & Analytics", 
+    layout="wide", 
+    page_icon=icon_file if os.path.exists(icon_file) else "📈"
+)
 
 # Initialize Database
 database.init_db()
@@ -966,15 +983,19 @@ def render_live_dashboard():
                 else:
                     st.session_state.account_balances[acc] = 300.0
 
-        # Header
-        st.markdown("""
-        <div style="display: flex; align-items: center; gap: 14px; margin-top: 8px; margin-bottom: 20px;">
+        # Header with Cool App Icon
+        icon_b64 = get_app_icon_b64()
+        logo_html = f'<img src="data:image/png;base64,{icon_b64}" style="width: 44px; height: 44px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0, 255, 204, 0.25);">' if icon_b64 else """
             <div style="width: 44px; height: 44px; border-radius: 10px; background: linear-gradient(135deg, rgba(0, 255, 204, 0.15), rgba(0, 119, 255, 0.2)); border: 1px solid rgba(0, 255, 204, 0.3); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00ffcc" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
                     <polyline points="16 7 22 7 22 13"></polyline>
                 </svg>
             </div>
+        """
+        st.markdown(f"""
+        <div style="display: flex; align-items: center; gap: 14px; margin-top: 8px; margin-bottom: 20px;">
+            {logo_html}
             <div>
                 <h1 style="margin: 0; font-size: 1.85rem; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">TradeLogger Analytics</h1>
                 <p style="margin: 3px 0 0 0; color: #8a99ad; font-size: 13px; letter-spacing: 0.2px;">Automated journal & performance analytics for multi-broker accounts</p>

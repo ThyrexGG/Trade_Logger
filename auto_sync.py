@@ -16,17 +16,25 @@ def log(msg):
     except Exception:
         pass
 
-# Load environment
-load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
-
 import mt5_sync
 import capital_sync
+import database
+import alerts
 
 SYNC_INTERVAL_SECONDS = 30  # Sync every 30 seconds for live floating PnL and trade updates
 
 def run_auto_sync():
-    log("TRADELOGGER AUTOMATIC CLOUD SYNC DAEMON STARTED")
+    log("TRADELOGGER AUTOMATIC CLOUD SYNC & PUSH ALERTS DAEMON STARTED")
     log(f"Interval: Every {SYNC_INTERVAL_SECONDS} seconds")
+    
+    # Initialize known trades cache
+    try:
+        df_init = database.get_closed_trades()
+        known_trade_ids = set(df_init["trade_id"].tolist()) if not df_init.empty else set()
+        log(f"Loaded {len(known_trade_ids)} initial trades into alert cache.")
+    except Exception as e:
+        known_trade_ids = set()
+        log(f"Cache init warning: {e}")
     
     while True:
         log("Starting sync cycle...")
@@ -50,6 +58,21 @@ def run_auto_sync():
                 log("Capital.com Sync: Completed (no new trades)")
         except Exception as e:
             log(f"Capital.com Sync Exception: {e}")
+            
+        # 3. Check for newly closed trades to trigger push notifications
+        try:
+            current_df = database.get_closed_trades()
+            if not current_df.empty:
+                new_trades = current_df[~current_df["trade_id"].isin(known_trade_ids)]
+                if not new_trades.empty:
+                    log(f"Detected {len(new_trades)} newly closed trades! Dispatching push alerts...")
+                    for _, row in new_trades.iterrows():
+                        trade_dict = row.to_dict()
+                        alerts.notify_trade_closed(trade_dict)
+                        known_trade_ids.add(row["trade_id"])
+                        log(f"Alert sent for trade {row['trade_id']} ({row['symbol']} PnL: ${row['net_profit']:.2f})")
+        except Exception as alert_err:
+            log(f"Alert dispatch error: {alert_err}")
             
         log(f"Sleeping for {SYNC_INTERVAL_SECONDS}s...")
         time.sleep(SYNC_INTERVAL_SECONDS)
