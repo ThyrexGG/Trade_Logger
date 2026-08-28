@@ -882,248 +882,204 @@ if hasattr(st, "secrets") and "APP_PIN" in st.secrets:
     configured_pin = str(st.secrets["APP_PIN"]).strip('"\' ')
 
 if configured_pin:
-    # Check if query parameter has unlocked the dashboard
-    if "unlock" in st.query_params:
-        if st.query_params["unlock"] == configured_pin:
-            st.session_state.pin_unlocked = True
-            st.query_params.clear()
-
     if "pin_unlocked" not in st.session_state:
         st.session_state.pin_unlocked = False
+    if "pin_digits" not in st.session_state:
+        st.session_state.pin_digits = ""
+    if "pin_error" not in st.session_state:
+        st.session_state.pin_error = False
 
     if not st.session_state.pin_unlocked:
         icon_b64 = get_app_icon_b64()
-        from streamlit.components.v1 import html as render_component_html
-        render_component_html(f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        logo_html = f'<img src="data:image/png;base64,{icon_b64}" style="width: 58px; height: 58px; border-radius: 14px; box-shadow: 0 4px 20px rgba(0, 255, 204, 0.35); margin-bottom: 8px;">' if icon_b64 else ''
+        
+        # Build 4 PIN Dot Indicators
+        current_len = len(st.session_state.pin_digits)
+        dot_color = "#ff5555" if st.session_state.pin_error else "#00ffcc"
+        dots_html = ""
+        for i in range(4):
+            if i < current_len:
+                dots_html += f'<div style="width: 13px; height: 13px; border-radius: 50%; background: {dot_color}; box-shadow: 0 0 12px {dot_color}; margin: 0 7px; transition: all 0.2s;"></div>'
+            else:
+                dots_html += '<div style="width: 13px; height: 13px; border-radius: 50%; background: rgba(255, 255, 255, 0.12); border: 1.5px solid rgba(255, 255, 255, 0.25); margin: 0 7px;"></div>'
+
+        st.markdown(f"""
         <style>
-        * {{ box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-tap-highlight-color: transparent; }}
-        body {{
-            background: transparent;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 10px 0;
-            overflow: hidden;
-        }}
-        .pin-card {{
-            background: rgba(18, 24, 38, 0.92);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(0, 255, 204, 0.22);
-            border-radius: 24px;
-            padding: 24px 20px 20px 20px;
-            max-width: 320px;
-            width: 100%;
-            text-align: center;
-            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.65), 0 0 30px rgba(0, 255, 204, 0.08);
-            margin: 0 auto;
-        }}
-        .app-logo {{
-            width: 54px;
-            height: 54px;
-            border-radius: 14px;
-            box-shadow: 0 4px 20px rgba(0, 255, 204, 0.35);
-            margin-bottom: 8px;
-        }}
-        .card-title {{
-            color: #ffffff;
-            font-size: 1.3rem;
-            font-weight: 700;
-            margin-bottom: 4px;
-            letter-spacing: -0.5px;
-        }}
-        .card-subtitle {{
-            color: #8a99ad;
-            font-size: 12px;
-            margin-bottom: 16px;
-            transition: all 0.2s;
-            font-weight: 500;
-        }}
-        .pin-dots {{
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 14px;
-            margin-bottom: 20px;
-        }}
-        .dot {{
-            width: 13px;
-            height: 13px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.12);
-            border: 1.5px solid rgba(255, 255, 255, 0.25);
-            transition: all 0.18s ease;
-        }}
-        .dot.filled {{
-            background: #00ffcc;
-            border-color: #00ffcc;
-            box-shadow: 0 0 12px rgba(0, 255, 204, 0.8);
-            transform: scale(1.18);
-        }}
-        .dot.error {{
-            background: #ff5555;
-            border-color: #ff5555;
-            box-shadow: 0 0 12px rgba(255, 85, 85, 0.8);
-        }}
-        .keypad-grid {{
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            width: 100%;
-            max-width: 255px;
-            margin: 0 auto;
-        }}
-        .key-btn {{
-            width: 66px;
-            height: 66px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.11);
-            color: #ffffff;
-            font-size: 23px;
-            font-weight: 600;
-            cursor: pointer;
+        .pin-wrapper {{
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            margin: 0 auto;
-            transition: all 0.1s ease;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.25);
-            outline: none;
+            margin-top: 10px;
+            margin-bottom: 6px;
         }}
-        .key-btn:active {{
-            background: rgba(0, 255, 204, 0.25);
-            border-color: #00ffcc;
-            color: #00ffcc;
-            transform: scale(0.92);
-            box-shadow: 0 0 14px rgba(0, 255, 204, 0.4);
+        .pin-header-card {{
+            background: rgba(18, 24, 38, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(0, 255, 204, 0.2);
+            border-radius: 20px;
+            padding: 22px 20px 16px 20px;
+            max-width: 300px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 25px rgba(0, 255, 204, 0.08);
+            margin-bottom: 12px;
         }}
-        .key-btn span.letters {{
-            font-size: 8px;
-            color: #8a99ad;
-            font-weight: 600;
-            letter-spacing: 0.8px;
-            margin-top: -3px;
+        .st-key-keypad_box [data-testid="stHorizontalBlock"] {{
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            justify-content: center !important;
+            align-items: center !important;
+            gap: 12px !important;
+            max-width: 260px !important;
+            margin: 0 auto 10px auto !important;
         }}
-        .key-btn.action-btn {{
-            font-size: 13px;
-            font-weight: 600;
-            color: #8a99ad;
-            background: transparent;
-            border-color: transparent;
-            box-shadow: none;
+        .st-key-keypad_box [data-testid="column"] {{
+            flex: 0 0 66px !important;
+            width: 66px !important;
+            min-width: 66px !important;
+            max-width: 66px !important;
+            margin: 0 !important;
+            padding: 0 !important;
         }}
-        .key-btn.action-btn:active {{
-            color: #ffffff;
-            background: rgba(255,255,255,0.08);
+        .st-key-keypad_box button {{
+            width: 66px !important;
+            height: 66px !important;
+            min-height: 66px !important;
+            max-height: 66px !important;
+            border-radius: 50% !important;
+            font-size: 22px !important;
+            font-weight: 700 !important;
+            background: rgba(255, 255, 255, 0.06) !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            color: #ffffff !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
+            transition: all 0.1s ease !important;
+            padding: 0 !important;
+            margin: 0 auto !important;
+        }}
+        .st-key-keypad_box button:hover {{
+            background: rgba(0, 255, 204, 0.15) !important;
+            border-color: rgba(0, 255, 204, 0.5) !important;
+            color: #00ffcc !important;
+            box-shadow: 0 0 14px rgba(0, 255, 204, 0.3) !important;
+        }}
+        .st-key-keypad_box button:active {{
+            transform: scale(0.92) !important;
+            background: rgba(0, 255, 204, 0.3) !important;
+        }}
+        .st-key-keypad_box button[key="key_clear"],
+        .st-key-keypad_box button[key="key_del"] {{
+            font-size: 13px !important;
+            font-weight: 600 !important;
+            color: #8a99ad !important;
+            background: transparent !important;
+            border-color: transparent !important;
+            box-shadow: none !important;
         }}
         </style>
-        </head>
-        <body>
-        <div class="pin-card" id="pinCard">
-            <img src="data:image/png;base64,{icon_b64}" class="app-logo">
-            <div class="card-title">TradeLogger Security</div>
-            <div class="card-subtitle" id="pinSubtitle">Enter Master PIN</div>
-            <div class="pin-dots">
-                <div class="dot" id="dot0"></div>
-                <div class="dot" id="dot1"></div>
-                <div class="dot" id="dot2"></div>
-                <div class="dot" id="dot3"></div>
-            </div>
-            <div class="keypad-grid">
-                <button type="button" class="key-btn" onclick="pressKey('1')">1<span class="letters">&nbsp;</span></button>
-                <button type="button" class="key-btn" onclick="pressKey('2')">2<span class="letters">ABC</span></button>
-                <button type="button" class="key-btn" onclick="pressKey('3')">3<span class="letters">DEF</span></button>
-                <button type="button" class="key-btn" onclick="pressKey('4')">4<span class="letters">GHI</span></button>
-                <button type="button" class="key-btn" onclick="pressKey('5')">5<span class="letters">JKL</span></button>
-                <button type="button" class="key-btn" onclick="pressKey('6')">6<span class="letters">MNO</span></button>
-                <button type="button" class="key-btn" onclick="pressKey('7')">7<span class="letters">PQRS</span></button>
-                <button type="button" class="key-btn" onclick="pressKey('8')">8<span class="letters">TUV</span></button>
-                <button type="button" class="key-btn" onclick="pressKey('9')">9<span class="letters">WXYZ</span></button>
-                <button type="button" class="key-btn action-btn" onclick="clearPin()">CLR</button>
-                <button type="button" class="key-btn" onclick="pressKey('0')">0<span class="letters">&nbsp;</span></button>
-                <button type="button" class="key-btn action-btn" onclick="deletePin()">⌫</button>
+        <div class="pin-wrapper">
+            <div class="pin-header-card">
+                {logo_html}
+                <h2 style="color: #ffffff; font-size: 1.35rem; font-weight: 700; margin: 0 0 4px 0; letter-spacing: -0.5px;">TradeLogger Security</h2>
+                <p style="color: {'#ff5555' if st.session_state.pin_error else '#8a99ad'}; font-size: 12px; margin: 0 0 16px 0; font-weight: 600;">{"Incorrect PIN! Try again" if st.session_state.pin_error else "Enter PIN on keypad below"}</p>
+                <div style="display: flex; justify-content: center; align-items: center; height: 24px;">
+                    {dots_html}
+                </div>
             </div>
         </div>
+        """, unsafe_allow_html=True)
 
-        <script>
-        let currentPin = "";
-        const targetPin = "{configured_pin}";
+        with st.container(key="keypad_box"):
+            # Row 1: 1, 2, 3
+            k1, k2, k3 = st.columns(3)
+            with k1:
+                if st.button("1", key="key_1"):
+                    st.session_state.pin_error = False
+                    st.session_state.pin_digits += "1"
+                    st.rerun()
+            with k2:
+                if st.button("2", key="key_2"):
+                    st.session_state.pin_error = False
+                    st.session_state.pin_digits += "2"
+                    st.rerun()
+            with k3:
+                if st.button("3", key="key_3"):
+                    st.session_state.pin_error = False
+                    st.session_state.pin_digits += "3"
+                    st.rerun()
 
-        function updateDots(isError = false) {{
-            for (let i = 0; i < 4; i++) {{
-                const dot = document.getElementById('dot' + i);
-                if (isError) {{
-                    dot.className = "dot error";
-                }} else if (i < currentPin.length) {{
-                    dot.className = "dot filled";
-                }} else {{
-                    dot.className = "dot";
-                }}
-            }}
-        }}
+            # Row 2: 4, 5, 6
+            k4, k5, k6 = st.columns(3)
+            with k4:
+                if st.button("4", key="key_4"):
+                    st.session_state.pin_error = False
+                    st.session_state.pin_digits += "4"
+                    st.rerun()
+            with k5:
+                if st.button("5", key="key_5"):
+                    st.session_state.pin_error = False
+                    st.session_state.pin_digits += "5"
+                    st.rerun()
+            with k6:
+                if st.button("6", key="key_6"):
+                    st.session_state.pin_error = False
+                    st.session_state.pin_digits += "6"
+                    st.rerun()
 
-        function pressKey(digit) {{
-            if (currentPin.length >= 4) return;
-            currentPin += digit;
-            updateDots();
-            
-            if (currentPin.length === 4) {{
-                if (currentPin === targetPin) {{
-                    document.getElementById('pinSubtitle').innerText = "Access Granted! Unlocking...";
-                    document.getElementById('pinSubtitle').style.color = "#00ffcc";
-                    setTimeout(() => {{
-                        const parentUrl = new URL(window.parent.location.href);
-                        parentUrl.searchParams.set("unlock", targetPin);
-                        window.parent.location.href = parentUrl.toString();
-                    }}, 200);
-                }} else {{
-                    document.getElementById('pinSubtitle').innerText = "Incorrect PIN! Try again";
-                    document.getElementById('pinSubtitle').style.color = "#ff5555";
-                    updateDots(true);
-                    setTimeout(() => {{
-                        currentPin = "";
-                        updateDots(false);
-                        document.getElementById('pinSubtitle').innerText = "Enter Master PIN";
-                        document.getElementById('pinSubtitle').style.color = "#8a99ad";
-                    }}, 550);
-                }}
-            }}
-        }}
+            # Row 3: 7, 8, 9
+            k7, k8, k9 = st.columns(3)
+            with k7:
+                if st.button("7", key="key_7"):
+                    st.session_state.pin_error = False
+                    st.session_state.pin_digits += "7"
+                    st.rerun()
+            with k8:
+                if st.button("8", key="key_8"):
+                    st.session_state.pin_error = False
+                    st.session_state.pin_digits += "8"
+                    st.rerun()
+            with k9:
+                if st.button("9", key="key_9"):
+                    st.session_state.pin_error = False
+                    st.session_state.pin_digits += "9"
+                    st.rerun()
 
-        function clearPin() {{
-            currentPin = "";
-            updateDots();
-        }}
+            # Row 4: Clear, 0, Del
+            kc, k0, kd = st.columns(3)
+            with kc:
+                if st.button("CLR", key="key_clear"):
+                    st.session_state.pin_digits = ""
+                    st.session_state.pin_error = False
+                    st.rerun()
+            with k0:
+                if st.button("0", key="key_0"):
+                    st.session_state.pin_error = False
+                    st.session_state.pin_digits += "0"
+                    st.rerun()
+            with kd:
+                if st.button("⌫", key="key_del"):
+                    st.session_state.pin_error = False
+                    if len(st.session_state.pin_digits) > 0:
+                        st.session_state.pin_digits = st.session_state.pin_digits[:-1]
+                    st.rerun()
 
-        function deletePin() {{
-            if (currentPin.length > 0) {{
-                currentPin = currentPin.slice(0, -1);
-                updateDots();
-            }}
-        }}
+            # Check if 4 digits have been entered
+            if len(st.session_state.pin_digits) >= len(configured_pin):
+                if st.session_state.pin_digits == configured_pin:
+                    st.session_state.pin_unlocked = True
+                    st.session_state.pin_digits = ""
+                    st.session_state.pin_error = False
+                    st.rerun()
+                else:
+                    st.session_state.pin_error = True
+                    st.session_state.pin_digits = ""
+                    st.rerun()
 
-        // Support Physical Keyboard Typing
-        document.addEventListener('keydown', (e) => {{
-            if (e.key >= '0' && e.key <= '9') {{
-                pressKey(e.key);
-            }} else if (e.key === 'Backspace') {{
-                deletePin();
-            }} else if (e.key === 'Escape') {{
-                clearPin();
-            }}
-        }});
-        </script>
-        </body>
-        </html>
-        """, height=520)
         st.stop()
 
 # ----------------------------------------------------
