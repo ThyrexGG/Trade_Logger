@@ -24,15 +24,22 @@ def clean_symbol(symbol):
     return symbol.upper()
 
 def sync_mt5():
+    # Reload .env freshly
+    load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
+
     # Guard: MetaTrader5 is only available on Windows.
     if not MT5_AVAILABLE:
         print("MetaTrader5 is not available on this platform (Linux/Cloud). MT5 sync only works locally on Windows.")
         return False
 
     # Initialize MT5 connection
-    login_str = os.getenv("MT5_LOGIN")
-    password = os.getenv("MT5_PASSWORD")
-    server = os.getenv("MT5_SERVER")
+    login_str = os.getenv("MT5_LOGIN", "")
+    password = os.getenv("MT5_PASSWORD", "")
+    server = os.getenv("MT5_SERVER", "")
+
+    if login_str: login_str = login_str.strip('"\'')
+    if password: password = password.strip('"\'')
+    if server: server = server.strip('"\'')
     
     # Initialize the database just in case
     database.init_db()

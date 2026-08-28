@@ -27,21 +27,33 @@ def clean_symbol(symbol):
     return mapping.get(symbol, symbol)
 
 def sync_capital():
-    # Load from environment variables (local .env) OR Streamlit Cloud secrets
+    # Reload .env freshly
+    load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
+
+    api_key = os.getenv("CAPITAL_API_KEY")
+    email = os.getenv("CAPITAL_EMAIL")
+    password = os.getenv("CAPITAL_PASSWORD")
+    account_id = os.getenv("CAPITAL_ACCOUNT_ID")
+    is_demo = str(os.getenv("CAPITAL_IS_DEMO", "false")).strip().lower() == "true"
+
+    # Try Streamlit Cloud secrets as fallback if running on cloud
     try:
         import streamlit as st
-        _secrets = st.secrets
-        api_key  = _secrets.get("CAPITAL_API_KEY",  os.getenv("CAPITAL_API_KEY"))
-        email    = _secrets.get("CAPITAL_EMAIL",     os.getenv("CAPITAL_EMAIL"))
-        password = _secrets.get("CAPITAL_PASSWORD",  os.getenv("CAPITAL_PASSWORD"))
-        account_id = str(_secrets.get("CAPITAL_ACCOUNT_ID", os.getenv("CAPITAL_ACCOUNT_ID") or ""))
-        is_demo  = str(_secrets.get("CAPITAL_IS_DEMO", os.getenv("CAPITAL_IS_DEMO", "true"))).lower() == "true"
+        if hasattr(st, "secrets") and len(st.secrets) > 0:
+            api_key = st.secrets.get("CAPITAL_API_KEY", api_key) or api_key
+            email = st.secrets.get("CAPITAL_EMAIL", email) or email
+            password = st.secrets.get("CAPITAL_PASSWORD", password) or password
+            account_id = str(st.secrets.get("CAPITAL_ACCOUNT_ID", account_id) or account_id or "")
+            if "CAPITAL_IS_DEMO" in st.secrets:
+                is_demo = str(st.secrets["CAPITAL_IS_DEMO"]).strip().lower() == "true"
     except Exception:
-        api_key    = os.getenv("CAPITAL_API_KEY")
-        email      = os.getenv("CAPITAL_EMAIL")
-        password   = os.getenv("CAPITAL_PASSWORD")
-        account_id = os.getenv("CAPITAL_ACCOUNT_ID")
-        is_demo    = os.getenv("CAPITAL_IS_DEMO", "true").lower() == "true"
+        pass
+
+    # Strip any extra accidental surrounding quotes from .env strings
+    if api_key: api_key = api_key.strip('"\'')
+    if email: email = email.strip('"\'')
+    if password: password = password.strip('"\'')
+    if account_id: account_id = account_id.strip('"\'')
 
     # Initialize the database
     database.init_db()
