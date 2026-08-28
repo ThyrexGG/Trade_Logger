@@ -858,7 +858,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # OneSignal Web Push Client Listener
-onesignal_app_id = os.getenv("ONESIGNAL_APP_ID", "").strip('"\' ')
+onesignal_app_id = os.getenv("ONESIGNAL_APP_ID", "1f707b9d-5a8e-411d-b8cc-13c68a9b7ff4").strip('"\' ')
 if onesignal_app_id:
     from streamlit.components.v1 import html
     html(f"""
@@ -877,13 +877,9 @@ if onesignal_app_id:
 # ----------------------------------------------------
 # SECURITY & PIN LOCK GATE
 # ----------------------------------------------------
-configured_pin = os.getenv("APP_PIN", "").strip('"\' ')
-if not configured_pin:
-    try:
-        if hasattr(st, "secrets") and "APP_PIN" in st.secrets:
-            configured_pin = str(st.secrets["APP_PIN"]).strip('"\' ')
-    except Exception:
-        pass
+configured_pin = os.getenv("APP_PIN", "1108").strip('"\' ')
+if hasattr(st, "secrets") and "APP_PIN" in st.secrets:
+    configured_pin = str(st.secrets["APP_PIN"]).strip('"\' ')
 
 if configured_pin:
     if "pin_unlocked" not in st.session_state:
