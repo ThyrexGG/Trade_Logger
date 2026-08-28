@@ -95,6 +95,22 @@ def sync_capital():
         })
         print("Session established successfully.")
         
+        # Fetch official live account balance & equity from Capital.com
+        try:
+            acc_resp = session.get(f"{base_url}/accounts", headers=headers)
+            if acc_resp.status_code == 200:
+                acc_data = acc_resp.json().get("accounts", [])
+                if acc_data:
+                    pref_acc = next((a for a in acc_data if a.get("preferred")), acc_data[0])
+                    bal_info = pref_acc.get("balance", {})
+                    cap_bal = float(bal_info.get("balance", 0.0))
+                    cap_equity = float(bal_info.get("balance", 0.0)) + float(bal_info.get("profitLoss", 0.0))
+                    cap_curr = str(pref_acc.get("currency", "USD"))
+                    database.save_account_balance(account_id, cap_bal, cap_equity, cap_curr)
+                    print(f"Saved live Capital.com balance: ${cap_bal:,.2f} | Equity: ${cap_equity:,.2f}")
+        except Exception as bal_e:
+            print(f"Error fetching Capital.com balance: {bal_e}")
+        
     except Exception as e:
         print(f"Error connecting to Capital.com: {e}")
         return False

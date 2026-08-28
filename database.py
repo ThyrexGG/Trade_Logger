@@ -1,5 +1,6 @@
 import os
 import sqlite3
+from datetime import datetime, timezone
 import pandas as pd
 from dotenv import load_dotenv
 
@@ -98,6 +99,16 @@ def init_db():
                 updated_at TEXT NOT NULL
             );
         """)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS account_metadata (
+                account_id TEXT PRIMARY KEY,
+                balance DOUBLE PRECISION NOT NULL,
+                equity DOUBLE PRECISION NOT NULL,
+                currency TEXT DEFAULT 'USD',
+                updated_at TEXT NOT NULL
+            );
+        """)
     else:
         # SQLite Schema
         cursor.execute("""
@@ -150,6 +161,16 @@ def init_db():
                 floating_pnl REAL DEFAULT 0,
                 swap REAL DEFAULT 0,
                 open_time TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS account_metadata (
+                account_id TEXT PRIMARY KEY,
+                balance REAL NOT NULL,
+                equity REAL NOT NULL,
+                currency TEXT DEFAULT 'USD',
                 updated_at TEXT NOT NULL
             )
         """)
@@ -321,6 +342,49 @@ def get_open_positions(account_id=None):
         df = pd.read_sql_query("SELECT * FROM open_positions ORDER BY open_time DESC", conn)
     conn.close()
     return df
+
+def save_account_balance(account_id, balance, equity, currency="USD"):
+    """Saves official live broker balance and equity for an account."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    now_iso = datetime.now(timezone.utc).isoformat()
+    
+    if is_postgres():
+        query = """
+            INSERT INTO account_metadata (account_id, balance, equity, currency, updated_at)
+            VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT (account_id) DO UPDATE SET
+                balance = EXCLUDED.balance,
+                equity = EXCLUDED.equity,
+                currency = EXCLUDED.currency,
+                updated_at = EXCLUDED.updated_at
+        """
+        cursor.execute(query, (account_id, float(balance), float(equity), currency, now_iso))
+    else:
+        cursor.execute("""
+            INSERT OR REPLACE INTO account_metadata (account_id, balance, equity, currency, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+        """, (account_id, float(balance), float(equity), currency, now_iso))
+        
+    conn.commit()
+    conn.close()
+
+def get_account_balances():
+    """Returns a dict of {account_id: {'balance': float, 'equity': float, 'currency': str}} from database."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT account_id, balance, equity, currency FROM account_metadata")
+    rows = cursor.fetchall()
+    conn.close()
+    
+    balances = {}
+    for row in rows:
+        balances[str(row[0])] = {
+            "balance": float(row[1]),
+            "equity": float(row[2]),
+            "currency": str(row[3])
+        }
+    return balances
 
 if __name__ == "__main__":
     init_db()

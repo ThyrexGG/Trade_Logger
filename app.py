@@ -1040,11 +1040,20 @@ def render_live_dashboard():
             # Chronological sort for balance calculations
             filtered_df = filtered_df.sort_values(by="exit_time", ascending=True).reset_index(drop=True)
 
+            # Fetch live detected account balances directly from broker APIs
+            detected_balances = database.get_account_balances()
+            official_broker_bal = None
+            if selected_account in detected_balances:
+                official_broker_bal = detected_balances[selected_account]["balance"]
+            elif selected_account == "ALL" and detected_balances:
+                official_broker_bal = sum(b["balance"] for b in detected_balances.values())
+
             # ------------------
             # METRICS COMPUTATION
             # ------------------
             filtered_df["balance"] = initial_balance + filtered_df["net_profit"].cumsum()
-            current_balance = filtered_df["balance"].iloc[-1]
+            # Use official broker balance directly if available (accounts for rebates & deposits), else use cumulative
+            current_balance = official_broker_bal if official_broker_bal is not None else filtered_df["balance"].iloc[-1]
             total_pnl = filtered_df["net_profit"].sum()
             gain_pct = (total_pnl / initial_balance) * 100
 

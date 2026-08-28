@@ -90,6 +90,13 @@ def sync_mt5():
     account_id = f"MT5_{acc_info.login}"
     print(f"Successfully connected to MT5 Account: {acc_info.login} ({acc_info.company})")
 
+    # Save Live Account Balance & Equity directly from MT5 terminal
+    try:
+        database.save_account_balance(account_id, acc_info.balance, acc_info.equity, getattr(acc_info, 'currency', 'USD'))
+        print(f"Saved live MT5 balance: ${acc_info.balance:,.2f} | Equity: ${acc_info.equity:,.2f}")
+    except Exception as bal_err:
+        print(f"Error saving MT5 balance: {bal_err}")
+
     # Sync Live Open Positions
     try:
         open_positions_raw = mt5.positions_get()
