@@ -609,11 +609,11 @@ else:
 
     def format_account_name(acc_id):
         if acc_id == "ALL":
-            return "All Accounts (Combined)"
+            return "All Accounts (Combined View)"
         elif str(acc_id).startswith("MT5_"):
-            return f"MetaTrader 5 ({str(acc_id).replace('MT5_', '')})"
+            return f"MetaTrader 5 ({str(acc_id).replace('MT5_', '')}) • Funded Account"
         else:
-            return f"Capital.com ({acc_id})"
+            return f"Capital.com ({acc_id}) • Real Account"
 
     # Populate default starting balances per account
     for acc in unique_accounts:
@@ -833,173 +833,174 @@ else:
         least_prof_sess = session_pnls.idxmin() if not session_pnls.empty else "-"
 
         # ------------------
-        # THE5ERS PROP FIRM EVALUATION & OBJECTIVES HUB
+        # THE5ERS PROP FIRM EVALUATION & OBJECTIVES HUB (Only for MT5 Funded Account)
         # ------------------
         is_mt5 = str(selected_account).startswith("MT5_")
         
-        target_profit_goal = initial_balance * 0.10
-        max_daily_loss_limit = initial_balance * 0.05
-        max_total_loss_limit = initial_balance * 0.10
-        
-        today_pnl_val = daily_outcomes[-1] if len(daily_outcomes) > 0 else 0.0
-        daily_loss_remaining = max(0.0, max_daily_loss_limit + (today_pnl_val if today_pnl_val < 0 else 0.0))
-        max_loss_remaining = max(0.0, max_total_loss_limit + (total_pnl if total_pnl < 0 else 0.0))
-        profitable_days_count = len([p for p in daily_outcomes if p > 0])
-        
-        goal_pnl_sign = "+" if total_pnl >= 0 else "-"
-        goal_pnl_color = "#00ffcc" if total_pnl >= 0 else "#ff5555"
-        daily_pnl_color = "#00ffcc" if today_pnl_val >= 0 else "#ff5555"
-        daily_pnl_sign = "+" if today_pnl_val >= 0 else "-"
-        
-        account_order_id = "1000782405" if is_mt5 else "304665047035"
-        account_disp_num = str(selected_account).replace("MT5_", "") if is_mt5 else str(selected_account)
-        broker_name = "Five Percent Online MetaTrader" if is_mt5 else "Capital.com Multi-Asset Broker"
-        program_name = "$10K High Stakes 10%" if is_mt5 else "Trading Performance Evaluation"
-        
-        render_html(f"""
-        <div class="prop-hub-container">
-            <!-- Header Row -->
-            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:14px;">
-                <div>
-                    <div style="display:flex; gap:6px; margin-bottom:8px;">
-                        <span class="prop-badge forex">Forex</span>
-                        <span class="prop-badge active">● Active</span>
-                        <span class="prop-badge eval">Evaluation</span>
-                    </div>
-                    <div style="font-size:22px; font-weight:800; color:#ffffff; letter-spacing:-0.4px;">{program_name}</div>
-                    <div style="font-size:11px; color:#8a99ad; margin-top:3px;">Order ID #{account_order_id} • Account #{account_disp_num} • {broker_name}</div>
-                </div>
-                
-                <div style="display:flex; gap:28px; text-align:right;">
-                    <div>
-                        <div style="font-size:10px; color:#8a99ad; text-transform:uppercase; font-weight:600;">Balance</div>
-                        <div style="font-size:20px; font-weight:800; color:#ffffff;">${current_balance:,.2f}</div>
-                    </div>
-                    <div>
-                        <div style="font-size:10px; color:#8a99ad; text-transform:uppercase; font-weight:600;">Unrealized</div>
-                        <div style="font-size:20px; font-weight:800; color:#ffffff;">$0.00</div>
-                    </div>
-                    <div>
-                        <div style="font-size:10px; color:#8a99ad; text-transform:uppercase; font-weight:600;">Daily P&L</div>
-                        <div style="font-size:20px; font-weight:800; color:{daily_pnl_color};">{daily_pnl_sign}${abs(today_pnl_val):,.2f}</div>
-                    </div>
-                </div>
-            </div>
+        if is_mt5:
+            target_profit_goal = initial_balance * 0.10
+            max_daily_loss_limit = initial_balance * 0.05
+            max_total_loss_limit = initial_balance * 0.10
             
-            <!-- Scale Up Roadmap -->
-            <div class="prop-roadmap">
-                <div class="prop-roadmap-node active">
-                    <span class="prop-roadmap-title">1st Evaluation</span>
-                    <div class="prop-roadmap-circle">1</div>
-                    <span class="prop-roadmap-target">${initial_balance:,.0f}</span>
-                </div>
-                <div class="prop-roadmap-node">
-                    <span class="prop-roadmap-title">2nd Evaluation</span>
-                    <div class="prop-roadmap-circle">2</div>
-                    <span class="prop-roadmap-target">${initial_balance:,.0f}</span>
-                </div>
-                <div class="prop-roadmap-node">
-                    <span class="prop-roadmap-title">Funded!</span>
-                    <div class="prop-roadmap-circle">F</div>
-                    <span class="prop-roadmap-target">${initial_balance:,.0f}</span>
-                </div>
-                <div class="prop-roadmap-node">
-                    <span class="prop-roadmap-title">Scale Up</span>
-                    <div class="prop-roadmap-circle">↑</div>
-                    <span class="prop-roadmap-target">${initial_balance*1.25:,.0f}</span>
-                </div>
-                <div class="prop-roadmap-node">
-                    <span class="prop-roadmap-title">Scale Up</span>
-                    <div class="prop-roadmap-circle">↑</div>
-                    <span class="prop-roadmap-target">${initial_balance*1.5:,.0f}</span>
-                </div>
-                <div class="prop-roadmap-node">
-                    <span class="prop-roadmap-title">Scale Up</span>
-                    <div class="prop-roadmap-circle">↑</div>
-                    <span class="prop-roadmap-target">${initial_balance*2.0:,.0f}</span>
-                </div>
-                <div class="prop-roadmap-node">
-                    <span class="prop-roadmap-title">Scale Up</span>
-                    <div class="prop-roadmap-circle">↑</div>
-                    <span class="prop-roadmap-target">${initial_balance*2.5:,.0f}</span>
-                </div>
-                <div class="prop-roadmap-node">
-                    <span class="prop-roadmap-title">Scale Up</span>
-                    <div class="prop-roadmap-circle">↑</div>
-                    <span class="prop-roadmap-target">${initial_balance*3.0:,.0f}</span>
-                </div>
-            </div>
+            today_pnl_val = daily_outcomes[-1] if len(daily_outcomes) > 0 else 0.0
+            daily_loss_remaining = max(0.0, max_daily_loss_limit + (today_pnl_val if today_pnl_val < 0 else 0.0))
+            max_loss_remaining = max(0.0, max_total_loss_limit + (total_pnl if total_pnl < 0 else 0.0))
+            profitable_days_count = len([p for p in daily_outcomes if p > 0])
             
-            <!-- Trading Objectives Header -->
-            <div style="font-size:13px; font-weight:700; color:#ffffff; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-                <span>Trading Objectives</span>
-                <span style="font-size:10px; color:#8a99ad; text-decoration:underline;">Rules & Compliance</span>
-            </div>
+            goal_pnl_sign = "+" if total_pnl >= 0 else "-"
+            goal_pnl_color = "#00ffcc" if total_pnl >= 0 else "#ff5555"
+            daily_pnl_color = "#00ffcc" if today_pnl_val >= 0 else "#ff5555"
+            daily_pnl_sign = "+" if today_pnl_val >= 0 else "-"
             
-            <!-- 5 Objective Cards Grid -->
-            <div class="prop-objectives-grid">
-                <!-- Card 1: Profitable Days -->
-                <div class="prop-obj-card">
-                    <div class="prop-obj-header">
-                        <span class="prop-obj-title">Profitable Days</span>
-                        <span class="prop-obj-status">In progress</span>
-                    </div>
+            account_order_id = "1000782405"
+            account_disp_num = str(selected_account).replace("MT5_", "")
+            broker_name = "Five Percent Online MetaTrader"
+            program_name = "$10K High Stakes 10%"
+            
+            render_html(f"""
+            <div class="prop-hub-container">
+                <!-- Header Row -->
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:14px;">
                     <div>
-                        <div class="prop-obj-value">{profitable_days_count} / 3</div>
-                        <div class="prop-obj-sub">Min 3 required</div>
+                        <div style="display:flex; gap:6px; margin-bottom:8px;">
+                            <span class="prop-badge forex">Forex</span>
+                            <span class="prop-badge active">● Active</span>
+                            <span class="prop-badge eval">Evaluation</span>
+                        </div>
+                        <div style="font-size:22px; font-weight:800; color:#ffffff; letter-spacing:-0.4px;">{program_name}</div>
+                        <div style="font-size:11px; color:#8a99ad; margin-top:3px;">Order ID #{account_order_id} • Account #{account_disp_num} • {broker_name}</div>
+                    </div>
+                    
+                    <div style="display:flex; gap:28px; text-align:right;">
+                        <div>
+                            <div style="font-size:10px; color:#8a99ad; text-transform:uppercase; font-weight:600;">Balance</div>
+                            <div style="font-size:20px; font-weight:800; color:#ffffff;">${current_balance:,.2f}</div>
+                        </div>
+                        <div>
+                            <div style="font-size:10px; color:#8a99ad; text-transform:uppercase; font-weight:600;">Unrealized</div>
+                            <div style="font-size:20px; font-weight:800; color:#ffffff;">$0.00</div>
+                        </div>
+                        <div>
+                            <div style="font-size:10px; color:#8a99ad; text-transform:uppercase; font-weight:600;">Daily P&L</div>
+                            <div style="font-size:20px; font-weight:800; color:{daily_pnl_color};">{daily_pnl_sign}${abs(today_pnl_val):,.2f}</div>
+                        </div>
                     </div>
                 </div>
                 
-                <!-- Card 2: Unrealized Profit -->
-                <div class="prop-obj-card">
-                    <div class="prop-obj-header">
-                        <span class="prop-obj-title">Unrealized Profit</span>
-                        <span class="prop-obj-status">In progress</span>
+                <!-- Scale Up Roadmap -->
+                <div class="prop-roadmap">
+                    <div class="prop-roadmap-node active">
+                        <span class="prop-roadmap-title">1st Evaluation</span>
+                        <div class="prop-roadmap-circle">1</div>
+                        <span class="prop-roadmap-target">${initial_balance:,.0f}</span>
                     </div>
-                    <div>
-                        <div class="prop-obj-value">$0.00</div>
-                        <div class="prop-obj-sub">0 Open Trades</div>
+                    <div class="prop-roadmap-node">
+                        <span class="prop-roadmap-title">2nd Evaluation</span>
+                        <div class="prop-roadmap-circle">2</div>
+                        <span class="prop-roadmap-target">${initial_balance:,.0f}</span>
+                    </div>
+                    <div class="prop-roadmap-node">
+                        <span class="prop-roadmap-title">Funded!</span>
+                        <div class="prop-roadmap-circle">F</div>
+                        <span class="prop-roadmap-target">${initial_balance:,.0f}</span>
+                    </div>
+                    <div class="prop-roadmap-node">
+                        <span class="prop-roadmap-title">Scale Up</span>
+                        <div class="prop-roadmap-circle">↑</div>
+                        <span class="prop-roadmap-target">${initial_balance*1.25:,.0f}</span>
+                    </div>
+                    <div class="prop-roadmap-node">
+                        <span class="prop-roadmap-title">Scale Up</span>
+                        <div class="prop-roadmap-circle">↑</div>
+                        <span class="prop-roadmap-target">${initial_balance*1.5:,.0f}</span>
+                    </div>
+                    <div class="prop-roadmap-node">
+                        <span class="prop-roadmap-title">Scale Up</span>
+                        <div class="prop-roadmap-circle">↑</div>
+                        <span class="prop-roadmap-target">${initial_balance*2.0:,.0f}</span>
+                    </div>
+                    <div class="prop-roadmap-node">
+                        <span class="prop-roadmap-title">Scale Up</span>
+                        <div class="prop-roadmap-circle">↑</div>
+                        <span class="prop-roadmap-target">${initial_balance*2.5:,.0f}</span>
+                    </div>
+                    <div class="prop-roadmap-node">
+                        <span class="prop-roadmap-title">Scale Up</span>
+                        <div class="prop-roadmap-circle">↑</div>
+                        <span class="prop-roadmap-target">${initial_balance*3.0:,.0f}</span>
                     </div>
                 </div>
                 
-                <!-- Card 3: Profit Goal -->
-                <div class="prop-obj-card">
-                    <div class="prop-obj-header">
-                        <span class="prop-obj-title">Profit Goal</span>
-                        <span class="prop-obj-status">In progress</span>
-                    </div>
-                    <div>
-                        <div class="prop-obj-value" style="color:{goal_pnl_color};">{goal_pnl_sign}${abs(total_pnl):,.2f}</div>
-                        <div class="prop-obj-sub">Goal: ${target_profit_goal:,.0f} (10%)</div>
-                    </div>
+                <!-- Trading Objectives Header -->
+                <div style="font-size:13px; font-weight:700; color:#ffffff; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                    <span>Trading Objectives</span>
+                    <span style="font-size:10px; color:#8a99ad; text-decoration:underline;">Rules & Compliance</span>
                 </div>
                 
-                <!-- Card 4: Max Daily Loss -->
-                <div class="prop-obj-card">
-                    <div class="prop-obj-header">
-                        <span class="prop-obj-title">Max Daily Loss</span>
-                        <span class="prop-obj-status" style="background:rgba(0,255,204,0.1); color:#00ffcc; border-color:rgba(0,255,204,0.25);">Safe</span>
+                <!-- 5 Objective Cards Grid -->
+                <div class="prop-objectives-grid">
+                    <!-- Card 1: Profitable Days -->
+                    <div class="prop-obj-card">
+                        <div class="prop-obj-header">
+                            <span class="prop-obj-title">Profitable Days</span>
+                            <span class="prop-obj-status">In progress</span>
+                        </div>
+                        <div>
+                            <div class="prop-obj-value">{profitable_days_count} / 3</div>
+                            <div class="prop-obj-sub">Min 3 required</div>
+                        </div>
                     </div>
-                    <div>
-                        <div class="prop-obj-value" style="color:#00ffcc;">${daily_loss_remaining:,.2f} Left</div>
-                        <div class="prop-obj-sub">Limit: ${max_daily_loss_limit:,.0f} (5%)</div>
+                    
+                    <!-- Card 2: Unrealized Profit -->
+                    <div class="prop-obj-card">
+                        <div class="prop-obj-header">
+                            <span class="prop-obj-title">Unrealized Profit</span>
+                            <span class="prop-obj-status">In progress</span>
+                        </div>
+                        <div>
+                            <div class="prop-obj-value">$0.00</div>
+                            <div class="prop-obj-sub">0 Open Trades</div>
+                        </div>
                     </div>
-                </div>
-                
-                <!-- Card 5: Max Loss -->
-                <div class="prop-obj-card">
-                    <div class="prop-obj-header">
-                        <span class="prop-obj-title">Max Loss</span>
-                        <span class="prop-obj-status" style="background:rgba(0,255,204,0.1); color:#00ffcc; border-color:rgba(0,255,204,0.25);">Safe</span>
+                    
+                    <!-- Card 3: Profit Goal -->
+                    <div class="prop-obj-card">
+                        <div class="prop-obj-header">
+                            <span class="prop-obj-title">Profit Goal</span>
+                            <span class="prop-obj-status">In progress</span>
+                        </div>
+                        <div>
+                            <div class="prop-obj-value" style="color:{goal_pnl_color};">{goal_pnl_sign}${abs(total_pnl):,.2f}</div>
+                            <div class="prop-obj-sub">Goal: ${target_profit_goal:,.0f} (10%)</div>
+                        </div>
                     </div>
-                    <div>
-                        <div class="prop-obj-value" style="color:#00ffcc;">${max_loss_remaining:,.2f} Left</div>
-                        <div class="prop-obj-sub">Limit: ${max_total_loss_limit:,.0f} (10%)</div>
+                    
+                    <!-- Card 4: Max Daily Loss -->
+                    <div class="prop-obj-card">
+                        <div class="prop-obj-header">
+                            <span class="prop-obj-title">Max Daily Loss</span>
+                            <span class="prop-obj-status" style="background:rgba(0,255,204,0.1); color:#00ffcc; border-color:rgba(0,255,204,0.25);">Safe</span>
+                        </div>
+                        <div>
+                            <div class="prop-obj-value" style="color:#00ffcc;">${daily_loss_remaining:,.2f} Left</div>
+                            <div class="prop-obj-sub">Limit: ${max_daily_loss_limit:,.0f} (5%)</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Card 5: Max Loss -->
+                    <div class="prop-obj-card">
+                        <div class="prop-obj-header">
+                            <span class="prop-obj-title">Max Loss</span>
+                            <span class="prop-obj-status" style="background:rgba(0,255,204,0.1); color:#00ffcc; border-color:rgba(0,255,204,0.25);">Safe</span>
+                        </div>
+                        <div>
+                            <div class="prop-obj-value" style="color:#00ffcc;">${max_loss_remaining:,.2f} Left</div>
+                            <div class="prop-obj-sub">Limit: ${max_total_loss_limit:,.0f} (10%)</div>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-        """)
+            """)
 
         # ------------------
         # TOP STATS BAR
