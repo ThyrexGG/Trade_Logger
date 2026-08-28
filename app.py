@@ -458,22 +458,9 @@ st.markdown("""
     }
 
     /* ---------------------------------- */
-    /* RESPONSIVE & MOBILE ACCESSIBILITY  */
+    /* DESKTOP-FIRST PROPORTIONAL LAYOUT  */
     /* ---------------------------------- */
     @media (max-width: 991px) {
-        .top-stats-container {
-            grid-template-columns: repeat(3, 1fr) !important;
-            gap: 12px !important;
-        }
-        
-        .gauge-matrix {
-            grid-template-columns: repeat(2, 1fr) !important;
-        }
-
-        .prop-objectives-grid {
-            grid-template-columns: repeat(3, 1fr) !important;
-        }
-
         .prop-roadmap {
             overflow-x: auto;
             padding-bottom: 8px;
@@ -481,48 +468,16 @@ st.markdown("""
     }
     
     @media (max-width: 768px) {
-        .prop-objectives-grid {
-            grid-template-columns: 1fr !important;
-        }
-        /* Stack the main container margins for mobile */
+        /* Maintain clean desktop container padding */
         .stMainBlockContainer {
             padding-left: 1.5rem !important;
             padding-right: 1.5rem !important;
             padding-top: 1rem !important;
         }
         
-        /* Stack top stats bar */
-        .top-stats-container {
-            grid-template-columns: repeat(2, 1fr) !important;
-            gap: 10px !important;
-        }
-        
-        /* Stack gauges matrix */
-        .gauge-matrix {
-            grid-template-columns: 1fr !important;
-            gap: 12px !important;
-        }
-        
-        /* Make gauge cards column-flex for small widths */
-        .gauge-card {
-            flex-direction: column !important;
-            text-align: center !important;
-            padding: 12px !important;
-        }
-        
-        .gauge-details {
-            margin-top: 8px !important;
-        }
-        
-        /* Stack progress bars row on mobile */
-        div[style*="display: grid; grid-template-columns: 1fr 1fr"] {
-            grid-template-columns: 1fr !important;
-            gap: 12px !important;
-        }
-        
-        /* Adjust calendar cell height and padding on mobile */
+        /* Keep calendar cells proportional */
         .calendar-cell {
-            min-height: 52px !important;
+            min-height: 56px !important;
             padding: 6px !important;
         }
         
@@ -531,17 +486,11 @@ st.markdown("""
         }
         
         .calendar-day-val {
-            font-size: 10px !important;
+            font-size: 11px !important;
         }
         
         .calendar-day-pct {
-            font-size: 8px !important;
-        }
-        
-        /* Stack top-level main grid columns only on mobile */
-        .main div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:not(:has(button[key="prev_btn"])):not(:has(button[key="next_btn"])) {
-            flex: 1 1 100% !important;
-            width: 100% !important;
+            font-size: 9px !important;
         }
     }
 
