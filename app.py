@@ -1537,29 +1537,29 @@ def render_live_dashboard():
                     x=[x_range[0], x_range[1]],
                     y=[highest_balance, highest_balance],
                     mode='lines',
-                    line=dict(color='rgba(255, 255, 255, 0.12)', width=1, dash='dot'),
+                    line=dict(color='rgba(255, 255, 255, 0.10)', width=1, dash='dot'),
                     hoverinfo='skip',
                     name='HWM'
                 ))
 
-                # 1. Silky Smooth Continuous Neon Curve & Ambient Fill
+                # 1. Silky Smooth Continuous Neon Curve & Subtle Ambient Fill
                 fig_balance.add_trace(go.Scatter(
                     x=dense_dates,
                     y=y_dense,
                     mode='lines',
-                    line=dict(color='#bef264', width=2.8),
+                    line=dict(color='#bef264', width=2.5),
                     fill='tozeroy',
-                    fillcolor='rgba(190, 242, 100, 0.07)',
+                    fillcolor='rgba(190, 242, 100, 0.04)',
                     hoverinfo='skip',
                     name='Balance Curve'
                 ))
 
-                # 2. Glowing Trade Anchor Markers on Real Trade Points
+                # 2. Clean Checkpoint Anchor Markers (Interactive on hover, zero clutter)
                 fig_balance.add_trace(go.Scatter(
                     x=x_times,
                     y=y_balances,
                     mode='markers',
-                    marker=dict(size=6.5, color='#bef264', line=dict(color='#0d111a', width=1.5)),
+                    marker=dict(size=4.5, color='#bef264', opacity=0.85, line=dict(color='#0b0f19', width=1)),
                     hovertext=hover_labels,
                     hoverinfo="text",
                     name='Trades'
@@ -1570,6 +1570,7 @@ def render_live_dashboard():
                         type='date',
                         range=x_range,
                         autorange=False,
+                        fixedrange=True,
                         showgrid=False,
                         linecolor='rgba(255,255,255,0.08)',
                         tickfont=dict(color='#8a99ad', size=10),
@@ -1579,13 +1580,16 @@ def render_live_dashboard():
                     yaxis=dict(
                         range=[y_min, y_max],
                         autorange=False,
+                        fixedrange=True,
                         showgrid=True,
-                        gridcolor='rgba(255,255,255,0.04)',
+                        gridcolor='rgba(255,255,255,0.03)',
                         linecolor='rgba(255,255,255,0.08)',
                         tickfont=dict(color='#8a99ad', size=10),
                         tickprefix="$",
                         tickformat=",.0f"
                     ),
+                    dragmode=False,
+                    hovermode="closest",
                     paper_bgcolor='rgba(0,0,0,0)',
                     plot_bgcolor='rgba(0,0,0,0)',
                     margin=dict(l=10, r=20, t=10, b=10),
@@ -1608,7 +1612,17 @@ def render_live_dashboard():
                         </div>
                     </div>
                     """)
-                    st.plotly_chart(fig_balance, use_container_width=True, config={'displayModeBar': False})
+                    st.plotly_chart(
+                        fig_balance, 
+                        use_container_width=True, 
+                        config={
+                            'displayModeBar': False, 
+                            'scrollZoom': False, 
+                            'doubleClick': False, 
+                            'showAxisDragHandles': False,
+                            'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d']
+                        }
+                    )
 
             with col_hero_side:
                 # Winstreak & Period Returns card
