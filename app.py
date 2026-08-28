@@ -551,7 +551,7 @@ st.markdown("""
         font-weight: 700;
         color: #ffffff;
         letter-spacing: -0.2px;
-        line-height: 28px;
+        line-height: 32px;
     }
 
     div[data-testid="stHorizontalBlock"]:has(button[key="prev_btn"]),
@@ -560,13 +560,15 @@ st.markdown("""
         flex-direction: row !important;
         flex-wrap: nowrap !important;
         align-items: center !important;
+        justify-content: space-between !important;
         gap: 6px !important;
-        margin-bottom: 4px !important;
+        margin-bottom: 6px !important;
     }
 
     div[data-testid="stHorizontalBlock"]:has(button[key="prev_btn"]) > div[data-testid="column"],
     div[data-testid="stHorizontalBlock"]:has(button[key="next_btn"]) > div[data-testid="column"] {
         min-width: 0 !important;
+        max-width: none !important;
         width: auto !important;
         flex: 0 0 auto !important;
     }
@@ -574,7 +576,20 @@ st.markdown("""
     div[data-testid="stHorizontalBlock"]:has(button[key="prev_btn"]) > div[data-testid="column"]:first-child,
     div[data-testid="stHorizontalBlock"]:has(button[key="next_btn"]) > div[data-testid="column"]:first-child {
         flex: 1 1 auto !important;
-        min-width: 140px !important;
+        min-width: 120px !important;
+    }
+
+    button[key="prev_btn"], button[key="next_btn"] {
+        min-width: 32px !important;
+        width: 32px !important;
+        height: 32px !important;
+        padding: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 16px !important;
+        font-weight: 700 !important;
+        border-radius: 6px !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -1342,7 +1357,7 @@ else:
                 if "cal_month" not in st.session_state:
                     st.session_state.cal_month = datetime.now().month
                     
-                col_h1, col_h2, col_h3 = st.columns([5, 1, 1])
+                col_h1, col_h2, col_h3 = st.columns([6, 1, 1], gap="small")
                 with col_h1:
                     month_name = calendar.month_name[st.session_state.cal_month]
                     render_html(f"<div class='cal-title-text'>{month_name} {st.session_state.cal_year}</div>")
