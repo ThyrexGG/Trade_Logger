@@ -25,33 +25,6 @@ database.init_db()
 # Custom CSS for the combined glassmorphic dashboard
 st.markdown("""
 <style>
-    /* Global Viewport & Frame Lock (Prevents horizontal pulling/overscroll on mobile) */
-    html, body {
-        max-width: 100vw !important;
-        overflow-x: hidden !important;
-        position: relative !important;
-        touch-action: pan-y !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        background-color: #0c0f16 !important;
-    }
-    
-    .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], section.main {
-        max-width: 100vw !important;
-        overflow-x: clip !important;
-        background-color: #0c0f16 !important;
-    }
-    
-    .main .block-container, [data-testid="stMainBlockContainer"] {
-        max-width: 100vw !important;
-        overflow-x: clip !important;
-        box-sizing: border-box !important;
-    }
-    
-    * {
-        box-sizing: border-box !important;
-    }
-    
     /* Dark glassmorphic theme overrides */
     .stApp {
         background-color: #0c0f16 !important;
