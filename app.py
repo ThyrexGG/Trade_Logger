@@ -1702,32 +1702,65 @@ def render_live_dashboard():
                     st.plotly_chart(fig_tag, use_container_width=True)
 
         with tab_charts:
-            st.markdown("<h3 style='color:#ffffff;font-size:1.3rem;margin-bottom:6px;font-weight:800;text-transform:uppercase;'>Real-Time TradingView Technical Chart</h3>", unsafe_allow_html=True)
-            st.markdown("<p style='color:#8a99ad;font-size:13px;margin-bottom:16px;'>Interactive technical charting with multi-timeframe analysis, indicators, and drawings.</p>", unsafe_allow_html=True)
-            
-            col_sym, col_tf, col_custom = st.columns([1.5, 1, 1.5])
-            with col_sym:
-                selected_tv_preset = st.selectbox(
-                    "Select Market Asset",
-                    options=list(tradingview_widget.DEFAULT_SYMBOLS.keys()),
-                    index=0,
-                    key="tv_symbol_preset"
-                )
-                tv_symbol = tradingview_widget.DEFAULT_SYMBOLS[selected_tv_preset]
-            with col_tf:
-                tv_interval = st.selectbox(
-                    "Chart Timeframe",
-                    options=["1", "5", "15", "60", "240", "D"],
-                    format_func=lambda x: {"1": "1 Minute", "5": "5 Minutes", "15": "15 Minutes", "60": "1 Hour", "240": "4 Hours", "D": "Daily"}[x],
-                    index=2,
-                    key="tv_interval_sel"
-                )
-            with col_custom:
-                custom_sym = st.text_input("Or Custom Ticker", value="", placeholder="e.g. BINANCE:SOLUSDT", key="tv_custom_sym")
-                if custom_sym.strip():
-                    tv_symbol = custom_sym.strip().upper()
+            sub_c_tv, sub_c_broker = st.tabs([
+                "TRADINGVIEW PRO STUDIO", 
+                "BROKER CANDLESTICKS (REAL TRADES OVERLAID)"
+            ])
+
+            with sub_c_tv:
+                col_sym, col_tf, col_custom = st.columns([1.5, 1, 1.5])
+                with col_sym:
+                    selected_tv_preset = st.selectbox(
+                        "Select Market Asset",
+                        options=list(tradingview_widget.DEFAULT_SYMBOLS.keys()),
+                        index=0,
+                        key="tv_symbol_preset"
+                    )
+                    tv_symbol = tradingview_widget.DEFAULT_SYMBOLS[selected_tv_preset]
+                with col_tf:
+                    tv_interval = st.selectbox(
+                        "Chart Timeframe",
+                        options=["1", "5", "15", "60", "240", "D"],
+                        format_func=lambda x: {"1": "1 Minute", "5": "5 Minutes", "15": "15 Minutes", "60": "1 Hour", "240": "4 Hours", "D": "Daily"}[x],
+                        index=2,
+                        key="tv_interval_sel"
+                    )
+                with col_custom:
+                    custom_sym = st.text_input("Or Custom Ticker", value="", placeholder="e.g. BINANCE:SOLUSDT", key="tv_custom_sym")
+                    if custom_sym.strip():
+                        tv_symbol = custom_sym.strip().upper()
+                        
+                tradingview_widget.render_tradingview_chart(symbol=tv_symbol, interval=tv_interval, height=700)
+
+            with sub_c_broker:
+                st.markdown("<p style='color:#8a99ad;font-size:13px;margin-bottom:14px;'>Live broker candlestick chart with your actual executed BUY/SELL trade entry/exit arrows, holding lines, profit annotations, and open SL/TP levels plotted directly on the candles.</p>", unsafe_allow_html=True)
+                
+                col_b1, col_b2, col_b3 = st.columns([1.5, 1, 1])
+                with col_b1:
+                    broker_sym = st.selectbox(
+                        "Broker Symbol",
+                        options=["XAUUSD", "GOLD", "US100", "US500", "EURUSD", "GBPUSD", "USDJPY", "BTCUSD", "USOIL"],
+                        index=0,
+                        key="sel_broker_chart_sym"
+                    )
+                with col_b2:
+                    broker_tf = st.selectbox(
+                        "Timeframe",
+                        options=["1m", "5m", "15m", "1h", "4h", "D"],
+                        index=3,
+                        format_func=lambda x: {"1m": "1 Minute", "5m": "5 Minutes", "15m": "15 Minutes", "1h": "1 Hour", "4h": "4 Hours", "D": "Daily"}[x],
+                        key="sel_broker_chart_tf"
+                    )
+                with col_b3:
+                    candle_count = st.selectbox("Candle History", options=[50, 100, 150, 250, 500], index=2, key="sel_broker_candles_cnt")
                     
-            tradingview_widget.render_tradingview_chart(symbol=tv_symbol, interval=tv_interval, height=700)
+                tradingview_widget.render_broker_candlestick_overlay(
+                    symbol=broker_sym,
+                    df_trades=df_trades,
+                    df_open=df_open,
+                    timeframe=broker_tf,
+                    count=candle_count
+                )
 
         with tab_journal:
             # Account Separation Filter
