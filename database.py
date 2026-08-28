@@ -9,18 +9,20 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
 
 def get_db_url():
-    # Check environment variable first
-    db_url = os.getenv("DATABASE_URL")
-    if db_url:
-        return db_url.strip('"\'')
-        
-    # Check Streamlit Cloud secrets
+    # 1. Check Streamlit Cloud secrets first
     try:
         import streamlit as st
         if hasattr(st, "secrets") and "DATABASE_URL" in st.secrets:
-            return str(st.secrets["DATABASE_URL"]).strip('"\'')
+            url = str(st.secrets["DATABASE_URL"]).strip('"\' \n\r\t')
+            if url:
+                return url
     except Exception:
         pass
+
+    # 2. Check environment variable
+    db_url = os.getenv("DATABASE_URL")
+    if db_url:
+        return db_url.strip('"\' \n\r\t')
         
     return None
 
