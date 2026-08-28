@@ -1120,10 +1120,10 @@ def render_live_dashboard():
                                             }
                                         });
                                     }
-                                }
                             </script>
                             """, height=0)
-                            st.success("Test alert dispatched! Check your phone / screen banner.")
+                            st.toast("🟢 Trade Closed: XAUUSD (+$125.50)\nFunded MT5 • BUY • Duration: 34.2m", icon="🔔")
+                            st.success("Test alert dispatched! Windows banner, mobile push, and in-app toast triggered.")
 
             # Filter base dataframe by selected account
             if selected_account != "ALL":

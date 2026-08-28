@@ -66,6 +66,22 @@ def send_telegram_alert(message_markdown):
         print(f"Telegram alert error: {e}")
         return False
 
+def send_windows_toast(title, message):
+    """Sends native Windows 10/11 desktop notification banner."""
+    if os.name == 'nt':
+        try:
+            import subprocess
+            script_path = os.path.join(os.path.dirname(__file__), "send_toast.ps1")
+            if os.path.exists(script_path):
+                subprocess.Popen(
+                    ["powershell", "-ExecutionPolicy", "Bypass", "-File", script_path, "-Title", str(title), "-Message", str(message)],
+                    creationflags=0x08000000 if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+                )
+                return True
+        except Exception as e:
+            print(f"Windows toast error: {e}")
+    return False
+
 def notify_trade_closed(trade):
     """Dispatches a push notification when a trade is closed."""
     pnl = float(trade.get("net_profit", 0.0))
@@ -80,7 +96,10 @@ def notify_trade_closed(trade):
     title = f"Trade Closed: {sym} ({pnl_sign}${abs(pnl):,.2f})"
     msg = f"{acc_label} • {dir_str} • PnL: {pnl_sign}${abs(pnl):,.2f} • Duration: {dur_str}"
     
-    # 1. Native Push
+    # 1. Native Windows Desktop Notification
+    send_windows_toast(title, msg)
+
+    # 2. Native Push
     send_onesignal_push(title, msg, data=trade)
     
     # 2. Telegram Bot Alert
