@@ -1281,45 +1281,71 @@ else:
                 """)
             
         with col1_3:
-            # Balance Line Curve
-            fig_balance = go.Figure()
-            time_formatted = filtered_df["exit_time"].dt.strftime("%d %b")
+            # Detailed Account Balance Curve starting from initial deposit point
+            first_time = filtered_df["exit_time"].min()
+            start_baseline_time = first_time - pd.Timedelta(hours=4)
             
+            x_times = [start_baseline_time] + list(filtered_df["exit_time"])
+            y_balances = [initial_balance] + list(filtered_df["balance"])
+            x_formatted = [t.strftime("%m/%d %H:%M") for t in x_times]
+            
+            fig_balance = go.Figure()
+            
+            # High Water Mark reference line
             fig_balance.add_trace(go.Scatter(
-                x=time_formatted,
-                y=filtered_df["balance"],
+                x=[x_formatted[0], x_formatted[-1]],
+                y=[highest_balance, highest_balance],
                 mode='lines',
-                line=dict(color='#00bfff', width=2, shape='spline'),
+                line=dict(color='rgba(255, 255, 255, 0.18)', width=1, dash='dot'),
+                hoverinfo='skip',
+                name='HWM'
+            ))
+            
+            # Smooth neon curve with soft glow gradient
+            fig_balance.add_trace(go.Scatter(
+                x=x_formatted,
+                y=y_balances,
+                mode='lines',
+                line=dict(color='#bef264', width=2.5, shape='spline'),
                 fill='tozeroy',
-                fillcolor='rgba(0, 191, 255, 0.06)',
+                fillcolor='rgba(190, 242, 100, 0.08)',
+                hovertemplate="<b>%{x}</b><br>Balance: <b>$%{y:,.2f}</b><extra></extra>",
                 name='Balance'
             ))
+            
             fig_balance.update_layout(
                 xaxis=dict(
                     showgrid=False,
-                    linecolor='rgba(255,255,255,0.05)',
+                    linecolor='rgba(255,255,255,0.08)',
                     tickfont=dict(color='#8a99ad', size=9),
                     tickmode='auto',
                     nticks=5
                 ),
                 yaxis=dict(
                     showgrid=True,
-                    gridcolor='rgba(255,255,255,0.02)',
-                    linecolor='rgba(255,255,255,0.05)',
-                    tickfont=dict(color='#8a99ad', size=9)
+                    gridcolor='rgba(255,255,255,0.04)',
+                    linecolor='rgba(255,255,255,0.08)',
+                    tickfont=dict(color='#8a99ad', size=9),
+                    tickprefix="$",
+                    tickformat=",.0f"
                 ),
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0)',
-                margin=dict(l=10, r=10, t=10, b=10),
-                height=180,
+                margin=dict(l=5, r=10, t=5, b=5),
+                height=185,
                 showlegend=False
             )
             
             with st.container(border=True):
+                pnl_color_cur = "#00ffcc" if total_pnl >= 0 else "#ff5555"
+                pnl_sign_cur = "+" if total_pnl >= 0 else "-"
                 render_html(f"""
-                <div class="card-title" style="display:flex; justify-content:space-between; margin-bottom: 4px;">
-                    <span>Balance Curve</span>
-                    <span style="color:#00bfff; font-weight:700;">${current_balance:,.2f}</span>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; flex-wrap:wrap; gap:8px;">
+                    <div style="font-size:14px; font-weight:700; color:#ffffff;">Account Balance</div>
+                    <div style="display:flex; gap:16px; font-size:11px;">
+                        <div><span style="color:#8a99ad;">Current P&L:</span> <b style="color:{pnl_color_cur}; font-size:13px;">{pnl_sign_cur}${abs(total_pnl):,.2f}</b></div>
+                        <div><span style="color:#8a99ad;">Closed:</span> <b style="color:#ffffff; font-size:13px;">${current_balance:,.2f}</b></div>
+                    </div>
                 </div>
                 """)
                 st.plotly_chart(fig_balance, use_container_width=True, config={'displayModeBar': False})
