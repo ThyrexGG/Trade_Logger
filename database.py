@@ -299,12 +299,27 @@ def save_closed_trades(trades):
         cursor.executemany(query, trades)
     else:
         cursor.executemany("""
-            INSERT OR REPLACE INTO closed_trades 
+            INSERT INTO closed_trades 
             (trade_id, account_id, symbol, direction, volume, entry_price, exit_price, 
              commission, swap, gross_profit, net_profit, entry_time, exit_time, duration_minutes, setup_tag)
             VALUES 
             (:trade_id, :account_id, :symbol, :direction, :volume, :entry_price, :exit_price, 
              :commission, :swap, :gross_profit, :net_profit, :entry_time, :exit_time, :duration_minutes, :setup_tag)
+            ON CONFLICT(trade_id) DO UPDATE SET
+                account_id = excluded.account_id,
+                symbol = excluded.symbol,
+                direction = excluded.direction,
+                volume = excluded.volume,
+                entry_price = excluded.entry_price,
+                exit_price = excluded.exit_price,
+                commission = excluded.commission,
+                swap = excluded.swap,
+                gross_profit = excluded.gross_profit,
+                net_profit = excluded.net_profit,
+                entry_time = excluded.entry_time,
+                exit_time = excluded.exit_time,
+                duration_minutes = excluded.duration_minutes,
+                setup_tag = COALESCE(excluded.setup_tag, closed_trades.setup_tag)
         """, trades)
         
     conn.commit()

@@ -1818,9 +1818,142 @@ def render_live_dashboard():
                 </div>
                 """)
 
-            # 2. CLOSED TRADES JOURNAL
-            st.markdown('<div style="font-size:14px; font-weight:800; color:#ffffff; margin-bottom:10px; text-transform:uppercase;">Closed Trades Journal</div>', unsafe_allow_html=True)
+            # 2. INTERACTIVE TRADE SETUP & SCREENSHOT STUDIO (DEDICATED TOP STUDIO)
             df_display = df_trades.sort_values(by="exit_time", ascending=False).copy()
+            
+            st.markdown("<h3 style='color:#ffffff;font-size:1.3rem;margin-bottom:6px;font-weight:800;text-transform:uppercase;'>Trade Journal & Setup Studio</h3>", unsafe_allow_html=True)
+            st.markdown("<p style='color:#8a99ad;font-size:13px;margin-bottom:16px;'>Select any trade to attach chart screenshots, log strategy setups, descriptions, and lessons.</p>", unsafe_allow_html=True)
+
+            with st.container(border=True):
+                st.markdown("<h4 style='color:#00ffcc;font-size:14px;font-weight:700;text-transform:uppercase;margin:0 0 12px 0;'>Log & Review Trade Setup</h4>", unsafe_allow_html=True)
+                
+                trade_choices = []
+                for _, r in df_display.iterrows():
+                    pnl_val = float(r.get("net_profit", 0.0))
+                    pnl_label = f"+${pnl_val:.2f}" if pnl_val >= 0 else f"-${abs(pnl_val):.2f}"
+                    snap_indicator = " [HAS SETUP]" if (pd.notna(r.get("chart_snapshot_url")) and str(r.get("chart_snapshot_url")).strip()) or (pd.notna(r.get("notes")) and str(r.get("notes")).strip()) else ""
+                    trade_choices.append(f"{r['trade_id']} | {r['symbol']} {r['direction']} | {pnl_label} | {str(r['exit_time'])[:16]}{snap_indicator}")
+                
+                if trade_choices:
+                    selected_choice = st.selectbox("Select Trade to Log Setup", options=trade_choices, key="journal_trade_select_top")
+                    selected_tid = selected_choice.split(" | ")[0].strip()
+                    selected_row = df_display[df_display["trade_id"] == selected_tid].iloc[0]
+                    
+                    # Quick Trade Highlights Banner
+                    p_val = float(selected_row.get("net_profit", 0.0))
+                    p_col = "#00ffcc" if p_val >= 0 else "#ff5555"
+                    p_sign = "+" if p_val >= 0 else "-"
+                    dir_s = str(selected_row["direction"]).upper()
+                    sym_s = str(selected_row["symbol"]).upper()
+                    vol_s = f"{float(selected_row.get('volume', 0.0)):.2f}"
+                    entry_s = f"{float(selected_row.get('entry_price', 0.0)):.5f}"
+                    exit_s = f"{float(selected_row.get('exit_price', 0.0)):.5f}"
+                    t_str = pd.to_datetime(selected_row["exit_time"]).strftime("%Y-%m-%d %H:%M")
+                    acc_s = "Funded MT5" if str(selected_row.get("account_id", "")).startswith("MT5_") else "Capital Real"
+
+                    render_html(f"""
+                    <div style="background: rgba(18, 24, 38, 0.8); border: 1px solid rgba(255, 255, 255, 0.08); border-left: 4px solid {p_col}; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                        <div>
+                            <span style="font-weight: 800; font-size: 15px; color: #ffffff;">{sym_s} {dir_s}</span>
+                            <span style="font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.06); color: #8a99ad; margin-left: 6px;">{acc_s}</span>
+                            <span style="font-size: 11px; color: #8a99ad; margin-left: 8px;">Size: {vol_s} | Entry: {entry_s} | Exit: {exit_s} | Closed: {t_str}</span>
+                        </div>
+                        <div style="font-size: 16px; font-weight: 800; color: {p_col};">
+                            {p_sign}${abs(p_val):,.2f}
+                        </div>
+                    </div>
+                    """)
+
+                    col_j1, col_j2 = st.columns([1.3, 1.2])
+                    
+                    with col_j1:
+                        st.markdown("<div style='font-size:12px; font-weight:700; color:#ffffff; margin-bottom:6px;'>ATTACH CHART SCREENSHOT</div>", unsafe_allow_html=True)
+                        
+                        curr_snap = str(selected_row.get("chart_snapshot_url", "") or "")
+                        if curr_snap == "None":
+                            curr_snap = ""
+
+                        # Option A: File Upload
+                        uploaded_file = st.file_uploader(
+                            "Upload Screenshot (PNG, JPG, WEBP)", 
+                            type=["png", "jpg", "jpeg", "webp"], 
+                            key=f"file_up_{selected_tid}"
+                        )
+                        
+                        # Option B: URL Link
+                        new_snap_url = st.text_input(
+                            "Or Paste TradingView / Chart Image Link", 
+                            value=curr_snap if not curr_snap.startswith("data:image") else "", 
+                            placeholder="https://www.tradingview.com/x/... or image URL", 
+                            key=f"url_up_{selected_tid}"
+                        )
+
+                        final_image_to_save = curr_snap
+
+                        if uploaded_file is not None:
+                            try:
+                                bytes_data = uploaded_file.getvalue()
+                                mime_t = uploaded_file.type if uploaded_file.type else "image/png"
+                                b64_img = base64.b64encode(bytes_data).decode("utf-8")
+                                final_image_to_save = f"data:{mime_t};base64,{b64_img}"
+                            except Exception as e:
+                                st.error(f"Error reading uploaded file: {e}")
+                        elif new_snap_url.strip():
+                            final_image_to_save = new_snap_url.strip()
+
+                        # Image Preview
+                        if final_image_to_save and final_image_to_save.strip() != "":
+                            img_preview = final_image_to_save
+                            if not img_preview.startswith("data:") and not img_preview.endswith(".png") and "tradingview.com/x/" in img_preview:
+                                img_preview = img_preview + ".png" if not img_preview.endswith(".png") else img_preview
+                            
+                            try:
+                                st.image(img_preview, caption="Attached Chart Setup Screenshot", use_container_width=True)
+                            except Exception:
+                                st.markdown(f"[Open Snapshot in New Tab]({final_image_to_save})", unsafe_allow_html=True)
+                            
+                            if st.button("Remove Screenshot", key=f"btn_rm_snap_{selected_tid}"):
+                                database.update_trade_journal(trade_id=selected_tid, chart_snapshot_url="")
+                                st.success("Screenshot removed.")
+                                st.rerun()
+
+                    with col_j2:
+                        st.markdown("<div style='font-size:12px; font-weight:700; color:#ffffff; margin-bottom:6px;'>STRATEGY SETUP & DESCRIPTION</div>", unsafe_allow_html=True)
+                        
+                        curr_setup = str(selected_row.get("setup_tag", "") or "BREAKOUT")
+                        setup_options = [
+                            "BREAKOUT", "SUPPORT / RESISTANCE BOUNCE", "ORDER BLOCK / FVG", 
+                            "NEWS SCALP", "TREND FOLLOWING", "MEAN REVERSION", "LIQUIDITY GRAB",
+                            "SUPPLY & DEMAND", "CHART PATTERN", "CUSTOM SETUP"
+                        ]
+                        idx_s = setup_options.index(curr_setup) if curr_setup in setup_options else 0
+                        new_setup = st.selectbox("Strategy Setup Category", options=setup_options, index=idx_s, key=f"sel_setup_{selected_tid}")
+                        
+                        curr_notes = str(selected_row.get("notes", "") or "")
+                        if curr_notes == "None":
+                            curr_notes = ""
+                        new_notes = st.text_area(
+                            "Setup Description, Confluences & Lessons Learned", 
+                            value=curr_notes, 
+                            placeholder="Describe why you took this trade, key support/resistance levels, triggers, risk management, and what went well or what to improve...", 
+                            height=140, 
+                            key=f"txt_notes_{selected_tid}"
+                        )
+
+                        st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+                        if st.button("SAVE TRADE SETUP & SNAPSHOT", type="primary", key=f"save_setup_btn_{selected_tid}", use_container_width=True):
+                            database.update_trade_journal(
+                                trade_id=selected_tid,
+                                chart_snapshot_url=final_image_to_save,
+                                setup_tag=new_setup,
+                                notes=new_notes.strip()
+                            )
+                            st.success(f"Setup details, screenshot, and description saved for trade #{selected_tid}!")
+                            st.rerun()
+
+            # 3. CLOSED TRADES TABLE WITH SETUP STATUS
+            st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
+            st.markdown('<div style="font-size:14px; font-weight:800; color:#ffffff; margin-bottom:10px; text-transform:uppercase;">Closed Trades History</div>', unsafe_allow_html=True)
 
             table_rows_html = ""
             for idx, row in df_display.iterrows():
@@ -1867,6 +2000,18 @@ def render_live_dashboard():
                 tag_raw = row.get("setup_tag")
                 tag_disp = f'<span class="badge-tag-pill">{tag_raw}</span>' if pd.notna(tag_raw) and str(tag_raw).strip() != "" and str(tag_raw) != "None" else '<span style="color:#4a5568; font-size:10px;">-</span>'
 
+                has_snap = pd.notna(row.get("chart_snapshot_url")) and str(row.get("chart_snapshot_url")).strip() != "" and str(row.get("chart_snapshot_url")) != "None"
+                has_notes = pd.notna(row.get("notes")) and str(row.get("notes")).strip() != "" and str(row.get("notes")) != "None"
+                
+                if has_snap and has_notes:
+                    setup_status = '<span style="color:#00ffcc; font-size:11px; font-weight:700; background:rgba(0,255,204,0.1); padding:2px 6px; border-radius:4px; border:1px solid rgba(0,255,204,0.3);">SNAP + NOTES</span>'
+                elif has_snap:
+                    setup_status = '<span style="color:#00ffcc; font-size:11px; font-weight:700; background:rgba(0,255,204,0.1); padding:2px 6px; border-radius:4px;">SNAPSHOT</span>'
+                elif has_notes:
+                    setup_status = '<span style="color:#8a99ad; font-size:11px; font-weight:700; background:rgba(255,255,255,0.06); padding:2px 6px; border-radius:4px;">NOTES</span>'
+                else:
+                    setup_status = '<span style="color:#4a5568; font-size:11px;">-</span>'
+
                 table_rows_html += f"""
                 <tr>
                     <td style="font-family:monospace; font-size:11px; color:#8a99ad;">{ticket_disp}</td>
@@ -1882,6 +2027,7 @@ def render_live_dashboard():
                     <td style="font-size:11px; color:#8a99ad;">{exit_time_str}</td>
                     <td style="font-size:11px; color:#8a99ad;">{dur_str}</td>
                     <td>{tag_disp}</td>
+                    <td>{setup_status}</td>
                 </tr>
                 """
 
@@ -1903,6 +2049,7 @@ def render_live_dashboard():
                             <th>Exit Time</th>
                             <th>Duration</th>
                             <th>Setup Tag</th>
+                            <th>Setup Status</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1911,56 +2058,6 @@ def render_live_dashboard():
                 </table>
             </div>
             """)
-
-            # Interactive Trade Reviewer & Snapshot Studio
-            with st.expander("Trade Snapshot & In-Depth Review Studio", expanded=False):
-                st.markdown("<p style='color:#8a99ad;font-size:13px;'>Select any trade to attach a TradingView chart snapshot URL, tag your setup strategy, and log personal trade notes:</p>", unsafe_allow_html=True)
-                
-                trade_choices = []
-                for _, r in df_display.iterrows():
-                    pnl_val = float(r.get("net_profit", 0.0))
-                    pnl_label = f"+${pnl_val:.2f}" if pnl_val >= 0 else f"-${abs(pnl_val):.2f}"
-                    trade_choices.append(f"{r['trade_id']} | {r['symbol']} {r['direction']} | {pnl_label} | {str(r['exit_time'])[:16]}")
-                if trade_choices:
-                    selected_choice = st.selectbox("Select Trade to Review", options=trade_choices, key="journal_trade_select")
-                    selected_tid = selected_choice.split(" | ")[0].strip()
-                    selected_row = df_display[df_display["trade_id"] == selected_tid].iloc[0]
-                    
-                    col_j1, col_j2 = st.columns([1.5, 1])
-                    with col_j1:
-                        curr_snap = str(selected_row.get("chart_snapshot_url", "") or "")
-                        new_snap_url = st.text_input("TradingView Chart Snapshot Link (e.g. https://www.tradingview.com/x/...)", value=curr_snap, placeholder="https://www.tradingview.com/x/...", key="input_snap_url")
-                        
-                        if new_snap_url.strip():
-                            img_url = new_snap_url.strip()
-                            if not img_url.endswith(".png") and "tradingview.com/x/" in img_url:
-                                img_url = img_url + ".png" if not img_url.endswith(".png") else img_url
-                            try:
-                                st.image(img_url, caption="Attached TradingView Chart Snapshot", use_container_width=True)
-                            except Exception:
-                                st.markdown(f"[Open TradingView Snapshot in New Tab]({new_snap_url})", unsafe_allow_html=True)
-                                
-                    with col_j2:
-                        curr_setup = str(selected_row.get("setup_tag", "") or "BREAKOUT")
-                        setup_options = [
-                            "BREAKOUT", "SUPPORT BOUNCE", "ORDER BLOCK / FVG", 
-                            "NEWS SCALP", "TREND FOLLOWING", "MEAN REVERSION", "LIQUIDITY GRAB"
-                        ]
-                        idx_s = setup_options.index(curr_setup) if curr_setup in setup_options else 0
-                        new_setup = st.selectbox("Strategy Setup", options=setup_options, index=idx_s, key="sel_setup_opt")
-                        
-                        curr_notes = str(selected_row.get("notes", "") or "")
-                        new_notes = st.text_area("Personal Trade Notes & Lessons", value=curr_notes, placeholder="What went well? Did you follow your risk management plan?", height=120, key="input_trade_notes")
-                        
-                        if st.button("Save Journal Entry", type="primary", key="save_journal_entry_btn", use_container_width=True):
-                            database.update_trade_journal(
-                                trade_id=selected_tid,
-                                chart_snapshot_url=new_snap_url.strip(),
-                                setup_tag=new_setup,
-                                notes=new_notes.strip()
-                            )
-                            st.success("Trade journal entry and chart snapshot saved!")
-                            st.rerun()
 
     with tab_alerts:
         st.markdown("<h3 style='color:#ffffff;font-size:1.3rem;margin-bottom:6px;font-weight:800;text-transform:uppercase;'>Price Alerts & Risk Studio</h3>", unsafe_allow_html=True)
