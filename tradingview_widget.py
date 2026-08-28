@@ -16,14 +16,27 @@ DEFAULT_SYMBOLS = {
     "US Crude Oil": "TVC:USOIL"
 }
 
-def render_tradingview_chart(symbol="OANDA:XAUUSD", interval="15", height=680):
+def render_tradingview_chart(symbol="OANDA:XAUUSD", interval="15", height=700, custom_layout_url=None):
     """
     Renders an interactive TradingView Advanced Real-Time Pro Suite Chart.
-    Configured with full drawing toolbars, indicator search, and localStorage persistence.
+    Supports standard Pro Chart with localStorage drawing persistence or personal TradingView cloud layout.
     """
-    # Safe clean container ID based on symbol
-    clean_sym_id = symbol.replace(":", "_").replace("/", "_").replace("-", "_")
-    container_id = f"tv_chart_{clean_sym_id}"
+    if custom_layout_url and custom_layout_url.strip():
+        # User provided their own personal TradingView cloud layout link
+        clean_url = custom_layout_url.strip()
+        if not clean_url.startswith("http"):
+            clean_url = "https://" + clean_url
+            
+        tv_html = f"""
+        <div class="tradingview-widget-container" style="height:100%;width:100%;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5);border:1px solid rgba(0,255,204,0.2);">
+            <iframe src="{clean_url}" style="width:100%; height:{height}px; border:none;" allow="clipboard-write; storage-access; cookies; camera"></iframe>
+        </div>
+        """
+        html(tv_html, height=height + 20)
+        return
+
+    # Standard Pro TradingView Widget (without forced default studies so user changes persist)
+    container_id = "tradingview_pro_suite_canvas"
 
     tv_html = f"""
     <!-- TradingView Advanced Pro Widget -->
@@ -54,10 +67,6 @@ def render_tradingview_chart(symbol="OANDA:XAUUSD", interval="15", height=680):
         "popup_width": "1200",
         "popup_height": "800",
         "container_id": "{container_id}",
-        "studies": [
-          "MASimple@tv-basicstudies",
-          "RSI@tv-basicstudies"
-        ],
         "enabled_features": [
           "use_localstorage_for_settings",
           "save_chart_properties_to_local_storage",

@@ -1708,7 +1708,7 @@ def render_live_dashboard():
             ])
 
             with sub_c_tv:
-                col_sym, col_tf, col_custom = st.columns([1.5, 1, 1.5])
+                col_sym, col_tf, col_custom, col_link = st.columns([1.3, 0.9, 1.2, 1.2])
                 with col_sym:
                     selected_tv_preset = st.selectbox(
                         "Select Market Asset",
@@ -1729,8 +1729,30 @@ def render_live_dashboard():
                     custom_sym = st.text_input("Or Custom Ticker", value="", placeholder="e.g. BINANCE:SOLUSDT", key="tv_custom_sym")
                     if custom_sym.strip():
                         tv_symbol = custom_sym.strip().upper()
+                with col_link:
+                    tv_web_url = f"https://www.tradingview.com/chart/?symbol={tv_symbol}"
+                    render_html(f"""
+                    <div style="margin-top: 28px;">
+                        <a href="{tv_web_url}" target="_blank" style="display: inline-block; background: rgba(0, 255, 204, 0.12); color: #00ffcc; border: 1px solid rgba(0, 255, 204, 0.35); padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; width: 100%; text-align: center;">
+                            OPEN IN TRADINGVIEW
+                        </a>
+                    </div>
+                    """)
+
+                personal_layout = None
+                with st.expander("Use Your Personal Saved TradingView Cloud Layout (Optional)", expanded=False):
+                    personal_layout = st.text_input(
+                        "Paste your personal TradingView Chart Layout URL (e.g. https://www.tradingview.com/chart/g278AbC/)",
+                        placeholder="https://www.tradingview.com/chart/...",
+                        key="tv_personal_layout_url"
+                    )
                         
-                tradingview_widget.render_tradingview_chart(symbol=tv_symbol, interval=tv_interval, height=700)
+                tradingview_widget.render_tradingview_chart(
+                    symbol=tv_symbol, 
+                    interval=tv_interval, 
+                    height=700,
+                    custom_layout_url=personal_layout
+                )
 
             with sub_c_broker:
                 st.markdown("<p style='color:#8a99ad;font-size:13px;margin-bottom:14px;'>Live broker candlestick chart with your actual executed BUY/SELL trade entry/exit arrows, holding lines, profit annotations, and open SL/TP levels plotted directly on the candles.</p>", unsafe_allow_html=True)
