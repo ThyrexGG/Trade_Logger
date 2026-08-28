@@ -1710,22 +1710,22 @@ def render_live_dashboard():
                         </div>
                     </div>
 
-                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:4px; text-align:center; margin-top:12px; border-top:1px solid rgba(255,255,255,0.05); padding-top:10px;">
+                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:6px; text-align:center; margin-top:14px; border-top:1px solid rgba(255,255,255,0.06); padding: 12px 0 6px 0;">
                         <div>
-                            <div class="metric-label" style="font-size:9px;">Daily</div>
-                            <div class="metric-value" style="font-size:11px; color:{daily_color};">{avg_daily_ret:+.2f}%</div>
+                            <div class="metric-label" style="font-size:9px; margin-bottom:2px;">Daily</div>
+                            <div class="metric-value" style="font-size:11px; font-weight:700; color:{daily_color};">{avg_daily_ret:+.2f}%</div>
                         </div>
                         <div>
-                            <div class="metric-label" style="font-size:9px;">Weekly</div>
-                            <div class="metric-value" style="font-size:11px; color:{weekly_color};">{weekly_ret:+.2f}%</div>
+                            <div class="metric-label" style="font-size:9px; margin-bottom:2px;">Weekly</div>
+                            <div class="metric-value" style="font-size:11px; font-weight:700; color:{weekly_color};">{weekly_ret:+.2f}%</div>
                         </div>
                         <div>
-                            <div class="metric-label" style="font-size:9px;">Monthly</div>
-                            <div class="metric-value" style="font-size:11px; color:{monthly_color};">{monthly_ret:+.2f}%</div>
+                            <div class="metric-label" style="font-size:9px; margin-bottom:2px;">Monthly</div>
+                            <div class="metric-value" style="font-size:11px; font-weight:700; color:{monthly_color};">{monthly_ret:+.2f}%</div>
                         </div>
                         <div>
-                            <div class="metric-label" style="font-size:9px;">Annual</div>
-                            <div class="metric-value" style="font-size:11px; color:{ann_color};">{ann_ret:+.2f}%</div>
+                            <div class="metric-label" style="font-size:9px; margin-bottom:2px;">Annual</div>
+                            <div class="metric-value" style="font-size:11px; font-weight:700; color:{ann_color};">{ann_ret:+.2f}%</div>
                         </div>
                     </div>
                     """)
@@ -1998,7 +1998,12 @@ def render_live_dashboard():
                         </div>
                         """
 
-                    cal_html += '</div>'
+                    # Padding empty trailing cells after the last day to complete the week row
+                    trailing_empty = (7 - (first_weekday + num_days) % 7) % 7
+                    for _ in range(trailing_empty):
+                        cal_html += '<div style="background: rgba(255, 255, 255, 0.01); border: 1px dashed rgba(255, 255, 255, 0.025); border-radius: 6px; min-height: 52px;"></div>'
+
+                    cal_html += '</div><div style="height: 6px;"></div>'
                     render_html(cal_html)
 
             # ------------------
