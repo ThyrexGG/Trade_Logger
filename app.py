@@ -1260,7 +1260,37 @@ def render_live_dashboard():
                                 "entry_price": 2501.20,
                                 "exit_price": 2513.75
                             })
-                            st.success("Test alert sent!")
+                            # Trigger direct client-side notification for Phone App + Browser
+                            from streamlit.components.v1 import html
+                            html("""
+                            <script>
+                                // 1. Native Flutter App Bridge
+                                if (window.TradeAlert) {
+                                    window.TradeAlert.postMessage(JSON.stringify({
+                                        title: "Trade Closed: XAUUSD (+$125.50)",
+                                        body: "Funded MT5 • BUY • PnL: +$125.50 • Duration: 34.2m"
+                                    }));
+                                }
+                                
+                                // 2. Browser Desktop Notification
+                                if ("Notification" in window) {
+                                    if (Notification.permission === "granted") {
+                                        new Notification("Trade Closed: XAUUSD (+$125.50)", {
+                                            body: "Funded MT5 • BUY • PnL: +$125.50 • Duration: 34.2m"
+                                        });
+                                    } else if (Notification.permission !== "denied") {
+                                        Notification.requestPermission().then(function (permission) {
+                                            if (permission === "granted") {
+                                                new Notification("Trade Closed: XAUUSD (+$125.50)", {
+                                                    body: "Funded MT5 • BUY • PnL: +$125.50 • Duration: 34.2m"
+                                                });
+                                            }
+                                        });
+                                    }
+                                }
+                            </script>
+                            """, height=0)
+                            st.success("Test alert dispatched! Check your phone / screen banner.")
 
             # Filter base dataframe by selected account
             if selected_account != "ALL":
