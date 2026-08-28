@@ -1297,14 +1297,97 @@ else:
         # ------------------
         # ROW 1 GRID
         # ------------------
-        col1_1, col1_2, col1_3 = st.columns([1, 1, 1.2])
+        col_hero_chart, col_hero_side = st.columns([2.0, 1.0])
         
-        with col1_1:
-            # Winstreak + Period Returns card
-            render_html(f"""
-            <div class="trading-card" style="height: 100%;">
-                <div class="card-title">Winstreak & Period Returns</div>
-                <div class="streak-container">
+        with col_hero_chart:
+            # Wide Hero Account Balance & Equity Curve (The5ers Hub style)
+            min_entry = filtered_df["entry_time"].min()
+            start_baseline_time = min_entry - pd.Timedelta(hours=14)
+            x_times = [start_baseline_time] + list(filtered_df["exit_time"])
+            y_balances = [initial_balance] + list(filtered_df["balance"])
+            
+            # Hover text with trade details on anchor points
+            hover_labels = [f"<b>Initial Deposit</b><br>Balance: <b>${initial_balance:,.2f}</b>"]
+            for idx, row in filtered_df.iterrows():
+                pnl_val = row['net_profit']
+                pnl_sign = '+' if pnl_val >= 0 else '-'
+                sym = row['symbol']
+                t_str = row['exit_time'].strftime('%b %d, %H:%M')
+                hover_labels.append(
+                    f"<b>{t_str}</b> ({sym})<br>Trade PnL: <b style='color:{'#00ffcc' if pnl_val>=0 else '#ff5555'}'>{pnl_sign}${abs(pnl_val):,.2f}</b><br>Balance: <b>${row['balance']:,.2f}</b>"
+                )
+            
+            min_b = min(y_balances)
+            max_b = max(y_balances)
+            diff_b = max(max_b - min_b, 10.0)
+            y_min = min_b - (diff_b * 0.15)
+            y_max = max_b + (diff_b * 0.15)
+            
+            fig_balance = go.Figure()
+            
+            # Smooth neon spline with glowing anchor markers
+            fig_balance.add_trace(go.Scatter(
+                x=x_times,
+                y=y_balances,
+                mode='lines+markers',
+                marker=dict(size=7, color='#bef264', line=dict(color='#0d111a', width=1.5)),
+                line=dict(color='#bef264', width=3, shape='spline'),
+                fill='tozeroy',
+                fillcolor='rgba(190, 242, 100, 0.07)',
+                hovertext=hover_labels,
+                hoverinfo="text",
+                name='Balance'
+            ))
+            
+            fig_balance.update_layout(
+                xaxis=dict(
+                    type='date',
+                    showgrid=False,
+                    linecolor='rgba(255,255,255,0.08)',
+                    tickfont=dict(color='#8a99ad', size=10),
+                    tickformat="%b %d",
+                    nticks=7
+                ),
+                yaxis=dict(
+                    range=[y_min, y_max],
+                    autorange=False,
+                    showgrid=True,
+                    gridcolor='rgba(255,255,255,0.04)',
+                    linecolor='rgba(255,255,255,0.08)',
+                    tickfont=dict(color='#8a99ad', size=10),
+                    tickprefix="$",
+                    tickformat=",.0f"
+                ),
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                margin=dict(l=10, r=15, t=10, b=10),
+                height=310,
+                showlegend=False
+            )
+            
+            with st.container(border=True):
+                pnl_color_cur = "#00ffcc" if total_pnl >= 0 else "#ff5555"
+                pnl_sign_cur = "+" if total_pnl >= 0 else "-"
+                render_html(f"""
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:8px;">
+                    <div>
+                        <span style="font-size:15px; font-weight:700; color:#ffffff;">Account Balance Curve</span>
+                        <span style="font-size:11px; color:#8a99ad; margin-left:8px;">Equity & Closed Balance trajectory</span>
+                    </div>
+                    <div style="display:flex; gap:20px; font-size:11px;">
+                        <div><span style="color:#8a99ad;">Current P&L:</span> <b style="color:{pnl_color_cur}; font-size:14px;">{pnl_sign_cur}${abs(total_pnl):,.2f}</b></div>
+                        <div><span style="color:#8a99ad;">Closed:</span> <b style="color:#ffffff; font-size:14px;">${current_balance:,.2f}</b></div>
+                    </div>
+                </div>
+                """)
+                st.plotly_chart(fig_balance, use_container_width=True, config={'displayModeBar': False})
+                
+        with col_hero_side:
+            # Winstreak & Period Returns card
+            with st.container(border=True):
+                render_html(f"""
+                <div class="card-title">Winstreak & Returns</div>
+                <div class="streak-container" style="margin-top:8px;">
                     <div class="streak-item">
                         <span class="metric-label" style="font-size:10px;">Days Streak</span>
                         <div class="streak-badge-row">
@@ -1323,31 +1406,27 @@ else:
                     </div>
                 </div>
                 
-                <hr style="border:0; border-top:1px solid rgba(255,255,255,0.05); margin:16px 0;">
-                
-                <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:4px; text-align:center; margin-top:10px;">
+                <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:4px; text-align:center; margin-top:12px; border-top:1px solid rgba(255,255,255,0.05); padding-top:10px;">
                     <div>
                         <div class="metric-label" style="font-size:9px;">Daily</div>
-                        <div class="metric-value" style="font-size:12px; color:{daily_color};">{avg_daily_ret:+.2f}%</div>
+                        <div class="metric-value" style="font-size:11px; color:{daily_color};">{avg_daily_ret:+.2f}%</div>
                     </div>
                     <div>
                         <div class="metric-label" style="font-size:9px;">Weekly</div>
-                        <div class="metric-value" style="font-size:12px; color:{weekly_color};">{weekly_ret:+.2f}%</div>
+                        <div class="metric-value" style="font-size:11px; color:{weekly_color};">{weekly_ret:+.2f}%</div>
                     </div>
                     <div>
                         <div class="metric-label" style="font-size:9px;">Monthly</div>
-                        <div class="metric-value" style="font-size:12px; color:{monthly_color};">{monthly_ret:+.2f}%</div>
+                        <div class="metric-value" style="font-size:11px; color:{monthly_color};">{monthly_ret:+.2f}%</div>
                     </div>
                     <div>
-                        <div class="metric-label" style="font-size:9px;">Annualized</div>
-                        <div class="metric-value" style="font-size:12px; color:{ann_color};">{ann_ret:+.2f}%</div>
+                        <div class="metric-label" style="font-size:9px;">Annual</div>
+                        <div class="metric-value" style="font-size:11px; color:{ann_color};">{ann_ret:+.2f}%</div>
                     </div>
                 </div>
-            </div>
-            """)
+                """)
             
-        with col1_2:
-            # Wave Score Radar + Top Sessions card
+            # Wave Score Radar
             fig_radar = go.Figure()
             categories = ['Entry', 'Tempo', 'Stability', 'Exit', 'Risk', 'Entry']
             scores = [entry_score, tempo_score, stability_score, exit_score, risk_score, entry_score]
@@ -1368,15 +1447,15 @@ else:
                 ),
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0)',
-                margin=dict(l=25, r=25, t=10, b=10),
-                height=130,
+                margin=dict(l=20, r=20, t=8, b=8),
+                height=115,
                 showlegend=False,
                 annotations=[
                     dict(
                         text=str(wave_score),
                         x=0.5,
                         y=0.5,
-                        font=dict(size=20, color='#ffffff', family='Arial', weight='bold'),
+                        font=dict(size=18, color='#ffffff', family='Arial', weight='bold'),
                         showarrow=False
                     )
                 ]
@@ -1385,80 +1464,6 @@ else:
             with st.container(border=True):
                 render_html('<div class="card-title" style="margin-bottom: 2px;">Wave Score Radar</div>')
                 st.plotly_chart(fig_radar, use_container_width=True, config={'displayModeBar': False})
-                render_html(f"""
-                <div style="display:flex; justify-content:space-between; font-size:10px; border-top:1px solid rgba(255,255,255,0.05); padding-top:8px;">
-                    <span style="color:#8a99ad;">Most Active: <b>{most_active_sess}</b></span>
-                    <span style="color:#8a99ad;">Best Day: <b style="color:#00ffcc;">{most_prof_sess}</b></span>
-                </div>
-                """)
-            
-        with col1_3:
-            # Detailed Account Balance Curve on zoomed active balance range (The5ers Hub style)
-            min_entry = filtered_df["entry_time"].min()
-            start_baseline_time = min_entry - pd.Timedelta(hours=14)
-            x_times = [start_baseline_time] + list(filtered_df["exit_time"])
-            y_balances = [initial_balance] + list(filtered_df["balance"])
-            
-            min_b = min(y_balances)
-            max_b = max(y_balances)
-            diff_b = max(max_b - min_b, 10.0)
-            y_min = min_b - (diff_b * 0.15)
-            y_max = max_b + (diff_b * 0.15)
-            
-            fig_balance = go.Figure()
-            
-            # Smooth neon spline with bounded area fill
-            fig_balance.add_trace(go.Scatter(
-                x=x_times,
-                y=y_balances,
-                mode='lines+markers',
-                marker=dict(size=4, color='#bef264'),
-                line=dict(color='#bef264', width=2.5, shape='spline'),
-                fill='tozeroy',
-                fillcolor='rgba(190, 242, 100, 0.08)',
-                hovertemplate="<b>%{x|%b %d, %H:%M}</b><br>Balance: <b>$%{y:,.2f}</b><extra></extra>",
-                name='Balance'
-            ))
-            
-            fig_balance.update_layout(
-                xaxis=dict(
-                    type='date',
-                    showgrid=False,
-                    linecolor='rgba(255,255,255,0.08)',
-                    tickfont=dict(color='#8a99ad', size=9),
-                    tickformat="%m/%d",
-                    nticks=5
-                ),
-                yaxis=dict(
-                    range=[y_min, y_max],
-                    autorange=False,
-                    showgrid=True,
-                    gridcolor='rgba(255,255,255,0.04)',
-                    linecolor='rgba(255,255,255,0.08)',
-                    tickfont=dict(color='#8a99ad', size=9),
-                    tickprefix="$",
-                    tickformat=",.0f"
-                ),
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                margin=dict(l=5, r=10, t=5, b=5),
-                height=185,
-                showlegend=False
-            )
-            
-            with st.container(border=True):
-                pnl_color_cur = "#00ffcc" if total_pnl >= 0 else "#ff5555"
-                pnl_sign_cur = "+" if total_pnl >= 0 else "-"
-                render_html(f"""
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; flex-wrap:wrap; gap:8px;">
-                    <div style="font-size:14px; font-weight:700; color:#ffffff;">Account Balance</div>
-                    <div style="display:flex; gap:16px; font-size:11px;">
-                        <div><span style="color:#8a99ad;">Current P&L:</span> <b style="color:{pnl_color_cur}; font-size:13px;">{pnl_sign_cur}${abs(total_pnl):,.2f}</b></div>
-                        <div><span style="color:#8a99ad;">Closed:</span> <b style="color:#ffffff; font-size:13px;">${current_balance:,.2f}</b></div>
-                    </div>
-                </div>
-                """)
-                st.plotly_chart(fig_balance, use_container_width=True, config={'displayModeBar': False})
 
         # ------------------
         # ROW 2 GRID (Gauges and Calendar)
