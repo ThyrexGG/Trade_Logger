@@ -1034,7 +1034,7 @@ def render_live_dashboard():
                 )
 
             with col_sync_btns:
-                col_mt5, col_cap = st.columns([1, 1])
+                col_mt5, col_cap, col_test = st.columns([1, 1, 1])
                 with col_mt5:
                     st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
                     if st.button("Sync MT5", key="active_sync_mt5", use_container_width=True):
@@ -1058,6 +1058,21 @@ def render_live_dashboard():
                                 st.rerun()
                             else:
                                 st.error("Capital.com sync failed.")
+                with col_test:
+                    st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
+                    if st.button("Test Alert", key="active_test_alert", use_container_width=True):
+                        with st.spinner("Sending test alert..."):
+                            import alerts
+                            alerts.notify_trade_closed({
+                                "symbol": "XAUUSD",
+                                "direction": "BUY",
+                                "net_profit": 125.50,
+                                "duration_minutes": 34.2,
+                                "account_id": "MT5_26633147",
+                                "entry_price": 2501.20,
+                                "exit_price": 2513.75
+                            })
+                            st.success("Test alert sent!")
 
             # Filter base dataframe by selected account
             if selected_account != "ALL":
