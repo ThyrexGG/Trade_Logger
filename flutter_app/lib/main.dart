@@ -1,14 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import 'package:onesignal_flutter/onesignal_flutter.dart';
+import 'package:trade_logger_app/notification_service.dart';
 
-// Swap this URL with your deployed Streamlit Cloud URL or your local PC IP address:
-// - Streamlit Cloud example: "https://your-app-name.streamlit.app"
-// - Emulator testing (points to host PC localhost): "http://10.0.2.2:8502"
-// - Real phone local testing: "http://<YOUR_PC_IP_ADDRESS>:8502"
 const String dashboardUrl = "https://tradelogger-bfepaizstq8o8xwrj3sdj5.streamlit.app";
-const String oneSignalAppId = "1f707b9d-5a8e-411d-b8cc-13c68a9b7ff4";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,13 +13,11 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // Initialize Native OneSignal Push Notifications
+  // Initialize Native Android Push Notification Service
   try {
-    OneSignal.initialize(oneSignalAppId);
-    // Prompt user for push notification permissions
-    OneSignal.Notifications.requestPermission(true);
+    await NotificationService().init();
   } catch (e) {
-    debugPrint("OneSignal initialization error: $e");
+    debugPrint("Notification init error: $e");
   }
 
   runApp(const TradeLoggerApp());
@@ -63,6 +57,24 @@ class _DashboardWebViewPageState extends State<DashboardWebViewPage> {
     super.initState();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0xFF0C0F16))
+      ..addJavaScriptChannel(
+        'TradeAlert',
+        onMessageReceived: (JavaScriptMessage message) {
+          try {
+            final data = jsonDecode(message.message);
+            NotificationService().showNotification(
+              title: data['title']?.toString() ?? 'Trade Alert',
+              body: data['body']?.toString() ?? 'Trade closed on account',
+            );
+          } catch (e) {
+            NotificationService().showNotification(
+              title: 'Trade Closed Alert',
+              body: message.message,
+            );
+          }
+        },
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (String url) {
@@ -96,10 +108,18 @@ class _DashboardWebViewPageState extends State<DashboardWebViewPage> {
         }
       },
       child: Scaffold(
+        backgroundColor: const Color(0xFF0C0F16),
         body: SafeArea(
           child: Stack(
             children: [
-              WebViewWidget(controller: _controller),
+              RefreshIndicator(
+                color: const Color(0xFF00FFCC),
+                backgroundColor: const Color(0xFF121620),
+                onRefresh: () async {
+                  await _controller.reload();
+                },
+                child: WebViewWidget(controller: _controller),
+              ),
               if (_isLoading)
                 const Center(
                   child: CircularProgressIndicator(

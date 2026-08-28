@@ -875,6 +875,49 @@ if onesignal_app_id:
     """, height=0)
 
 # ----------------------------------------------------
+# SECURITY & PIN LOCK GATE
+# ----------------------------------------------------
+configured_pin = os.getenv("APP_PIN", "").strip('"\' ')
+if not configured_pin:
+    try:
+        if hasattr(st, "secrets") and "APP_PIN" in st.secrets:
+            configured_pin = str(st.secrets["APP_PIN"]).strip('"\' ')
+    except Exception:
+        pass
+
+if configured_pin:
+    if "pin_unlocked" not in st.session_state:
+        st.session_state.pin_unlocked = False
+
+    if not st.session_state.pin_unlocked:
+        icon_b64 = get_app_icon_b64()
+        logo_html = f'<img src="data:image/png;base64,{icon_b64}" style="width: 56px; height: 56px; border-radius: 14px; box-shadow: 0 4px 20px rgba(0, 255, 204, 0.3); margin-bottom: 12px;">' if icon_b64 else ''
+        
+        st.markdown(f"""
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 50px; text-align: center;">
+            <div style="background: rgba(18, 24, 38, 0.85); backdrop-filter: blur(16px); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 16px; padding: 28px 24px; max-width: 360px; width: 100%; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 25px rgba(0, 255, 204, 0.08);">
+                {logo_html}
+                <h2 style="color: #ffffff; font-size: 1.4rem; font-weight: 700; margin: 0 0 6px 0; letter-spacing: -0.5px;">TradeLogger Security</h2>
+                <p style="color: #8a99ad; font-size: 12px; margin: 0 0 16px 0;">Enter Master PIN to access live trade terminal</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        col_pad_l, col_pin_box, col_pad_r = st.columns([1.2, 1.4, 1.2])
+        with col_pin_box:
+            with st.form("security_pin_gate"):
+                entered_pin = st.text_input("Master PIN", type="password", placeholder="Enter PIN", label_visibility="collapsed")
+                submit_pin = st.form_submit_button("Unlock Dashboard", use_container_width=True)
+                if submit_pin:
+                    if entered_pin == configured_pin:
+                        st.session_state.pin_unlocked = True
+                        st.success("Access Granted! Unlocking...")
+                        st.rerun()
+                    else:
+                        st.error("Access Denied: Incorrect PIN")
+        st.stop()
+
+# ----------------------------------------------------
 # MAIN DASHBOARD WITH 30-SECOND REAL-TIME AUTO-REFRESH
 # ----------------------------------------------------
 @st.fragment(run_every=30)
@@ -1010,15 +1053,23 @@ def render_live_dashboard():
                 </svg>
             </div>
         """
-        st.markdown(f"""
-        <div style="display: flex; align-items: center; gap: 14px; margin-top: 8px; margin-bottom: 20px;">
-            {logo_html}
-            <div>
-                <h1 style="margin: 0; font-size: 1.85rem; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">TradeLogger Analytics</h1>
-                <p style="margin: 3px 0 0 0; color: #8a99ad; font-size: 13px; letter-spacing: 0.2px;">Automated journal & performance analytics for multi-broker accounts</p>
+        col_title, col_lock_btn = st.columns([5, 1])
+        with col_title:
+            st.markdown(f"""
+            <div style="display: flex; align-items: center; gap: 14px; margin-top: 8px; margin-bottom: 20px;">
+                {logo_html}
+                <div>
+                    <h1 style="margin: 0; font-size: 1.85rem; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">TradeLogger Analytics</h1>
+                    <p style="margin: 3px 0 0 0; color: #8a99ad; font-size: 13px; letter-spacing: 0.2px;">Automated journal & performance analytics for multi-broker accounts</p>
+                </div>
             </div>
-        </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
+        with col_lock_btn:
+            if configured_pin:
+                st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
+                if st.button("🔒 Lock", key="terminal_lock_btn", use_container_width=True):
+                    st.session_state.pin_unlocked = False
+                    st.rerun()
 
         # Unified Control & Filter Card (Active State)
         with st.container(border=True):
