@@ -697,6 +697,48 @@ else:
     df_trades["entry_time"] = pd.to_datetime(df_trades["entry_time"], format="mixed", utc=True).dt.tz_localize(None)
     df_trades["exit_time"] = pd.to_datetime(df_trades["exit_time"], format="mixed", utc=True).dt.tz_localize(None)
     
+    # Handle URL query params for calendar navigation
+    if "cal_m" in st.query_params:
+        try:
+            st.session_state.cal_month = int(st.query_params["cal_m"])
+        except:
+            pass
+    if "cal_y" in st.query_params:
+        try:
+            st.session_state.cal_year = int(st.query_params["cal_y"])
+        except:
+            pass
+
+    # Clean Calendar Nav Link Button CSS
+    st.markdown("""
+    <style>
+    .cal-nav-link-btn {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 32px !important;
+        height: 32px !important;
+        border-radius: 6px !important;
+        background-color: rgba(255, 255, 255, 0.05) !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        color: #ffffff !important;
+        font-size: 18px !important;
+        font-weight: 700 !important;
+        text-decoration: none !important;
+        line-height: 1 !important;
+        cursor: pointer !important;
+        transition: all 0.2s ease-in-out !important;
+        user-select: none !important;
+    }
+    .cal-nav-link-btn:hover {
+        background-color: rgba(0, 255, 204, 0.12) !important;
+        border-color: rgba(0, 255, 204, 0.4) !important;
+        color: #00ffcc !important;
+        box-shadow: 0 0 10px rgba(0, 255, 204, 0.2) !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
     # Initialize per-account initial balances in session state
     if "account_balances" not in st.session_state:
         st.session_state.account_balances = {
@@ -1408,49 +1450,30 @@ else:
                 if "cal_month" not in st.session_state:
                     st.session_state.cal_month = datetime.now().month
                     
-                col_h1, col_h2, col_h3 = st.columns([6, 1, 1], gap="small")
-                with col_h1:
-                    month_name = calendar.month_name[st.session_state.cal_month]
-                    render_html(f"""
-                    <div class='cal-title-text'>{month_name} {st.session_state.cal_year}</div>
-                    <script>
-                    (function() {{
-                        function enforceCal() {{
-                            const btn = document.querySelector('button[key="prev_btn"]');
-                            if (btn) {{
-                                const hBlock = btn.closest('div[data-testid="stHorizontalBlock"]');
-                                if (hBlock) {{
-                                    hBlock.classList.add('cal-nav-row');
-                                    hBlock.style.cssText = 'display:flex !important; flex-direction:row !important; flex-wrap:nowrap !important; align-items:center !important; justify-content:space-between !important; width:100% !important;';
-                                    const cols = hBlock.querySelectorAll('div[data-testid="column"]');
-                                    if (cols && cols.length >= 3) {{
-                                        cols[0].style.cssText = 'flex:1 1 auto !important; width:auto !important; min-width:0 !important;';
-                                        cols[1].style.cssText = 'flex:0 0 34px !important; width:34px !important; min-width:34px !important; max-width:34px !important;';
-                                        cols[2].style.cssText = 'flex:0 0 34px !important; width:34px !important; min-width:34px !important; max-width:34px !important;';
-                                    }}
-                                }}
-                            }}
-                        }}
-                        enforceCal();
-                        setTimeout(enforceCal, 100);
-                        setTimeout(enforceCal, 400);
-                    }})();
-                    </script>
-                    """)
-                with col_h2:
-                    if st.button("‹", key="prev_btn", help="Previous Month", use_container_width=True):
-                        st.session_state.cal_month -= 1
-                        if st.session_state.cal_month == 0:
-                            st.session_state.cal_month = 12
-                            st.session_state.cal_year -= 1
-                        st.rerun()
-                with col_h3:
-                    if st.button("›", key="next_btn", help="Next Month", use_container_width=True):
-                        st.session_state.cal_month += 1
-                        if st.session_state.cal_month == 13:
-                            st.session_state.cal_month = 1
-                            st.session_state.cal_year += 1
-                        st.rerun()
+                month_name = calendar.month_name[st.session_state.cal_month]
+                
+                prev_m = st.session_state.cal_month - 1
+                prev_y = st.session_state.cal_year
+                if prev_m == 0:
+                    prev_m = 12
+                    prev_y -= 1
+
+                next_m = st.session_state.cal_month + 1
+                next_y = st.session_state.cal_year
+                if next_m == 13:
+                    next_m = 1
+                    next_y += 1
+
+                # 100% Pure HTML Flexbox Navigation Header (Guaranteed single horizontal line on all screens)
+                render_html(f"""
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 8px;">
+                    <div style="font-size: 16px; font-weight: 700; color: #ffffff; letter-spacing: -0.2px;">{month_name} {st.session_state.cal_year}</div>
+                    <div style="display: flex; gap: 6px;">
+                        <a href="?cal_m={prev_m}&cal_y={prev_y}" target="_self" class="cal-nav-link-btn" title="Previous Month">‹</a>
+                        <a href="?cal_m={next_m}&cal_y={next_y}" target="_self" class="cal-nav-link-btn" title="Next Month">›</a>
+                    </div>
+                </div>
+                """)
     
                 # Process monthly stats
                 month_start = pd.Timestamp(datetime(st.session_state.cal_year, st.session_state.cal_month, 1))
