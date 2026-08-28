@@ -25,6 +25,33 @@ database.init_db()
 # Custom CSS for the combined glassmorphic dashboard
 st.markdown("""
 <style>
+    /* Global Viewport & Frame Lock (Prevents horizontal pulling/overscroll on mobile) */
+    html, body {
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+        position: relative !important;
+        touch-action: pan-y !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background-color: #0c0f16 !important;
+    }
+    
+    .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], section.main {
+        max-width: 100vw !important;
+        overflow-x: clip !important;
+        background-color: #0c0f16 !important;
+    }
+    
+    .main .block-container, [data-testid="stMainBlockContainer"] {
+        max-width: 100vw !important;
+        overflow-x: clip !important;
+        box-sizing: border-box !important;
+    }
+    
+    * {
+        box-sizing: border-box !important;
+    }
+    
     /* Dark glassmorphic theme overrides */
     .stApp {
         background-color: #0c0f16 !important;
@@ -664,17 +691,40 @@ st.markdown("""
     }
     
     @media (max-width: 768px) {
+        html, body, .stApp, [data-testid="stAppViewContainer"] {
+            overflow-x: hidden !important;
+            max-width: 100vw !important;
+            touch-action: pan-y !important;
+            position: relative !important;
+        }
+
         /* Mobile padding */
-        .stMainBlockContainer {
-            padding-left: 0.85rem !important;
-            padding-right: 0.85rem !important;
-            padding-top: 0.5rem !important;
+        .stMainBlockContainer, .main .block-container {
+            padding-left: 0.6rem !important;
+            padding-right: 0.6rem !important;
+            padding-top: 0.4rem !important;
+            max-width: 100vw !important;
+            overflow-x: clip !important;
+        }
+
+        .journal-table-wrapper {
+            width: 100% !important;
+            max-width: 100% !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+        }
+        
+        .trading-card, div[data-testid="stVerticalBlockBorderDiv"] {
+            padding: 12px !important;
+            max-width: 100% !important;
+            overflow-x: clip !important;
         }
 
         /* 2-column top stats bar on phone */
         .top-stats-container {
             grid-template-columns: repeat(2, 1fr) !important;
             gap: 8px !important;
+            max-width: 100% !important;
         }
 
         .top-stat-box {
