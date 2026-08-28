@@ -2,6 +2,15 @@
 .env
 *.db
 
+# Temporary test and migration scripts
+test_*.py
+debug_*.py
+check_*.py
+find_*.py
+reset_*.py
+migrate_*.py
+generate_*.py
+
 # Python caches
 __pycache__/
 *.py[cod]
