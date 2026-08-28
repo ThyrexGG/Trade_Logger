@@ -887,140 +887,75 @@ if configured_pin:
 
     if not st.session_state.pin_unlocked:
         icon_b64 = get_app_icon_b64()
-        logo_html = f'<img src="data:image/png;base64,{icon_b64}" style="width: 58px; height: 58px; border-radius: 14px; box-shadow: 0 4px 20px rgba(0, 255, 204, 0.35); margin-bottom: 12px;">' if icon_b64 else ''
+        logo_html = f'<img src="data:image/png;base64,{icon_b64}" style="width: 60px; height: 60px; border-radius: 16px; box-shadow: 0 4px 25px rgba(0, 255, 204, 0.35); margin-bottom: 14px;">' if icon_b64 else ''
 
-        col_l, col_center, col_r = st.columns([1, 2.2, 1])
+        st.markdown(f"""
+        <style>
+        .security-container {{
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-top: 40px;
+            margin-bottom: 20px;
+        }}
+        .security-card {{
+            background: rgba(18, 24, 38, 0.90);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 255, 204, 0.22);
+            border-radius: 20px;
+            padding: 32px 28px;
+            max-width: 380px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.65), 0 0 30px rgba(0, 255, 204, 0.08);
+        }}
+        /* Big Centered Stylized PIN Input */
+        div[data-testid="stTextInput"] input {{
+            font-size: 26px !important;
+            font-weight: 700 !important;
+            text-align: center !important;
+            letter-spacing: 10px !important;
+            height: 58px !important;
+            border-radius: 14px !important;
+            background: rgba(255, 255, 255, 0.05) !important;
+            border: 1.5px solid rgba(0, 255, 204, 0.25) !important;
+            color: #00ffcc !important;
+            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4) !important;
+        }}
+        div[data-testid="stTextInput"] input:focus {{
+            border-color: #00ffcc !important;
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.3) !important;
+        }}
+        </style>
+        <div class="security-container">
+            <div class="security-card">
+                {logo_html}
+                <h2 style="color: #ffffff; font-size: 1.45rem; font-weight: 700; margin: 0 0 6px 0; letter-spacing: -0.5px;">TradeLogger Security</h2>
+                <p style="color: #8a99ad; font-size: 13px; margin: 0 0 20px 0;">Enter your master PIN to access live trade terminal</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        col_l, col_center, col_r = st.columns([1.2, 1.6, 1.2])
         with col_center:
-            with st.container(border=True):
-                st.markdown(f"""
-                <div style="text-align: center; margin-top: 10px; margin-bottom: 8px;">
-                    {logo_html}
-                    <h2 style="color: #ffffff; font-size: 1.35rem; font-weight: 700; margin: 0 0 4px 0; letter-spacing: -0.5px;">TradeLogger Security</h2>
-                    <p style="color: #8a99ad; font-size: 12px; margin: 0 0 16px 0;">Enter Master PIN to access live accounts</p>
-                </div>
-                """, unsafe_allow_html=True)
-
-                with st.form("master_pin_auth_form"):
-                    entered_pin = st.text_input(
-                        "Master PIN",
-                        type="password",
-                        placeholder="Enter 4-digit PIN",
-                        label_visibility="collapsed",
-                        key="master_pin_input"
-                    )
-
-                    # 100% Instant Touch Keypad in Main DOM
-                    st.markdown("""
-                    <style>
-                    .native-keypad-grid {
-                        display: grid;
-                        grid-template-columns: repeat(3, 1fr);
-                        gap: 10px;
-                        width: 100%;
-                        max-width: 255px;
-                        margin: 14px auto 14px auto;
-                    }
-                    .native-key-btn {
-                        width: 66px;
-                        height: 66px;
-                        border-radius: 50%;
-                        background: rgba(255, 255, 255, 0.05);
-                        border: 1px solid rgba(255, 255, 255, 0.11);
-                        color: #ffffff;
-                        font-size: 23px;
-                        font-weight: 600;
-                        cursor: pointer;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        margin: 0 auto;
-                        transition: all 0.08s ease;
-                        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
-                        outline: none;
-                        -webkit-tap-highlight-color: transparent;
-                        user-select: none;
-                    }
-                    .native-key-btn:active {
-                        background: rgba(0, 255, 204, 0.25);
-                        border-color: #00ffcc;
-                        color: #00ffcc;
-                        transform: scale(0.90);
-                        box-shadow: 0 0 14px rgba(0, 255, 204, 0.4);
-                    }
-                    .native-key-btn.action-btn {
-                        font-size: 13px;
-                        font-weight: 600;
-                        color: #8a99ad;
-                        background: transparent;
-                        border-color: transparent;
-                        box-shadow: none;
-                    }
-                    .native-key-btn.action-btn:active {
-                        color: #ffffff;
-                        background: rgba(255, 255, 255, 0.08);
-                    }
-                    </style>
-                    <div class="native-keypad-grid">
-                        <button type="button" class="native-key-btn" onclick="pressNativePin('1')">1</button>
-                        <button type="button" class="native-key-btn" onclick="pressNativePin('2')">2</button>
-                        <button type="button" class="native-key-btn" onclick="pressNativePin('3')">3</button>
-                        <button type="button" class="native-key-btn" onclick="pressNativePin('4')">4</button>
-                        <button type="button" class="native-key-btn" onclick="pressNativePin('5')">5</button>
-                        <button type="button" class="native-key-btn" onclick="pressNativePin('6')">6</button>
-                        <button type="button" class="native-key-btn" onclick="pressNativePin('7')">7</button>
-                        <button type="button" class="native-key-btn" onclick="pressNativePin('8')">8</button>
-                        <button type="button" class="native-key-btn" onclick="pressNativePin('9')">9</button>
-                        <button type="button" class="native-key-btn action-btn" onclick="clearNativePin()">CLR</button>
-                        <button type="button" class="native-key-btn" onclick="pressNativePin('0')">0</button>
-                        <button type="button" class="native-key-btn action-btn" onclick="deleteNativePin()">⌫</button>
-                    </div>
-                    <script>
-                    function getTargetPinInput() {
-                        return document.querySelector('input[aria-label="Master PIN"]') || document.querySelector('input[type="password"]');
-                    }
-                    function pressNativePin(d) {
-                        const inp = getTargetPinInput();
-                        if (!inp) return;
-                        if (inp.value.length < 4) {
-                            const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
-                            nativeSetter.call(inp, inp.value + d);
-                            inp.dispatchEvent(new Event('input', { bubbles: true }));
-                            inp.dispatchEvent(new Event('change', { bubbles: true }));
-                            if (inp.value.length === 4) {
-                                setTimeout(() => {
-                                    const btn = document.querySelector('button[kind="primaryFormSubmit"]') || document.querySelector('form[data-testid="stForm"] button');
-                                    if (btn) btn.click();
-                                }, 120);
-                            }
-                        }
-                    }
-                    function clearNativePin() {
-                        const inp = getTargetPinInput();
-                        if (!inp) return;
-                        const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
-                        nativeSetter.call(inp, "");
-                        inp.dispatchEvent(new Event('input', { bubbles: true }));
-                        inp.dispatchEvent(new Event('change', { bubbles: true }));
-                    }
-                    function deleteNativePin() {
-                        const inp = getTargetPinInput();
-                        if (!inp || inp.value.length === 0) return;
-                        const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
-                        nativeSetter.call(inp, inp.value.slice(0, -1));
-                        inp.dispatchEvent(new Event('input', { bubbles: true }));
-                        inp.dispatchEvent(new Event('change', { bubbles: true }));
-                    }
-                    </script>
-                    """, unsafe_allow_html=True)
-
-                    submit_unlock = st.form_submit_button("Unlock Terminal", use_container_width=True, type="primary")
-                    if submit_unlock:
-                        if entered_pin == configured_pin:
-                            st.session_state.pin_unlocked = True
-                            st.success("Access Granted! Unlocking...")
-                            st.rerun()
-                        else:
-                            st.error("Access Denied: Incorrect PIN")
+            with st.form("master_pin_security_form", clear_on_submit=False):
+                entered_pin = st.text_input(
+                    "Master PIN",
+                    type="password",
+                    placeholder="••••",
+                    label_visibility="collapsed",
+                    key="master_security_pin_input"
+                )
+                
+                submit_unlock = st.form_submit_button("Unlock Terminal", use_container_width=True, type="primary")
+                if submit_unlock:
+                    if entered_pin.strip() == configured_pin:
+                        st.session_state.pin_unlocked = True
+                        st.success("Access Granted! Unlocking...")
+                        st.rerun()
+                    else:
+                        st.error("Access Denied: Incorrect PIN")
 
         st.stop()
 
