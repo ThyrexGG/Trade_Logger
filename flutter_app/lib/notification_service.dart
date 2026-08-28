@@ -33,14 +33,15 @@ class NotificationService {
   Future<void> showNotification({required String title, required String body, String? payload}) async {
     try {
       const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-        'trade_alerts_channel_v5',
-        'Trade Alerts',
-        channelDescription: 'Real-time trade close and risk limit notifications',
+        'trade_alerts_chime_channel_v1',
+        'Trade Alerts (Trading Chime)',
+        channelDescription: 'Real-time trade close and risk limit notifications with custom chime',
         importance: Importance.max,
         priority: Priority.high,
         showWhen: true,
         enableVibration: true,
         playSound: true,
+        sound: RawResourceAndroidNotificationSound('trade_chime'),
         icon: 'ic_stat_trade',
         color: Color(0xFF00FFCC),
       );
