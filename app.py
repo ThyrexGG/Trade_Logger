@@ -1307,10 +1307,53 @@ else:
             x_times = [start_baseline_time] + list(filtered_df["exit_time"])
             y_balances = [initial_balance] + list(filtered_df["balance"])
             
+            # Generate silky smooth cubic Hermite curve interpolation
+            n_pts = len(y_balances)
+            if n_pts >= 2:
+                x_num = np.array([t.timestamp() for t in x_times], dtype=float)
+                # Ensure strictly increasing timestamps by adding gentle visual spacing for same-minute trades
+                for i in range(1, len(x_num)):
+                    if x_num[i] <= x_num[i-1]:
+                        x_num[i] = x_num[i-1] + 1800.0  # 30 min gentle spacing
+                
+                y_arr = np.array(y_balances, dtype=float)
+                dx = np.diff(x_num)
+                dy = np.diff(y_arr)
+                m = dy / dx
+                
+                tang = np.zeros(n_pts)
+                tang[0] = m[0]
+                tang[-1] = m[-1]
+                for i in range(1, n_pts - 1):
+                    if m[i - 1] * m[i] > 0:
+                        tang[i] = 2.0 / (1.0 / m[i - 1] + 1.0 / m[i])
+                    else:
+                        tang[i] = 0.0
+                        
+                x_dense = np.linspace(x_num[0], x_num[-1], 120)
+                y_dense = []
+                for x_val in x_dense:
+                    idx_seg = max(0, min(np.searchsorted(x_num, x_val) - 1, n_pts - 2))
+                    h = x_num[idx_seg + 1] - x_num[idx_seg]
+                    t = (x_val - x_num[idx_seg]) / h
+                    t2 = t * t
+                    t3 = t2 * t
+                    h00 = 2 * t3 - 3 * t2 + 1
+                    h10 = t3 - 2 * t2 + t
+                    h01 = -2 * t3 + 3 * t2
+                    h11 = t3 - t2
+                    y_interp = h00 * y_arr[idx_seg] + h10 * h * tang[idx_seg] + h01 * y_arr[idx_seg + 1] + h11 * h * tang[idx_seg + 1]
+                    y_dense.append(y_interp)
+                
+                dense_dates = [pd.to_datetime(ts, unit='s') for ts in x_dense]
+            else:
+                dense_dates = x_times
+                y_dense = y_balances
+            
             # X-Axis Breathing Room Buffer so edge points are never cut off
-            time_span = x_times[-1] - x_times[0]
+            time_span = dense_dates[-1] - dense_dates[0]
             pad_x = max(time_span * 0.08, pd.Timedelta(hours=4))
-            x_range = [x_times[0] - pad_x, x_times[-1] + pad_x]
+            x_range = [dense_dates[0] - pad_x, dense_dates[-1] + pad_x]
             
             # Y-Axis Active Range Zoom
             min_b = min(y_balances)
@@ -1342,18 +1385,27 @@ else:
                 name='HWM'
             ))
             
-            # Clean trajectory curve with glowing anchor markers
+            # 1. Silky Smooth Continuous Neon Curve & Ambient Fill
+            fig_balance.add_trace(go.Scatter(
+                x=dense_dates,
+                y=y_dense,
+                mode='lines',
+                line=dict(color='#bef264', width=2.8),
+                fill='tozeroy',
+                fillcolor='rgba(190, 242, 100, 0.07)',
+                hoverinfo='skip',
+                name='Balance Curve'
+            ))
+            
+            # 2. Glowing Trade Anchor Markers on Real Trade Points
             fig_balance.add_trace(go.Scatter(
                 x=x_times,
                 y=y_balances,
-                mode='lines+markers',
-                marker=dict(size=6, color='#bef264', line=dict(color='#0d111a', width=1.5)),
-                line=dict(color='#bef264', width=2.5, shape='linear'),
-                fill='tozeroy',
-                fillcolor='rgba(190, 242, 100, 0.06)',
+                mode='markers',
+                marker=dict(size=6.5, color='#bef264', line=dict(color='#0d111a', width=1.5)),
                 hovertext=hover_labels,
                 hoverinfo="text",
-                name='Balance'
+                name='Trades'
             ))
             
             fig_balance.update_layout(
