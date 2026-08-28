@@ -925,23 +925,35 @@ if configured_pin:
             box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 25px rgba(0, 255, 204, 0.08);
             margin-bottom: 12px;
         }}
-        .st-key-keypad_box [data-testid="stHorizontalBlock"] {{
+        .st-key-keypad_box {{
             display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 100% !important;
+            max-width: 260px !important;
+            margin: 0 auto !important;
+            padding: 0 !important;
+        }}
+        .st-key-keypad_box div[data-testid="stHorizontalBlock"] {{
+            display: grid !important;
+            grid-template-columns: 66px 66px 66px !important;
+            gap: 12px !important;
             justify-content: center !important;
             align-items: center !important;
-            gap: 12px !important;
-            max-width: 260px !important;
+            width: 222px !important;
+            max-width: 222px !important;
+            min-width: 222px !important;
             margin: 0 auto 10px auto !important;
+            padding: 0 !important;
         }}
-        .st-key-keypad_box [data-testid="column"] {{
-            flex: 0 0 66px !important;
+        .st-key-keypad_box div[data-testid="column"] {{
             width: 66px !important;
             min-width: 66px !important;
             max-width: 66px !important;
-            margin: 0 !important;
             padding: 0 !important;
+            margin: 0 !important;
+            flex: none !important;
         }}
         .st-key-keypad_box button {{
             width: 66px !important;
