@@ -82,8 +82,47 @@ def send_windows_toast(title, message):
             print(f"Windows toast error: {e}")
     return False
 
-def notify_trade_closed(trade):
-    """Dispatches a push notification when a trade is closed."""
+import json
+
+RULES_FILE = os.path.join(os.path.dirname(__file__), "alert_rules.json")
+
+DEFAULT_RULES = {
+    "big_win_threshold": 100.0,
+    "max_loss_threshold": 50.0,
+    "daily_drawdown_limit": 300.0,
+    "streak_alert_target": 3,
+    "notify_on_all_trades": True,
+    "filter_account": "ALL"
+}
+
+def get_alert_rules():
+    """Loads custom notification rules from JSON file or default fallback."""
+    if os.path.exists(RULES_FILE):
+        try:
+            with open(RULES_FILE, "r", encoding="utf-8") as f:
+                saved = json.load(f)
+                res = DEFAULT_RULES.copy()
+                res.update(saved)
+                return res
+        except Exception:
+            return DEFAULT_RULES.copy()
+    return DEFAULT_RULES.copy()
+
+def save_alert_rules(rules):
+    """Saves custom notification rules to JSON file."""
+    try:
+        with open(RULES_FILE, "w", encoding="utf-8") as f:
+            json.dump(rules, f, indent=2)
+        return True
+    except Exception as e:
+        print(f"Error saving alert rules: {e}")
+        return False
+
+def notify_trade_closed(trade, rules=None):
+    """Dispatches a push notification when a trade is closed with custom rule evaluations."""
+    if rules is None:
+        rules = get_alert_rules()
+        
     pnl = float(trade.get("net_profit", 0.0))
     pnl_sign = "+" if pnl >= 0 else "-"
     sym = str(trade.get("symbol", "")).upper()
@@ -93,31 +132,43 @@ def notify_trade_closed(trade):
     acc = str(trade.get("account_id", ""))
     acc_label = "Funded MT5" if acc.startswith("MT5_") else "Capital Real"
     is_win = pnl >= 0
-    status_label = "Profit" if is_win else "Loss"
-    emoji = "🟢" if is_win else "🔴"
     
-    title = f"{emoji} {status_label}: {pnl_sign}${abs(pnl):,.2f} • {sym}"
-    msg = f"{dir_str} on {acc_label} • Net PnL: {pnl_sign}${abs(pnl):,.2f} • Held: {dur_str}"
+    # Custom Rule 1: Big Win Target Alert
+    big_win_thresh = float(rules.get("big_win_threshold", 100.0))
+    # Custom Rule 2: Max Loss Alert
+    max_loss_thresh = float(rules.get("max_loss_threshold", 50.0))
     
-    # 1. Native Windows Desktop Notification
-    send_windows_toast(title, msg)
-
-    # 2. Native Push
-    send_onesignal_push(title, msg, data=trade)
+    if is_win and pnl >= big_win_thresh:
+        title = f"🎯 BIG WIN: +${pnl:,.2f} • {sym}"
+        msg = f"Target Exceeded! {dir_str} on {acc_label} • Net PnL: +${pnl:,.2f} • Held: {dur_str}"
+    elif not is_win and abs(pnl) >= max_loss_thresh:
+        title = f"⚠️ MAX LOSS ALERT: -${abs(pnl):,.2f} • {sym}"
+        msg = f"Risk Limit Exceeded! {dir_str} on {acc_label} • Net PnL: -${abs(pnl):,.2f} • Held: {dur_str}"
+    else:
+        status_label = "Profit" if is_win else "Loss"
+        emoji = "🟢" if is_win else "🔴"
+        title = f"{emoji} {status_label}: {pnl_sign}${abs(pnl):,.2f} • {sym}"
+        msg = f"{dir_str} on {acc_label} • Net PnL: {pnl_sign}${abs(pnl):,.2f} • Held: {dur_str}"
     
-    # 2. Telegram Bot Alert
-    pnl_emoji = "🟢" if pnl >= 0 else "🔴"
-    tg_text = (
-        f"<b>{pnl_emoji} Trade Closed: {sym}</b>\n"
-        f"━━━━━━━━━━━━━━━━━━\n"
-        f"<b>Account:</b> {acc_label}\n"
-        f"<b>Direction:</b> {dir_str}\n"
-        f"<b>Net PnL:</b> <b>{pnl_sign}${abs(pnl):,.2f}</b>\n"
-        f"<b>Duration:</b> {dur_str}\n"
-        f"<b>Entry:</b> {trade.get('entry_price', 0):.5f} ➔ <b>Exit:</b> {trade.get('exit_price', 0):.5f}\n"
-        f"━━━━━━━━━━━━━━━━━━"
-    )
-    send_telegram_alert(tg_text)
+    # Check if notify_on_all_trades is enabled or if threshold was met
+    if rules.get("notify_on_all_trades", True) or (is_win and pnl >= big_win_thresh) or (not is_win and abs(pnl) >= max_loss_thresh):
+        send_windows_toast(title, msg)
+        send_onesignal_push(title, msg, data=trade)
+        
+        pnl_emoji = "🟢" if is_win else "🔴"
+        tg_text = (
+            f"<b>{pnl_emoji} Trade Closed: {sym}</b>\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"<b>Account:</b> {acc_label}\n"
+            f"<b>Direction:</b> {dir_str}\n"
+            f"<b>Net PnL:</b> <b>{pnl_sign}${abs(pnl):,.2f}</b>\n"
+            f"<b>Duration:</b> {dur_str}\n"
+            f"<b>Entry:</b> {trade.get('entry_price', 0):.5f} ➔ <b>Exit:</b> {trade.get('exit_price', 0):.5f}\n"
+            f"━━━━━━━━━━━━━━━━━━"
+        )
+        send_telegram_alert(tg_text)
+    
+    return title, msg
 
 def notify_risk_warning(account_id, current_loss, limit):
     """Dispatches high-priority alert when daily loss reaches dangerous levels."""
@@ -125,6 +176,7 @@ def notify_risk_warning(account_id, current_loss, limit):
     title = f"⚠️ RISK WARNING: {pct:.0f}% of Daily Limit Hit"
     msg = f"Current Daily Drawdown: -${abs(current_loss):,.2f} / ${limit:,.0f} limit. Stop trading to protect funded account!"
     
+    send_windows_toast(title, msg)
     send_onesignal_push(title, msg)
     
     tg_text = (
@@ -137,6 +189,7 @@ def notify_risk_warning(account_id, current_loss, limit):
         f"━━━━━━━━━━━━━━━━━━"
     )
     send_telegram_alert(tg_text)
+    return title, msg
 
 if __name__ == "__main__":
-    print("Alert module ready.")
+    print("Alert module ready with Custom Rules Engine.")

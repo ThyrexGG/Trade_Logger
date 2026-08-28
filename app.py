@@ -1057,42 +1057,131 @@ def render_live_dashboard():
         </div>
         """, unsafe_allow_html=True)
 
-        # In-App Notification Center Drawer
+        # In-App Notification Center & Custom Rules Studio
         alert_count = len(st.session_state.in_app_alerts)
-        with st.expander(f"🔔 Live In-App Alerts & Trade Notifications ({alert_count})", expanded=False):
-            if st.session_state.in_app_alerts:
-                c_btn_l, c_btn_r = st.columns([5, 1])
-                with c_btn_r:
-                    if st.button("Clear Alerts", key="clear_in_app_alerts", use_container_width=True):
-                        st.session_state.in_app_alerts = []
-                        st.rerun()
-                
-                for alert in st.session_state.in_app_alerts:
-                    is_win = alert["pnl"] >= 0
-                    pnl_color = "#00ffcc" if is_win else "#ff5555"
-                    pnl_badge = f"+${alert['pnl']:,.2f}" if is_win else f"-${abs(alert['pnl']):,.2f}"
-                    emoji = "🟢" if is_win else "🔴"
+        with st.expander(f"🔔 Live In-App Alerts & Custom Rules Studio ({alert_count})", expanded=False):
+            tab_feed, tab_rules = st.tabs(["📢 Live Alerts Feed", "⚙️ Custom Alert Rules"])
+            
+            with tab_feed:
+                if st.session_state.in_app_alerts:
+                    c_btn_l, c_btn_r = st.columns([5, 1])
+                    with c_btn_r:
+                        if st.button("Clear Alerts", key="clear_in_app_alerts", use_container_width=True):
+                            st.session_state.in_app_alerts = []
+                            st.rerun()
                     
-                    st.markdown(f"""
-                    <div style="background: rgba(18, 24, 38, 0.7); border: 1px solid {'rgba(0, 255, 204, 0.25)' if is_win else 'rgba(255, 85, 85, 0.25)'}; border-left: 4px solid {pnl_color}; border-radius: 12px; padding: 12px 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);">
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <span style="font-size: 18px;">{emoji}</span>
-                            <div>
-                                <div style="font-weight: 700; font-size: 14px; color: #ffffff;">
-                                    {alert['symbol']} <span style="font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.08); color: #8a99ad; margin-left: 4px;">{alert['direction']}</span>
-                                </div>
-                                <div style="font-size: 12px; color: #8a99ad; margin-top: 2px;">
-                                    {alert['account']} • Duration: {alert['duration']} • {alert['time']}
+                    for alert in st.session_state.in_app_alerts:
+                        is_win = alert["pnl"] >= 0
+                        pnl_color = "#00ffcc" if is_win else "#ff5555"
+                        pnl_badge = f"+${alert['pnl']:,.2f}" if is_win else f"-${abs(alert['pnl']):,.2f}"
+                        emoji = "🟢" if is_win else "🔴"
+                        
+                        st.markdown(f"""
+                        <div style="background: rgba(18, 24, 38, 0.7); border: 1px solid {'rgba(0, 255, 204, 0.25)' if is_win else 'rgba(255, 85, 85, 0.25)'}; border-left: 4px solid {pnl_color}; border-radius: 12px; padding: 12px 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <span style="font-size: 18px;">{emoji}</span>
+                                <div>
+                                    <div style="font-weight: 700; font-size: 14px; color: #ffffff;">
+                                        {alert['symbol']} <span style="font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.08); color: #8a99ad; margin-left: 4px;">{alert['direction']}</span>
+                                    </div>
+                                    <div style="font-size: 12px; color: #8a99ad; margin-top: 2px;">
+                                        {alert['account']} • Duration: {alert['duration']} • {alert['time']}
+                                    </div>
                                 </div>
                             </div>
+                            <div style="font-size: 16px; font-weight: 800; color: {pnl_color}; text-shadow: 0 0 10px {'rgba(0, 255, 204, 0.4)' if is_win else 'rgba(255, 85, 85, 0.4)'};">
+                                {pnl_badge}
+                            </div>
                         </div>
-                        <div style="font-size: 16px; font-weight: 800; color: {pnl_color}; text-shadow: 0 0 10px {'rgba(0, 255, 204, 0.4)' if is_win else 'rgba(255, 85, 85, 0.4)'};">
-                            {pnl_badge}
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-            else:
-                st.markdown("<p style='color: #8a99ad; font-size: 13px; margin: 8px 0;'>No recent alerts. New trade closures will appear here live.</p>", unsafe_allow_html=True)
+                        """, unsafe_allow_html=True)
+                else:
+                    st.markdown("<p style='color: #8a99ad; font-size: 13px; margin: 8px 0;'>No recent alerts. New trade closures will appear here live.</p>", unsafe_allow_html=True)
+
+            with tab_rules:
+                import alerts
+                current_rules = alerts.get_alert_rules()
+                
+                st.markdown("<p style='color: #8a99ad; font-size: 12px; margin-bottom: 12px;'>Configure your custom alert targets and drawdown risk limits below:</p>", unsafe_allow_html=True)
+                
+                c_r1, c_r2 = st.columns(2)
+                with c_r1:
+                    val_big_win = st.number_input("🎯 Big Win Target Alert ($)", value=float(current_rules.get("big_win_threshold", 100.0)), step=10.0, min_value=0.0)
+                    val_max_loss = st.number_input("⚠️ Max Loss Risk Alert ($)", value=float(current_rules.get("max_loss_threshold", 50.0)), step=10.0, min_value=0.0)
+                with c_r2:
+                    val_drawdown = st.number_input("🚨 Daily Drawdown Floor Limit ($)", value=float(current_rules.get("daily_drawdown_limit", 300.0)), step=25.0, min_value=0.0)
+                    val_streak = st.number_input("🔥 Win Streak Alert Target", value=int(current_rules.get("streak_alert_target", 3)), step=1, min_value=1)
+                    
+                c_chk, c_save = st.columns([2, 1])
+                with c_chk:
+                    val_all_trades = st.checkbox("Send notification on every trade close", value=bool(current_rules.get("notify_on_all_trades", True)), key="chk_all_trades_alert")
+                with c_save:
+                    st.markdown("<div style='height:4px;'></div>", unsafe_allow_html=True)
+                    if st.button("Save Alert Rules", key="save_custom_rules_btn", type="primary", use_container_width=True):
+                        alerts.save_alert_rules({
+                            "big_win_threshold": val_big_win,
+                            "max_loss_threshold": val_max_loss,
+                            "daily_drawdown_limit": val_drawdown,
+                            "streak_alert_target": val_streak,
+                            "notify_on_all_trades": val_all_trades,
+                            "filter_account": "ALL"
+                        })
+                        st.success("Custom alert rules updated and saved successfully!")
+                        st.rerun()
+
+                st.divider()
+                st.markdown("<p style='font-size: 13px; font-weight: 700; color: #ffffff; margin-bottom: 6px;'>🧪 Test Custom Rule Triggers:</p>", unsafe_allow_html=True)
+                c_t1, c_t2, c_t3 = st.columns(3)
+                with c_t1:
+                    if st.button(f"🎯 Test Win (>${val_big_win:.0f})", key="test_big_win_btn", use_container_width=True):
+                        new_item = {
+                            "id": f"win_{int(time.time())}",
+                            "symbol": "XAUUSD",
+                            "direction": "BUY",
+                            "pnl": val_big_win + 25.0,
+                            "account": "Funded MT5",
+                            "time": "Just now",
+                            "duration": "45.0m"
+                        }
+                        st.session_state.in_app_alerts.insert(0, new_item)
+                        alerts.notify_trade_closed({
+                            "symbol": "XAUUSD",
+                            "direction": "BUY",
+                            "net_profit": val_big_win + 25.0,
+                            "duration_minutes": 45.0,
+                            "account_id": "MT5_26633147",
+                            "entry_price": 2500.0,
+                            "exit_price": 2515.0
+                        })
+                        st.toast(f"🎯 BIG WIN: +${val_big_win + 25.0:,.2f} • XAUUSD", icon="🔔")
+                        st.rerun()
+                with c_t2:
+                    if st.button(f"⚠️ Test Loss (>${val_max_loss:.0f})", key="test_max_loss_btn", use_container_width=True):
+                        new_item = {
+                            "id": f"loss_{int(time.time())}",
+                            "symbol": "US100",
+                            "direction": "SELL",
+                            "pnl": -(val_max_loss + 15.0),
+                            "account": "Funded MT5",
+                            "time": "Just now",
+                            "duration": "12.0m"
+                        }
+                        st.session_state.in_app_alerts.insert(0, new_item)
+                        alerts.notify_trade_closed({
+                            "symbol": "US100",
+                            "direction": "SELL",
+                            "net_profit": -(val_max_loss + 15.0),
+                            "duration_minutes": 12.0,
+                            "account_id": "MT5_26633147",
+                            "entry_price": 19800.0,
+                            "exit_price": 19850.0
+                        })
+                        st.toast(f"⚠️ MAX LOSS ALERT: -${val_max_loss + 15.0:,.2f} • US100", icon="🚨")
+                        st.rerun()
+                with c_t3:
+                    if st.button("🚨 Test Drawdown Limit", key="test_drawdown_btn", use_container_width=True):
+                        alerts.notify_risk_warning("MT5_26633147", val_drawdown * 0.85, val_drawdown)
+                        st.toast(f"🚨 RISK WARNING: 85% of Daily Limit Hit (-${val_drawdown*0.85:,.0f})", icon="🛑")
+                        st.rerun()
 
         # Unified Control & Filter Card (Active State)
         with st.container(border=True):
