@@ -911,7 +911,7 @@ if configured_pin:
             align-items: center;
             justify-content: center;
             margin-top: 15px;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
         }}
         .keypad-header-card {{
             background: rgba(18, 24, 38, 0.85);
@@ -919,35 +919,57 @@ if configured_pin:
             border: 1px solid rgba(0, 255, 204, 0.2);
             border-radius: 18px;
             padding: 24px 20px 18px 20px;
-            max-width: 330px;
+            max-width: 320px;
             width: 100%;
             text-align: center;
             box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 25px rgba(0, 255, 204, 0.08);
-            margin-bottom: 16px;
+            margin-bottom: 12px;
         }}
-        div.stButton > button[key^="key_"] {{
+        
+        /* UNBREAKABLE 3-COLUMN KEYPAD GRID ON MOBILE & DESKTOP */
+        div[data-testid="stHorizontalBlock"]:has(button[key^="key_"]) {{
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 10px !important;
+            justify-content: center !important;
+            max-width: 320px !important;
+            margin: 0 auto 10px auto !important;
+        }}
+        div[data-testid="stHorizontalBlock"]:has(button[key^="key_"]) > div[data-testid="column"] {{
+            flex: 1 1 0% !important;
+            min-width: 0px !important;
+            max-width: 95px !important;
+            width: 33.33% !important;
+        }}
+        div[data-testid="stHorizontalBlock"]:has(button[key^="key_"]) button {{
             width: 100% !important;
-            height: 60px !important;
-            border-radius: 12px !important;
+            height: 56px !important;
+            border-radius: 14px !important;
             font-size: 22px !important;
             font-weight: 700 !important;
-            background: rgba(255, 255, 255, 0.05) !important;
-            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            background: rgba(255, 255, 255, 0.06) !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
             color: #ffffff !important;
-            transition: all 0.15s ease-in-out !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
+            transition: all 0.12s ease !important;
         }}
-        div.stButton > button[key^="key_"]:hover {{
+        div[data-testid="stHorizontalBlock"]:has(button[key^="key_"]) button:hover {{
             background: rgba(0, 255, 204, 0.15) !important;
             border-color: rgba(0, 255, 204, 0.5) !important;
             color: #00ffcc !important;
             box-shadow: 0 0 14px rgba(0, 255, 204, 0.3) !important;
-            transform: scale(0.98) !important;
         }}
-        div.stButton > button[key="key_clear"], div.stButton > button[key="key_del"] {{
-            font-size: 14px !important;
+        div[data-testid="stHorizontalBlock"]:has(button[key^="key_"]) button:active {{
+            transform: scale(0.92) !important;
+            background: rgba(0, 255, 204, 0.3) !important;
+        }}
+        div[data-testid="stHorizontalBlock"]:has(button[key^="key_"]) button[key="key_clear"],
+        div[data-testid="stHorizontalBlock"]:has(button[key^="key_"]) button[key="key_del"] {{
+            font-size: 13px !important;
             font-weight: 600 !important;
             color: #8a99ad !important;
         }}
@@ -964,8 +986,58 @@ if configured_pin:
         </div>
         """, unsafe_allow_html=True)
 
-        col_pad_l, col_pad_grid, col_pad_r = st.columns([1.3, 1.4, 1.3])
-        with col_pad_grid:
+        st.markdown("""
+        <style>
+        .st-key-keypad_box [data-testid="stHorizontalBlock"] {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            justify-content: center !important;
+            gap: 8px !important;
+            max-width: 300px !important;
+            margin: 0 auto 8px auto !important;
+        }
+        .st-key-keypad_box [data-testid="column"] {
+            flex: 1 1 0% !important;
+            min-width: 0px !important;
+            max-width: 95px !important;
+            width: 33.33% !important;
+        }
+        .st-key-keypad_box button {
+            width: 100% !important;
+            height: 56px !important;
+            border-radius: 14px !important;
+            font-size: 22px !important;
+            font-weight: 700 !important;
+            background: rgba(255, 255, 255, 0.06) !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            color: #ffffff !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
+            transition: all 0.12s ease !important;
+        }
+        .st-key-keypad_box button:hover {
+            background: rgba(0, 255, 204, 0.15) !important;
+            border-color: rgba(0, 255, 204, 0.5) !important;
+            color: #00ffcc !important;
+            box-shadow: 0 0 14px rgba(0, 255, 204, 0.3) !important;
+        }
+        .st-key-keypad_box button:active {
+            transform: scale(0.92) !important;
+            background: rgba(0, 255, 204, 0.3) !important;
+        }
+        .st-key-keypad_box button[key="key_clear"],
+        .st-key-keypad_box button[key="key_del"] {
+            font-size: 13px !important;
+            font-weight: 600 !important;
+            color: #8a99ad !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+        with st.container(key="keypad_box"):
             # Row 1: 1, 2, 3
             k1, k2, k3 = st.columns(3)
             with k1:
