@@ -10,7 +10,7 @@ class NotificationService {
 
   Future<void> init() async {
     try {
-      const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@drawable/ic_notification');
+      const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
       const InitializationSettings initSettings = InitializationSettings(android: androidSettings);
 
       await _notificationsPlugin.initialize(
@@ -32,7 +32,7 @@ class NotificationService {
   Future<void> showNotification({required String title, required String body, String? payload}) async {
     try {
       const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-        'trade_alerts_channel_v3',
+        'trade_alerts_channel_v4',
         'Trade Alerts',
         channelDescription: 'Real-time trade close and risk limit notifications',
         importance: Importance.max,
@@ -40,7 +40,7 @@ class NotificationService {
         showWhen: true,
         enableVibration: true,
         playSound: true,
-        icon: '@drawable/ic_notification',
+        icon: '@mipmap/ic_launcher',
       );
 
       const NotificationDetails platformDetails = NotificationDetails(android: androidDetails);
