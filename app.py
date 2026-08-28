@@ -383,11 +383,43 @@ st.markdown("""
             font-size: 8px !important;
         }
         
-        /* Stack columns */
-        div[data-testid="column"] {
-            width: 100% !important;
+        /* Stack top-level main grid columns only on mobile */
+        .main div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:not(:has(button[key="prev_btn"])):not(:has(button[key="next_btn"])) {
             flex: 1 1 100% !important;
+            width: 100% !important;
         }
+    }
+
+    /* Clean Calendar Navigation & Chevron Buttons */
+    .cal-title-text {
+        font-size: 15px;
+        font-weight: 700;
+        color: #ffffff;
+        letter-spacing: -0.2px;
+        line-height: 28px;
+    }
+
+    div[data-testid="stHorizontalBlock"]:has(button[key="prev_btn"]),
+    div[data-testid="stHorizontalBlock"]:has(button[key="next_btn"]) {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 6px !important;
+        margin-bottom: 4px !important;
+    }
+
+    div[data-testid="stHorizontalBlock"]:has(button[key="prev_btn"]) > div[data-testid="column"],
+    div[data-testid="stHorizontalBlock"]:has(button[key="next_btn"]) > div[data-testid="column"] {
+        min-width: 0 !important;
+        width: auto !important;
+        flex: 0 0 auto !important;
+    }
+
+    div[data-testid="stHorizontalBlock"]:has(button[key="prev_btn"]) > div[data-testid="column"]:first-child,
+    div[data-testid="stHorizontalBlock"]:has(button[key="next_btn"]) > div[data-testid="column"]:first-child {
+        flex: 1 1 auto !important;
+        min-width: 140px !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -986,19 +1018,19 @@ else:
                 if "cal_month" not in st.session_state:
                     st.session_state.cal_month = datetime.now().month
                     
-                col_h1, col_h2, col_h3 = st.columns([3, 1, 1])
+                col_h1, col_h2, col_h3 = st.columns([5, 1, 1])
                 with col_h1:
                     month_name = calendar.month_name[st.session_state.cal_month]
-                    render_html(f"<div style='font-size:16px; font-weight:700; color:#ffffff; padding-top:4px;'>📅 {month_name} {st.session_state.cal_year}</div>")
+                    render_html(f"<div class='cal-title-text'>{month_name} {st.session_state.cal_year}</div>")
                 with col_h2:
-                    if st.button("◀", key="prev_btn", use_container_width=True):
+                    if st.button("‹", key="prev_btn", help="Previous Month", use_container_width=True):
                         st.session_state.cal_month -= 1
                         if st.session_state.cal_month == 0:
                             st.session_state.cal_month = 12
                             st.session_state.cal_year -= 1
                         st.rerun()
                 with col_h3:
-                    if st.button("▶", key="next_btn", use_container_width=True):
+                    if st.button("›", key="next_btn", help="Next Month", use_container_width=True):
                         st.session_state.cal_month += 1
                         if st.session_state.cal_month == 13:
                             st.session_state.cal_month = 1
