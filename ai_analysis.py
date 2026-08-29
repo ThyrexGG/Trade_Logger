@@ -1,9 +1,20 @@
 import os
 import time
+import json
 from datetime import datetime, timezone
 import pandas as pd
 import numpy as np
+from dotenv import load_dotenv
 import market_data
+
+try:
+    import google.generativeai as genai
+    GENAI_AVAILABLE = True
+except ImportError:
+    GENAI_AVAILABLE = False
+
+# Load environment variables
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
 
 def calculate_technical_indicators(candles):
     """
@@ -63,33 +74,8 @@ def calculate_technical_indicators(candles):
         "price_change_pct": round(price_change_pct, 2)
     }
 
-def analyze_market_context(symbol="XAUUSD", timeframe="1h"):
-    """
-    Structured AI Market Analysis Pipeline conforming to Section 31, 32, 33 & 34 of the Master Spec.
-    - Collects real market data and calculates deterministic indicators first.
-    - Structured analysis output separating FACTUAL DATA from INTERPRETATION.
-    - NEVER executes trades or promises guaranteed profits.
-    """
-    sym = str(symbol).upper().replace(":", "").replace("/", "")
-    candles = market_data.get_realtime_candles(symbol=sym, timeframe=timeframe, count=150)
-    
-    if not candles:
-        return {
-            "symbol": sym,
-            "timeframe": timeframe,
-            "status": "unavailable",
-            "error": f"Real market data currently unavailable for {sym}."
-        }
-
-    indicators = calculate_technical_indicators(candles)
-    if not indicators:
-        return {
-            "symbol": sym,
-            "timeframe": timeframe,
-            "status": "error",
-            "error": "Insufficient historical candles to calculate technical analysis."
-        }
-
+def fallback_analyze_market_context(sym, timeframe, indicators, now_utc):
+    """Deterministic fallback if Gemini API is missing or fails."""
     px = indicators["current_price"]
     ema20 = indicators["ema20"]
     ema50 = indicators["ema50"]
@@ -117,8 +103,6 @@ def analyze_market_context(symbol="XAUUSD", timeframe="1h"):
         momentum_state = f"Bullish momentum (RSI {rsi:.1f}) holding above median."
     else:
         momentum_state = f"Bearish momentum (RSI {rsi:.1f}) below median 50."
-
-    now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     return {
         "symbol": sym,
@@ -150,5 +134,117 @@ def analyze_market_context(symbol="XAUUSD", timeframe="1h"):
             "invalidation": f"A close beyond {indicators['swing_low']:,.2f} invalidates the bullish structure."
         },
         "confidence": "Moderate (Data-driven technical synthesis)",
-        "disclaimer": "AI market analysis is purely informational and based on technical indicators. Not financial advice."
+        "disclaimer": "AI market analysis is purely informational and based on deterministic indicators. Not financial advice."
     }
+
+def analyze_market_context(symbol="XAUUSD", timeframe="1h"):
+    """
+    Structured AI Market Analysis Pipeline using Google Gemini LLM.
+    - Collects real market data and calculates deterministic indicators first.
+    - Sends factual data to Gemini LLM for advanced structural synthesis.
+    - Gracefully falls back to deterministic rules if API key is missing.
+    """
+    sym = str(symbol).upper().replace(":", "").replace("/", "")
+    candles = market_data.get_realtime_candles(symbol=sym, timeframe=timeframe, count=150)
+    
+    if not candles:
+        return {
+            "symbol": sym,
+            "timeframe": timeframe,
+            "status": "unavailable",
+            "error": f"Real market data currently unavailable for {sym}."
+        }
+
+    indicators = calculate_technical_indicators(candles)
+    if not indicators:
+        return {
+            "symbol": sym,
+            "timeframe": timeframe,
+            "status": "error",
+            "error": "Insufficient historical candles to calculate technical analysis."
+        }
+
+    now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    # 1. Check for Gemini API Key
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    try:
+        import streamlit as st
+        if hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets:
+            gemini_key = str(st.secrets["GEMINI_API_KEY"]).strip('"\' \n\r\t')
+    except Exception:
+        pass
+
+    # 2. Try calling Gemini LLM
+    if GENAI_AVAILABLE and gemini_key:
+        try:
+            genai.configure(api_key=gemini_key)
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            
+            prompt = f"""
+You are an elite institutional quantitative analyst and market technician.
+Analyze the following factual deterministic technical indicators for {sym} on the {timeframe} timeframe.
+Your goal is to provide a highly professional, data-driven market synthesis.
+Do not hallucinate prices. Rely entirely on the factual data provided below.
+
+Return ONLY a raw JSON object strictly following this schema (do not wrap in markdown tags like ```json):
+{{
+  "market_summary": "A concise 1-2 sentence professional overview.",
+  "trend_bias": "Bullish / Bearish / Neutral",
+  "technical_structure": "Explanation of the current market structure.",
+  "momentum": "Assessment of momentum (RSI, ATR).",
+  "volatility": "Assessment of current volatility.",
+  "bullish_factors": ["Point 1", "Point 2"],
+  "bearish_factors": ["Point 1", "Point 2"],
+  "scenarios": {{
+    "bullish_case": "...",
+    "bearish_case": "...",
+    "invalidation": "..."
+  }},
+  "confidence": "High / Moderate / Low"
+}}
+
+FACTUAL DATA:
+{json.dumps(indicators, indent=2)}
+"""
+            response = model.generate_content(prompt)
+            raw_text = response.text.strip()
+            
+            # Clean potential markdown wrapping
+            if raw_text.startswith("```json"):
+                raw_text = raw_text.replace("```json", "", 1)
+            if raw_text.startswith("```"):
+                raw_text = raw_text.replace("```", "", 1)
+            if raw_text.endswith("```"):
+                raw_text = raw_text.rsplit("```", 1)[0]
+                
+            ai_data = json.loads(raw_text.strip())
+            
+            return {
+                "symbol": sym,
+                "timeframe": timeframe,
+                "timestamp": now_utc,
+                "factual_data": indicators,
+                "market_summary": ai_data.get("market_summary", ""),
+                "trend_bias": ai_data.get("trend_bias", ""),
+                "technical_structure": ai_data.get("technical_structure", ""),
+                "key_levels": {
+                    "resistance": indicators["resistance_1"],
+                    "support": indicators["support_1"],
+                    "swing_high": indicators["swing_high"],
+                    "swing_low": indicators["swing_low"]
+                },
+                "momentum": ai_data.get("momentum", ""),
+                "volatility": ai_data.get("volatility", ""),
+                "bullish_factors": ai_data.get("bullish_factors", []),
+                "bearish_factors": ai_data.get("bearish_factors", []),
+                "scenarios": ai_data.get("scenarios", {}),
+                "confidence": ai_data.get("confidence", ""),
+                "disclaimer": "⚡ AI market analysis generated by Google Gemini 1.5 Flash. Not financial advice."
+            }
+        except Exception as e:
+            print(f"Gemini API Error: {e}")
+            # Fall through to deterministic fallback
+            
+    # 3. Deterministic Fallback (if no key or API fails)
+    return fallback_analyze_market_context(sym, timeframe, indicators, now_utc)
