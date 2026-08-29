@@ -138,27 +138,5 @@ def get_realtime_candles(symbol="XAUUSD", timeframe="15m", count=250):
     except Exception as e:
         pass
 
-    # 4. Fallback: High-Fidelity Synthetic Simulation based on base market price
-    base_price = 2500.0 if "XAU" in sym or "GOLD" in sym else (1.0850 if "EUR" in sym else (19800.0 if "NAS" in sym or "100" in sym else 64000.0))
-    candles = []
-    now = int(time.time())
-    step = 900 if "15" in timeframe else (3600 if "1h" in timeframe else 86400)
-    current_px = base_price
-    
-    for i in range(count, 0, -1):
-        t = now - (i * step)
-        delta = (np.random.randn() * 0.0015) * current_px
-        o = current_px
-        c = o + delta
-        h = max(o, c) + abs(np.random.randn() * 0.0008 * current_px)
-        l = min(o, c) - abs(np.random.randn() * 0.0008 * current_px)
-        current_px = c
-        candles.append({
-            "time": t,
-            "open": round(o, 5),
-            "high": round(h, 5),
-            "low": round(l, 5),
-            "close": round(c, 5),
-            "volume": float(np.random.randint(50, 500))
-        })
-    return candles
+    # 4. Fallback: Return empty array instead of fake synthetic data
+    return []

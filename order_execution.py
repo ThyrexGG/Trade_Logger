@@ -104,7 +104,8 @@ def execute_capital_trade(epic, direction, size, stop_loss=None, take_profit=Non
         
     cst = session.get("cst")
     x_sec = session.get("x_security_token")
-    api_key = capital_sync.CAPITAL_API_KEY
+    api_key = session.get("api_key")
+    base_url = session.get("base_url")
     
     headers = {
         "X-SECURITY-TOKEN": x_sec,
@@ -124,7 +125,7 @@ def execute_capital_trade(epic, direction, size, stop_loss=None, take_profit=Non
     if take_profit is not None and float(take_profit) > 0:
         body["profitLevel"] = float(take_profit)
         
-    url = f"{capital_sync.BASE_URL}/api/v1/positions"
+    url = f"{base_url}/api/v1/positions"
     try:
         r = requests.post(url, headers=headers, json=body, timeout=12)
         res_data = r.json() if r.content else {}
@@ -146,10 +147,10 @@ def close_capital_position(deal_id):
     headers = {
         "X-SECURITY-TOKEN": session.get("x_security_token"),
         "CST": session.get("cst"),
-        "X-CAP-API-KEY": capital_sync.CAPITAL_API_KEY,
+        "X-CAP-API-KEY": session.get("api_key"),
         "Content-Type": "application/json"
     }
-    url = f"{capital_sync.BASE_URL}/api/v1/positions/{deal_id}"
+    url = f"{session.get('base_url')}/api/v1/positions/{deal_id}"
     try:
         r = requests.delete(url, headers=headers, timeout=12)
         if r.status_code in [200, 204]:

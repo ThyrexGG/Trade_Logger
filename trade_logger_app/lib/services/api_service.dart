@@ -162,4 +162,41 @@ class ApiService {
       return false;
     }
   }
+  // 9. Execute Order
+  static Future<Map<String, dynamic>> executeOrder({
+    required String symbol,
+    required String accountId,
+    required String direction,
+    required double volume,
+    required String orderType,
+    double? price,
+    double? stopLoss,
+    double? takeProfit,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/order/execute'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'symbol': symbol,
+          'account_id': accountId,
+          'direction': direction,
+          'volume': volume,
+          'order_type': orderType,
+          if (price != null) 'price': price,
+          if (stopLoss != null) 'stop_loss': stopLoss,
+          if (takeProfit != null) 'take_profit': takeProfit,
+        }),
+      );
+      
+      final data = json.decode(response.body);
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': data['message'] ?? 'Executed'};
+      } else {
+        throw Exception(data['detail'] ?? 'Failed to execute order');
+      }
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
 }

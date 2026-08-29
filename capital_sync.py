@@ -26,6 +26,63 @@ def clean_symbol(symbol):
     }
     return mapping.get(symbol, symbol)
 
+def get_session():
+    """Authenticates with Capital.com and returns a session dictionary for order execution."""
+    load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
+    api_key = os.getenv("CAPITAL_API_KEY")
+    email = os.getenv("CAPITAL_EMAIL")
+    password = os.getenv("CAPITAL_PASSWORD")
+    is_demo = str(os.getenv("CAPITAL_IS_DEMO", "false")).strip().lower() == "true"
+    
+    try:
+        import streamlit as st
+        if hasattr(st, "secrets") and len(st.secrets) > 0:
+            api_key = st.secrets.get("CAPITAL_API_KEY", api_key) or api_key
+            email = st.secrets.get("CAPITAL_EMAIL", email) or email
+            password = st.secrets.get("CAPITAL_PASSWORD", password) or password
+            if "CAPITAL_IS_DEMO" in st.secrets:
+                is_demo = str(st.secrets["CAPITAL_IS_DEMO"]).strip().lower() == "true"
+    except Exception:
+        pass
+
+    if api_key: api_key = api_key.strip('"\'')
+    if email: email = email.strip('"\'')
+    if password: password = password.strip('"\'')
+
+    if not all([api_key, email, password]):
+        return None
+
+    base_url = DEMO_API_URL if is_demo else LIVE_API_URL
+    session = requests.Session()
+    headers = {
+        "X-CAP-API-KEY": api_key,
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "identifier": email,
+        "password": password
+    }
+
+    try:
+        response = session.post(f"{base_url}/session", headers=headers, json=payload)
+        if response.status_code != 200:
+            return None
+            
+        cst = response.headers.get("CST")
+        security_token = response.headers.get("X-SECURITY-TOKEN")
+        
+        if not cst or not security_token:
+            return None
+            
+        return {
+            "cst": cst,
+            "x_security_token": security_token,
+            "api_key": api_key,
+            "base_url": base_url
+        }
+    except Exception:
+        return None
+
 def sync_capital():
     # Reload .env freshly
     load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/chart_loader.dart';
+import '../widgets/order_execution_panel.dart';
 
 class SymbolSearchScreen extends StatefulWidget {
   const SymbolSearchScreen({Key? key}) : super(key: key);
@@ -287,7 +288,7 @@ class _SymbolSearchScreenState extends State<SymbolSearchScreen> {
                         ),
                         child: ListTile(
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-                          onTap: () => _openSetAlertModal(item),
+                          onTap: () => OrderExecutionPanel.show(context, item['id'], 'ALL'),
                           leading: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [

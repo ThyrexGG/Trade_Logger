@@ -70,25 +70,25 @@ def get_status():
 @app.get("/api/accounts")
 def get_accounts():
     """Returns all accounts summary (MT5 Funded and Capital.com Real)."""
-    df = database.get_all_trades()
+    df = database.get_closed_trades()
     acc_list = []
     
-    if not df.empty and "account" in df.columns:
-        unique_accs = [str(a) for a in df["account"].unique() if a and str(a).strip()]
+    if not df.empty and "account_id" in df.columns:
+        unique_accs = [str(a) for a in df["account_id"].unique() if a and str(a).strip()]
     else:
         unique_accs = ["MT5 (Funded)", "Capital.com (Real)"]
 
     for acc in unique_accs:
-        sub_df = df[df["account"] == acc] if not df.empty and "account" in df.columns else df
-        total_pnl = float(sub_df["profit"].sum()) if not sub_df.empty and "profit" in sub_df.columns else 0.0
-        wins = sub_df[sub_df["profit"] > 0] if not sub_df.empty and "profit" in sub_df.columns else pd.DataFrame()
-        losses = sub_df[sub_df["profit"] < 0] if not sub_df.empty and "profit" in sub_df.columns else pd.DataFrame()
+        sub_df = df[df["account_id"] == acc] if not df.empty and "account_id" in df.columns else df
+        total_pnl = float(sub_df["net_profit"].sum()) if not sub_df.empty and "net_profit" in sub_df.columns else 0.0
+        wins = sub_df[sub_df["net_profit"] > 0] if not sub_df.empty and "net_profit" in sub_df.columns else pd.DataFrame()
+        losses = sub_df[sub_df["net_profit"] < 0] if not sub_df.empty and "net_profit" in sub_df.columns else pd.DataFrame()
         
         total_trades = len(sub_df)
         win_rate = (len(wins) / total_trades * 100.0) if total_trades > 0 else 0.0
         
-        gross_win = float(wins["profit"].sum()) if not wins.empty else 0.0
-        gross_loss = abs(float(losses["profit"].sum())) if not losses.empty else 0.0
+        gross_win = float(wins["net_profit"].sum()) if not wins.empty else 0.0
+        gross_loss = abs(float(losses["net_profit"].sum())) if not losses.empty else 0.0
         profit_factor = round(gross_win / gross_loss, 2) if gross_loss > 0 else (99.0 if gross_win > 0 else 0.0)
 
         # Baseline starting balance
@@ -112,12 +112,12 @@ def get_accounts():
 @app.get("/api/trades")
 def get_trades(account: Optional[str] = None, limit: int = 100):
     """Returns trade history and journal entries."""
-    df = database.get_all_trades()
+    df = database.get_closed_trades()
     if df.empty:
         return {"trades": []}
     
-    if account and account != "All Accounts" and "account" in df.columns:
-        df = df[df["account"] == account]
+    if account and account != "All Accounts" and "account_id" in df.columns:
+        df = df[df["account_id"] == account]
         
     df = df.head(limit)
     trades = df.to_dict(orient="records")
@@ -126,7 +126,7 @@ def get_trades(account: Optional[str] = None, limit: int = 100):
 @app.get("/api/analytics")
 def get_analytics(account: Optional[str] = None):
     """Computes Monotonic Hermite Spline balance curve, drawdown, and daily calendar PnL."""
-    df = database.get_all_trades()
+    df = database.get_closed_trades()
     if df.empty:
         return {
             "spline_curve": [],
@@ -134,38 +134,38 @@ def get_analytics(account: Optional[str] = None):
             "metrics": {"win_rate": 0, "profit_factor": 0, "max_drawdown": 0, "net_profit": 0}
         }
 
-    if account and account != "All Accounts" and "account" in df.columns:
-        df = df[df["account"] == account]
+    if account and account != "All Accounts" and "account_id" in df.columns:
+        df = df[df["account_id"] == account]
 
     # Calculate cumulative balance curve points
     df_sorted = df.copy()
-    if "close_time" in df_sorted.columns:
-        df_sorted["time_dt"] = pd.to_datetime(df_sorted["close_time"], errors="coerce")
+    if "exit_time" in df_sorted.columns:
+        df_sorted["time_dt"] = pd.to_datetime(df_sorted["exit_time"], errors="coerce")
         df_sorted = df_sorted.sort_values("time_dt")
 
     init_bal = 10000.0
-    cum_profits = df_sorted["profit"].cumsum().tolist() if "profit" in df_sorted.columns else []
+    cum_profits = df_sorted["net_profit"].cumsum().tolist() if "net_profit" in df_sorted.columns else []
     
     curve_points = []
     current_b = init_bal
     for idx, r in df_sorted.iterrows():
-        pnl = float(r.get("profit", 0.0))
+        pnl = float(r.get("net_profit", 0.0))
         current_b += pnl
-        t_str = str(r.get("close_time", ""))[:16]
+        t_str = str(r.get("exit_time", ""))[:16]
         sym = str(r.get("symbol", ""))
         curve_points.append({
             "time": t_str,
             "balance": round(current_b, 2),
             "pnl": round(pnl, 2),
             "symbol": sym,
-            "trade_id": int(r.get("ticket", r.get("id", 0)))
+            "trade_id": str(r.get("trade_id", ""))
         })
 
     # Daily Calendar Heatmap breakdown
     calendar_map = {}
-    if "close_time" in df.columns and "profit" in df.columns:
-        df["day_str"] = df["close_time"].astype(str).str[:10]
-        daily_grp = df.groupby("day_str")["profit"].agg(["sum", "count"]).reset_index()
+    if "exit_time" in df.columns and "net_profit" in df.columns:
+        df["day_str"] = df["exit_time"].astype(str).str[:10]
+        daily_grp = df.groupby("day_str")["net_profit"].agg(["sum", "count"]).reset_index()
         for _, row in daily_grp.iterrows():
             calendar_map[row["day_str"]] = {
                 "pnl": round(float(row["sum"]), 2),
@@ -173,12 +173,12 @@ def get_analytics(account: Optional[str] = None):
             }
 
     # Summary metrics
-    total_pnl = float(df["profit"].sum()) if "profit" in df.columns else 0.0
-    wins = df[df["profit"] > 0] if "profit" in df.columns else pd.DataFrame()
-    losses = df[df["profit"] < 0] if "profit" in df.columns else pd.DataFrame()
+    total_pnl = float(df["net_profit"].sum()) if "net_profit" in df.columns else 0.0
+    wins = df[df["net_profit"] > 0] if "net_profit" in df.columns else pd.DataFrame()
+    losses = df[df["net_profit"] < 0] if "net_profit" in df.columns else pd.DataFrame()
     win_rate = round(len(wins) / len(df) * 100.0, 1) if len(df) > 0 else 0.0
-    gross_win = float(wins["profit"].sum()) if not wins.empty else 0.0
-    gross_loss = abs(float(losses["profit"].sum())) if not losses.empty else 0.0
+    gross_win = float(wins["net_profit"].sum()) if not wins.empty else 0.0
+    gross_loss = abs(float(losses["net_profit"].sum())) if not losses.empty else 0.0
     pf = round(gross_win / gross_loss, 2) if gross_loss > 0 else (99.0 if gross_win > 0 else 0.0)
 
     return {
@@ -254,10 +254,10 @@ def update_journal(payload: JournalUpdateRequest):
     """Updates setup screenshot, notes, confluences, and strategy rating for a trade."""
     database.update_trade_journal(
         trade_id=payload.trade_id,
+        setup_tag=payload.setup_strategy,
+        chart_snapshot_url=payload.setup_screenshot,
         notes=payload.setup_notes,
-        strategy=payload.setup_strategy,
-        rating=payload.setup_rating,
-        screenshot=payload.setup_screenshot
+        rating=payload.setup_rating
     )
     return {"status": "updated", "trade_id": payload.trade_id}
 
@@ -312,8 +312,8 @@ def get_chart_executions(symbol: str = "XAUUSD"):
 import analytics
 import ai_analysis
 
-@app.get("/api/analytics")
-def get_analytics(account_id: str = "ALL", initial_balance: float = 10000.0):
+@app.get("/api/analytics/metrics")
+def get_analytics_metrics(account_id: str = "ALL", initial_balance: float = 10000.0):
     """Calculates deterministic trading performance metrics."""
     df_trades = database.get_closed_trades()
     if not df_trades.empty and account_id != "ALL":
@@ -334,10 +334,49 @@ def trigger_sync():
     # Execute non-blocking sync
     try:
         import mt5_sync
-        mt5_sync.sync_mt5_trades()
+        mt5_sync.sync_mt5()
     except Exception as e:
         pass
     return {"status": "sync_completed"}
+
+
+class OrderExecutionRequest(BaseModel):
+    symbol: str
+    account_id: str
+    direction: str
+    volume: float
+    order_type: str
+    price: Optional[float] = None
+    stop_loss: Optional[float] = None
+    take_profit: Optional[float] = None
+
+import order_execution
+
+@app.post("/api/order/execute")
+def execute_trade_order(payload: OrderExecutionRequest):
+    """Executes a trade on Capital.com or MT5 based on account selection."""
+    if "Capital.com" in payload.account_id or payload.account_id == "CAPITAL_REAL":
+        success, msg = order_execution.execute_capital_trade(
+            epic=payload.symbol,
+            direction=payload.direction,
+            size=payload.volume,
+            stop_loss=payload.stop_loss,
+            take_profit=payload.take_profit
+        )
+    else:
+        success, msg = order_execution.execute_mt5_trade(
+            symbol=payload.symbol,
+            direction=payload.direction,
+            volume=payload.volume,
+            sl=payload.stop_loss,
+            tp=payload.take_profit
+        )
+    
+    if success:
+        return {"status": "executed", "message": msg}
+    else:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=msg)
 
 
 # Mount Flutter Web App as static build
