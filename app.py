@@ -1009,10 +1009,9 @@ if onesignal_app_id:
     """, height=0)
 
 # ----------------------------------------------------
-# MAIN DASHBOARD WITH 30-SECOND REAL-TIME AUTO-REFRESH
+# MAIN DASHBOARD CONTROLLER
 # ----------------------------------------------------
 
-@st.fragment(run_every=30)
 def render_live_dashboard():
     df_trades = database.get_closed_trades()
 
@@ -1788,44 +1787,19 @@ def render_live_dashboard():
                     custom_sym = st.text_input("Or Custom Ticker", value="", placeholder="e.g. BINANCE:SOLUSDT", key="tv_custom_sym")
                     if custom_sym.strip():
                         tv_symbol = custom_sym.strip().upper()
-                saved_layout_url = database.get_setting("tv_personal_layout_url", "")
                 with col_link:
-                    active_open_url = saved_layout_url if saved_layout_url else f"https://www.tradingview.com/chart/?symbol={tv_symbol}"
                     render_html(f"""
                     <div style="margin-top: 28px;">
-                        <a href="{active_open_url}" target="_blank" style="display: inline-block; background: rgba(0, 255, 204, 0.12); color: #00ffcc; border: 1px solid rgba(0, 255, 204, 0.35); padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; width: 100%; text-align: center;">
-                            OPEN IN TRADINGVIEW CLOUD
+                        <a href="https://www.tradingview.com/chart/?symbol={tv_symbol}" target="_blank" style="display: inline-block; background: rgba(0, 255, 204, 0.12); color: #00ffcc; border: 1px solid rgba(0, 255, 204, 0.35); padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; width: 100%; text-align: center;">
+                            FULLSCREEN VIEW
                         </a>
                     </div>
                     """)
 
-                with st.expander("Saved TradingView Cloud Layout Link (Optional)", expanded=False):
-                    st.markdown("<p style='font-size:12px; color:#8a99ad; margin-bottom:8px;'>Save your personal TradingView layout URL (e.g. <code>https://www.tradingview.com/chart/xGIjkYmD/</code>). Clicking <b>OPEN IN TRADINGVIEW CLOUD</b> above will open your exact account workspace with all saved cloud drawings and indicators.</p>", unsafe_allow_html=True)
-                    
-                    col_lay_inp, col_lay_save, col_lay_clear = st.columns([2.5, 0.8, 0.8])
-                    with col_lay_inp:
-                        personal_layout_input = st.text_input(
-                            "TradingView Chart URL",
-                            value=saved_layout_url,
-                            placeholder="https://www.tradingview.com/chart/...",
-                            key="tv_personal_layout_url_input",
-                            label_visibility="collapsed"
-                        ).strip()
-                    with col_lay_save:
-                        if st.button("Save Layout", key="btn_save_tv_layout", use_container_width=True):
-                            database.set_setting("tv_personal_layout_url", personal_layout_input)
-                            st.success("Personal TradingView Layout Saved!")
-                            st.rerun()
-                    with col_lay_clear:
-                        if saved_layout_url and st.button("Reset", key="btn_clear_tv_layout", use_container_width=True):
-                            database.set_setting("tv_personal_layout_url", "")
-                            st.rerun()
-                        
                 tradingview_widget.render_tradingview_chart(
                     symbol=tv_symbol, 
                     interval=tv_interval, 
-                    height=700,
-                    custom_layout_url=saved_layout_url
+                    height=750
                 )
 
             with sub_c_broker:
