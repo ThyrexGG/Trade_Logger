@@ -309,6 +309,18 @@ def get_chart_executions(symbol: str = "XAUUSD"):
         })
     return {"executions": execs}
 
+import analytics
+
+@app.get("/api/analytics")
+def get_analytics(account_id: str = "ALL", initial_balance: float = 10000.0):
+    """Calculates deterministic trading performance metrics."""
+    df_trades = database.get_closed_trades()
+    if not df_trades.empty and account_id != "ALL":
+        df_trades = df_trades[df_trades["account_id"] == account_id]
+        
+    metrics = analytics.calculate_performance_metrics(df_trades, initial_balance=initial_balance)
+    return {"account_id": account_id, "metrics": metrics}
+
 @app.post("/api/sync")
 def trigger_sync():
     """Triggers background broker synchronization."""

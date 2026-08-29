@@ -1252,41 +1252,30 @@ def render_live_dashboard():
                 elif selected_account == "ALL" and detected_balances:
                     official_broker_bal = sum(b["balance"] for b in detected_balances.values())
 
+                import analytics
+                perf = analytics.calculate_performance_metrics(filtered_df, initial_balance=initial_balance)
+                
                 filtered_df["balance"] = initial_balance + filtered_df["net_profit"].cumsum()
-                current_balance = official_broker_bal if official_broker_bal is not None else filtered_df["balance"].iloc[-1]
-                total_pnl = filtered_df["net_profit"].sum()
-                gain_pct = (total_pnl / initial_balance) * 100
+                current_balance = official_broker_bal if official_broker_bal is not None else perf["final_balance"]
+                total_pnl = perf["total_net_pnl"]
+                gain_pct = perf["gain_pct"]
+                profit_factor = perf["profit_factor"]
+                max_drawdown = perf["max_drawdown_pct"]
+                highest_balance = perf["peak_balance"]
+                sqn = perf["sqn"]
+                total_trades = perf["total_trades"]
+                winning_trades = perf["winning_trades"]
+                losing_trades = perf["losing_trades"]
+                win_rate = perf["win_rate"]
+                biggest_win = perf["best_trade"]
+                biggest_loss = perf["worst_trade"]
 
-                gross_wins = filtered_df[filtered_df["net_profit"] > 0]["net_profit"].sum()
-                gross_losses = abs(filtered_df[filtered_df["net_profit"] <= 0]["net_profit"].sum())
-                profit_factor = gross_wins / gross_losses if gross_losses > 0 else (gross_wins if gross_wins > 0 else 1.0)
-
-                peaks = filtered_df["balance"].cummax()
-                drawdowns = (peaks - filtered_df["balance"]) / peaks * 100
-                max_drawdown = drawdowns.max() if not drawdowns.empty else 0.0
-                highest_balance = peaks.max() if not peaks.empty else initial_balance
-
-                trades_pnl = filtered_df["net_profit"].values
-                if len(trades_pnl) > 1:
-                    std_dev = np.std(trades_pnl)
-                    sqn = (np.mean(trades_pnl) / std_dev) * np.sqrt(len(trades_pnl)) if std_dev > 0 else 0.0
-                else:
-                    sqn = 0.0
-
-                avg_duration = filtered_df["duration_minutes"].mean()
-                h_days = int(avg_duration // (24 * 60))
-                rem_min = avg_duration % (24 * 60)
+                avg_dur_min = perf["avg_duration_minutes"]
+                h_days = int(avg_dur_min // (24 * 60))
+                rem_min = avg_dur_min % (24 * 60)
                 h_hours = int(rem_min // 60)
                 h_mins = int(rem_min % 60)
                 hold_time_str = f"{h_days}d {h_hours}h {h_mins}m" if h_days > 0 else f"{h_hours}h {h_mins}m"
-
-                total_trades = len(filtered_df)
-                winning_trades = len(filtered_df[filtered_df["net_profit"] > 0])
-                losing_trades = len(filtered_df[filtered_df["net_profit"] <= 0])
-                win_rate = (winning_trades / total_trades) * 100 if total_trades > 0 else 0.0
-
-                biggest_win = filtered_df["net_profit"].max() if not filtered_df.empty else 0.0
-                biggest_loss = filtered_df["net_profit"].min() if not filtered_df.empty else 0.0
 
                 daily_pnl = filtered_df.groupby(filtered_df["exit_time"].dt.date)["net_profit"].sum().reset_index()
                 daily_pnl = daily_pnl.sort_values(by="exit_time").reset_index(drop=True)
