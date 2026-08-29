@@ -273,6 +273,14 @@ def trigger_sync():
     return {"status": "sync_completed"}
 
 
+# Mount Flutter Web App as static build
+from fastapi.staticfiles import StaticFiles
+
+web_build_dir = os.path.join(os.path.dirname(__file__), "trade_logger_app", "build", "web")
+if os.path.exists(web_build_dir):
+    app.mount("/", StaticFiles(directory=web_build_dir, html=True), name="flutter_web")
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8000)
