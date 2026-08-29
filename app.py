@@ -1755,39 +1755,10 @@ def render_live_dashboard():
             # ----------------------------------------------------
             # UNIFIED MULTI-PANE TRADING WORKSPACE
             # ----------------------------------------------------
-            ws_col_watch, ws_col_chart, ws_col_order = st.columns([1.1, 3.6, 1.3])
-
-            # 1. LEFT PANE: LIVE WATCHLIST
-            with ws_col_watch:
-                st.markdown("<p style='font-size:11px;font-weight:800;color:#64748b;letter-spacing:0.8px;margin-bottom:8px;text-transform:uppercase;'>WATCHLIST</p>", unsafe_allow_html=True)
-                
-                watchlist_items = [
-                    ("Gold", "XAUUSD", "COMMODITIES"),
-                    ("Nasdaq 100", "NAS100", "INDICES"),
-                    ("S&P 500", "SPX500", "INDICES"),
-                    ("US 30 Dow", "US30", "INDICES"),
-                    ("EUR/USD", "EURUSD", "FOREX"),
-                    ("GBP/USD", "GBPUSD", "FOREX"),
-                    ("USD/JPY", "USDJPY", "FOREX"),
-                    ("Bitcoin", "BTCUSD", "CRYPTO"),
-                    ("Crude Oil", "USOIL", "COMMODITIES"),
-                ]
-                
-                if "active_ws_symbol" not in st.session_state:
-                    st.session_state.active_ws_symbol = "XAUUSD"
-
-                for label, sym, cat in watchlist_items:
-                    is_sel = (st.session_state.active_ws_symbol == sym)
-                    btn_style = "background: rgba(0, 255, 204, 0.18); border: 1px solid #00ffcc; color: #00ffcc;" if is_sel else "background: rgba(14, 19, 31, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); color: #ffffff;"
-                    
-                    if st.button(f"{sym} • {label}", key=f"ws_sym_{sym}", use_container_width=True):
-                        st.session_state.active_ws_symbol = sym
-                        st.rerun()
-
-                st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
-                custom_ws_sym = st.text_input("Custom Ticker", placeholder="e.g. ETHUSD", key="ws_custom_sym_input")
-                if custom_ws_sym and custom_ws_sym.strip():
-                    st.session_state.active_ws_symbol = custom_ws_sym.strip().upper()
+            ws_col_chart, ws_col_order = st.columns([3.6, 1.3])
+            
+            if "active_ws_symbol" not in st.session_state:
+                st.session_state.active_ws_symbol = "USDJPY"
 
             # 2. CENTER PANE: INTERACTIVE CHART STUDIO
             with ws_col_chart:
@@ -1841,7 +1812,7 @@ def render_live_dashboard():
                 )
                 
                 # Render the custom HTML component
-                components.html(html_code, height=720)
+                components.html(html_code, height=850)
 
             # 4. BOTTOM PANE: ACTIVE POSITIONS DOCK
             st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
