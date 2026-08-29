@@ -3,10 +3,11 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
     Returns the HTML, CSS, and JS for the advanced Market Execution DOM panel.
     This component will directly POST to the FastAPI backend to execute trades.
     """
-    # Simple bid/ask offset mockup since we don't have true streaming level 2 quotes yet
+    # Simple bid/ask offset mockup
     bid = round(current_price * 0.9998, 5) if current_price else 0.0
     ask = round(current_price * 1.0002, 5) if current_price else 0.0
-    spread = round((ask - bid) * 10000, 1) if current_price else 0.0
+    # Make spread calculation smaller so it fits in the badge
+    spread = round((ask - bid) * 100, 1) if current_price else 0.0
 
     return f"""
     <!DOCTYPE html>
@@ -30,18 +31,19 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
             }}
             body {{
                 margin: 0;
-                padding: 16px;
+                padding: 12px;
                 background-color: var(--bg-dark);
                 color: var(--text-main);
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
                 font-size: 13px;
                 user-select: none;
+                overflow-x: hidden;
             }}
             .header {{
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                margin-bottom: 16px;
+                margin-bottom: 12px;
             }}
             .symbol-title {{
                 font-size: 18px;
@@ -62,11 +64,11 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
                 background: var(--bg-lighter);
                 border-radius: 6px;
                 padding: 2px;
-                margin-bottom: 16px;
+                margin-bottom: 12px;
             }}
             .tab-btn {{
                 flex: 1;
-                padding: 8px 0;
+                padding: 6px 0;
                 text-align: center;
                 color: var(--text-muted);
                 cursor: pointer;
@@ -83,11 +85,12 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
             .quotes-row {{
                 display: flex;
                 align-items: center;
-                margin-bottom: 20px;
+                margin-bottom: 16px;
+                position: relative;
             }}
             .quote-btn {{
                 flex: 1;
-                height: 60px;
+                height: 56px;
                 position: relative;
                 cursor: pointer;
                 border: 1px solid transparent;
@@ -110,8 +113,8 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
                 border-color: var(--color-buy);
             }}
             .spread-badge {{
-                width: 36px;
-                height: 24px;
+                width: 40px;
+                height: 22px;
                 background: #111;
                 color: var(--text-muted);
                 display: flex;
@@ -123,17 +126,20 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
                 border: 1px solid var(--border-color);
                 border-top: none;
                 border-bottom: none;
+                position: absolute;
+                left: 50%;
+                transform: translateX(-50%);
             }}
             .quote-label {{
                 position: absolute;
-                top: 8px;
+                top: 6px;
                 font-size: 12px;
                 font-weight: 600;
             }}
             .quote-price {{
                 position: absolute;
-                bottom: 8px;
-                font-size: 16px;
+                bottom: 6px;
+                font-size: 15px;
                 font-weight: 700;
             }}
             .quote-btn.sell .quote-label, .quote-btn.sell .quote-price {{ left: 12px; color: var(--color-sell); }}
@@ -143,10 +149,10 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
             .type-tabs {{
                 display: flex;
                 border-bottom: 1px solid var(--border-color);
-                margin-bottom: 16px;
+                margin-bottom: 12px;
             }}
             .type-tab {{
-                padding: 8px 16px;
+                padding: 6px 16px;
                 color: var(--text-muted);
                 cursor: pointer;
                 border-bottom: 2px solid transparent;
@@ -159,14 +165,15 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
 
             /* Inputs */
             .input-group {{
-                margin-bottom: 16px;
+                margin-bottom: 12px;
             }}
             .input-label {{
                 color: var(--text-muted);
-                margin-bottom: 6px;
+                margin-bottom: 4px;
                 display: flex;
                 align-items: center;
                 gap: 4px;
+                font-size: 12px;
             }}
             .input-box {{
                 display: flex;
@@ -174,8 +181,8 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
                 background: var(--bg-input);
                 border: 1px solid var(--border-color);
                 border-radius: 4px;
-                height: 40px;
-                padding: 0 12px;
+                height: 36px;
+                padding: 0 10px;
             }}
             .input-box input {{
                 flex: 1;
@@ -191,21 +198,23 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
                 font-size: 12px;
                 display: flex;
                 align-items: center;
-                gap: 6px;
+                gap: 4px;
                 cursor: pointer;
+                white-space: nowrap;
             }}
             
             /* Info Box */
             .info-box {{
                 background: var(--bg-lighter);
-                padding: 12px;
+                padding: 10px;
                 border-radius: 6px;
-                margin-bottom: 20px;
+                margin-bottom: 16px;
             }}
             .info-row {{
                 display: flex;
                 justify-content: space-between;
-                margin-bottom: 8px;
+                margin-bottom: 6px;
+                font-size: 12px;
             }}
             .info-row:last-child {{ margin-bottom: 0; }}
             .info-label {{ color: var(--text-muted); }}
@@ -218,16 +227,16 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
                 align-items: center;
                 cursor: pointer;
                 font-weight: 600;
-                font-size: 14px;
-                margin-bottom: 12px;
+                font-size: 13px;
+                margin-bottom: 10px;
             }}
             
             /* Switch */
             .switch {{
                 position: relative;
                 display: inline-block;
-                width: 36px;
-                height: 20px;
+                width: 32px;
+                height: 18px;
             }}
             .switch input {{ opacity: 0; width: 0; height: 0; }}
             .slider {{
@@ -242,7 +251,7 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
             .slider:before {{
                 position: absolute;
                 content: "";
-                height: 14px; width: 14px;
+                height: 12px; width: 12px;
                 left: 2px; bottom: 2px;
                 background-color: var(--text-muted);
                 transition: .2s;
@@ -253,27 +262,29 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
                 border-color: var(--text-main);
             }}
             input:checked + .slider:before {{
-                transform: translateX(16px);
+                transform: translateX(14px);
                 background-color: var(--bg-dark);
             }}
             
             /* Submit Button */
             .submit-btn {{
                 width: 100%;
-                padding: 14px;
+                padding: 12px;
                 border: none;
                 border-radius: 6px;
                 color: white;
-                font-size: 16px;
+                font-size: 15px;
                 font-weight: 700;
                 cursor: pointer;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
-                gap: 4px;
-                margin-top: 10px;
+                gap: 2px;
+                margin-top: 8px;
+                margin-bottom: 12px;
                 transition: 0.2s;
             }}
+
             .submit-btn.sell {{ background-color: var(--color-sell); }}
             .submit-btn.sell:hover {{ background-color: #ff4a58; }}
             .submit-btn.buy {{ background-color: var(--color-buy); }}
@@ -336,7 +347,7 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
             <div class="input-label">Price</div>
             <div class="input-box">
                 <input type="number" id="inputPrice" value="{bid}" step="0.0001">
-                <div class="input-suffix">&#8644; Bid &ndash; 80</div>
+                <div class="input-suffix">&#8644; Bid</div>
             </div>
         </div>
         
