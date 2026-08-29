@@ -22,20 +22,16 @@ DEFAULT_SYMBOLS = {
 
 def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom_layout_url=None):
     """
-    Renders our Native TradingView SuperApp Charting Suite with exact TradingView Left Sidebar Flyout Menus:
-    - Lines & Rays (Trend line, Ray, Info line, Extended, Horiz Ray, Horiz Line, Vert Line, Parallel Channel)
-    - Gann & Fibonacci (Fib Retracement, Trend-based Fib Ext, Fib Channel, Fib Time Zone, Fib Fan, Fib Circles, Fib Spiral, Gann Box, Gann Square, Gann Fan)
-    - Geometric Shapes (Brush, Highlighter, Rectangle / Order Block, Rotated Rect, Circle, Ellipse, Path, Polyline)
-    - Text & Annotations (Text note, Callout, Price Tag, Arrow Marker)
-    - Patterns (Head & Shoulders, Elliott Wave 12345, Triangle Pattern, ABCD)
-    - Risk & Prediction (Long Position R:R, Short Position R:R, Price Range, Date Range, Bars Pattern)
-    - Utilities (Measure Ruler, Magnet Mode, Lock, Hide, Delete)
-    - 100% SQLite & localStorage Auto-Save!
+    Renders our Native TradingView SuperApp Charting Suite with precision (Time, Price) coordinate-locked drawing tools:
+    - Drawings are permanently attached to candle timestamps and prices (not screen pixels).
+    - As the user zooms in/out or pans left/right, drawings smoothly stay anchored to the candles.
+    - Full Left Sidebar Tool Suite: Trend lines, Horizontal Rays, Fib Retracement, Order Blocks, Long/Short Position R:R.
+    - 100% SQLite Database & localStorage Auto-Save!
     """
     clean_sym = symbol.replace(":", "").replace("/", "").replace("OANDA", "").replace("FOREXCOM", "").replace("BINANCE", "").replace("FX", "").upper().strip()
     
     # 1. Fetch Real Market Candles
-    candles = market_data.get_realtime_candles(symbol=clean_sym, timeframe=interval, count=240)
+    candles = market_data.get_realtime_candles(symbol=clean_sym, timeframe=interval, count=250)
     candles_json = json.dumps(candles)
 
     # 2. Fetch Real Trade Executions
@@ -89,7 +85,7 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
           display: flex;
         }}
         
-        /* Exact TradingView Left Sidebar Tool Dock */
+        /* TradingView Left Sidebar Tool Dock */
         .tv-left-sidebar {{
           width: 48px;
           height: 100%;
@@ -141,7 +137,7 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
           pointer-events: none;
         }}
         
-        /* Flyout Popup Menus (Exact TradingView Submenu Style) */
+        /* Flyout Popup Menus */
         .tv-flyout-menu {{
           position: absolute;
           left: 48px;
@@ -188,23 +184,9 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
           color: #00ffcc;
           font-weight: 700;
         }}
-        .menu-item svg {{
-          width: 16px;
-          height: 16px;
-          flex-shrink: 0;
-        }}
-        .menu-divider {{
-          height: 1px;
-          background: #2a2e39;
-          margin: 4px 0;
-        }}
-        
-        .sb-divider {{
-          width: 24px;
-          height: 1px;
-          background: rgba(255, 255, 255, 0.08);
-          margin: 3px 0;
-        }}
+        .menu-item svg {{ width: 16px; height: 16px; flex-shrink: 0; }}
+        .menu-divider {{ height: 1px; background: #2a2e39; margin: 4px 0; }}
+        .sb-divider {{ width: 24px; height: 1px; background: rgba(255, 255, 255, 0.08); margin: 3px 0; }}
         
         /* Top Quick Properties Bar */
         .tv-top-props {{
@@ -226,12 +208,12 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
         .color-dot {{ width: 14px; height: 14px; border-radius: 50%; cursor: pointer; border: 1.5px solid rgba(255,255,255,0.4); }}
         .color-dot.active {{ border-color: #ffffff; transform: scale(1.25); box-shadow: 0 0 8px rgba(255,255,255,0.8); }}
         
-        /* Canvas Layer */
+        /* Interactive Precision Drawing Canvas */
         #drawingCanvas {{
           position: absolute;
           top: 0;
-          left: 48px;
-          width: calc(100% - 48px);
+          left: 0;
+          width: 100%;
           height: 100%;
           z-index: 60;
           pointer-events: none;
@@ -269,8 +251,6 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
             <div class="tv-flyout-menu" id="menu_cursor">
               <div class="menu-category-title">Cursor Tools</div>
               <div class="menu-item selected" onclick="selectTool('pan', 'Crosshair', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg> Crosshair</div>
-              <div class="menu-item" onclick="selectTool('dot', 'Dot', this)"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="4"/></svg> Dot</div>
-              <div class="menu-item" onclick="selectTool('arrow', 'Arrow', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5l14 7-7 2-2 7z"/></svg> Arrow Pointer</div>
               <div class="menu-item" onclick="selectTool('eraser', 'Eraser', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 2l4 4-10 10H8v-4L18 2zM3 21h18"/></svg> Eraser</div>
             </div>
           </div>
@@ -286,11 +266,9 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
             <div class="tv-flyout-menu" id="menu_lines">
               <div class="menu-category-title">Lines & Rays</div>
               <div class="menu-item" onclick="selectTool('trend', 'Trend Line', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="20" x2="20" y2="4"/></svg> Trend Line</div>
-              <div class="menu-item" onclick="selectTool('hline', 'Horizontal Ray', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="2" y1="12" x2="22" y2="12"/></svg> Horizontal Ray</div>
-              <div class="menu-item" onclick="selectTool('full_hline', 'Horizontal Line', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="0" y1="12" x2="24" y2="12" stroke-dasharray="3 3"/></svg> Horizontal Line</div>
-              <div class="menu-item" onclick="selectTool('vline', 'Vertical Line', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="0" x2="12" y2="24"/></svg> Vertical Line</div>
+              <div class="menu-item" onclick="selectTool('hline', 'Horizontal Ray', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="2" y1="12" x2="22" y2="12"/></svg> Horizontal Ray (Key Level)</div>
+              <div class="menu-item" onclick="selectTool('full_hline', 'Horizontal Line', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="0" y1="12" x2="24" y2="12" stroke-dasharray="3 3"/></svg> Horizontal Cross Line</div>
               <div class="menu-item" onclick="selectTool('channel', 'Parallel Channel', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="16" x2="21" y2="8"/><line x1="3" y1="20" x2="21" y2="12"/></svg> Parallel Channel</div>
-              <div class="menu-item" onclick="selectTool('arrow_line', 'Arrow Line', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="20" x2="20" y2="4"/><polyline points="14 4 20 4 20 10"/></svg> Arrow Line</div>
             </div>
           </div>
 
@@ -303,13 +281,6 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
             <div class="tv-flyout-menu" id="menu_fib">
               <div class="menu-category-title">Fibonacci Tools</div>
               <div class="menu-item" onclick="selectTool('fib', 'Fib Retracement', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="2" y1="4" x2="22" y2="4"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="2" y1="16" x2="22" y2="16"/><line x1="2" y1="22" x2="22" y2="22"/></svg> Fib Retracement</div>
-              <div class="menu-item" onclick="selectTool('fib_ext', 'Trend-Based Fib Extension', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 18l6-6 6 6 8-8"/></svg> Trend-Based Fib Extension</div>
-              <div class="menu-item" onclick="selectTool('fib_channel', 'Fib Channel', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="18" x2="21" y2="6"/><line x1="3" y1="14" x2="21" y2="2"/></svg> Fib Channel</div>
-              <div class="menu-item" onclick="selectTool('fib_fan', 'Fib Speed Resistance Fan', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="21" x2="21" y2="3"/><line x1="3" y1="21" x2="21" y2="9"/><line x1="3" y1="21" x2="21" y2="15"/></svg> Fib Speed Resistance Fan</div>
-              <div class="menu-divider"></div>
-              <div class="menu-category-title">Gann Tools</div>
-              <div class="menu-item" onclick="selectTool('gann_box', 'Gann Box', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18"/><line x1="3" y1="3" x2="21" y2="21"/><line x1="21" y1="3" x2="3" y2="21"/></svg> Gann Box</div>
-              <div class="menu-item" onclick="selectTool('gann_fan', 'Gann Fan', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21L21 3M3 21l12-18M3 21L9 3"/></svg> Gann Fan</div>
             </div>
           </div>
 
@@ -323,8 +294,6 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
               <div class="menu-category-title">Geometric Shapes</div>
               <div class="menu-item" onclick="selectTool('box', 'Order Block (Rectangle)', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg> Rectangle / Order Block</div>
               <div class="menu-item" onclick="selectTool('brush', 'Brush (Freehand)', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 2l4 4-10 10H8v-4L18 2zM3 21h18"/></svg> Brush / Highlighter</div>
-              <div class="menu-item" onclick="selectTool('circle', 'Circle / Ellipse', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg> Circle</div>
-              <div class="menu-item" onclick="selectTool('path', 'Path / Wave Trajectory', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 17 9 11 13 15 21 7"/></svg> Path / Trajectory</div>
             </div>
           </div>
 
@@ -337,28 +306,13 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
             <div class="tv-flyout-menu" id="menu_text">
               <div class="menu-category-title">Annotation & Text</div>
               <div class="menu-item" onclick="selectTool('text', 'Text Note', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg> Text Note</div>
-              <div class="menu-item" onclick="selectTool('callout', 'Callout / Speech Bubble', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Callout</div>
               <div class="menu-item" onclick="selectTool('price_label', 'Price Label Badge', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 10v4M10 12h4"/></svg> Price Label</div>
             </div>
           </div>
 
           <div class="sb-divider"></div>
 
-          <!-- 6. Patterns -->
-          <div class="sb-btn-group">
-            <button class="sb-btn" id="btn_patterns_main" title="Patterns" onclick="toggleFlyout('menu_patterns', event)">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="4" cy="18" r="2"/><circle cx="10" cy="6" r="2"/><circle cx="16" cy="18" r="2"/><circle cx="22" cy="8" r="2"/><polyline points="4 18 10 6 16 18 22 8"/></svg>
-              <div class="sb-arrow"></div>
-            </button>
-            <div class="tv-flyout-menu" id="menu_patterns">
-              <div class="menu-category-title">Patterns</div>
-              <div class="menu-item" onclick="selectTool('head_shoulders', 'Head & Shoulders', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18l4-8 4 6 4-12 4 10 4-6"/></svg> Head & Shoulders</div>
-              <div class="menu-item" onclick="selectTool('elliott', 'Elliott Wave (12345)', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="2 18 6 10 10 14 15 4 19 8 22 2"/></svg> Elliott Wave (1-2-3-4-5)</div>
-              <div class="menu-item" onclick="selectTool('triangle_pattern', 'Triangle Pattern', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 19 12 5 21 19 3 19"/></svg> Triangle Pattern</div>
-            </div>
-          </div>
-
-          <!-- 7. Prediction & Measurement (Risk / Reward) -->
+          <!-- 6. Prediction & Measurement (Risk / Reward) -->
           <div class="sb-btn-group">
             <button class="sb-btn" id="btn_risk_main" title="Prediction & Measurement" onclick="toggleFlyout('menu_risk', event)">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="7" fill="rgba(0,255,204,0.3)" stroke="#00ffcc"/><rect x="4" y="11" width="16" height="7" fill="rgba(255,85,85,0.3)" stroke="#ff5555"/></svg>
@@ -368,21 +322,13 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
               <div class="menu-category-title">Risk / Reward & Prediction</div>
               <div class="menu-item" onclick="selectTool('long_pos', 'Long Position (R:R)', this)"><svg viewBox="0 0 24 24" fill="none" stroke="#00ffcc" stroke-width="2"><rect x="3" y="3" width="18" height="9" fill="rgba(0,255,204,0.3)"/><rect x="3" y="12" width="18" height="9" fill="rgba(255,85,85,0.3)"/></svg> Long Position (R:R)</div>
               <div class="menu-item" onclick="selectTool('short_pos', 'Short Position (R:R)', this)"><svg viewBox="0 0 24 24" fill="none" stroke="#ff5555" stroke-width="2"><rect x="3" y="3" width="18" height="9" fill="rgba(255,85,85,0.3)"/><rect x="3" y="12" width="18" height="9" fill="rgba(0,255,204,0.3)"/></svg> Short Position (R:R)</div>
-              <div class="menu-item" onclick="selectTool('price_range', 'Price Range (Pips)', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="2" x2="12" y2="22"/><polyline points="8 6 12 2 16 6"/><polyline points="8 18 12 22 16 18"/></svg> Price Range</div>
-              <div class="menu-item" onclick="selectTool('date_range', 'Date Range (Time)', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="2" y1="12" x2="22" y2="12"/><polyline points="6 8 2 12 6 16"/><polyline points="18 8 22 12 18 16"/></svg> Date Range</div>
+              <div class="menu-item" onclick="selectTool('measure', 'Price Range (Pips)', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="2" x2="12" y2="22"/><polyline points="8 6 12 2 16 6"/><polyline points="8 18 12 22 16 18"/></svg> Measurement Ruler</div>
             </div>
-          </div>
-
-          <!-- 8. Ruler -->
-          <div class="sb-btn-group">
-            <button class="sb-btn" id="btn_measure" title="Measurement Ruler" onclick="selectTool('measure', 'Ruler', this)">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.3 8.7l-6-6a2 2 0 0 0-2.8 0L3 12.2a2 2 0 0 0 0 2.8l6 6a2 2 0 0 0 2.8 0L21.3 11.5a2 2 0 0 0 0-2.8zM7.5 13.5l1.5-1.5M10.5 10.5l1.5-1.5M13.5 7.5l1.5-1.5"/></svg>
-            </button>
           </div>
 
           <div class="sb-divider" style="margin-top: auto;"></div>
 
-          <!-- 9. Trash / Clear -->
+          <!-- 7. Trash / Clear -->
           <div class="sb-btn-group">
             <button class="sb-btn" title="Remove All Drawings" onclick="clearAllDrawings()" style="color:#ff5555;">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
@@ -431,7 +377,7 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
 
       <script>
         const SYMBOL = "{clean_sym}";
-        const STORAGE_KEY = "tv_drawings_v2_" + SYMBOL;
+        const STORAGE_KEY = "tv_coords_drawings_" + SYMBOL;
         let candleData = {candles_json};
         let executions = {exec_json};
         let currentTool = 'pan';
@@ -446,9 +392,7 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
           const menu = document.getElementById(menuId);
           const isOpen = menu.classList.contains('open');
           closeAllFlyouts();
-          if (!isOpen) {{
-            menu.classList.add('open');
-          }}
+          if (!isOpen) menu.classList.add('open');
         }}
 
         function closeAllFlyouts() {{
@@ -478,7 +422,7 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
           el.classList.add('active');
         }}
 
-        // Load saved drawings from DB or localStorage
+        // Load saved drawings
         try {{
           const initialDb = {saved_drawings};
           const localStr = localStorage.getItem(STORAGE_KEY);
@@ -581,12 +525,15 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
           }}
         }}
 
-        // Drawing Canvas Engine
+        // -------------------------------------------------------------
+        // PRECISION (TIME, PRICE) <-> SCREEN COORDINATE CONVERTER
+        // -------------------------------------------------------------
         const canvas = document.getElementById('drawingCanvas');
         const ctx = canvas.getContext('2d');
         let isDrawing = false;
-        let startX = 0, startY = 0;
-        let brushPoints = [];
+        let startScreenX = 0, startScreenY = 0;
+        let startTime = null, startPrice = null;
+        let tempDrawing = null;
 
         function resizeCanvas() {{
           canvas.width = chartArea.clientWidth;
@@ -597,43 +544,67 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
         window.addEventListener('resize', resizeCanvas);
         setTimeout(resizeCanvas, 400);
 
+        // Chart visible range change listener -> reproject drawings on Pan/Zoom!
+        chart.timeScale().subscribeVisibleTimeRangeChange(() => {{
+          redrawAll();
+        }});
+
+        function screenToMarket(x, y) {{
+          const time = chart.timeScale().coordinateToTime(x);
+          const price = candleSeries.coordinateToPrice(y);
+          return {{ time: time, price: price }};
+        }}
+
+        function marketToScreen(time, price) {{
+          const x = chart.timeScale().timeToCoordinate(time);
+          const y = candleSeries.priceToCoordinate(price);
+          return {{ x: x, y: y }};
+        }}
+
         canvas.addEventListener('mousedown', (e) => {{
           if (currentTool === 'pan') return;
           const rect = canvas.getBoundingClientRect();
-          startX = e.clientX - rect.left;
-          startY = e.clientY - rect.top;
+          startScreenX = e.clientX - rect.left;
+          startScreenY = e.clientY - rect.top;
+          
+          const marketCoords = screenToMarket(startScreenX, startScreenY);
+          startTime = marketCoords.time || (candleData[candleData.length - 1] ? candleData[candleData.length - 1].time : 0);
+          startPrice = marketCoords.price || 0;
           isDrawing = true;
 
-          if (currentTool === 'hline') {{
-            drawings.push({{ type: 'hline', y: startY, color: currentColor }});
-            isDrawing = false;
-            saveDrawings();
-            redrawAll();
-          }} else if (currentTool === 'full_hline') {{
-            drawings.push({{ type: 'full_hline', y: startY, color: currentColor }});
-            isDrawing = false;
-            saveDrawings();
-            redrawAll();
-          }} else if (currentTool === 'vline') {{
-            drawings.push({{ type: 'vline', x: startX, color: currentColor }});
+          if (currentTool === 'hline' || currentTool === 'full_hline') {{
+            drawings.push({{
+              type: currentTool,
+              price: startPrice,
+              color: currentColor
+            }});
             isDrawing = false;
             saveDrawings();
             redrawAll();
           }} else if (currentTool === 'price_label') {{
-            drawings.push({{ type: 'price_label', x: startX, y: startY, color: currentColor }});
+            drawings.push({{
+              type: 'price_label',
+              time: startTime,
+              price: startPrice,
+              color: currentColor
+            }});
             isDrawing = false;
             saveDrawings();
             redrawAll();
           }} else if (currentTool === 'text') {{
-            const txt = prompt("Enter text note:", "Key Resistance / Support");
+            const txt = prompt("Enter text annotation:", "Key Resistance / Support");
             if (txt) {{
-              drawings.push({{ type: 'text', x: startX, y: startY, text: txt, color: currentColor }});
+              drawings.push({{
+                type: 'text',
+                time: startTime,
+                price: startPrice,
+                text: txt,
+                color: currentColor
+              }});
               saveDrawings();
               redrawAll();
             }}
             isDrawing = false;
-          }} else if (currentTool === 'brush') {{
-            brushPoints = [{{ x: startX, y: startY }}];
           }}
         }});
 
@@ -642,20 +613,7 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
           const rect = canvas.getBoundingClientRect();
           const currX = e.clientX - rect.left;
           const currY = e.clientY - rect.top;
-
-          if (currentTool === 'brush') {{
-            brushPoints.push({{ x: currX, y: currY }});
-            redrawAll();
-            ctx.save();
-            ctx.strokeStyle = currentColor;
-            ctx.lineWidth = 2.5;
-            ctx.beginPath();
-            ctx.moveTo(brushPoints[0].x, brushPoints[0].y);
-            for (let i = 1; i < brushPoints.length; i++) ctx.lineTo(brushPoints[i].x, brushPoints[i].y);
-            ctx.stroke();
-            ctx.restore();
-            return;
-          }}
+          const currMarket = screenToMarket(currX, currY);
 
           redrawAll();
           ctx.save();
@@ -664,35 +622,30 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
           ctx.shadowColor = currentColor;
           ctx.shadowBlur = 6;
 
-          if (currentTool === 'trend' || currentTool === 'arrow_line') {{
+          if (currentTool === 'trend') {{
             ctx.beginPath();
-            ctx.moveTo(startX, startY);
+            ctx.moveTo(startScreenX, startScreenY);
             ctx.lineTo(currX, currY);
             ctx.stroke();
-          }} else if (currentTool === 'channel' || currentTool === 'fib_channel') {{
+          }} else if (currentTool === 'channel') {{
             ctx.beginPath();
-            ctx.moveTo(startX, startY);
+            ctx.moveTo(startScreenX, startScreenY);
             ctx.lineTo(currX, currY);
-            ctx.moveTo(startX, startY + 40);
+            ctx.moveTo(startScreenX, startScreenY + 40);
             ctx.lineTo(currX, currY + 40);
             ctx.stroke();
-          }} else if (currentTool === 'fib' || currentTool === 'fib_ext') {{
-            renderFib(startX, startY, currX, currY, currentColor);
-          }} else if (currentTool === 'box' || currentTool === 'gann_box') {{
+          }} else if (currentTool === 'fib') {{
+            renderFib(startScreenX, startScreenY, currX, currY, currentColor);
+          }} else if (currentTool === 'box') {{
             ctx.fillStyle = currentColor + '25';
-            ctx.fillRect(startX, startY, currX - startX, currY - startY);
-            ctx.strokeRect(startX, startY, currX - startX, currY - startY);
-          }} else if (currentTool === 'circle') {{
-            const rad = Math.sqrt(Math.pow(currX - startX, 2) + Math.pow(currY - startY, 2));
-            ctx.beginPath();
-            ctx.arc(startX, startY, rad, 0, 2 * Math.PI);
-            ctx.stroke();
+            ctx.fillRect(startScreenX, startScreenY, currX - startScreenX, currY - startScreenY);
+            ctx.strokeRect(startScreenX, startScreenY, currX - startScreenX, currY - startScreenY);
           }} else if (currentTool === 'long_pos') {{
-            renderPositionTool(startX, startY, currX, currY, true);
+            renderPositionTool(startScreenX, startScreenY, currX, currY, true);
           }} else if (currentTool === 'short_pos') {{
-            renderPositionTool(startX, startY, currX, currY, false);
-          }} else if (currentTool === 'measure' || currentTool === 'price_range' || currentTool === 'date_range') {{
-            renderMeasureTool(startX, startY, currX, currY);
+            renderPositionTool(startScreenX, startScreenY, currX, currY, false);
+          }} else if (currentTool === 'measure') {{
+            renderMeasureTool(startScreenX, startScreenY, currX, currY);
           }}
           ctx.restore();
         }});
@@ -703,27 +656,57 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
           const rect = canvas.getBoundingClientRect();
           const endX = e.clientX - rect.left;
           const endY = e.clientY - rect.top;
+          const endMarket = screenToMarket(endX, endY);
+          const endTime = endMarket.time || startTime;
+          const endPrice = endMarket.price || startPrice;
 
-          if (currentTool === 'trend' || currentTool === 'arrow_line') {{
-            drawings.push({{ type: 'trend', x1: startX, y1: startY, x2: endX, y2: endY, color: currentColor }});
-          }} else if (currentTool === 'channel' || currentTool === 'fib_channel') {{
-            drawings.push({{ type: 'channel', x1: startX, y1: startY, x2: endX, y2: endY, offset: 40, color: currentColor }});
-          }} else if (currentTool === 'fib' || currentTool === 'fib_ext') {{
-            drawings.push({{ type: 'fib', x1: startX, y1: startY, x2: endX, y2: endY, color: currentColor }});
-          }} else if (currentTool === 'box' || currentTool === 'gann_box') {{
-            drawings.push({{ type: 'box', x: startX, y: startY, w: endX - startX, h: endY - startY, color: currentColor }});
-          }} else if (currentTool === 'circle') {{
-            const rad = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
-            drawings.push({{ type: 'circle', x: startX, y: startY, r: rad, color: currentColor }});
-          }} else if (currentTool === 'brush') {{
-            drawings.push({{ type: 'brush', points: brushPoints, color: currentColor }});
-            brushPoints = [];
+          if (currentTool === 'trend') {{
+            drawings.push({{
+              type: 'trend',
+              time1: startTime, price1: startPrice,
+              time2: endTime, price2: endPrice,
+              color: currentColor
+            }});
+          }} else if (currentTool === 'channel') {{
+            drawings.push({{
+              type: 'channel',
+              time1: startTime, price1: startPrice,
+              time2: endTime, price2: endPrice,
+              offsetPrice: Math.abs(startPrice - endPrice) * 0.5,
+              color: currentColor
+            }});
+          }} else if (currentTool === 'fib') {{
+            drawings.push({{
+              type: 'fib',
+              time1: startTime, price1: startPrice,
+              time2: endTime, price2: endPrice,
+              color: currentColor
+            }});
+          }} else if (currentTool === 'box') {{
+            drawings.push({{
+              type: 'box',
+              time1: startTime, price1: startPrice,
+              time2: endTime, price2: endPrice,
+              color: currentColor
+            }});
           }} else if (currentTool === 'long_pos') {{
-            drawings.push({{ type: 'long_pos', x: startX, y: startY, w: endX - startX, h: endY - startY }});
+            drawings.push({{
+              type: 'long_pos',
+              time1: startTime, price1: startPrice,
+              time2: endTime, price2: endPrice
+            }});
           }} else if (currentTool === 'short_pos') {{
-            drawings.push({{ type: 'short_pos', x: startX, y: startY, w: endX - startX, h: endY - startY }});
-          }} else if (currentTool === 'measure' || currentTool === 'price_range' || currentTool === 'date_range') {{
-            drawings.push({{ type: 'measure', x1: startX, y1: startY, x2: endX, y2: endY }});
+            drawings.push({{
+              type: 'short_pos',
+              time1: startTime, price1: startPrice,
+              time2: endTime, price2: endPrice
+            }});
+          }} else if (currentTool === 'measure') {{
+            drawings.push({{
+              type: 'measure',
+              time1: startTime, price1: startPrice,
+              time2: endTime, price2: endPrice
+            }});
           }}
 
           saveDrawings();
@@ -780,11 +763,16 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
           const pips = Math.abs(y2 - y1).toFixed(1);
           ctx.fillStyle = '#00ffcc';
           ctx.font = 'bold 11px Inter, sans-serif';
-          ctx.fillText(`Δ ${{pips}} Pips / Range`, x1 + 6, y1 + 16);
+          ctx.fillText(`Δ ${{pips}} Pips`, x1 + 6, y1 + 16);
         }}
 
+        // -------------------------------------------------------------
+        // DYNAMIC REDRAW ENGINE: PROJECTS (TIME, PRICE) -> CANVAS VIEWPORT
+        // -------------------------------------------------------------
         function redrawAll() {{
           ctx.clearRect(0, 0, canvas.width, canvas.height);
+          if (!drawings || drawings.length === 0) return;
+
           drawings.forEach(d => {{
             ctx.save();
             ctx.strokeStyle = d.color || '#00ffcc';
@@ -792,72 +780,74 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
             ctx.shadowColor = d.color || '#00ffcc';
             ctx.shadowBlur = 6;
 
-            if (d.type === 'hline') {{
-              ctx.beginPath();
-              ctx.moveTo(0, d.y);
-              ctx.lineTo(canvas.width, d.y);
-              ctx.stroke();
+            if (d.type === 'hline' || d.type === 'full_hline') {{
+              const y = candleSeries.priceToCoordinate(d.price);
+              if (y !== null && !isNaN(y)) {{
+                ctx.beginPath();
+                if (d.type === 'full_hline') ctx.setLineDash([5, 5]);
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+                ctx.setLineDash([]);
 
-              ctx.fillStyle = d.color;
-              ctx.fillRect(canvas.width - 70, d.y - 9, 65, 18);
-              ctx.fillStyle = '#000000';
-              ctx.font = 'bold 9.5px Inter, sans-serif';
-              ctx.fillText('KEY LEVEL', canvas.width - 64, d.y + 4);
-            }} else if (d.type === 'full_hline') {{
-              ctx.beginPath();
-              ctx.setLineDash([5, 5]);
-              ctx.moveTo(0, d.y);
-              ctx.lineTo(canvas.width, d.y);
-              ctx.stroke();
-              ctx.setLineDash([]);
-            }} else if (d.type === 'vline') {{
-              ctx.beginPath();
-              ctx.moveTo(d.x, 0);
-              ctx.lineTo(d.x, canvas.height);
-              ctx.stroke();
+                // Live price badge
+                ctx.fillStyle = d.color;
+                ctx.fillRect(canvas.width - 70, y - 9, 65, 18);
+                ctx.fillStyle = '#000000';
+                ctx.font = 'bold 9.5px Inter, sans-serif';
+                ctx.fillText(Number(d.price).toFixed(2), canvas.width - 64, y + 4);
+              }}
             }} else if (d.type === 'trend') {{
-              ctx.beginPath();
-              ctx.moveTo(d.x1, d.y1);
-              ctx.lineTo(d.x2, d.y2);
-              ctx.stroke();
-            }} else if (d.type === 'channel') {{
-              ctx.beginPath();
-              ctx.moveTo(d.x1, d.y1);
-              ctx.lineTo(d.x2, d.y2);
-              ctx.moveTo(d.x1, d.y1 + d.offset);
-              ctx.lineTo(d.x2, d.y2 + d.offset);
-              ctx.stroke();
+              const p1 = marketToScreen(d.time1, d.price1);
+              const p2 = marketToScreen(d.time2, d.price2);
+              if (p1.x !== null && p1.y !== null && p2.x !== null && p2.y !== null) {{
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+                ctx.stroke();
+              }}
             }} else if (d.type === 'fib') {{
-              renderFib(d.x1, d.y1, d.x2, d.y2, d.color);
+              const p1 = marketToScreen(d.time1, d.price1);
+              const p2 = marketToScreen(d.time2, d.price2);
+              if (p1.x !== null && p1.y !== null && p2.x !== null && p2.y !== null) {{
+                renderFib(p1.x, p1.y, p2.x, p2.y, d.color);
+              }}
             }} else if (d.type === 'box') {{
-              ctx.fillStyle = d.color + '25';
-              ctx.fillRect(d.x, d.y, d.w, d.h);
-              ctx.strokeRect(d.x, d.y, d.w, d.h);
-            }} else if (d.type === 'circle') {{
-              ctx.beginPath();
-              ctx.arc(d.x, d.y, d.r, 0, 2 * Math.PI);
-              ctx.stroke();
-            }} else if (d.type === 'brush' && d.points && d.points.length > 0) {{
-              ctx.beginPath();
-              ctx.moveTo(d.points[0].x, d.points[0].y);
-              for (let i = 1; i < d.points.length; i++) ctx.lineTo(d.points[i].x, d.points[i].y);
-              ctx.stroke();
+              const p1 = marketToScreen(d.time1, d.price1);
+              const p2 = marketToScreen(d.time2, d.price2);
+              if (p1.x !== null && p1.y !== null && p2.x !== null && p2.y !== null) {{
+                ctx.fillStyle = d.color + '25';
+                ctx.fillRect(p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
+                ctx.strokeRect(p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
+              }}
             }} else if (d.type === 'text') {{
-              ctx.fillStyle = d.color;
-              ctx.font = 'bold 12px Inter, sans-serif';
-              ctx.fillText(d.text, d.x, d.y);
+              const p = marketToScreen(d.time, d.price);
+              if (p.x !== null && p.y !== null) {{
+                ctx.fillStyle = d.color;
+                ctx.font = 'bold 12px Inter, sans-serif';
+                ctx.fillText(d.text, p.x, p.y);
+              }}
             }} else if (d.type === 'price_label') {{
-              ctx.fillStyle = d.color;
-              ctx.fillRect(d.x, d.y - 10, 60, 20);
-              ctx.fillStyle = '#000000';
-              ctx.font = 'bold 10px Inter, sans-serif';
-              ctx.fillText('TAG', d.x + 18, d.y + 4);
-            }} else if (d.type === 'long_pos') {{
-              renderPositionTool(d.x, d.y, d.x + d.w, d.y + d.h, true);
-            }} else if (d.type === 'short_pos') {{
-              renderPositionTool(d.x, d.y, d.x + d.w, d.y + d.h, false);
+              const p = marketToScreen(d.time, d.price);
+              if (p.x !== null && p.y !== null) {{
+                ctx.fillStyle = d.color;
+                ctx.fillRect(p.x, p.y - 10, 65, 20);
+                ctx.fillStyle = '#000000';
+                ctx.font = 'bold 10px Inter, sans-serif';
+                ctx.fillText(Number(d.price).toFixed(2), p.x + 8, p.y + 4);
+              }}
+            }} else if (d.type === 'long_pos' || d.type === 'short_pos') {{
+              const p1 = marketToScreen(d.time1, d.price1);
+              const p2 = marketToScreen(d.time2, d.price2);
+              if (p1.x !== null && p1.y !== null && p2.x !== null && p2.y !== null) {{
+                renderPositionTool(p1.x, p1.y, p2.x, p2.y, d.type === 'long_pos');
+              }}
             }} else if (d.type === 'measure') {{
-              renderMeasureTool(d.x1, d.y1, d.x2, d.y2);
+              const p1 = marketToScreen(d.time1, d.price1);
+              const p2 = marketToScreen(d.time2, d.price2);
+              if (p1.x !== null && p1.y !== null && p2.x !== null && p2.y !== null) {{
+                renderMeasureTool(p1.x, p1.y, p2.x, p2.y);
+              }}
             }}
             ctx.restore();
           }});
