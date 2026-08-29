@@ -2201,9 +2201,12 @@ def render_live_dashboard():
                         return "+ Custom Symbol..."
                     desc = POPULAR_PAIRS_CATALOG.get(sym, "")
                     desc_str = f" ({desc})" if desc else ""
-                    if sym in fav_symbols:
-                        return f"{sym}{desc_str}   ★"
-                    return f"{sym}{desc_str}   ☆"
+                    is_fav = sym in fav_symbols
+                    star_icon = "★" if is_fav else "☆"
+                    left_txt = f"{sym}{desc_str}"
+                    pad_len = max(6, 46 - len(left_txt))
+                    padding = chr(160) * pad_len
+                    return f"{left_txt}{padding}{star_icon}"
 
                 col_p1, col_p2, col_p3, col_p4 = st.columns([1.8, 1.1, 1.1, 1.6])
                 
