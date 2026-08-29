@@ -1905,6 +1905,18 @@ def render_live_dashboard():
 
                 st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
 
+                ml_buy = ai_data.get("ml_prob_buy", 0.0)
+                ml_sell = ai_data.get("ml_prob_sell", 0.0)
+                
+                if ml_buy > 0 or ml_sell > 0:
+                    st.markdown(f"<p style='font-size:11px;font-weight:800;color:#64748b;letter-spacing:0.8px;margin-bottom:6px;text-transform:uppercase;'>YOUR PERSONAL ML EDGE SCORE (Random Forest Model)</p>", unsafe_allow_html=True)
+                    ml1, ml2 = st.columns(2)
+                    with ml1:
+                        st.info(f"🟢 **BUY Probability:** {ml_buy}%", icon="📈")
+                    with ml2:
+                        st.error(f"🔴 **SELL Probability:** {ml_sell}%", icon="📉")
+                    st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
+
                 col_sum1, col_sum2 = st.columns([1.5, 1.5])
                 with col_sum1:
                     with st.container(border=True):
