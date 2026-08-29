@@ -1778,8 +1778,8 @@ def render_live_dashboard():
                 with col_tf:
                     tv_interval = st.selectbox(
                         "Chart Timeframe",
-                        options=["1", "5", "15", "60", "240", "D"],
-                        format_func=lambda x: {"1": "1 Minute", "5": "5 Minutes", "15": "15 Minutes", "60": "1 Hour", "240": "4 Hours", "D": "Daily"}[x],
+                        options=["1m", "5m", "15m", "1h", "4h", "D"],
+                        format_func=lambda x: {"1m": "1 Minute", "5m": "5 Minutes", "15m": "15 Minutes", "1h": "1 Hour", "4h": "4 Hours", "D": "Daily"}[x],
                         index=2,
                         key="tv_interval_sel"
                     )

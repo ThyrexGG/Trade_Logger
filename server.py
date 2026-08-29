@@ -261,9 +261,17 @@ def update_journal(payload: JournalUpdateRequest):
     )
     return {"status": "updated", "trade_id": payload.trade_id}
 
+import market_data
+
 class ChartDrawingsPayload(BaseModel):
     symbol: str
     drawings_data: str
+
+@app.get("/api/chart/candles")
+def get_chart_candles(symbol: str = "XAUUSD", timeframe: str = "15m", count: int = 250):
+    """Returns real-time candlestick series from MT5, Capital.com, or live market feeds."""
+    candles = market_data.get_realtime_candles(symbol=symbol, timeframe=timeframe, count=count)
+    return {"symbol": symbol.upper(), "timeframe": timeframe, "candles": candles}
 
 @app.get("/api/chart/drawings")
 def get_drawings(symbol: str = "XAUUSD"):
