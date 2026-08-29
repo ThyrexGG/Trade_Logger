@@ -2204,8 +2204,8 @@ def render_live_dashboard():
                     desc = POPULAR_PAIRS_CATALOG.get(sym, "")
                     desc_str = f" ({desc})" if desc else ""
                     if sym in fav_symbols:
-                        return f"{sym} ★{desc_str}"
-                    return f"{sym}{desc_str}"
+                        return f"★ {sym}{desc_str}"
+                    return f"☆ {sym}{desc_str}"
 
                 col_p1, col_p_star, col_p2, col_p3, col_p4 = st.columns([1.8, 0.45, 1.1, 1.1, 1.6])
                 
