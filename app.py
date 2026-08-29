@@ -918,19 +918,20 @@ st.markdown("""
         visibility: hidden !important;
     }
 
-    /* TradingView-Style Interactive Red Bookmark Ribbon Flag Button */
+    /* TradingView-Style Interactive Red Bookmark Ribbon Flag Buttons */
+    div[data-testid="column"] button[key^="btn_wl_ribbon_"],
     button[key="btn_toggle_ribbon_sym"] {
-        font-size: 11px !important;
+        font-size: 10px !important;
         font-weight: 900 !important;
         letter-spacing: 0.5px !important;
         padding: 0 !important;
-        min-height: 42px !important;
-        height: 42px !important;
+        min-height: 28px !important;
+        height: 28px !important;
         width: 100% !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        border-radius: 6px !important;
+        border-radius: 4px !important;
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
 </style>
@@ -2163,70 +2164,97 @@ def render_live_dashboard():
             with st.container(border=True):
                 st.markdown("<h4 style='color:#00ffcc;font-size:14px;font-weight:700;text-transform:uppercase;margin:0 0 12px 0;'>Create New Price Target Alert</h4>", unsafe_allow_html=True)
                 
-                # Curated catalog with TradingView-style asset descriptions
+                # TradingView-style Asset Catalog
                 POPULAR_PAIRS_CATALOG = {
-                    "XAUUSD": "Gold Spot / US Dollar",
-                    "EURUSD": "Euro / US Dollar",
-                    "GBPUSD": "British Pound / US Dollar",
-                    "USDJPY": "US Dollar / Japanese Yen",
-                    "US100":  "US Tech 100 (Nasdaq)",
-                    "US500":  "S&P 500 US Index",
-                    "BTCUSD": "Bitcoin / US Dollar",
-                    "USOIL":  "Crude Oil Spot",
-                    "AUDUSD": "Australian Dollar / US Dollar",
-                    "NZDUSD": "New Zealand Dollar / US Dollar",
-                    "USDCHF": "US Dollar / Swiss Franc",
-                    "USDCAD": "US Dollar / Canadian Dollar"
+                    "XAUUSD": {"name": "XAUUSD (XAU/USD)", "desc": "Gold Spot / US Dollar", "type": "commodity"},
+                    "EURUSD": {"name": "EURUSD (EUR/USD)", "desc": "Euro / US Dollar", "type": "forex cfd"},
+                    "GBPUSD": {"name": "GBPUSD (GBP/USD)", "desc": "British Pound / US Dollar", "type": "forex cfd"},
+                    "USDJPY": {"name": "USDJPY (USD/JPY)", "desc": "US Dollar / Japanese Yen", "type": "forex cfd"},
+                    "US100":  {"name": "US100 (NAS100)", "desc": "US Tech 100 Index", "type": "index cfd"},
+                    "US500":  {"name": "US500 (SPX500)", "desc": "S&P 500 US Index", "type": "index cfd"},
+                    "BTCUSD": {"name": "BTCUSD (BTC/USD)", "desc": "Bitcoin / US Dollar", "type": "crypto"},
+                    "USOIL":  {"name": "USOIL (USOIL)", "desc": "Crude Oil Spot", "type": "commodity"},
+                    "AUDUSD": {"name": "AUDUSD (AUD/USD)", "desc": "Australian Dollar / US Dollar", "type": "forex cfd"},
+                    "NZDUSD": {"name": "NZDUSD (NZD/USD)", "desc": "New Zealand Dollar / US Dollar", "type": "forex cfd"},
+                    "USDCHF": {"name": "USDCHF (USD/CHF)", "desc": "US Dollar / Swiss Franc", "type": "forex cfd"},
+                    "USDCAD": {"name": "USDCAD (USD/CAD)", "desc": "US Dollar / Canadian Dollar", "type": "forex cfd"}
                 }
 
-                # Fetch Starred / Favorite symbols and catalog
+                # Fetch Starred / Favorite symbols
                 fav_symbols = database.get_favorite_symbols()
                 
-                # Build ordered options: Red-ribboned pairs first at top, then other catalog pairs, then custom
-                all_symbols_ordered = []
-                for s in fav_symbols:
-                    if s not in all_symbols_ordered:
-                        all_symbols_ordered.append(s)
-                for s in POPULAR_PAIRS_CATALOG.keys():
-                    if s not in all_symbols_ordered:
-                        all_symbols_ordered.append(s)
-                all_symbols_ordered.append("CUSTOM SYMBOL")
+                # Initialize active selected symbol in session state
+                if "pa_active_symbol" not in st.session_state:
+                    st.session_state.pa_active_symbol = fav_symbols[0] if fav_symbols else "XAUUSD"
 
-                def format_sym_label(sym):
-                    if sym == "CUSTOM SYMBOL":
-                        return "+ CUSTOM SYMBOL..."
-                    desc = POPULAR_PAIRS_CATALOG.get(sym, "")
-                    desc_str = f" | {desc}" if desc else ""
-                    if sym in fav_symbols:
-                        return f"[FLAG] {sym}{desc_str}"
-                    return f"{sym}{desc_str}"
+                cur_sym = st.session_state.pa_active_symbol
+                cur_meta = POPULAR_PAIRS_CATALOG.get(cur_sym, {"name": cur_sym, "desc": "Custom Asset", "type": "asset"})
+                is_cur_fav = cur_sym in fav_symbols
+                cur_ribbon_color = "#ef4444" if is_cur_fav else "#8a99ad"
 
-                col_p_ribbon, col_p1, col_p2, col_p3, col_p4 = st.columns([0.45, 1.8, 1.1, 1.1, 1.6])
-                
-                with col_p1:
-                    p_sym_choice = st.selectbox(
-                        "Select Symbol",
-                        options=all_symbols_ordered,
-                        format_func=format_sym_label,
-                        index=0,
-                        key="sel_pa_sym_dropdown"
-                    )
+                # 1. Active Selected Symbol Banner (TradingView Watchlist Header)
+                render_html(f"""
+                <div style="background: rgba(14, 19, 31, 0.95); border: 1px solid rgba(255,255,255,0.08); border-left: 4px solid {cur_ribbon_color}; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <div style="width:10px; height:18px; background:{cur_ribbon_color}; border-radius:2px; box-shadow:0 0 8px {cur_ribbon_color};"></div>
+                        <div>
+                            <span style="font-weight: 800; font-size: 15px; color: #00ffcc;">{cur_meta['name']}</span>
+                            <span style="font-size: 12px; color: #8a99ad; margin-left: 8px;">{cur_meta['desc']}</span>
+                        </div>
+                    </div>
+                    <div>
+                        <span style="font-size: 11px; text-transform:uppercase; color:#8a99ad; padding:3px 8px; border-radius:4px; background:rgba(255,255,255,0.05);">{cur_meta['type']}</span>
+                    </div>
+                </div>
+                """)
+
+                # 2. Interactive Symbol Watchlist with in-row Red Ribbons
+                with st.expander("SELECT / SEARCH TRADING ASSET (INTERACTIVE WATCHLIST)", expanded=False):
+                    search_query = st.text_input("Search Ticker or Asset Description", value="", placeholder="e.g. USDJPY, Gold, Oil, Nasdaq...", key="pa_search_box").strip().upper()
                     
-                    if p_sym_choice == "CUSTOM SYMBOL":
-                        p_sym_final = st.text_input("Enter Custom Symbol", value="", placeholder="e.g. SOLUSDT", key="input_pa_custom_sym").strip().upper()
-                    else:
-                        p_sym_final = p_sym_choice
+                    # Sort list: Red-ribboned favorites strictly at top, then alphabetical
+                    all_syms = list(POPULAR_PAIRS_CATALOG.keys())
+                    sorted_syms = [s for s in fav_symbols if s in all_syms] + [s for s in all_syms if s not in fav_symbols]
+                    
+                    # Filter by search
+                    if search_query:
+                        sorted_syms = [s for s in sorted_syms if search_query in s or search_query in POPULAR_PAIRS_CATALOG[s]["desc"].upper()]
 
-                with col_p_ribbon:
-                    st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
-                    if p_sym_final and p_sym_final != "CUSTOM SYMBOL":
-                        is_fav = p_sym_final in fav_symbols
-                        ribbon_btn_label = "RED" if is_fav else "OFF"
-                        ribbon_help = "Pinned to top with Red Ribbon Flag. Click to unflag." if is_fav else "Click to flag with Red Ribbon and pin to top of list."
-                        if st.button(ribbon_btn_label, key="btn_toggle_ribbon_sym", help=ribbon_help, use_container_width=True):
-                            database.toggle_favorite_symbol(p_sym_final)
+                    # Display each asset row matching the user's TradingView screenshot
+                    for sym_key in sorted_syms:
+                        info = POPULAR_PAIRS_CATALOG[sym_key]
+                        is_flagged = sym_key in fav_symbols
+                        
+                        col_r1, col_r2, col_r3, col_r4, col_r5 = st.columns([0.4, 1.6, 2.0, 0.8, 0.8])
+                        
+                        with col_r1:
+                            # In-row clickable Red Ribbon Tag Flag
+                            ribbon_tag_text = "RED" if is_flagged else "OFF"
+                            ribbon_help = "Pinned to top with Red Ribbon Flag. Click to unflag." if is_flagged else "Click to flag with Red Ribbon and pin to top of list."
+                            if st.button(ribbon_tag_text, key=f"btn_wl_ribbon_{sym_key}", help=ribbon_help, use_container_width=True):
+                                database.toggle_favorite_symbol(sym_key)
+                                st.rerun()
+                                
+                        with col_r2:
+                            st.markdown(f"<div style='font-weight:700; color:#00ffcc; font-size:13px; padding-top:6px;'>{info['name']}</div>", unsafe_allow_html=True)
+                        with col_r3:
+                            st.markdown(f"<div style='color:#8a99ad; font-size:12px; padding-top:6px;'>{info['desc']}</div>", unsafe_allow_html=True)
+                        with col_r4:
+                            st.markdown(f"<div style='color:#64748b; font-size:11px; text-transform:uppercase; padding-top:7px;'>{info['type']}</div>", unsafe_allow_html=True)
+                        with col_r5:
+                            if st.button("Select", key=f"sel_asset_row_{sym_key}", use_container_width=True):
+                                st.session_state.pa_active_symbol = sym_key
+                                st.rerun()
+                                
+                    st.markdown("<div style='border-top:1px solid rgba(255,255,255,0.06); margin-top:10px; padding-top:10px;'></div>", unsafe_allow_html=True)
+                    custom_inp = st.text_input("Or Enter Any Custom Symbol", value="", placeholder="e.g. SOLUSDT", key="pa_custom_inp")
+                    if st.button("Use Custom Symbol", key="pa_btn_use_custom"):
+                        if custom_inp.strip():
+                            st.session_state.pa_active_symbol = custom_inp.strip().upper()
                             st.rerun()
 
+                # 3. Alert Parameters
+                col_p2, col_p3, col_p4 = st.columns([1.2, 1.2, 2.0])
                 with col_p2:
                     p_target = st.number_input("Target Price ($)", value=2510.0, step=0.5, format="%.2f", key="input_pa_target_tab")
                 with col_p3:
@@ -2235,11 +2263,12 @@ def render_live_dashboard():
                     p_notes = st.text_input("Alert Notes", value="", placeholder="e.g. Resistance breakout / 4H key level", key="input_pa_notes_tab")
                     
                 if st.button("Set Price Alert", type="primary", key="btn_set_price_alert_tab", use_container_width=True):
-                    if not p_sym_final:
+                    final_sym = st.session_state.pa_active_symbol
+                    if not final_sym:
                         st.error("Please specify a valid symbol.")
                     else:
-                        database.create_price_alert(symbol=p_sym_final, target_price=p_target, condition=p_cond, notes=p_notes)
-                        st.success(f"Price alert set for {p_sym_final} {p_cond} ${p_target:,.2f}!")
+                        database.create_price_alert(symbol=final_sym, target_price=p_target, condition=p_cond, notes=p_notes)
+                        st.success(f"Price alert set for {final_sym} {p_cond} ${p_target:,.2f}!")
                         st.rerun()
                     
             # List of Price Alerts
