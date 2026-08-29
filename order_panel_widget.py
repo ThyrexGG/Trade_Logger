@@ -3,10 +3,8 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
     Returns the HTML, CSS, and JS for the advanced Market Execution DOM panel.
     This component will directly POST to the FastAPI backend to execute trades.
     """
-    # Simple bid/ask offset mockup
     bid = round(current_price * 0.9998, 5) if current_price else 0.0
     ask = round(current_price * 1.0002, 5) if current_price else 0.0
-    # Make spread calculation smaller so it fits in the badge
     spread = round((ask - bid) * 100, 1) if current_price else 0.0
 
     return f"""
@@ -156,6 +154,8 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
                 color: var(--text-muted);
                 cursor: pointer;
                 border-bottom: 2px solid transparent;
+                flex: 1;
+                text-align: center;
             }}
             .type-tab.active {{
                 color: var(--text-main);
@@ -243,7 +243,7 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
                 position: absolute;
                 cursor: pointer;
                 top: 0; left: 0; right: 0; bottom: 0;
-                background-color: var(--bg-lighter);
+                background: var(--bg-lighter);
                 transition: .2s;
                 border-radius: 20px;
                 border: 1px solid var(--border-color);
@@ -266,14 +266,14 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
                 background-color: var(--bg-dark);
             }}
             
-            /* Submit Button */
+            /* Submit Button & Overlay */
             .submit-btn {{
                 width: 100%;
                 padding: 12px;
                 border: none;
                 border-radius: 6px;
                 color: white;
-                font-size: 15px;
+                font-size: 16px;
                 font-weight: 700;
                 cursor: pointer;
                 display: flex;
@@ -283,29 +283,47 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
                 margin-top: 8px;
                 margin-bottom: 12px;
                 transition: 0.2s;
+                position: relative;
+                overflow: hidden;
             }}
-
             .submit-btn.sell {{ background-color: var(--color-sell); }}
             .submit-btn.sell:hover {{ background-color: #ff4a58; }}
             .submit-btn.buy {{ background-color: var(--color-buy); }}
             .submit-btn.buy:hover {{ background-color: #3d71ff; }}
-            .submit-btn:disabled {{ opacity: 0.6; cursor: not-allowed; }}
-            .submit-subtext {{ font-size: 11px; font-weight: 400; opacity: 0.9; }}
             
-            /* Status Toast */
-            #toast {{
-                position: fixed;
-                bottom: 20px;
-                left: 50%;
-                transform: translateX(-50%);
-                background: #333;
-                color: #fff;
-                padding: 8px 16px;
-                border-radius: 4px;
+            .submit-subtext {{ font-size: 11px; font-weight: 400; opacity: 0.9; text-transform: uppercase; }}
+            
+            .loading-overlay {{
+                position: absolute;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.6);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                opacity: 0;
+                pointer-events: none;
+                transition: 0.2s;
+            }}
+            .submit-btn.loading .loading-overlay {{
+                opacity: 1;
+                pointer-events: auto;
+            }}
+            .spinner {{
+                width: 20px;
+                height: 20px;
+                border: 3px solid rgba(255,255,255,0.3);
+                border-radius: 50%;
+                border-top-color: #fff;
+                animation: spin 1s ease-in-out infinite;
+            }}
+            @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+
+            /* DOM View Mockup */
+            #domView {{
                 display: none;
-                z-index: 1000;
                 text-align: center;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+                padding: 40px 0;
+                color: var(--text-muted);
             }}
         </style>
     </head>
@@ -321,97 +339,117 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
         </div>
         
         <div class="tabs-container">
-            <div class="tab-btn active" onclick="setMode('Order')">Order</div>
-            <div class="tab-btn" onclick="setMode('DOM')">DOM</div>
+            <div class="tab-btn active" id="tabOrder" onclick="setMainMode('Order')">Order</div>
+            <div class="tab-btn" id="tabDOM" onclick="setMainMode('DOM')">DOM</div>
         </div>
         
-        <div class="quotes-row">
-            <div class="quote-btn sell active" id="btnSell" onclick="setDirection('Sell')">
-                <div class="quote-label">Sell</div>
-                <div class="quote-price">{bid}</div>
-            </div>
-            <div class="spread-badge">{spread}</div>
-            <div class="quote-btn buy" id="btnBuy" onclick="setDirection('Buy')">
-                <div class="quote-label">Buy</div>
-                <div class="quote-price">{ask}</div>
-            </div>
+        <div id="domView">
+            <div style="font-size: 40px; margin-bottom: 16px;">&#8645;</div>
+            <div style="font-size: 16px; font-weight: bold; margin-bottom: 8px;">DOM View</div>
+            <div style="font-size: 12px; line-height: 1.5;">Level 2 Market Depth streaming is required for the DOM ladder.</div>
         </div>
-        
-        <div class="type-tabs">
-            <div class="type-tab active" onclick="setType('Market', this)">Market</div>
-            <div class="type-tab" onclick="setType('Limit', this)">Limit</div>
-            <div class="type-tab" onclick="setType('Stop', this)">Stop</div>
+
+        <div id="orderView">
+            <div class="quotes-row">
+                <div class="quote-btn sell active" id="btnSell" onclick="setDirection('Sell')">
+                    <div class="quote-label">Sell</div>
+                    <div class="quote-price" id="lblBid">{bid}</div>
+                </div>
+                <div class="spread-badge">{spread}</div>
+                <div class="quote-btn buy" id="btnBuy" onclick="setDirection('Buy')">
+                    <div class="quote-label">Buy</div>
+                    <div class="quote-price" id="lblAsk">{ask}</div>
+                </div>
+            </div>
+            
+            <div class="type-tabs">
+                <div class="type-tab active" onclick="setType('Market', this)">Market</div>
+                <div class="type-tab" onclick="setType('Limit', this)">Limit</div>
+                <div class="type-tab" onclick="setType('Stop', this)">Stop</div>
+            </div>
+            
+            <div class="input-group" id="groupPrice" style="display: none;">
+                <div class="input-label">Price</div>
+                <div class="input-box">
+                    <input type="number" id="inputPrice" value="{bid}" step="0.0001">
+                    <div class="input-suffix">&#8644; Bid</div>
+                </div>
+            </div>
+            
+            <div class="input-group">
+                <div class="input-label">Risk, USD <span style="font-size:10px;">&#8964;</span></div>
+                <div class="input-box">
+                    <input type="number" id="inputRisk" value="3.28" step="0.01">
+                    <div class="input-suffix">&#8644;&nbsp;&nbsp; 1.50 USD <span style="font-size:10px;">&#8964;</span></div>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <div class="input-label" style="display:none;">Volume / Lots</div>
+                <div class="input-box">
+                    <input type="number" id="inputVol" value="0.10" step="0.01">
+                    <div class="input-suffix">&#8644; Vol</div>
+                </div>
+            </div>
+            
+            <div class="info-box">
+                <div class="info-row">
+                    <span class="info-label">Trade value (200:1)</span>
+                    <span class="info-val" id="valTrade">299.72 USD</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Available margin</span>
+                    <span class="info-val" id="valMargin">294.03 USD</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Pip value</span>
+                    <span class="info-val" id="valPip">0.02 USD</span>
+                </div>
+            </div>
+            
+            <div class="accordion-header">
+                Exits <span>&#8963;</span>
+            </div>
+            
+            <div class="input-group">
+                <div class="header" style="margin-bottom: 6px;">
+                    <div class="input-label" style="margin: 0;">Take profit, price <span style="font-size:10px;">&#8964;</span></div>
+                    <label class="switch">
+                      <input type="checkbox" id="chkTP" onchange="toggleTP()">
+                      <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="input-box" id="boxTP" style="opacity: 0.3; pointer-events: none;">
+                    <input type="number" id="inputTP" value="" step="0.0001">
+                    <div class="input-suffix">&#8644;&nbsp;&nbsp; pips <span style="font-size:10px;">&#8964;</span></div>
+                </div>
+            </div>
+            
+            <div class="input-group">
+                <div class="header" style="margin-bottom: 6px;">
+                    <div class="input-label" style="margin: 0;">Stop loss, price <span style="font-size:10px;">&#8964;</span></div>
+                    <label class="switch">
+                      <input type="checkbox" id="chkSL" onchange="toggleSL()">
+                      <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="input-box" id="boxSL" style="opacity: 0.3; pointer-events: none;">
+                    <input type="number" id="inputSL" value="" step="0.0001">
+                    <div class="input-suffix">&#8644;&nbsp;&nbsp; pips <span style="font-size:10px;">&#8964;</span></div>
+                </div>
+            </div>
+
+            <div class="info-row" style="margin: 12px 0;">
+                <span class="info-label">Risk / Reward</span>
+                <span class="info-val">1.1</span>
+            </div>
+            
+            <button class="submit-btn sell" id="btnSubmit" onclick="executeTrade()">
+                <div>Sell</div>
+                <div class="submit-subtext" id="submitSubtext">300 USD/JPY MARKET</div>
+                <div class="loading-overlay"><div class="spinner"></div></div>
+            </button>
         </div>
-        
-        <div class="input-group">
-            <div class="input-label">Price</div>
-            <div class="input-box">
-                <input type="number" id="inputPrice" value="{bid}" step="0.0001">
-                <div class="input-suffix">&#8644; Bid</div>
-            </div>
-        </div>
-        
-        <div class="input-group">
-            <div class="input-label">Volume / Lots</div>
-            <div class="input-box">
-                <input type="number" id="inputVol" value="0.10" step="0.01">
-                <div class="input-suffix">&#8644; Vol</div>
-            </div>
-        </div>
-        
-        <div class="info-box">
-            <div class="info-row">
-                <span class="info-label">Account Target</span>
-                <span class="info-val">{account_id}</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Trade value (200:1)</span>
-                <span class="info-val" id="valTrade">--</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Pip value</span>
-                <span class="info-val" id="valPip">--</span>
-            </div>
-        </div>
-        
-        <div class="accordion-header">
-            Exits <span>&#8963;</span>
-        </div>
-        
-        <div class="input-group">
-            <div class="header" style="margin-bottom: 6px;">
-                <div class="input-label" style="margin: 0;">Take profit, price</div>
-                <label class="switch">
-                  <input type="checkbox" id="chkTP" onchange="toggleTP()">
-                  <span class="slider"></span>
-                </label>
-            </div>
-            <div class="input-box" id="boxTP" style="opacity: 0.3; pointer-events: none;">
-                <input type="number" id="inputTP" value="" step="0.0001">
-                <div class="input-suffix">&#8644; pips</div>
-            </div>
-        </div>
-        
-        <div class="input-group">
-            <div class="header" style="margin-bottom: 6px;">
-                <div class="input-label" style="margin: 0;">Stop loss, price</div>
-                <label class="switch">
-                  <input type="checkbox" id="chkSL" onchange="toggleSL()">
-                  <span class="slider"></span>
-                </label>
-            </div>
-            <div class="input-box" id="boxSL" style="opacity: 0.3; pointer-events: none;">
-                <input type="number" id="inputSL" value="" step="0.0001">
-                <div class="input-suffix">&#8644; pips</div>
-            </div>
-        </div>
-        
-        <button class="submit-btn sell" id="btnSubmit" onclick="executeTrade()">
-            <div>Sell</div>
-            <div class="submit-subtext" id="submitSubtext">0.1 {symbol} @ {bid} MARKET</div>
-        </button>
-        
-        <div id="toast">Order executing...</div>
         
         <script>
             let state = {{
@@ -422,6 +460,13 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
                 bid: {bid},
                 ask: {ask}
             }};
+            
+            function setMainMode(mode) {{
+                document.getElementById('tabOrder').classList.toggle('active', mode === 'Order');
+                document.getElementById('tabDOM').classList.toggle('active', mode === 'DOM');
+                document.getElementById('orderView').style.display = mode === 'Order' ? 'block' : 'none';
+                document.getElementById('domView').style.display = mode === 'DOM' ? 'block' : 'none';
+            }}
             
             function setDirection(dir) {{
                 state.direction = dir;
@@ -443,6 +488,9 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
                 state.type = type;
                 document.querySelectorAll('.type-tab').forEach(t => t.classList.remove('active'));
                 el.classList.add('active');
+                
+                document.getElementById('groupPrice').style.display = type === 'Market' ? 'none' : 'block';
+                
                 updateButtonText();
             }}
             
@@ -460,26 +508,29 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
             
             function updateButtonText() {{
                 const vol = document.getElementById('inputVol').value || '0.1';
-                const price = document.getElementById('inputPrice').value || state.bid;
-                document.getElementById('submitSubtext').innerText = `${{vol}} ${{state.symbol}} @ ${{price}} ${{state.type.toUpperCase()}}`;
+                let priceText = '';
+                if(state.type !== 'Market') {{
+                    const price = document.getElementById('inputPrice').value || state.bid;
+                    priceText = ` @ ${{price}} ${{state.type.toUpperCase()}}`;
+                }} else {{
+                    priceText = ' MARKET';
+                }}
+                // e.g. 300 USD/JPY MARKET or 300 USD/JPY @ 159.976 LIMIT
+                // Since user screenshots show volume as a whole number on the button (e.g. 300 instead of 0.1) 
+                // we'll multiply volume by 3000 as a mockup of contract sizing, or just display the volume literal
+                const mockVolumeDisplay = vol * 3000;
+                document.getElementById('submitSubtext').innerText = `${{mockVolumeDisplay}} ${{state.symbol}}${{priceText}}`;
             }}
             
             document.getElementById('inputVol').addEventListener('input', updateButtonText);
             document.getElementById('inputPrice').addEventListener('input', updateButtonText);
             
-            function showToast(msg, isError) {{
-                const toast = document.getElementById('toast');
-                toast.innerText = msg;
-                toast.style.background = isError ? 'var(--color-sell)' : 'var(--color-accent)';
-                toast.style.color = isError ? '#fff' : '#000';
-                toast.style.display = 'block';
-                setTimeout(() => toast.style.display = 'none', 3000);
-            }}
+            // Initialize button text on load
+            updateButtonText();
             
             async function executeTrade() {{
                 const btn = document.getElementById('btnSubmit');
-                btn.disabled = true;
-                btn.children[0].innerText = 'Routing...';
+                btn.classList.add('loading');
                 
                 const payload = {{
                     symbol: state.symbol,
@@ -487,7 +538,7 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
                     direction: state.direction.toUpperCase(),
                     volume: parseFloat(document.getElementById('inputVol').value),
                     order_type: state.type.toUpperCase(),
-                    price: parseFloat(document.getElementById('inputPrice').value),
+                    price: state.type !== 'Market' ? parseFloat(document.getElementById('inputPrice').value) : null,
                     stop_loss: document.getElementById('chkSL').checked ? parseFloat(document.getElementById('inputSL').value) : null,
                     take_profit: document.getElementById('chkTP').checked ? parseFloat(document.getElementById('inputTP').value) : null
                 }};
@@ -501,15 +552,14 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
                     
                     const data = await res.json();
                     if(res.ok) {{
-                        showToast(data.message || 'Trade executed successfully!', false);
+                        alert(data.message || 'Trade executed successfully!');
                     }} else {{
-                        showToast(data.detail || 'Execution failed', true);
+                        alert('Execution failed: ' + (data.detail || 'Unknown error'));
                     }}
                 }} catch(e) {{
-                    showToast('Network error connecting to API', true);
+                    alert('Network error connecting to API');
                 }} finally {{
-                    btn.disabled = false;
-                    btn.children[0].innerText = state.direction;
+                    btn.classList.remove('loading');
                 }}
             }}
         </script>
