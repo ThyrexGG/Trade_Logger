@@ -1154,9 +1154,10 @@ def render_live_dashboard():
         # ----------------------------------------------------
         # TOP-LEVEL BIG BOLD HEADER VIEW SWITCHER
         # ----------------------------------------------------
-        tab_overview, tab_charts, tab_journal, tab_alerts, tab_terminal = st.tabs([
+        tab_overview, tab_charts, tab_ai, tab_journal, tab_alerts, tab_terminal = st.tabs([
             "ANALYTICS & OVERVIEW",
-            "LIVE CHARTS",
+            "TRADING WORKSPACE",
+            "AI MARKET CONTEXT",
             "TRADE JOURNAL",
             "PRICE ALERTS",
             "QUICK TERMINAL"
@@ -1942,6 +1943,74 @@ def render_live_dashboard():
                                 st.rerun()
                             else:
                                 st.error(msg)
+
+        # ----------------------------------------------------
+        # AI MARKET CONTEXT & TECHNICAL ANALYSIS PIPELINE
+        # ----------------------------------------------------
+        with tab_ai:
+            st.markdown("<h3 style='color:#ffffff;font-size:1.3rem;margin:0 0 4px 0;font-weight:800;text-transform:uppercase;'>AI Technical & Market Context Analysis</h3>", unsafe_allow_html=True)
+            st.markdown("<p style='color:#8a99ad;font-size:13px;margin-bottom:14px;'>Deterministic technical indicator synthesis & structured market scenarios. Never hallucinates prices.</p>", unsafe_allow_html=True)
+
+            col_ai_sym, col_ai_tf, col_ai_btn = st.columns([1.5, 1.2, 1.2])
+            with col_ai_sym:
+                ai_selected_sym = st.selectbox(
+                    "Asset to Analyze",
+                    options=["XAUUSD", "NAS100", "SPX500", "US30", "EURUSD", "GBPUSD", "USDJPY", "BTCUSD", "USOIL"],
+                    index=0,
+                    key="ai_sel_symbol"
+                )
+            with col_ai_tf:
+                ai_selected_tf = st.selectbox(
+                    "Timeframe Context",
+                    options=["15m", "1h", "4h", "D"],
+                    index=1,
+                    key="ai_sel_tf"
+                )
+            with col_ai_btn:
+                st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
+                run_ai_analysis = st.button("RUN AI ANALYSIS", key="btn_run_ai", use_container_width=True)
+
+            import ai_analysis
+            ai_data = ai_analysis.analyze_market_context(symbol=ai_selected_sym, timeframe=ai_selected_tf)
+
+            if ai_data and ai_data.get("status") != "unavailable" and ai_data.get("status") != "error":
+                factual = ai_data["factual_data"]
+                bias = ai_data["trend_bias"]
+                bias_color = "#00ffcc" if bias == "Bullish" else ("#ff5555" if bias == "Bearish" else "#f59e0b")
+
+                # Header Metric Cards
+                c_m1, c_m2, c_m3, c_m4, c_m5 = st.columns(5)
+                with c_m1:
+                    st.metric("Current Price", f"${factual['current_price']:,.2f}", f"{factual['price_change_pct']:+.2f}%")
+                with c_m2:
+                    st.metric("Trend Bias", bias)
+                with c_m3:
+                    st.metric("RSI (14)", f"{factual['rsi']:.1f}")
+                with c_m4:
+                    st.metric("EMA 20 / 50", f"{factual['ema20']:,.1f}", f"{factual['ema50']:,.1f}")
+                with c_m5:
+                    st.metric("Key Resistance", f"${factual['resistance_1']:,.2f}")
+
+                st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
+
+                col_sum1, col_sum2 = st.columns([1.5, 1.5])
+                with col_sum1:
+                    with st.container(border=True):
+                        st.markdown(f"<p style='font-size:11px;font-weight:800;color:#64748b;letter-spacing:0.8px;margin-bottom:6px;text-transform:uppercase;'>TECHNICAL STRUCTURE</p>", unsafe_allow_html=True)
+                        st.markdown(f"<p style='color:#ffffff; font-size:13px;'>{ai_data['technical_structure']}</p>", unsafe_allow_html=True)
+                        st.markdown(f"<p style='font-size:12px; color:#8a99ad;'><b>Momentum:</b> {ai_data['momentum']}</p>", unsafe_allow_html=True)
+                        st.markdown(f"<p style='font-size:12px; color:#8a99ad;'><b>Volatility:</b> {ai_data['volatility']}</p>", unsafe_allow_html=True)
+
+                with col_sum2:
+                    with st.container(border=True):
+                        st.markdown(f"<p style='font-size:11px;font-weight:800;color:#64748b;letter-spacing:0.8px;margin-bottom:6px;text-transform:uppercase;'>SCENARIOS & LEVELS</p>", unsafe_allow_html=True)
+                        st.markdown(f"<p style='font-size:12px; color:#00ffcc;'><b>Bullish Case:</b> {ai_data['scenarios']['bullish_case']}</p>", unsafe_allow_html=True)
+                        st.markdown(f"<p style='font-size:12px; color:#ff5555;'><b>Bearish Case:</b> {ai_data['scenarios']['bearish_case']}</p>", unsafe_allow_html=True)
+                        st.markdown(f"<p style='font-size:11px; color:#8a99ad;'><b>Invalidation:</b> {ai_data['scenarios']['invalidation']}</p>", unsafe_allow_html=True)
+
+                st.markdown(f"<p style='font-size:10px; color:#64748b; margin-top:8px;'>Timestamp: {ai_data['timestamp']} • Confidence: {ai_data['confidence']} • {ai_data['disclaimer']}</p>", unsafe_allow_html=True)
+            else:
+                st.warning(ai_data.get("error", "AI market analysis could not load live data."))
 
         with tab_journal:
             # Account Separation Filter

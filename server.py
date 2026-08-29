@@ -310,6 +310,7 @@ def get_chart_executions(symbol: str = "XAUUSD"):
     return {"executions": execs}
 
 import analytics
+import ai_analysis
 
 @app.get("/api/analytics")
 def get_analytics(account_id: str = "ALL", initial_balance: float = 10000.0):
@@ -320,6 +321,12 @@ def get_analytics(account_id: str = "ALL", initial_balance: float = 10000.0):
         
     metrics = analytics.calculate_performance_metrics(df_trades, initial_balance=initial_balance)
     return {"account_id": account_id, "metrics": metrics}
+
+@app.get("/api/ai/analyze")
+def get_ai_market_analysis(symbol: str = "XAUUSD", timeframe: str = "1h"):
+    """Returns structured, deterministic AI technical and market context analysis."""
+    analysis = ai_analysis.analyze_market_context(symbol=symbol, timeframe=timeframe)
+    return analysis
 
 @app.post("/api/sync")
 def trigger_sync():
