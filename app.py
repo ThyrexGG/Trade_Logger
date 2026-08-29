@@ -1260,6 +1260,8 @@ def render_live_dashboard():
                 current_balance = official_broker_bal if official_broker_bal is not None else perf["final_balance"]
                 total_pnl = perf["total_net_pnl"]
                 gain_pct = perf["gain_pct"]
+                gross_wins = perf["total_gross_profit"]
+                gross_losses = perf["total_gross_loss"]
                 profit_factor = perf["profit_factor"]
                 max_drawdown = perf["max_drawdown_pct"]
                 highest_balance = perf["peak_balance"]
