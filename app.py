@@ -1760,77 +1760,164 @@ def render_live_dashboard():
                     st.plotly_chart(fig_tag, use_container_width=True)
 
         with tab_charts:
-            sub_c_tv, sub_c_broker = st.tabs([
-                "TRADINGVIEW PRO STUDIO", 
-                "BROKER CANDLESTICKS (REAL TRADES OVERLAID)"
-            ])
+            # ----------------------------------------------------
+            # UNIFIED MULTI-PANE TRADING WORKSPACE
+            # ----------------------------------------------------
+            ws_col_watch, ws_col_chart, ws_col_order = st.columns([1.1, 3.6, 1.3])
 
-            with sub_c_tv:
-                col_sym, col_tf, col_custom, col_link = st.columns([1.3, 0.9, 1.2, 1.2])
-                with col_sym:
-                    selected_tv_preset = st.selectbox(
-                        "Select Market Asset",
-                        options=list(tradingview_widget.DEFAULT_SYMBOLS.keys()),
-                        index=0,
-                        key="tv_symbol_preset"
-                    )
-                    tv_symbol = tradingview_widget.DEFAULT_SYMBOLS[selected_tv_preset]
-                with col_tf:
-                    tv_interval = st.selectbox(
-                        "Chart Timeframe",
-                        options=["1m", "5m", "15m", "1h", "4h", "D"],
-                        format_func=lambda x: {"1m": "1 Minute", "5m": "5 Minutes", "15m": "15 Minutes", "1h": "1 Hour", "4h": "4 Hours", "D": "Daily"}[x],
-                        index=2,
-                        key="tv_interval_sel"
-                    )
-                with col_custom:
-                    custom_sym = st.text_input("Or Custom Ticker", value="", placeholder="e.g. BINANCE:SOLUSDT", key="tv_custom_sym")
-                    if custom_sym.strip():
-                        tv_symbol = custom_sym.strip().upper()
-                with col_link:
-                    render_html(f"""
-                    <div style="margin-top: 28px;">
-                        <a href="https://www.tradingview.com/chart/?symbol={tv_symbol}" target="_blank" style="display: inline-block; background: rgba(0, 255, 204, 0.12); color: #00ffcc; border: 1px solid rgba(0, 255, 204, 0.35); padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; width: 100%; text-align: center;">
-                            FULLSCREEN VIEW
-                        </a>
-                    </div>
-                    """)
-
-                tradingview_widget.render_tradingview_chart(
-                    symbol=tv_symbol, 
-                    interval=tv_interval, 
-                    height=750
-                )
-
-            with sub_c_broker:
-                st.markdown("<p style='color:#8a99ad;font-size:13px;margin-bottom:14px;'>Live broker candlestick chart with your actual executed BUY/SELL trade entry/exit arrows, holding lines, profit annotations, and open SL/TP levels plotted directly on the candles.</p>", unsafe_allow_html=True)
+            # 1. LEFT PANE: LIVE WATCHLIST
+            with ws_col_watch:
+                st.markdown("<p style='font-size:11px;font-weight:800;color:#64748b;letter-spacing:0.8px;margin-bottom:8px;text-transform:uppercase;'>WATCHLIST</p>", unsafe_allow_html=True)
                 
-                col_b1, col_b2, col_b3 = st.columns([1.5, 1, 1])
-                with col_b1:
-                    broker_sym = st.selectbox(
-                        "Broker Symbol",
-                        options=["XAUUSD", "GOLD", "US100", "US500", "EURUSD", "GBPUSD", "USDJPY", "BTCUSD", "USOIL"],
-                        index=0,
-                        key="sel_broker_chart_sym"
-                    )
-                with col_b2:
-                    broker_tf = st.selectbox(
+                watchlist_items = [
+                    ("Gold", "XAUUSD", "COMMODITIES"),
+                    ("Nasdaq 100", "NAS100", "INDICES"),
+                    ("S&P 500", "SPX500", "INDICES"),
+                    ("US 30 Dow", "US30", "INDICES"),
+                    ("EUR/USD", "EURUSD", "FOREX"),
+                    ("GBP/USD", "GBPUSD", "FOREX"),
+                    ("USD/JPY", "USDJPY", "FOREX"),
+                    ("Bitcoin", "BTCUSD", "CRYPTO"),
+                    ("Crude Oil", "USOIL", "COMMODITIES"),
+                ]
+                
+                if "active_ws_symbol" not in st.session_state:
+                    st.session_state.active_ws_symbol = "XAUUSD"
+
+                for label, sym, cat in watchlist_items:
+                    is_sel = (st.session_state.active_ws_symbol == sym)
+                    btn_style = "background: rgba(0, 255, 204, 0.18); border: 1px solid #00ffcc; color: #00ffcc;" if is_sel else "background: rgba(14, 19, 31, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); color: #ffffff;"
+                    
+                    if st.button(f"{sym} • {label}", key=f"ws_sym_{sym}", use_container_width=True):
+                        st.session_state.active_ws_symbol = sym
+                        st.rerun()
+
+                st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+                custom_ws_sym = st.text_input("Custom Ticker", placeholder="e.g. ETHUSD", key="ws_custom_sym_input")
+                if custom_ws_sym and custom_ws_sym.strip():
+                    st.session_state.active_ws_symbol = custom_ws_sym.strip().upper()
+
+            # 2. CENTER PANE: INTERACTIVE CHART STUDIO
+            with ws_col_chart:
+                col_c_top1, col_c_top2, col_c_top3 = st.columns([1.5, 1.2, 1.3])
+                with col_c_top1:
+                    st.markdown(f"<div style='display:flex; align-items:center; gap:8px;'><h3 style='margin:0; font-size:1.3rem; font-weight:800; color:#ffffff;'>{st.session_state.active_ws_symbol}</h3><span style='font-size:11px; color:#00ffcc; background:rgba(0,255,204,0.12); padding:2px 6px; border-radius:4px; font-weight:700;'>LIVE FEED</span></div>", unsafe_allow_html=True)
+                with col_c_top2:
+                    active_tf = st.selectbox(
                         "Timeframe",
                         options=["1m", "5m", "15m", "1h", "4h", "D"],
-                        index=3,
-                        format_func=lambda x: {"1m": "1 Minute", "5m": "5 Minutes", "15m": "15 Minutes", "1h": "1 Hour", "4h": "4 Hours", "D": "Daily"}[x],
-                        key="sel_broker_chart_tf"
+                        index=2,
+                        label_visibility="collapsed",
+                        key="ws_timeframe_selector"
                     )
-                with col_b3:
-                    candle_count = st.selectbox("Candle History", options=[50, 100, 150, 250, 500], index=2, key="sel_broker_candles_cnt")
-                    
-                tradingview_widget.render_broker_candlestick_overlay(
-                    symbol=broker_sym,
-                    df_trades=df_trades,
-                    df_open=df_open,
-                    timeframe=broker_tf,
-                    count=candle_count
+                with col_c_top3:
+                    st.markdown(f"""
+                    <div style="text-align: right;">
+                        <a href="https://www.tradingview.com/chart/?symbol={st.session_state.active_ws_symbol}" target="_blank" style="display: inline-block; background: rgba(0, 255, 204, 0.1); color: #00ffcc; border: 1px solid rgba(0, 255, 204, 0.3); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none;">
+                            FULLSCREEN
+                        </a>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                tradingview_widget.render_tradingview_chart(
+                    symbol=st.session_state.active_ws_symbol,
+                    interval=active_tf,
+                    height=680
                 )
+
+            # 3. RIGHT PANE: ORDER EXECUTION & RISK CALCULATOR
+            with ws_col_order:
+                st.markdown("<p style='font-size:11px;font-weight:800;color:#64748b;letter-spacing:0.8px;margin-bottom:8px;text-transform:uppercase;'>ORDER EXECUTION</p>", unsafe_allow_html=True)
+                
+                with st.container(border=True):
+                    order_broker = st.selectbox(
+                        "Broker Target",
+                        options=["Capital.com", "MetaTrader 5"],
+                        index=0,
+                        key="ws_order_broker_sel"
+                    )
+                    
+                    order_dir = st.radio("Side", options=["BUY", "SELL"], horizontal=True, key="ws_order_dir_sel")
+                    
+                    order_vol = st.number_input("Volume / Lots", min_value=0.01, value=0.10, step=0.01, format="%.2f", key="ws_order_vol_inp")
+                    
+                    col_sl_in, col_tp_in = st.columns(2)
+                    with col_sl_in:
+                        order_sl = st.number_input("Stop Loss", min_value=0.0, value=0.0, step=0.5, key="ws_order_sl_inp")
+                    with col_tp_in:
+                        order_tp = st.number_input("Take Profit", min_value=0.0, value=0.0, step=0.5, key="ws_order_tp_inp")
+                        
+                    btn_col_color = "#00ffcc" if order_dir == "BUY" else "#ff5555"
+                    
+                    st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
+                    if st.button(f"EXECUTE {order_dir} ({order_broker})", key="ws_btn_submit_order", use_container_width=True):
+                        with st.spinner(f"Routing {order_dir} order to {order_broker}..."):
+                            import order_execution
+                            if order_broker == "Capital.com":
+                                success, msg = order_execution.execute_capital_trade(
+                                    epic=st.session_state.active_ws_symbol,
+                                    direction=order_dir,
+                                    size=order_vol,
+                                    stop_loss=order_sl if order_sl > 0 else None,
+                                    take_profit=order_tp if order_tp > 0 else None
+                                )
+                            else:
+                                success, msg = order_execution.execute_mt5_trade(
+                                    symbol=st.session_state.active_ws_symbol,
+                                    direction=order_dir,
+                                    volume=order_vol,
+                                    sl=order_sl if order_sl > 0 else None,
+                                    tp=order_tp if order_tp > 0 else None
+                                )
+                                
+                            if success:
+                                st.success(msg)
+                                st.rerun()
+                            else:
+                                st.error(msg)
+
+            # 4. BOTTOM PANE: ACTIVE POSITIONS DOCK
+            st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
+            if not df_open.empty:
+                st.markdown("<p style='font-size:11px;font-weight:800;color:#64748b;letter-spacing:0.8px;margin-bottom:6px;text-transform:uppercase;'>ACTIVE OPEN POSITIONS & ORDERS</p>", unsafe_allow_html=True)
+                for _, pos in df_open.iterrows():
+                    pos_id = str(pos["position_id"])
+                    p_sym = str(pos["symbol"]).upper()
+                    p_dir = str(pos["direction"]).upper()
+                    p_vol = float(pos.get("volume", 0.0))
+                    p_entry = float(pos.get("entry_price", 0.0))
+                    p_curr = float(pos.get("current_price", 0.0))
+                    p_pnl = float(pos.get("floating_pnl", 0.0))
+                    p_acc = str(pos.get("account_id", ""))
+                    
+                    pnl_col = "#00ffcc" if p_pnl >= 0 else "#ff5555"
+                    dir_badge_col = "#00ffcc" if "BUY" in p_dir else "#ff5555"
+                    
+                    c_p1, c_p2, c_p3, c_p4, c_p5, c_p6, c_p7 = st.columns([1.2, 1, 1.2, 1.2, 1.2, 1.5, 1])
+                    with c_p1:
+                        st.markdown(f"<b style='color:#ffffff;'>{p_sym}</b> <span style='font-size:10px; color:#8a99ad;'>({p_acc})</span>", unsafe_allow_html=True)
+                    with c_p2:
+                        st.markdown(f"<span style='color:{dir_badge_col}; font-weight:700;'>{p_dir} {p_vol:,.2f}</span>", unsafe_allow_html=True)
+                    with c_p3:
+                        st.markdown(f"<span style='color:#8a99ad; font-size:12px;'>Entry: {p_entry:,.2f}</span>", unsafe_allow_html=True)
+                    with c_p4:
+                        st.markdown(f"<span style='color:#ffffff; font-size:12px;'>Current: {p_curr:,.2f}</span>", unsafe_allow_html=True)
+                    with c_p5:
+                        st.markdown(f"<b style='color:{pnl_col}; font-size:13px;'>{'+' if p_pnl>=0 else ''}${p_pnl:,.2f}</b>", unsafe_allow_html=True)
+                    with c_p6:
+                        st.markdown(f"<span style='font-size:11px; color:#8a99ad;'>SL: {pos.get('sl', 0) or '-'} | TP: {pos.get('tp', 0) or '-'}</span>", unsafe_allow_html=True)
+                    with c_p7:
+                        if st.button("Close", key=f"ws_close_pos_{pos_id}", use_container_width=True):
+                            import order_execution
+                            if "CAP_" in pos_id:
+                                success, msg = order_execution.close_capital_position(pos_id.replace("CAP_", ""))
+                            else:
+                                success, msg = order_execution.close_mt5_position(int(pos_id.replace("MT5_", "")))
+                            if success:
+                                st.success("Position closed!")
+                                st.rerun()
+                            else:
+                                st.error(msg)
 
         with tab_journal:
             # Account Separation Filter
