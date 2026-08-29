@@ -569,6 +569,56 @@ def update_trade_journal(trade_id, chart_snapshot_url=None, setup_tag=None, note
     conn.close()
     return True
 
+# ----------------- Starred / Favorite Symbols -----------------
+
+def get_favorite_symbols():
+    """Returns a list of starred/favorite symbol names in uppercase."""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE IF NOT EXISTS favorite_symbols (symbol TEXT PRIMARY KEY, created_at TEXT NOT NULL)")
+        cursor.execute("SELECT symbol FROM favorite_symbols ORDER BY created_at ASC")
+        rows = cursor.fetchall()
+        conn.close()
+        favs = [str(r[0]).upper() for r in rows]
+        if not favs:
+            # Default initial favorites
+            return ["XAUUSD", "EURUSD", "US100"]
+        return favs
+    except Exception as e:
+        print(f"Error fetching favorite symbols: {e}")
+        return ["XAUUSD", "EURUSD", "US100"]
+
+def toggle_favorite_symbol(symbol):
+    """Toggles star/favorite status for a symbol."""
+    sym = str(symbol).strip().upper()
+    if not sym or sym == "CUSTOM":
+        return False
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE IF NOT EXISTS favorite_symbols (symbol TEXT PRIMARY KEY, created_at TEXT NOT NULL)")
+        if is_postgres():
+            cursor.execute("SELECT symbol FROM favorite_symbols WHERE symbol = %s", (sym,))
+            exists = cursor.fetchone()
+            if exists:
+                cursor.execute("DELETE FROM favorite_symbols WHERE symbol = %s", (sym,))
+            else:
+                cursor.execute("INSERT INTO favorite_symbols (symbol, created_at) VALUES (%s, %s)", (sym, datetime.now(timezone.utc).isoformat()))
+        else:
+            cursor.execute("SELECT symbol FROM favorite_symbols WHERE symbol = ?", (sym,))
+            exists = cursor.fetchone()
+            if exists:
+                cursor.execute("DELETE FROM favorite_symbols WHERE symbol = ?", (sym,))
+            else:
+                cursor.execute("INSERT INTO favorite_symbols (symbol, created_at) VALUES (?, ?)", (sym, datetime.now(timezone.utc).isoformat()))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error toggling favorite symbol: {e}")
+        return False
+
 if __name__ == "__main__":
     init_db()
-    print("Database initialized successfully with Price Alerts and Trade Journal enhancements.")
+    print("Database initialized successfully with Price Alerts, Trade Journal, and Favorite Symbols.")

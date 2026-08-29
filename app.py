@@ -2146,9 +2146,53 @@ def render_live_dashboard():
         with sub_t_price:
             with st.container(border=True):
                 st.markdown("<h4 style='color:#00ffcc;font-size:14px;font-weight:700;text-transform:uppercase;margin:0 0 12px 0;'>Create New Price Target Alert</h4>", unsafe_allow_html=True)
-                col_p1, col_p2, col_p3, col_p4 = st.columns([1.2, 1.2, 1.2, 1.8])
+                
+                # Fetch Starred / Favorite symbols and popular catalog
+                fav_symbols = database.get_favorite_symbols()
+                popular_base = ["XAUUSD", "EURUSD", "GBPUSD", "USDJPY", "US100", "US500", "BTCUSD", "USOIL", "AUDUSD", "NZDUSD", "USDCHF", "USDCAD"]
+                
+                # Build ordered options: Starred pairs first at top, then other popular, then custom
+                all_symbols_ordered = []
+                for s in fav_symbols:
+                    if s not in all_symbols_ordered:
+                        all_symbols_ordered.append(s)
+                for s in popular_base:
+                    if s not in all_symbols_ordered:
+                        all_symbols_ordered.append(s)
+                all_symbols_ordered.append("CUSTOM SYMBOL")
+
+                def format_sym_label(sym):
+                    if sym == "CUSTOM SYMBOL":
+                        return "+ CUSTOM SYMBOL..."
+                    if sym in fav_symbols:
+                        return f"[STARRED] {sym}"
+                    return sym
+
+                col_p1, col_p_star, col_p2, col_p3, col_p4 = st.columns([1.6, 0.8, 1.1, 1.1, 1.6])
                 with col_p1:
-                    p_sym = st.text_input("Symbol", value="XAUUSD", placeholder="e.g. XAUUSD, EURUSD", key="input_pa_sym_tab")
+                    p_sym_choice = st.selectbox(
+                        "Select Symbol",
+                        options=all_symbols_ordered,
+                        format_func=format_sym_label,
+                        index=0,
+                        key="sel_pa_sym_dropdown"
+                    )
+                    
+                    if p_sym_choice == "CUSTOM SYMBOL":
+                        p_sym_final = st.text_input("Enter Custom Symbol", value="", placeholder="e.g. SOLUSDT", key="input_pa_custom_sym").strip().upper()
+                    else:
+                        p_sym_final = p_sym_choice
+
+                with col_p_star:
+                    st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
+                    if p_sym_final and p_sym_final != "CUSTOM SYMBOL":
+                        is_fav = p_sym_final in fav_symbols
+                        star_btn_text = "UNSTAR" if is_fav else "STAR"
+                        star_btn_help = "Remove from top of list" if is_fav else "Pin symbol to top of list"
+                        if st.button(star_btn_text, key="btn_toggle_star_sym", help=star_btn_help, use_container_width=True):
+                            database.toggle_favorite_symbol(p_sym_final)
+                            st.rerun()
+
                 with col_p2:
                     p_target = st.number_input("Target Price ($)", value=2510.0, step=0.5, format="%.2f", key="input_pa_target_tab")
                 with col_p3:
@@ -2157,9 +2201,12 @@ def render_live_dashboard():
                     p_notes = st.text_input("Alert Notes", value="", placeholder="e.g. Resistance breakout / 4H key level", key="input_pa_notes_tab")
                     
                 if st.button("Set Price Alert", type="primary", key="btn_set_price_alert_tab", use_container_width=True):
-                    database.create_price_alert(symbol=p_sym, target_price=p_target, condition=p_cond, notes=p_notes)
-                    st.success(f"Price alert set for {p_sym.upper()} {p_cond} ${p_target:,.2f}!")
-                    st.rerun()
+                    if not p_sym_final:
+                        st.error("Please specify a valid symbol.")
+                    else:
+                        database.create_price_alert(symbol=p_sym_final, target_price=p_target, condition=p_cond, notes=p_notes)
+                        st.success(f"Price alert set for {p_sym_final} {p_cond} ${p_target:,.2f}!")
+                        st.rerun()
                     
             # List of Price Alerts
             df_alerts = database.get_all_price_alerts(limit=50)
