@@ -933,7 +933,50 @@ st.markdown("""
         border-radius: 4px !important;
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
+
+    /* Custom Trading Candlestick & Neon Radar Loader */
+    .stSpinner {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 12px !important;
+        margin: 24px 0 !important;
+    }
+    .stSpinner > div:first-child {
+        display: none !important;
+    }
+    .stSpinner::before {
+        content: '' !important;
+        display: inline-block !important;
+        width: 40px !important;
+        height: 40px !important;
+        border-radius: 50% !important;
+        border: 2.5px solid rgba(0, 255, 204, 0.15) !important;
+        border-top-color: #00ffcc !important;
+        border-right-color: #bef264 !important;
+        animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite !important;
+        box-shadow: 0 0 16px rgba(0, 255, 204, 0.4) !important;
+    }
+    .stSpinner > div:last-child {
+        color: #00ffcc !important;
+        font-family: 'Inter', sans-serif !important;
+        font-weight: 800 !important;
+        font-size: 13px !important;
+        letter-spacing: 1px !important;
+        text-transform: uppercase !important;
+        animation: pulseGlow 1.5s ease-in-out infinite alternate !important;
+    }
+    @keyframes pulseGlow {
+        from { opacity: 0.6; }
+        to { opacity: 1; text-shadow: 0 0 12px rgba(0, 255, 204, 0.7); }
+    }
+    @keyframes candlePulse {
+        from { transform: scaleY(0.4); opacity: 0.6; }
+        to { transform: scaleY(1.0); opacity: 1; }
+    }
 </style>
+
 """, unsafe_allow_html=True)
 
 # OneSignal Web Push Client Listener

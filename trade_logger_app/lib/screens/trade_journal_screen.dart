@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/chart_loader.dart';
 
 class TradeJournalScreen extends StatefulWidget {
   const TradeJournalScreen({Key? key}) : super(key: key);
@@ -242,7 +243,7 @@ class _TradeJournalScreenState extends State<TradeJournalScreen> {
           // Trades List
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: AppTheme.cyanAccent))
+                ? const ChartPulseLoader(message: 'FETCHING TRADE JOURNAL LOGS...')
                 : _trades.isEmpty
                     ? const Center(
                         child: Text(

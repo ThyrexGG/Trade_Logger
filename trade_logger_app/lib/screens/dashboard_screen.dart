@@ -3,6 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/chart_loader.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -43,7 +44,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (_isLoading) {
       return const Scaffold(
         body: Center(
-          child: CircularProgressIndicator(color: AppTheme.cyanAccent),
+          child: ChartPulseLoader(message: 'FETCHING LIVE BROKER FEEDS...'),
         ),
       );
     }

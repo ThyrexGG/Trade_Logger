@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/chart_loader.dart';
 
 class SymbolSearchScreen extends StatefulWidget {
   const SymbolSearchScreen({Key? key}) : super(key: key);
@@ -200,7 +201,7 @@ class _SymbolSearchScreenState extends State<SymbolSearchScreen> {
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.cyanAccent))
+          ? const ChartPulseLoader(message: 'SYNCING WATCHLIST TICKERS...')
           : Column(
               children: [
                 // 1. Search Bar
