@@ -1755,19 +1755,34 @@ def render_live_dashboard():
                     </div>
                     """)
 
-                personal_layout = None
-                with st.expander("Use Your Personal Saved TradingView Cloud Layout (Optional)", expanded=False):
-                    personal_layout = st.text_input(
-                        "Paste your personal TradingView Chart Layout URL (e.g. https://www.tradingview.com/chart/g278AbC/)",
-                        placeholder="https://www.tradingview.com/chart/...",
-                        key="tv_personal_layout_url"
-                    )
+                saved_layout_url = database.get_setting("tv_personal_layout_url", "")
+                with st.expander("Sync with Your Personal TradingView Account & Cloud Layout", expanded=(bool(saved_layout_url))):
+                    st.markdown("<p style='font-size:12px; color:#8a99ad; margin-bottom:8px;'>To permanently save all your trendlines, drawings, and indicators to your TradingView account across refreshes and devices, paste your personal chart URL below.</p>", unsafe_allow_html=True)
+                    
+                    col_lay_inp, col_lay_save, col_lay_clear = st.columns([2.5, 0.8, 0.8])
+                    with col_lay_inp:
+                        personal_layout_input = st.text_input(
+                            "TradingView Chart URL",
+                            value=saved_layout_url,
+                            placeholder="https://www.tradingview.com/chart/...",
+                            key="tv_personal_layout_url_input",
+                            label_visibility="collapsed"
+                        ).strip()
+                    with col_lay_save:
+                        if st.button("Save Layout", key="btn_save_tv_layout", use_container_width=True):
+                            database.set_setting("tv_personal_layout_url", personal_layout_input)
+                            st.success("Personal TradingView Layout Saved!")
+                            st.rerun()
+                    with col_lay_clear:
+                        if saved_layout_url and st.button("Reset", key="btn_clear_tv_layout", use_container_width=True):
+                            database.set_setting("tv_personal_layout_url", "")
+                            st.rerun()
                         
                 tradingview_widget.render_tradingview_chart(
                     symbol=tv_symbol, 
                     interval=tv_interval, 
                     height=700,
-                    custom_layout_url=personal_layout
+                    custom_layout_url=saved_layout_url
                 )
 
             with sub_c_broker:

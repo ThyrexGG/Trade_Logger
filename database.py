@@ -619,6 +619,47 @@ def toggle_favorite_symbol(symbol):
         print(f"Error toggling favorite symbol: {e}")
         return False
 
+# ----------------- App Settings & Saved Chart Layouts -----------------
+
+def get_setting(key, default=""):
+    """Fetches a saved app setting by key."""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+        if is_postgres():
+            cursor.execute("SELECT value FROM app_settings WHERE key = %s", (key,))
+        else:
+            cursor.execute("SELECT value FROM app_settings WHERE key = ?", (key,))
+        row = cursor.fetchone()
+        conn.close()
+        return row[0] if row else default
+    except Exception as e:
+        print(f"Error reading setting {key}: {e}")
+        return default
+
+def set_setting(key, value):
+    """Saves or updates an app setting."""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+        val_str = str(value)
+        if is_postgres():
+            cursor.execute("""
+                INSERT INTO app_settings (key, value) VALUES (%s, %s)
+                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+            """, (key, val_str))
+        else:
+            cursor.execute("INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)", (key, val_str))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error saving setting {key}: {e}")
+        return False
+
+
 if __name__ == "__main__":
     init_db()
     print("Database initialized successfully with Price Alerts, Trade Journal, and Favorite Symbols.")
