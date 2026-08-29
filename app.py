@@ -918,10 +918,11 @@ st.markdown("""
         visibility: hidden !important;
     }
 
-    /* Interactive Gold Star Toggle Button */
-    button[key="btn_toggle_star_sym"] {
-        font-size: 20px !important;
-        line-height: 1 !important;
+    /* TradingView-Style Interactive Red Bookmark Ribbon Flag Button */
+    button[key="btn_toggle_ribbon_sym"] {
+        font-size: 11px !important;
+        font-weight: 900 !important;
+        letter-spacing: 0.5px !important;
         padding: 0 !important;
         min-height: 42px !important;
         height: 42px !important;
@@ -929,7 +930,7 @@ st.markdown("""
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        border-radius: 8px !important;
+        border-radius: 6px !important;
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
 </style>
@@ -2162,16 +2163,31 @@ def render_live_dashboard():
             with st.container(border=True):
                 st.markdown("<h4 style='color:#00ffcc;font-size:14px;font-weight:700;text-transform:uppercase;margin:0 0 12px 0;'>Create New Price Target Alert</h4>", unsafe_allow_html=True)
                 
-                # Fetch Starred / Favorite symbols and popular catalog
+                # Curated catalog with TradingView-style asset descriptions
+                POPULAR_PAIRS_CATALOG = {
+                    "XAUUSD": "Gold Spot / US Dollar",
+                    "EURUSD": "Euro / US Dollar",
+                    "GBPUSD": "British Pound / US Dollar",
+                    "USDJPY": "US Dollar / Japanese Yen",
+                    "US100":  "US Tech 100 (Nasdaq)",
+                    "US500":  "S&P 500 US Index",
+                    "BTCUSD": "Bitcoin / US Dollar",
+                    "USOIL":  "Crude Oil Spot",
+                    "AUDUSD": "Australian Dollar / US Dollar",
+                    "NZDUSD": "New Zealand Dollar / US Dollar",
+                    "USDCHF": "US Dollar / Swiss Franc",
+                    "USDCAD": "US Dollar / Canadian Dollar"
+                }
+
+                # Fetch Starred / Favorite symbols and catalog
                 fav_symbols = database.get_favorite_symbols()
-                popular_base = ["XAUUSD", "EURUSD", "GBPUSD", "USDJPY", "US100", "US500", "BTCUSD", "USOIL", "AUDUSD", "NZDUSD", "USDCHF", "USDCAD"]
                 
-                # Build ordered options: Starred pairs first at top, then other popular, then custom
+                # Build ordered options: Red-ribboned pairs first at top, then other catalog pairs, then custom
                 all_symbols_ordered = []
                 for s in fav_symbols:
                     if s not in all_symbols_ordered:
                         all_symbols_ordered.append(s)
-                for s in popular_base:
+                for s in POPULAR_PAIRS_CATALOG.keys():
                     if s not in all_symbols_ordered:
                         all_symbols_ordered.append(s)
                 all_symbols_ordered.append("CUSTOM SYMBOL")
@@ -2179,11 +2195,14 @@ def render_live_dashboard():
                 def format_sym_label(sym):
                     if sym == "CUSTOM SYMBOL":
                         return "+ CUSTOM SYMBOL..."
+                    desc = POPULAR_PAIRS_CATALOG.get(sym, "")
+                    desc_str = f" | {desc}" if desc else ""
                     if sym in fav_symbols:
-                        return f"{sym} ★"
-                    return sym
+                        return f"[FLAG] {sym}{desc_str}"
+                    return f"{sym}{desc_str}"
 
-                col_p1, col_p_star, col_p2, col_p3, col_p4 = st.columns([1.6, 0.6, 1.1, 1.1, 1.6])
+                col_p_ribbon, col_p1, col_p2, col_p3, col_p4 = st.columns([0.45, 1.8, 1.1, 1.1, 1.6])
+                
                 with col_p1:
                     p_sym_choice = st.selectbox(
                         "Select Symbol",
@@ -2198,13 +2217,13 @@ def render_live_dashboard():
                     else:
                         p_sym_final = p_sym_choice
 
-                with col_p_star:
+                with col_p_ribbon:
                     st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
                     if p_sym_final and p_sym_final != "CUSTOM SYMBOL":
                         is_fav = p_sym_final in fav_symbols
-                        star_icon = "★" if is_fav else "☆"
-                        star_btn_help = "Favorite (Starred). Click to unstar." if is_fav else "Click to star and pin to top of list."
-                        if st.button(star_icon, key="btn_toggle_star_sym", help=star_btn_help, use_container_width=True):
+                        ribbon_btn_label = "RED" if is_fav else "OFF"
+                        ribbon_help = "Pinned to top with Red Ribbon Flag. Click to unflag." if is_fav else "Click to flag with Red Ribbon and pin to top of list."
+                        if st.button(ribbon_btn_label, key="btn_toggle_ribbon_sym", help=ribbon_help, use_container_width=True):
                             database.toggle_favorite_symbol(p_sym_final)
                             st.rerun()
 
