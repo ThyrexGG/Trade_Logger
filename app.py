@@ -1755,64 +1755,63 @@ def render_live_dashboard():
             # ----------------------------------------------------
             # UNIFIED MULTI-PANE TRADING WORKSPACE
             # ----------------------------------------------------
-            ws_col_chart, ws_col_order = st.columns([3.6, 1.3])
-            
             if "active_ws_symbol" not in st.session_state:
                 st.session_state.active_ws_symbol = "USDJPY"
 
-            # 2. CENTER PANE: INTERACTIVE CHART STUDIO
-            with ws_col_chart:
-                col_c_top1, col_c_top2, col_c_top3 = st.columns([1.5, 1.2, 1.3])
-                with col_c_top1:
-                    st.markdown(f"<div style='display:flex; align-items:center; gap:8px;'><h3 style='margin:0; font-size:1.3rem; font-weight:800; color:#ffffff;'>{st.session_state.active_ws_symbol}</h3><span style='font-size:11px; color:#00ffcc; background:rgba(0,255,204,0.12); padding:2px 6px; border-radius:4px; font-weight:700;'>LIVE FEED</span></div>", unsafe_allow_html=True)
-                with col_c_top2:
-                    active_tf = st.selectbox(
-                        "Timeframe",
-                        options=["1m", "5m", "15m", "1h", "4h", "D"],
-                        index=2,
-                        label_visibility="collapsed",
-                        key="ws_timeframe_selector"
+            # 2. FULLSCREEN INTERACTIVE CHART STUDIO
+            col_c_top1, col_c_top2, col_c_top3, col_c_top4 = st.columns([2.0, 1.5, 1.5, 2.0])
+            with col_c_top1:
+                st.markdown(f"<div style='display:flex; align-items:center; gap:8px;'><h3 style='margin:0; font-size:1.3rem; font-weight:800; color:#ffffff;'>{st.session_state.active_ws_symbol}</h3><span style='font-size:11px; color:#00ffcc; background:rgba(0,255,204,0.12); padding:2px 6px; border-radius:4px; font-weight:700;'>LIVE FEED</span></div>", unsafe_allow_html=True)
+            with col_c_top2:
+                active_tf = st.selectbox(
+                    "Timeframe",
+                    options=["1m", "5m", "15m", "1h", "4h", "D"],
+                    index=2,
+                    label_visibility="collapsed",
+                    key="ws_timeframe_selector"
+                )
+            with col_c_top3:
+                st.markdown(f"""
+                <div style="text-align: right;">
+                    <a href="https://www.tradingview.com/chart/?symbol={st.session_state.active_ws_symbol}" target="_blank" style="display: inline-block; background: rgba(0, 255, 204, 0.1); color: #00ffcc; border: 1px solid rgba(0, 255, 204, 0.3); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none;">
+                        FULLSCREEN
+                    </a>
+                </div>
+                """, unsafe_allow_html=True)
+            with col_c_top4:
+                with st.popover("⚡ Trade Execution", use_container_width=True):
+                    st.markdown("<p style='font-size:11px;font-weight:800;color:#64748b;letter-spacing:0.8px;margin-bottom:8px;text-transform:uppercase;'>ORDER EXECUTION</p>", unsafe_allow_html=True)
+                    order_broker = st.selectbox(
+                        "Broker Target",
+                        options=["Capital.com", "MetaTrader 5"],
+                        index=0,
+                        key="ws_order_broker_sel"
                     )
-                with col_c_top3:
-                    st.markdown(f"""
-                    <div style="text-align: right;">
-                        <a href="https://www.tradingview.com/chart/?symbol={st.session_state.active_ws_symbol}" target="_blank" style="display: inline-block; background: rgba(0, 255, 204, 0.1); color: #00ffcc; border: 1px solid rgba(0, 255, 204, 0.3); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none;">
-                            FULLSCREEN
-                        </a>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    
+                    import order_panel_widget
+                    import streamlit.components.v1 as components
+                    
+                    # We use a mock price for the visual demonstration
+                    if "JPY" in st.session_state.active_ws_symbol:
+                        mock_price = 160.126
+                    elif "XAU" in st.session_state.active_ws_symbol:
+                        mock_price = 2500.0
+                    else:
+                        mock_price = 1.0850
+                    
+                    html_code = order_panel_widget.get_order_panel_html(
+                        symbol=st.session_state.active_ws_symbol,
+                        current_price=mock_price,
+                        account_id=order_broker
+                    )
+                    
+                    components.html(html_code, height=850)
 
-                tradingview_widget.render_tradingview_chart(
-                    symbol=st.session_state.active_ws_symbol,
-                    interval=active_tf,
-                    height=680
-                )
-
-            # 3. RIGHT PANE: ORDER EXECUTION & RISK CALCULATOR
-            with ws_col_order:
-                st.markdown("<p style='font-size:11px;font-weight:800;color:#64748b;letter-spacing:0.8px;margin-bottom:8px;text-transform:uppercase;'>ORDER EXECUTION</p>", unsafe_allow_html=True)
-                
-                order_broker = st.selectbox(
-                    "Broker Target",
-                    options=["Capital.com", "MetaTrader 5"],
-                    index=0,
-                    key="ws_order_broker_sel"
-                )
-                
-                import order_panel_widget
-                import streamlit.components.v1 as components
-                
-                # We use a mock price for the visual demonstration, in Phase 3 this will be live streamed
-                mock_price = 2500.0 if "XAU" in st.session_state.active_ws_symbol else 1.0850
-                
-                html_code = order_panel_widget.get_order_panel_html(
-                    symbol=st.session_state.active_ws_symbol,
-                    current_price=mock_price,
-                    account_id=order_broker
-                )
-                
-                # Render the custom HTML component
-                components.html(html_code, height=850)
+            tradingview_widget.render_tradingview_chart(
+                symbol=st.session_state.active_ws_symbol,
+                interval=active_tf,
+                height=800
+            )
 
             # 4. BOTTOM PANE: ACTIVE POSITIONS DOCK
             st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
