@@ -128,7 +128,7 @@ def fallback_analyze_market_context(sym, timeframe, indicators, now_utc):
         "disclaimer": "AI market analysis is purely informational. Not financial advice."
     }
 
-def analyze_market_context(symbol="XAUUSD", timeframe="1h"):
+def analyze_market_context(symbol="XAUUSD", timeframe="1h", model_name="llama3"):
     """
     Dual-AI Pipeline:
     1. Fetches factual data & indicators.
@@ -136,69 +136,124 @@ def analyze_market_context(symbol="XAUUSD", timeframe="1h"):
     3. Uses Scikit-Learn Custom Model for Win Probability Score.
     """
     sym = str(symbol).upper().replace(":", "").replace("/", "")
-    candles = market_data.get_realtime_candles(symbol=sym, timeframe=timeframe, count=150)
     
-    if not candles:
-        return {
-            "symbol": sym,
-            "timeframe": timeframe,
-            "status": "unavailable",
-            "error": f"Real market data currently unavailable for {sym}."
-        }
+    # Get MTF Data
+    mtf_data_raw = market_data.get_mtf_data(symbol=sym, base_timeframe=timeframe)
+    if not mtf_data_raw or timeframe not in mtf_data_raw or not mtf_data_raw[timeframe]:
+         return {"symbol": sym, "status": "unavailable", "error": f"Real market data currently unavailable for {sym}."}
+         
+    mtf_indicators = {}
+    for tf, candles in mtf_data_raw.items():
+        if candles:
+            indics = calculate_technical_indicators(candles)
+            if indics:
+                mtf_indicators[tf] = indics
+                
+    if timeframe not in mtf_indicators:
+        return {"symbol": sym, "status": "error", "error": "Insufficient historical candles to calculate technical analysis."}
 
-    indicators = calculate_technical_indicators(candles)
-    if not indicators:
-        return {
-            "symbol": sym,
-            "timeframe": timeframe,
-            "status": "error",
-            "error": "Insufficient historical candles to calculate technical analysis."
-        }
+    primary_indicators = mtf_indicators[timeframe]
+    
+    # Get Liquidity Zones & FVGs & Killzones & Order Blocks
+    df_primary = pd.DataFrame(mtf_data_raw[timeframe])
+    liquidity_zones = market_data.calculate_liquidity_zones(df_primary)
+    fvg_data = market_data.detect_fvgs(df_primary)
+    ob_data = market_data.detect_order_blocks(df_primary)
+    asian_range = market_data.calculate_asian_range(df_primary)
+    active_killzone = market_data.detect_active_killzone()
+    
+    # Phase 12, 13, 14: Macro, COT, Cross-Asset
+    macro_data = market_data.fetch_macro_news(sym)
+    cot_data = market_data.fetch_cot_data(sym)
+    cross_asset = market_data.fetch_cross_asset(sym)
+    
+    # Phase 4, 5, 6, 7 Deterministic Logic
+    mtf_alignment = market_data.calculate_mtf_alignment(sym, timeframe)
+    market_regime = market_data.calculate_market_regime(df_primary)
+    volume_profile = market_data.calculate_volume_profile(df_primary)
+    market_structure = market_data.calculate_market_structure(df_primary)
 
+    # Get ML Edge Score (3-class)
+    ml_data = {"buy_prob": 0.0, "sell_prob": 0.0, "neutral_prob": 0.0, "confidence": "Low", "error": "Not calculated"}
+    try:
+        ml_data = ml_trainer.predict_directional_probabilities(sym, datetime.utcnow())
+    except Exception as e:
+        ml_data["error"] = str(e)
+        
+    buy_prob_val = ml_data.get("buy_prob", 0.0)
+    sell_prob_val = ml_data.get("sell_prob", 0.0)
+    neutral_prob_val = ml_data.get("neutral_prob", 0.0)
+        
     now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-
+    
     ai_data = None
     
-    # LAYER 1: Generative LLM Analysis (Ollama)
     if OLLAMA_AVAILABLE:
         try:
             prompt = f"""
-You are an elite quantitative analyst. Analyze the following technical indicators for {sym}.
+You are an elite ICT (Inner Circle Trader) and Smart Money Concepts (SMC) intraday trader. 
+Analyze the following technical indicators and liquidity data for {sym}.
 Return ONLY a raw JSON object strictly following this schema (NO markdown, NO comments, ONLY JSON):
 {{
-  "market_summary": "A concise overview.",
-  "trend_bias": "Bullish",
-  "technical_structure": "Explanation of structure.",
-  "momentum": "Assessment of momentum.",
-  "volatility": "Assessment of volatility.",
-  "bullish_factors": ["Point 1"],
-  "bearish_factors": ["Point 1"],
-  "scenarios": {{
-    "bullish_case": "...",
-    "bearish_case": "...",
-    "invalidation": "..."
-  }},
-  "confidence": "High"
+  "killzone_context": "Write 1 sentence summarizing the current active killzone and its implication for volatility.",
+  "liquidity_matrix": "Write 2 sentences analyzing the Buy-Side (BSL) and Sell-Side Liquidity (SSL) targets. Do NOT output raw arrays.",
+  "fvg_imbalances": "Write 2 sentences analyzing current Fair Value Gaps and premium/discount arrays. Do NOT output raw arrays.",
+  "confidence": "High / Medium / Low"
 }}
 
 FACTUAL DATA:
-{json.dumps(indicators, indent=2)}
+1. Multi-Timeframe (MTF) Technicals:
+{json.dumps(mtf_indicators, indent=2)}
+
+2. Liquidity Zones (BSL / SSL):
+{json.dumps(liquidity_zones, indent=2)}
+
+3. Fair Value Gaps (FVG):
+{json.dumps(fvg_data, indent=2)}
+
+4. Institutional Order Blocks (Valid & Unmitigated):
+{json.dumps(ob_data, indent=2)}
+
+5. Current Active Killzone & Session Data:
+Active Killzone: {active_killzone}
+Asian Range Geometry: {json.dumps(asian_range, indent=2)}
+
+6. Macro, COT, & Cross-Asset Context:
+- News/Macro: {macro_data['risk_level']} Risk ({macro_data['event']})
+- Institutional Positioning (COT): {cot_data['sentiment']}
+- Cross-Asset Flow ({cross_asset['asset']}): {cross_asset['signal_filter']}
+
+7. Predictive ML Edge Score (Historical Win Probability):
+- BUY Edge: {buy_prob_val}%
+- SELL Edge: {sell_prob_val}%
+- NEUTRAL Edge: {neutral_prob_val}%
+- Model Confidence: {ml_data.get('confidence', 'Unknown')}
+
+6. Multi-Timeframe Trend Alignment (Macro vs Micro):
+{mtf_alignment}
+
+7. Deterministic Market Regime (ADX / Volatility):
+{market_regime}
+
+8. Volume Profile & VWAP (Anchored):
+{json.dumps(volume_profile, indent=2)}
+
+9. Deterministic Market Structure (BOS / MSS):
+{json.dumps(market_structure, indent=2)}
 """
-            response = ollama.chat(model='llama3', messages=[
+            response = ollama.chat(model=model_name, messages=[
                 {'role': 'user', 'content': prompt}
             ])
             raw_text = response['message']['content'].strip()
             
-            # Clean markdown
-            if raw_text.startswith("```json"):
-                raw_text = raw_text.replace("```json", "", 1)
-            if raw_text.startswith("```"):
-                raw_text = raw_text.replace("```", "", 1)
-            if raw_text.endswith("```"):
-                raw_text = raw_text.rsplit("```", 1)[0]
+            # Robustly extract JSON block using regex
+            import re
+            json_match = re.search(r'\{.*\}', raw_text, re.DOTALL)
+            if json_match:
+                raw_text = json_match.group(0)
                 
             ai_data = json.loads(raw_text.strip())
-            disclaimer = "⚡ AI analysis generated by Local Ollama (llama3)."
+            disclaimer = f"[AI] Analysis generated by Local Ollama ({model_name})."
             
         except Exception as e:
             print(f"Ollama API Error: {e}")
@@ -206,46 +261,57 @@ FACTUAL DATA:
             
     if not ai_data:
         # Fallback to deterministic logic
-        fallback_data = fallback_analyze_market_context(sym, timeframe, indicators, now_utc)
+        fallback_data = fallback_analyze_market_context(sym, timeframe, primary_indicators, now_utc)
         ai_data = fallback_data
-        disclaimer = "⚡ Deterministic fallback logic used (Ollama unavailable or failed)."
+        disclaimer = "[!] Deterministic fallback logic used (Ollama unavailable or failed)."
+        ai_data["killzone_context"] = active_killzone
+        ai_data["liquidity_matrix"] = "Unavailable in fallback mode."
+        ai_data["fvg_imbalances"] = "Unavailable in fallback mode."
+        ai_data["ict_execution_model"] = f"ML Edge -> BUY: {buy_prob_val}% | SELL: {sell_prob_val}%"
+        ai_data["bias"] = "Neutral"
         
+    data_quality = {
+        "price_data": "LIVE",
+        "historical_candles": "COMPLETE",
+        "news": "NOT APPLICABLE (Missing Integration)",
+        "economic_calendar": "NOT APPLICABLE (Missing Integration)",
+        "cot_positioning": "NOT APPLICABLE",
+        "volume": "TICK VOLUME"
+    }
+
     final_output = {
         "symbol": sym,
         "timeframe": timeframe,
         "timestamp": now_utc,
-        "factual_data": indicators,
-        "market_summary": ai_data.get("market_summary", ""),
-        "trend_bias": ai_data.get("trend_bias", ""),
-        "technical_structure": ai_data.get("technical_structure", ""),
-        "key_levels": {
-            "resistance": indicators["resistance_1"],
-            "support": indicators["support_1"],
-            "swing_high": indicators["swing_high"],
-            "swing_low": indicators["swing_low"]
-        },
-        "momentum": ai_data.get("momentum", ""),
-        "volatility": ai_data.get("volatility", ""),
-        "bullish_factors": ai_data.get("bullish_factors", []),
-        "bearish_factors": ai_data.get("bearish_factors", []),
-        "scenarios": ai_data.get("scenarios", {}),
+        "data_quality": data_quality,
+        "factual_data": primary_indicators,
+        "mtf_alignment": mtf_alignment,
+        "market_regime": market_regime,
+        "volume_profile": volume_profile,
+        "market_structure": market_structure,
+        "liquidity_zones": liquidity_zones,
+        "fvg_data": fvg_data,
+        "ob_data": ob_data,
+        "asian_range": asian_range,
+        "macro_data": macro_data,
+        "cot_data": cot_data,
+        "cross_asset": cross_asset,
+        "killzone": active_killzone,
+        "killzone_context": ai_data.get("killzone_context", ""),
+        "liquidity_matrix": ai_data.get("liquidity_matrix", ""),
+        "fvg_imbalances": ai_data.get("fvg_imbalances", ""),
         "confidence": ai_data.get("confidence", ""),
         "disclaimer": disclaimer,
-        "ml_prob_buy": 0.0,
-        "ml_prob_sell": 0.0
+        "ml_prob_buy": buy_prob_val,
+        "ml_prob_sell": sell_prob_val,
+        "ml_prob_neutral": neutral_prob_val,
+        "ml_confidence": ml_data.get("confidence", "Unknown"),
+        "ml_training_date": ml_data.get("training_date", "Unknown")
     }
-    
-    # LAYER 2: Predictive Machine Learning Model (Personal Edge)
-    # We predict the probability of success if the user Buys, and if the user Sells.
-    try:
-        buy_prob, msg1 = ml_trainer.predict_setup_probability(sym, "BUY", 0.1, datetime.utcnow())
-        sell_prob, msg2 = ml_trainer.predict_setup_probability(sym, "SELL", 0.1, datetime.utcnow())
-        
-        if buy_prob is not None:
-            final_output["ml_prob_buy"] = round(buy_prob * 100, 1)
-        if sell_prob is not None:
-            final_output["ml_prob_sell"] = round(sell_prob * 100, 1)
-    except Exception as e:
-        print(f"ML Model Prediction Error: {e}")
+    # Phase 15-17 Engines
+    confluence = market_data.calculate_confluence(final_output)
+    final_output["confluence_bias"] = confluence
+    final_output["deterministic_scenario"] = market_data.build_trade_scenarios(final_output, confluence['bias'])
+    final_output["validation"] = market_data.validate_trade_model(final_output, confluence)
 
     return final_output

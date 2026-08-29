@@ -14,14 +14,15 @@ def prepare_features(df):
     """Extracts features from the raw trades dataframe."""
     df = df.copy()
     
-    # Target variable: Win (1) or Loss (0)
-    if "net_profit" in df.columns:
-        df["is_win"] = (df["net_profit"] > 0).astype(int)
+    # Target variable: 1 (Win Buy), -1 (Win Sell), 0 (Loss / No Edge)
+    def determine_target(row):
+        if row.get("net_profit", 0) > 0:
+            return 1 if str(row.get("direction")).upper() == "BUY" else -1
+        return 0
+        
+    df["target_class"] = df.apply(determine_target, axis=1)
     
-    # Feature 1: Direction (BUY=1, SELL=0)
-    df["dir_encoded"] = (df["direction"].str.upper() == "BUY").astype(int)
-    
-    # Feature 2 & 3: Temporal patterns (Time of Day, Day of Week)
+    # Features: Temporal patterns (Time of Day, Day of Week)
     try:
         df["entry_dt"] = pd.to_datetime(df["entry_time"], errors="coerce")
         df["hour_of_day"] = df["entry_dt"].dt.hour.fillna(0)
@@ -30,13 +31,10 @@ def prepare_features(df):
         df["hour_of_day"] = 0
         df["day_of_week"] = 0
 
-    # Feature 4: Volume
-    df["vol_feature"] = pd.to_numeric(df["volume"], errors="coerce").fillna(0.01)
-
     return df
 
 def train_personal_edge_model():
-    """Trains a Random Forest classifier on closed trades."""
+    """Trains a Random Forest classifier on closed trades for 3-class prediction."""
     df = database.get_closed_trades()
     
     if df.empty or len(df) < 10:
@@ -49,9 +47,9 @@ def train_personal_edge_model():
     df["sym_encoded"] = encoder.fit_transform(df["symbol"].astype(str))
     
     # Features to train on
-    features = ["dir_encoded", "hour_of_day", "day_of_week", "vol_feature", "sym_encoded"]
+    features = ["hour_of_day", "day_of_week", "sym_encoded"]
     X = df[features]
-    y = df["is_win"]
+    y = df["target_class"]
     
     # Train the Random Forest
     clf = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42, class_weight="balanced")
@@ -68,15 +66,15 @@ def train_personal_edge_model():
     
     return True, f"Model trained successfully on {len(df)} trades. Training Accuracy: {accuracy*100:.1f}%"
 
-def predict_setup_probability(symbol, direction, volume, current_time_utc=None):
+def predict_directional_probabilities(symbol, current_time_utc=None):
     """
-    Predicts the probability of a trade being a winner based on historical personal data.
+    Predicts mutually exclusive probabilities for BUY (1), SELL (-1), and NEUTRAL (0).
     """
     if not os.path.exists(MODEL_PATH) or not os.path.exists(ENCODER_PATH):
         # Attempt to train if not exists
         success, _ = train_personal_edge_model()
         if not success:
-            return None, "Insufficient data to predict."
+            return {"buy_prob": 0.0, "sell_prob": 0.0, "neutral_prob": 0.0, "confidence": "Low", "error": "Insufficient data to predict."}
 
     try:
         with open(MODEL_PATH, "rb") as f:
@@ -84,15 +82,13 @@ def predict_setup_probability(symbol, direction, volume, current_time_utc=None):
         with open(ENCODER_PATH, "rb") as f:
             encoder = pickle.load(f)
     except Exception:
-        return None, "Error loading model."
+        return {"buy_prob": 0.0, "sell_prob": 0.0, "neutral_prob": 0.0, "confidence": "Low", "error": "Error loading model."}
 
     if current_time_utc is None:
         current_time_utc = datetime.utcnow()
         
-    dir_encoded = 1 if str(direction).upper() == "BUY" else 0
     hour = current_time_utc.hour
     dow = current_time_utc.weekday()
-    vol = float(volume)
     
     # Handle unknown symbols safely
     try:
@@ -102,14 +98,34 @@ def predict_setup_probability(symbol, direction, volume, current_time_utc=None):
 
     # Prepare feature array matching training structure
     X_pred = pd.DataFrame([{
-        "dir_encoded": dir_encoded,
         "hour_of_day": hour,
         "day_of_week": dow,
-        "vol_feature": vol,
         "sym_encoded": sym_encoded
     }])
 
-    # Get probability of class 1 (Win)
-    prob = clf.predict_proba(X_pred)[0][1]
+    # Get probability across all classes
+    probs = clf.predict_proba(X_pred)[0]
+    classes = clf.classes_
     
-    return prob, "Success"
+    prob_dict = {1: 0.0, -1: 0.0, 0: 0.0}
+    for i, cls in enumerate(classes):
+        prob_dict[cls] = float(probs[i])
+        
+    training_date = datetime.fromtimestamp(os.path.getmtime(MODEL_PATH)).strftime("%Y-%m-%d %H:%M UTC")
+    
+    buy_prob = round(float(prob_dict[1]) * 100, 1)
+    sell_prob = round(float(prob_dict[-1]) * 100, 1)
+    neutral_prob = round(float(prob_dict[0]) * 100, 1)
+    
+    max_p = max(buy_prob, sell_prob)
+    conf = "HIGH" if max_p > 60 else ("MEDIUM" if max_p > 40 else "LOW")
+    
+    return {
+        "buy_prob": buy_prob,
+        "sell_prob": sell_prob,
+        "neutral_prob": neutral_prob,
+        "confidence": conf,
+        "training_date": training_date,
+        "features_used": ["hour_of_day", "day_of_week", "symbol"],
+        "error": None
+    }

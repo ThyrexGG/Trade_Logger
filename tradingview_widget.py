@@ -31,7 +31,7 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
     clean_sym = symbol.replace(":", "").replace("/", "").replace("OANDA", "").replace("FOREXCOM", "").replace("BINANCE", "").replace("FX", "").upper().strip()
     
     # 1. Fetch Real Market Candles
-    candles = market_data.get_realtime_candles(symbol=clean_sym, timeframe=interval, count=250)
+    candles = market_data.get_realtime_candles(symbol=clean_sym, timeframe=interval, count=2000)
     candles_json = json.dumps(candles)
 
     # 2. Fetch Real Trade Executions
@@ -472,21 +472,56 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
           wickDownColor: '#ff5555',
         }});
         candleSeries.setData(candleData);
+        chart.timeScale().fitContent();
 
         // Trade Execution Markers
         if (executions && executions.length > 0) {{
-          let markers = [];
+          let markersMap = {{}};
           executions.forEach(ex => {{
-            const isBuy = ex.dir.includes("BUY") || ex.dir.includes("LONG");
-            const isWin = ex.pnl >= 0;
+            const t = ex.exit_time || ex.entry_time;
+            let candleTime = t;
+            if (candleData && candleData.length > 0) {{
+               let closest = candleData[0].time;
+               let minDiff = Math.abs(t - closest);
+               for (let i=1; i<candleData.length; i++) {{
+                   let diff = Math.abs(t - candleData[i].time);
+                   if (diff < minDiff) {{
+                       minDiff = diff;
+                       closest = candleData[i].time;
+                   }} else if (diff > minDiff) {{
+                       break; 
+                   }}
+               }}
+               candleTime = closest;
+            }}
+            if(!markersMap[candleTime]) markersMap[candleTime] = [];
+            markersMap[candleTime].push(ex);
+          }});
+          
+          let markers = [];
+          for (let t in markersMap) {{
+            const group = markersMap[t];
+            let totalPnl = 0;
+            let buyCount = 0;
+            group.forEach(ex => {{ 
+                totalPnl += ex.pnl; 
+                if (ex.dir.includes("BUY") || ex.dir.includes("LONG")) buyCount++;
+            }});
+            
+            const isWin = totalPnl >= 0;
+            const isBuy = buyCount >= (group.length / 2); // Majority direction if mixed
+            
+            let textLabel = group.length > 1 ? group.length + ' TRADES (' : (isBuy ? 'BUY (' : 'SELL (');
+            textLabel += (isWin ? '+' : '') + '$' + Math.abs(totalPnl).toFixed(2) + ')';
+            
             markers.push({{
-              time: ex.exit_time || ex.entry_time,
+              time: parseInt(t),
               position: isBuy ? 'belowBar' : 'aboveBar',
               color: isWin ? '#00ffcc' : '#ff5555',
               shape: isBuy ? 'arrowUp' : 'arrowDown',
-              text: (isBuy ? 'BUY' : 'SELL') + ' (' + (isWin ? '+' : '') + '$' + Math.abs(ex.pnl).toFixed(2) + ')',
+              text: textLabel,
             }});
-          }});
+          }}
           markers.sort((a, b) => a.time - b.time);
           try {{ candleSeries.setMarkers(markers); }} catch(e) {{}}
         }}
