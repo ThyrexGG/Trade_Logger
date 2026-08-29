@@ -125,7 +125,7 @@ def execute_capital_trade(epic, direction, size, stop_loss=None, take_profit=Non
     if take_profit is not None and float(take_profit) > 0:
         body["profitLevel"] = float(take_profit)
         
-    url = f"{base_url}/api/v1/positions"
+    url = f"{base_url}/positions"
     try:
         r = requests.post(url, headers=headers, json=body, timeout=12)
         res_data = r.json() if r.content else {}
@@ -150,7 +150,7 @@ def close_capital_position(deal_id):
         "X-CAP-API-KEY": session.get("api_key"),
         "Content-Type": "application/json"
     }
-    url = f"{session.get('base_url')}/api/v1/positions/{deal_id}"
+    url = f"{session.get('base_url')}/positions/{deal_id}"
     try:
         r = requests.delete(url, headers=headers, timeout=12)
         if r.status_code in [200, 204]:
