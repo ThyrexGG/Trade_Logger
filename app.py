@@ -918,24 +918,20 @@ st.markdown("""
         visibility: hidden !important;
     }
 
-    /* Interactive Quick Star Action Button */
-    button[key="btn_quick_star_action"] {
-        font-size: 11px !important;
-        font-weight: 700 !important;
-        padding: 3px 8px !important;
+    /* TradingView-Style Interactive Red Bookmark Ribbon Buttons */
+    div[data-testid="column"] button[key^="tv_ribbon_btn_"] {
+        font-size: 10px !important;
+        font-weight: 900 !important;
+        letter-spacing: 0.5px !important;
+        padding: 0 !important;
         min-height: 26px !important;
         height: 26px !important;
-        border-radius: 6px !important;
-        margin-top: 4px !important;
-        background: rgba(14, 19, 31, 0.6) !important;
-        border: 1px solid rgba(255, 255, 255, 0.08) !important;
-        color: #8a99ad !important;
+        width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        border-radius: 4px !important;
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    }
-    button[key="btn_quick_star_action"]:hover {
-        color: #fbbf24 !important;
-        border-color: rgba(251, 191, 36, 0.4) !important;
-        background: rgba(251, 191, 36, 0.08) !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -2164,307 +2160,105 @@ def render_live_dashboard():
         sub_t_price, sub_t_rules = st.tabs(["LIVE PRICE TARGET ALERTS", "PROFIT & LOSS ALERT RULES"])
         
         with sub_t_price:
-            # Handle Interactive Red Ribbon Flag Clicks & Symbol Selection
-            if "toggle_ribbon" in st.query_params:
-                sym_to_flag = st.query_params["toggle_ribbon"]
-                database.toggle_favorite_symbol(sym_to_flag)
-                del st.query_params["toggle_ribbon"]
-                st.rerun()
-
-            if "select_symbol" in st.query_params:
-                st.session_state.pa_active_symbol = st.query_params["select_symbol"]
-                del st.query_params["select_symbol"]
-                st.rerun()
-
-            # TradingView-Style Asset Catalog
-            TV_CATALOG = [
-                {"id": "XAUUSD", "display": "XAUUSD (GOLD)", "desc": "Gold", "cat": "commodity", "type": "commodity cfd", "icon_bg": "#f59e0b", "icon_txt": "AU"},
-                {"id": "EURUSD", "display": "EURUSD (EUR/USD)", "desc": "Euro / US Dollar", "cat": "forex", "type": "forex cfd", "icon_bg": "#3b82f6", "icon_txt": "EU"},
-                {"id": "GBPUSD", "display": "GBPUSD (GBP/USD)", "desc": "British Pound / US Dollar", "cat": "forex", "type": "forex cfd", "icon_bg": "#6366f1", "icon_txt": "GB"},
-                {"id": "USDJPY", "display": "USDJPY (USD/JPY)", "desc": "US Dollar / Japanese Yen", "cat": "forex", "type": "forex cfd", "icon_bg": "#ec4899", "icon_txt": "JP"},
-                {"id": "NAS100", "display": "NAS100 (US100)", "desc": "US Tech 100", "cat": "indices", "type": "index cfd", "icon_bg": "#06b6d4", "icon_txt": "100"},
-                {"id": "US30", "display": "US30 (US30)", "desc": "US 30 Wall St", "cat": "indices", "type": "index cfd", "icon_bg": "#0284c7", "icon_txt": "30"},
-                {"id": "SPX500", "display": "SPX500 (US500)", "desc": "US 500 S&P", "cat": "indices", "type": "index cfd", "icon_bg": "#ef4444", "icon_txt": "500"},
-                {"id": "DXY", "display": "DXY (DXY)", "desc": "US Dollar Index", "cat": "indices", "type": "index cfd", "icon_bg": "#10b981", "icon_txt": "$"},
-                {"id": "BTCUSD", "display": "BTCUSD (BITCOIN)", "desc": "Bitcoin / US Dollar", "cat": "crypto", "type": "crypto cfd", "icon_bg": "#f59e0b", "icon_txt": "BTC"},
-                {"id": "USOIL", "display": "USOIL (OIL_CRUDE)", "desc": "Crude Oil Spot", "cat": "commodity", "type": "commodity cfd", "icon_bg": "#475569", "icon_txt": "OIL"},
-                {"id": "XAGUSD", "display": "XAGUSD (SILVER)", "desc": "Silver Spot", "cat": "commodity", "type": "commodity cfd", "icon_bg": "#94a3b8", "icon_txt": "AG"},
-                {"id": "GER40", "display": "GER40 (DE40)", "desc": "Germany 40 DAX", "cat": "indices", "type": "index cfd", "icon_bg": "#3b82f6", "icon_txt": "40"}
-            ]
-
-            fav_symbols = database.get_favorite_symbols()
-            if "pa_active_symbol" not in st.session_state:
-                st.session_state.pa_active_symbol = fav_symbols[0] if fav_symbols else "XAUUSD"
-
-            active_sym = st.session_state.pa_active_symbol
-
-            # Sort items: Red-ribboned favorites strictly at top
-            flagged_items = [item for item in TV_CATALOG if item["id"] in fav_symbols]
-            unflagged_items = [item for item in TV_CATALOG if item["id"] not in fav_symbols]
-            sorted_catalog = flagged_items + unflagged_items
-
-            rows_html = ""
-            for item in sorted_catalog:
-                sid = item["id"]
-                is_flagged = sid in fav_symbols
-                flag_class = "flagged" if is_flagged else ""
-                is_selected = "selected" if sid == active_sym else ""
-                
-                rows_html += f"""
-                <div class="symbol-row {is_selected}" data-cat="{item['cat']}" data-sym="{sid}" data-desc="{item['desc']}" onclick="selectSymbol('{sid}')">
-                    <div class="ribbon-slot" onclick="toggleRibbon('{sid}', event)" title="{'Flagged with Red Ribbon. Click to unflag' if is_flagged else 'Click red ribbon to flag & pin to top'}">
-                        <div class="ribbon-flag {flag_class}"></div>
-                    </div>
-                    <div class="icon-circle" style="background: {item['icon_bg']};">
-                        <span>{item['icon_txt']}</span>
-                    </div>
-                    <div class="sym-name-col">
-                        <span class="sym-ticker">{item['display']}</span>
-                    </div>
-                    <div class="sym-desc-col">
-                        <span class="sym-desc">{item['desc']}</span>
-                    </div>
-                    <div class="sym-meta-col">
-                        <span class="sym-type">{item['type']}</span>
-                        <span class="broker-tag">Capital.com</span>
-                    </div>
-                </div>
-                """
-
-            tv_search_html = f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-            <style>
-                * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }}
-                body {{ background: #131722; color: #d1d4dc; padding: 12px; border-radius: 10px; overflow: hidden; }}
-                
-                .header-title {{
-                    font-size: 15px;
-                    font-weight: 700;
-                    color: #ffffff;
-                    margin-bottom: 10px;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                }}
-                
-                .search-container {{
-                    position: relative;
-                    margin-bottom: 10px;
-                }}
-                
-                .search-input {{
-                    width: 100%;
-                    background: #1e222d;
-                    border: 1px solid #2a2e39;
-                    border-radius: 6px;
-                    padding: 8px 12px 8px 32px;
-                    color: #ffffff;
-                    font-size: 13px;
-                    outline: none;
-                    transition: border-color 0.2s ease;
-                }}
-                .search-input:focus {{ border-color: #2962ff; }}
-                
-                .search-icon {{
-                    position: absolute;
-                    left: 10px;
-                    top: 9px;
-                    color: #787b86;
-                    font-size: 12px;
-                }}
-                
-                .filter-pills {{
-                    display: flex;
-                    gap: 6px;
-                    margin-bottom: 10px;
-                    overflow-x: auto;
-                    padding-bottom: 2px;
-                }}
-                
-                .filter-pill {{
-                    background: #2a2e39;
-                    color: #b2b5be;
-                    font-size: 11px;
-                    font-weight: 600;
-                    padding: 4px 10px;
-                    border-radius: 14px;
-                    cursor: pointer;
-                    border: 1px solid transparent;
-                    user-select: none;
-                    transition: all 0.15s ease;
-                    white-space: nowrap;
-                }}
-                .filter-pill:hover {{ background: #363a45; color: #ffffff; }}
-                .filter-pill.active {{ background: #ffffff; color: #131722; }}
-                
-                .symbols-list {{
-                    max-height: 230px;
-                    overflow-y: auto;
-                    border-radius: 6px;
-                    background: #181c27;
-                    border: 1px solid #2a2e39;
-                }}
-                
-                .symbol-row {{
-                    display: flex;
-                    align-items: center;
-                    padding: 7px 10px;
-                    border-bottom: 1px solid #222631;
-                    cursor: pointer;
-                    transition: background 0.12s ease;
-                }}
-                .symbol-row:last-child {{ border-bottom: none; }}
-                .symbol-row:hover {{ background: #242936; }}
-                .symbol-row.selected {{ background: rgba(41, 98, 255, 0.18); border-left: 3px solid #2962ff; }}
-                
-                /* Interactive Red Bookmark Ribbon Notch matching TradingView Screenshot */
-                .ribbon-slot {{
-                    width: 20px;
-                    height: 22px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: flex-start;
-                    cursor: pointer;
-                    margin-right: 6px;
-                }}
-                .ribbon-flag {{
-                    width: 8px;
-                    height: 14px;
-                    background: rgba(255, 255, 255, 0.12);
-                    clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 75%, 0 100%);
-                    transition: all 0.15s ease;
-                }}
-                .ribbon-slot:hover .ribbon-flag {{
-                    background: rgba(242, 54, 69, 0.6);
-                    transform: scale(1.15);
-                }}
-                .ribbon-flag.flagged {{
-                    background: #f23645 !important;
-                    box-shadow: 0 0 8px rgba(242, 54, 69, 0.7);
-                    transform: scale(1.15);
-                }}
-                
-                .icon-circle {{
-                    width: 20px;
-                    height: 20px;
-                    border-radius: 50%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    margin-right: 10px;
-                    flex-shrink: 0;
-                }}
-                .icon-circle span {{ font-size: 8px; font-weight: 800; color: #ffffff; }}
-                
-                .sym-name-col {{
-                    width: 140px;
-                    flex-shrink: 0;
-                }}
-                .sym-ticker {{ font-weight: 700; font-size: 12.5px; color: #ffffff; }}
-                
-                .sym-desc-col {{
-                    flex: 1;
-                    padding: 0 8px;
-                }}
-                .sym-desc {{ font-size: 11.5px; color: #8a99ad; }}
-                
-                .sym-meta-col {{
-                    display: flex;
-                    align-items: center;
-                    gap: 6px;
-                    flex-shrink: 0;
-                }}
-                .sym-type {{ font-size: 10px; color: #787b86; text-transform: lowercase; }}
-                .broker-tag {{
-                    font-size: 9.5px;
-                    font-weight: 700;
-                    color: #b2b5be;
-                    background: #262b38;
-                    padding: 2px 5px;
-                    border-radius: 3px;
-                }}
-            </style>
-            </head>
-            <body>
-                <div class="header-title">
-                    <span>Symbol search</span>
-                </div>
-                
-                <div class="search-container">
-                    <span class="search-icon"></span>
-                    <input type="text" class="search-input" id="search-input" placeholder="Symbol, ISIN, or CUSIP" oninput="filterSymbols()">
-                </div>
-                
-                <div class="filter-pills">
-                    <div class="filter-pill active" onclick="filterCategory('all', this)">All</div>
-                    <div class="filter-pill" onclick="filterCategory('forex', this)">Forex</div>
-                    <div class="filter-pill" onclick="filterCategory('indices', this)">Indices</div>
-                    <div class="filter-pill" onclick="filterCategory('commodity', this)">Commodities</div>
-                    <div class="filter-pill" onclick="filterCategory('crypto', this)">Crypto</div>
-                </div>
-                
-                <div class="symbols-list" id="symbols-container">
-                    {rows_html}
-                </div>
-
-                <script>
-                    let currentCategory = 'all';
-                    
-                    function filterCategory(cat, el) {{
-                        currentCategory = cat;
-                        document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
-                        el.classList.add('active');
-                        filterSymbols();
-                    }}
-                    
-                    function filterSymbols() {{
-                        const query = document.getElementById('search-input').value.toUpperCase().trim();
-                        const rows = document.querySelectorAll('.symbol-row');
-                        
-                        rows.forEach(row => {{
-                            const sym = row.getAttribute('data-sym').toUpperCase();
-                            const desc = row.getAttribute('data-desc').toUpperCase();
-                            const cat = row.getAttribute('data-cat');
-                            
-                            const matchesCategory = (currentCategory === 'all' || cat === currentCategory);
-                            const matchesQuery = (!query || sym.includes(query) || desc.includes(query));
-                            
-                            if (matchesCategory && matchesQuery) {{
-                                row.style.display = 'flex';
-                            }} else {{
-                                row.style.display = 'none';
-                            }}
-                        }});
-                    }}
-                    
-                    function selectSymbol(sym) {{
-                        const url = new URL(window.parent.location.href);
-                        url.searchParams.set('select_symbol', sym);
-                        window.parent.location.href = url.href;
-                    }}
-                    
-                    function toggleRibbon(sym, e) {{
-                        e.stopPropagation();
-                        const url = new URL(window.parent.location.href);
-                        url.searchParams.set('toggle_ribbon', sym);
-                        window.parent.location.href = url.href;
-                    }}
-                </script>
-            </body>
-            </html>
-            """
-
             with st.container(border=True):
-                from streamlit.components.v1 import html
-                html(tv_search_html, height=380)
+                st.markdown("<h4 style='color:#00ffcc;font-size:14px;font-weight:700;text-transform:uppercase;margin:0 0 12px 0;'>Symbol Search & Watchlist (TradingView Studio)</h4>", unsafe_allow_html=True)
+                
+                # TradingView-Style Asset Catalog
+                TV_CATALOG = [
+                    {"id": "XAUUSD", "display": "XAUUSD (GOLD)", "desc": "Gold Spot / US Dollar", "cat": "Commodities", "type": "commodity cfd", "icon_bg": "#f59e0b", "icon_txt": "AU"},
+                    {"id": "EURUSD", "display": "EURUSD (EUR/USD)", "desc": "Euro / US Dollar", "cat": "Forex", "type": "forex cfd", "icon_bg": "#3b82f6", "icon_txt": "EU"},
+                    {"id": "GBPUSD", "display": "GBPUSD (GBP/USD)", "desc": "British Pound / US Dollar", "cat": "Forex", "type": "forex cfd", "icon_bg": "#6366f1", "icon_txt": "GB"},
+                    {"id": "USDJPY", "display": "USDJPY (USD/JPY)", "desc": "US Dollar / Japanese Yen", "cat": "Forex", "type": "forex cfd", "icon_bg": "#ec4899", "icon_txt": "JP"},
+                    {"id": "NAS100", "display": "NAS100 (US100)", "desc": "US Tech 100", "cat": "Indices", "type": "index cfd", "icon_bg": "#06b6d4", "icon_txt": "100"},
+                    {"id": "US30", "display": "US30 (US30)", "desc": "US 30 Wall St", "cat": "Indices", "type": "index cfd", "icon_bg": "#0284c7", "icon_txt": "30"},
+                    {"id": "SPX500", "display": "SPX500 (US500)", "desc": "US 500 S&P", "cat": "Indices", "type": "index cfd", "icon_bg": "#ef4444", "icon_txt": "500"},
+                    {"id": "DXY", "display": "DXY (DXY)", "desc": "US Dollar Index", "cat": "Indices", "type": "index cfd", "icon_bg": "#10b981", "icon_txt": "$"},
+                    {"id": "BTCUSD", "display": "BTCUSD (BITCOIN)", "desc": "Bitcoin / US Dollar", "cat": "Crypto", "type": "crypto cfd", "icon_bg": "#f59e0b", "icon_txt": "BTC"},
+                    {"id": "USOIL", "display": "USOIL (OIL_CRUDE)", "desc": "Crude Oil Spot", "cat": "Commodities", "type": "commodity cfd", "icon_bg": "#475569", "icon_txt": "OIL"},
+                    {"id": "XAGUSD", "display": "XAGUSD (SILVER)", "desc": "Silver Spot", "cat": "Commodities", "type": "commodity cfd", "icon_bg": "#94a3b8", "icon_txt": "AG"},
+                    {"id": "GER40", "display": "GER40 (DE40)", "desc": "Germany 40 DAX", "cat": "Indices", "type": "index cfd", "icon_bg": "#3b82f6", "icon_txt": "40"}
+                ]
+
+                fav_symbols = database.get_favorite_symbols()
+                if "pa_active_symbol" not in st.session_state:
+                    st.session_state.pa_active_symbol = fav_symbols[0] if fav_symbols else "XAUUSD"
+
+                active_sym = st.session_state.pa_active_symbol
+
+                # Filter and Search Row
+                col_tv_s, col_tv_cat = st.columns([1.5, 1.5])
+                with col_tv_s:
+                    search_q = st.text_input("Symbol, ISIN, or CUSIP", value="", placeholder="e.g. Gold, USDJPY, NAS100, BTC...", key="tv_search_inp").strip().upper()
+                with col_tv_cat:
+                    cat_choice = st.pills("Asset Category", options=["All", "Forex", "Indices", "Commodities", "Crypto"], default="All", key="tv_cat_pills")
+
+                # Sort: Red-Ribboned favorites strictly first at top
+                flagged_items = [item for item in TV_CATALOG if item["id"] in fav_symbols]
+                unflagged_items = [item for item in TV_CATALOG if item["id"] not in fav_symbols]
+                sorted_catalog = flagged_items + unflagged_items
+
+                # Apply category & search filters
+                filtered_catalog = []
+                for item in sorted_catalog:
+                    matches_cat = (cat_choice == "All" or item["cat"] == cat_choice)
+                    matches_search = (not search_q or search_q in item["id"] or search_q in item["desc"].upper() or search_q in item["display"].upper())
+                    if matches_cat and matches_search:
+                        filtered_catalog.append(item)
+
+                # Render Asset Rows
+                st.markdown("<div style='background: #181c27; border: 1px solid #2a2e39; border-radius: 8px; padding: 6px 10px; margin-top: 4px;'>", unsafe_allow_html=True)
+                
+                for item in filtered_catalog:
+                    sid = item["id"]
+                    is_flagged = sid in fav_symbols
+                    is_selected = (sid == active_sym)
+                    
+                    row_bg = "rgba(41, 98, 255, 0.15)" if is_selected else "transparent"
+                    border_l = "3px solid #2962ff" if is_selected else "3px solid transparent"
+                    
+                    col_rib, col_sym, col_desc, col_meta, col_sel = st.columns([0.4, 2.0, 2.2, 1.4, 0.8])
+                    
+                    with col_rib:
+                        # Interactive Clickable Red Ribbon Notch Button
+                        ribbon_txt = "RED" if is_flagged else "OFF"
+                        ribbon_help = "Pinned to top with Red Ribbon Flag. Click to unflag." if is_flagged else "Click Red Ribbon to flag and pin to top of list."
+                        if st.button(ribbon_txt, key=f"tv_ribbon_btn_{sid}", help=ribbon_help, use_container_width=True):
+                            database.toggle_favorite_symbol(sid)
+                            st.rerun()
+                            
+                    with col_sym:
+                        st.markdown(f"""
+                        <div style='display:flex; align-items:center; gap:8px; padding-top:6px;'>
+                            <div style='width:20px; height:20px; border-radius:50%; background:{item['icon_bg']}; display:flex; align-items:center; justify-content:center; flex-shrink:0;'>
+                                <span style='font-size:8px; font-weight:800; color:#ffffff;'>{item['icon_txt']}</span>
+                            </div>
+                            <span style='font-weight:700; color:#ffffff; font-size:13px;'>{item['display']}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                    with col_desc:
+                        st.markdown(f"<div style='color:#8a99ad; font-size:12px; padding-top:7px;'>{item['desc']}</div>", unsafe_allow_html=True)
+                        
+                    with col_meta:
+                        st.markdown(f"<div style='color:#787b86; font-size:11px; text-transform:lowercase; padding-top:7px;'>{item['type']} <span style='background:#262b38; color:#b2b5be; padding:1px 5px; border-radius:3px; font-size:10px; font-weight:700; margin-left:4px;'>Capital.com</span></div>", unsafe_allow_html=True)
+                        
+                    with col_sel:
+                        if is_selected:
+                            st.markdown("<div style='color:#00ffcc; font-size:11px; font-weight:800; padding-top:8px; text-align:center;'>ACTIVE</div>", unsafe_allow_html=True)
+                        else:
+                            if st.button("Select", key=f"tv_sel_row_{sid}", use_container_width=True):
+                                st.session_state.pa_active_symbol = sid
+                                st.rerun()
+                                
+                st.markdown("</div>", unsafe_allow_html=True)
+
+                st.markdown("<div style='margin-top:14px;'></div>", unsafe_allow_html=True)
 
                 # Selected Target Alert Form
                 col_p_sym, col_p_target, col_p_cond, col_p_notes = st.columns([1.5, 1.2, 1.2, 2.0])
                 
                 with col_p_sym:
-                    st.text_input("Active Target Asset", value=active_sym, disabled=True, key="pa_disp_active_sym")
+                    st.text_input("Selected Asset", value=active_sym, disabled=True, key="pa_disp_active_sym")
                 with col_p_target:
                     p_target = st.number_input("Target Price ($)", value=2510.0, step=0.5, format="%.2f", key="input_pa_target_tab")
                 with col_p_cond:
