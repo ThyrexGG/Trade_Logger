@@ -917,6 +917,21 @@ st.markdown("""
         display: none !important;
         visibility: hidden !important;
     }
+
+    /* Interactive Gold Star Toggle Button */
+    button[key="btn_toggle_star_sym"] {
+        font-size: 20px !important;
+        line-height: 1 !important;
+        padding: 0 !important;
+        min-height: 42px !important;
+        height: 42px !important;
+        width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        border-radius: 8px !important;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -2165,10 +2180,10 @@ def render_live_dashboard():
                     if sym == "CUSTOM SYMBOL":
                         return "+ CUSTOM SYMBOL..."
                     if sym in fav_symbols:
-                        return f"[STARRED] {sym}"
+                        return f"{sym} ★"
                     return sym
 
-                col_p1, col_p_star, col_p2, col_p3, col_p4 = st.columns([1.6, 0.8, 1.1, 1.1, 1.6])
+                col_p1, col_p_star, col_p2, col_p3, col_p4 = st.columns([1.6, 0.6, 1.1, 1.1, 1.6])
                 with col_p1:
                     p_sym_choice = st.selectbox(
                         "Select Symbol",
@@ -2187,9 +2202,9 @@ def render_live_dashboard():
                     st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
                     if p_sym_final and p_sym_final != "CUSTOM SYMBOL":
                         is_fav = p_sym_final in fav_symbols
-                        star_btn_text = "UNSTAR" if is_fav else "STAR"
-                        star_btn_help = "Remove from top of list" if is_fav else "Pin symbol to top of list"
-                        if st.button(star_btn_text, key="btn_toggle_star_sym", help=star_btn_help, use_container_width=True):
+                        star_icon = "★" if is_fav else "☆"
+                        star_btn_help = "Favorite (Starred). Click to unstar." if is_fav else "Click to star and pin to top of list."
+                        if st.button(star_icon, key="btn_toggle_star_sym", help=star_btn_help, use_container_width=True):
                             database.toggle_favorite_symbol(p_sym_final)
                             st.rerun()
 
