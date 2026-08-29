@@ -6,6 +6,9 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
     bid = round(current_price * 0.9998, 5) if current_price else 0.0
     ask = round(current_price * 1.0002, 5) if current_price else 0.0
     spread = round((ask - bid) * 100, 1) if current_price else 0.0
+    
+    icon_letter = "M" if "MetaTrader" in account_id else "C"
+    icon_color = "#1E88E5" if "MetaTrader" in account_id else "#D97757"
 
     return f"""
     <!DOCTYPE html>
@@ -51,7 +54,6 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
                 gap: 8px;
             }}
             .symbol-icon {{
-                color: #D97757;
                 font-size: 20px;
                 font-weight: bold;
             }}
@@ -331,7 +333,7 @@ def get_order_panel_html(symbol: str, current_price: float, account_id: str) -> 
     
         <div class="header">
             <div class="symbol-title">
-                <span class="symbol-icon">C</span> {symbol}
+                <span class="symbol-icon" style="color: {icon_color};">{icon_letter}</span> {symbol}
             </div>
             <div style="color: var(--text-muted); cursor: pointer;">
                 &#10005;
