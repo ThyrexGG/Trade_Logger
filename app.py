@@ -918,26 +918,24 @@ st.markdown("""
         visibility: hidden !important;
     }
 
-    /* Interactive Star Icon Toggle Button */
-    button[key="btn_star_sym_clean"] {
-        font-size: 22px !important;
-        line-height: 1 !important;
-        padding: 0 !important;
-        min-height: 42px !important;
-        height: 42px !important;
-        width: 100% !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        border-radius: 8px !important;
-        background: rgba(14, 19, 31, 0.95) !important;
-        border: 1px solid rgba(255, 255, 255, 0.12) !important;
-        color: #fbbf24 !important;
+    /* Interactive Quick Star Action Button */
+    button[key="btn_quick_star_action"] {
+        font-size: 11px !important;
+        font-weight: 700 !important;
+        padding: 3px 8px !important;
+        min-height: 26px !important;
+        height: 26px !important;
+        border-radius: 6px !important;
+        margin-top: 4px !important;
+        background: rgba(14, 19, 31, 0.6) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        color: #8a99ad !important;
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
-    button[key="btn_star_sym_clean"]:hover {
-        border-color: #fbbf24 !important;
-        box-shadow: 0 0 12px rgba(251, 191, 36, 0.3) !important;
+    button[key="btn_quick_star_action"]:hover {
+        color: #fbbf24 !important;
+        border-color: rgba(251, 191, 36, 0.4) !important;
+        background: rgba(251, 191, 36, 0.08) !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -2204,10 +2202,10 @@ def render_live_dashboard():
                     desc = POPULAR_PAIRS_CATALOG.get(sym, "")
                     desc_str = f" ({desc})" if desc else ""
                     if sym in fav_symbols:
-                        return f"★ {sym}{desc_str}"
-                    return f"☆ {sym}{desc_str}"
+                        return f"{sym}{desc_str}   ★"
+                    return f"{sym}{desc_str}   ☆"
 
-                col_p1, col_p_star, col_p2, col_p3, col_p4 = st.columns([1.8, 0.45, 1.1, 1.1, 1.6])
+                col_p1, col_p2, col_p3, col_p4 = st.columns([1.8, 1.1, 1.1, 1.6])
                 
                 with col_p1:
                     p_sym_choice = st.selectbox(
@@ -2223,13 +2221,10 @@ def render_live_dashboard():
                     else:
                         p_sym_final = p_sym_choice
 
-                with col_p_star:
-                    st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
                     if p_sym_final and p_sym_final != "CUSTOM SYMBOL":
                         is_fav = p_sym_final in fav_symbols
-                        star_icon = "★" if is_fav else "☆"
-                        star_help = "Favorited. Click to unstar." if is_fav else "Click star icon to pin to top."
-                        if st.button(star_icon, key="btn_star_sym_clean", help=star_help, use_container_width=True):
+                        star_toggle_txt = f"★ Pinned to Top (Click to unstar {p_sym_final})" if is_fav else f"☆ Click to star & pin {p_sym_final} to top"
+                        if st.button(star_toggle_txt, key="btn_quick_star_action", use_container_width=True):
                             database.toggle_favorite_symbol(p_sym_final)
                             st.rerun()
 
