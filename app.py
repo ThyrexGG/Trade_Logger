@@ -2164,88 +2164,319 @@ def render_live_dashboard():
         sub_t_price, sub_t_rules = st.tabs(["LIVE PRICE TARGET ALERTS", "PROFIT & LOSS ALERT RULES"])
         
         with sub_t_price:
+            # Handle Interactive Red Ribbon Flag Clicks & Symbol Selection
+            if "toggle_ribbon" in st.query_params:
+                sym_to_flag = st.query_params["toggle_ribbon"]
+                database.toggle_favorite_symbol(sym_to_flag)
+                del st.query_params["toggle_ribbon"]
+                st.rerun()
+
+            if "select_symbol" in st.query_params:
+                st.session_state.pa_active_symbol = st.query_params["select_symbol"]
+                del st.query_params["select_symbol"]
+                st.rerun()
+
+            # TradingView-Style Asset Catalog
+            TV_CATALOG = [
+                {"id": "XAUUSD", "display": "XAUUSD (GOLD)", "desc": "Gold", "cat": "commodity", "type": "commodity cfd", "icon_bg": "#f59e0b", "icon_txt": "AU"},
+                {"id": "EURUSD", "display": "EURUSD (EUR/USD)", "desc": "Euro / US Dollar", "cat": "forex", "type": "forex cfd", "icon_bg": "#3b82f6", "icon_txt": "EU"},
+                {"id": "GBPUSD", "display": "GBPUSD (GBP/USD)", "desc": "British Pound / US Dollar", "cat": "forex", "type": "forex cfd", "icon_bg": "#6366f1", "icon_txt": "GB"},
+                {"id": "USDJPY", "display": "USDJPY (USD/JPY)", "desc": "US Dollar / Japanese Yen", "cat": "forex", "type": "forex cfd", "icon_bg": "#ec4899", "icon_txt": "JP"},
+                {"id": "NAS100", "display": "NAS100 (US100)", "desc": "US Tech 100", "cat": "indices", "type": "index cfd", "icon_bg": "#06b6d4", "icon_txt": "100"},
+                {"id": "US30", "display": "US30 (US30)", "desc": "US 30 Wall St", "cat": "indices", "type": "index cfd", "icon_bg": "#0284c7", "icon_txt": "30"},
+                {"id": "SPX500", "display": "SPX500 (US500)", "desc": "US 500 S&P", "cat": "indices", "type": "index cfd", "icon_bg": "#ef4444", "icon_txt": "500"},
+                {"id": "DXY", "display": "DXY (DXY)", "desc": "US Dollar Index", "cat": "indices", "type": "index cfd", "icon_bg": "#10b981", "icon_txt": "$"},
+                {"id": "BTCUSD", "display": "BTCUSD (BITCOIN)", "desc": "Bitcoin / US Dollar", "cat": "crypto", "type": "crypto cfd", "icon_bg": "#f59e0b", "icon_txt": "BTC"},
+                {"id": "USOIL", "display": "USOIL (OIL_CRUDE)", "desc": "Crude Oil Spot", "cat": "commodity", "type": "commodity cfd", "icon_bg": "#475569", "icon_txt": "OIL"},
+                {"id": "XAGUSD", "display": "XAGUSD (SILVER)", "desc": "Silver Spot", "cat": "commodity", "type": "commodity cfd", "icon_bg": "#94a3b8", "icon_txt": "AG"},
+                {"id": "GER40", "display": "GER40 (DE40)", "desc": "Germany 40 DAX", "cat": "indices", "type": "index cfd", "icon_bg": "#3b82f6", "icon_txt": "40"}
+            ]
+
+            fav_symbols = database.get_favorite_symbols()
+            if "pa_active_symbol" not in st.session_state:
+                st.session_state.pa_active_symbol = fav_symbols[0] if fav_symbols else "XAUUSD"
+
+            active_sym = st.session_state.pa_active_symbol
+
+            # Sort items: Red-ribboned favorites strictly at top
+            flagged_items = [item for item in TV_CATALOG if item["id"] in fav_symbols]
+            unflagged_items = [item for item in TV_CATALOG if item["id"] not in fav_symbols]
+            sorted_catalog = flagged_items + unflagged_items
+
+            rows_html = ""
+            for item in sorted_catalog:
+                sid = item["id"]
+                is_flagged = sid in fav_symbols
+                flag_class = "flagged" if is_flagged else ""
+                is_selected = "selected" if sid == active_sym else ""
+                
+                rows_html += f"""
+                <div class="symbol-row {is_selected}" data-cat="{item['cat']}" data-sym="{sid}" data-desc="{item['desc']}" onclick="selectSymbol('{sid}')">
+                    <div class="ribbon-slot" onclick="toggleRibbon('{sid}', event)" title="{'Flagged with Red Ribbon. Click to unflag' if is_flagged else 'Click red ribbon to flag & pin to top'}">
+                        <div class="ribbon-flag {flag_class}"></div>
+                    </div>
+                    <div class="icon-circle" style="background: {item['icon_bg']};">
+                        <span>{item['icon_txt']}</span>
+                    </div>
+                    <div class="sym-name-col">
+                        <span class="sym-ticker">{item['display']}</span>
+                    </div>
+                    <div class="sym-desc-col">
+                        <span class="sym-desc">{item['desc']}</span>
+                    </div>
+                    <div class="sym-meta-col">
+                        <span class="sym-type">{item['type']}</span>
+                        <span class="broker-tag">Capital.com</span>
+                    </div>
+                </div>
+                """
+
+            tv_search_html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+            <style>
+                * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }}
+                body {{ background: #131722; color: #d1d4dc; padding: 12px; border-radius: 10px; overflow: hidden; }}
+                
+                .header-title {{
+                    font-size: 15px;
+                    font-weight: 700;
+                    color: #ffffff;
+                    margin-bottom: 10px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }}
+                
+                .search-container {{
+                    position: relative;
+                    margin-bottom: 10px;
+                }}
+                
+                .search-input {{
+                    width: 100%;
+                    background: #1e222d;
+                    border: 1px solid #2a2e39;
+                    border-radius: 6px;
+                    padding: 8px 12px 8px 32px;
+                    color: #ffffff;
+                    font-size: 13px;
+                    outline: none;
+                    transition: border-color 0.2s ease;
+                }}
+                .search-input:focus {{ border-color: #2962ff; }}
+                
+                .search-icon {{
+                    position: absolute;
+                    left: 10px;
+                    top: 9px;
+                    color: #787b86;
+                    font-size: 12px;
+                }}
+                
+                .filter-pills {{
+                    display: flex;
+                    gap: 6px;
+                    margin-bottom: 10px;
+                    overflow-x: auto;
+                    padding-bottom: 2px;
+                }}
+                
+                .filter-pill {{
+                    background: #2a2e39;
+                    color: #b2b5be;
+                    font-size: 11px;
+                    font-weight: 600;
+                    padding: 4px 10px;
+                    border-radius: 14px;
+                    cursor: pointer;
+                    border: 1px solid transparent;
+                    user-select: none;
+                    transition: all 0.15s ease;
+                    white-space: nowrap;
+                }}
+                .filter-pill:hover {{ background: #363a45; color: #ffffff; }}
+                .filter-pill.active {{ background: #ffffff; color: #131722; }}
+                
+                .symbols-list {{
+                    max-height: 230px;
+                    overflow-y: auto;
+                    border-radius: 6px;
+                    background: #181c27;
+                    border: 1px solid #2a2e39;
+                }}
+                
+                .symbol-row {{
+                    display: flex;
+                    align-items: center;
+                    padding: 7px 10px;
+                    border-bottom: 1px solid #222631;
+                    cursor: pointer;
+                    transition: background 0.12s ease;
+                }}
+                .symbol-row:last-child {{ border-bottom: none; }}
+                .symbol-row:hover {{ background: #242936; }}
+                .symbol-row.selected {{ background: rgba(41, 98, 255, 0.18); border-left: 3px solid #2962ff; }}
+                
+                /* Interactive Red Bookmark Ribbon Notch matching TradingView Screenshot */
+                .ribbon-slot {{
+                    width: 20px;
+                    height: 22px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: flex-start;
+                    cursor: pointer;
+                    margin-right: 6px;
+                }}
+                .ribbon-flag {{
+                    width: 8px;
+                    height: 14px;
+                    background: rgba(255, 255, 255, 0.12);
+                    clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 75%, 0 100%);
+                    transition: all 0.15s ease;
+                }}
+                .ribbon-slot:hover .ribbon-flag {{
+                    background: rgba(242, 54, 69, 0.6);
+                    transform: scale(1.15);
+                }}
+                .ribbon-flag.flagged {{
+                    background: #f23645 !important;
+                    box-shadow: 0 0 8px rgba(242, 54, 69, 0.7);
+                    transform: scale(1.15);
+                }}
+                
+                .icon-circle {{
+                    width: 20px;
+                    height: 20px;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin-right: 10px;
+                    flex-shrink: 0;
+                }}
+                .icon-circle span {{ font-size: 8px; font-weight: 800; color: #ffffff; }}
+                
+                .sym-name-col {{
+                    width: 140px;
+                    flex-shrink: 0;
+                }}
+                .sym-ticker {{ font-weight: 700; font-size: 12.5px; color: #ffffff; }}
+                
+                .sym-desc-col {{
+                    flex: 1;
+                    padding: 0 8px;
+                }}
+                .sym-desc {{ font-size: 11.5px; color: #8a99ad; }}
+                
+                .sym-meta-col {{
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    flex-shrink: 0;
+                }}
+                .sym-type {{ font-size: 10px; color: #787b86; text-transform: lowercase; }}
+                .broker-tag {{
+                    font-size: 9.5px;
+                    font-weight: 700;
+                    color: #b2b5be;
+                    background: #262b38;
+                    padding: 2px 5px;
+                    border-radius: 3px;
+                }}
+            </style>
+            </head>
+            <body>
+                <div class="header-title">
+                    <span>Symbol search</span>
+                </div>
+                
+                <div class="search-container">
+                    <span class="search-icon"></span>
+                    <input type="text" class="search-input" id="search-input" placeholder="Symbol, ISIN, or CUSIP" oninput="filterSymbols()">
+                </div>
+                
+                <div class="filter-pills">
+                    <div class="filter-pill active" onclick="filterCategory('all', this)">All</div>
+                    <div class="filter-pill" onclick="filterCategory('forex', this)">Forex</div>
+                    <div class="filter-pill" onclick="filterCategory('indices', this)">Indices</div>
+                    <div class="filter-pill" onclick="filterCategory('commodity', this)">Commodities</div>
+                    <div class="filter-pill" onclick="filterCategory('crypto', this)">Crypto</div>
+                </div>
+                
+                <div class="symbols-list" id="symbols-container">
+                    {rows_html}
+                </div>
+
+                <script>
+                    let currentCategory = 'all';
+                    
+                    function filterCategory(cat, el) {{
+                        currentCategory = cat;
+                        document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+                        el.classList.add('active');
+                        filterSymbols();
+                    }}
+                    
+                    function filterSymbols() {{
+                        const query = document.getElementById('search-input').value.toUpperCase().trim();
+                        const rows = document.querySelectorAll('.symbol-row');
+                        
+                        rows.forEach(row => {{
+                            const sym = row.getAttribute('data-sym').toUpperCase();
+                            const desc = row.getAttribute('data-desc').toUpperCase();
+                            const cat = row.getAttribute('data-cat');
+                            
+                            const matchesCategory = (currentCategory === 'all' || cat === currentCategory);
+                            const matchesQuery = (!query || sym.includes(query) || desc.includes(query));
+                            
+                            if (matchesCategory && matchesQuery) {{
+                                row.style.display = 'flex';
+                            }} else {{
+                                row.style.display = 'none';
+                            }}
+                        }});
+                    }}
+                    
+                    function selectSymbol(sym) {{
+                        const url = new URL(window.parent.location.href);
+                        url.searchParams.set('select_symbol', sym);
+                        window.parent.location.href = url.href;
+                    }}
+                    
+                    function toggleRibbon(sym, e) {{
+                        e.stopPropagation();
+                        const url = new URL(window.parent.location.href);
+                        url.searchParams.set('toggle_ribbon', sym);
+                        window.parent.location.href = url.href;
+                    }}
+                </script>
+            </body>
+            </html>
+            """
+
             with st.container(border=True):
-                st.markdown("<h4 style='color:#00ffcc;font-size:14px;font-weight:700;text-transform:uppercase;margin:0 0 12px 0;'>Create New Price Target Alert</h4>", unsafe_allow_html=True)
+                from streamlit.components.v1 import html
+                html(tv_search_html, height=380)
+
+                # Selected Target Alert Form
+                col_p_sym, col_p_target, col_p_cond, col_p_notes = st.columns([1.5, 1.2, 1.2, 2.0])
                 
-                # Popular Pairs Catalog
-                POPULAR_PAIRS_CATALOG = {
-                    "XAUUSD": "Gold Spot / US Dollar",
-                    "EURUSD": "Euro / US Dollar",
-                    "GBPUSD": "British Pound / US Dollar",
-                    "USDJPY": "US Dollar / Japanese Yen",
-                    "US100":  "US Tech 100 (Nasdaq)",
-                    "US500":  "S&P 500 US Index",
-                    "BTCUSD": "Bitcoin / US Dollar",
-                    "USOIL":  "Crude Oil Spot",
-                    "AUDUSD": "Australian Dollar / US Dollar",
-                    "NZDUSD": "New Zealand Dollar / US Dollar",
-                    "USDCHF": "US Dollar / Swiss Franc",
-                    "USDCAD": "US Dollar / Canadian Dollar"
-                }
-
-                # Fetch Starred / Favorite symbols from database
-                fav_symbols = database.get_favorite_symbols()
-                
-                # Build ordered list: Starred symbols strictly first at top, then other popular, then custom
-                all_symbols_ordered = []
-                for s in fav_symbols:
-                    if s not in all_symbols_ordered:
-                        all_symbols_ordered.append(s)
-                for s in POPULAR_PAIRS_CATALOG.keys():
-                    if s not in all_symbols_ordered:
-                        all_symbols_ordered.append(s)
-                all_symbols_ordered.append("CUSTOM SYMBOL")
-
-                def format_sym_label(sym):
-                    if sym == "CUSTOM SYMBOL":
-                        return "+ Custom Symbol..."
-                    desc = POPULAR_PAIRS_CATALOG.get(sym, "")
-                    desc_str = f" ({desc})" if desc else ""
-                    is_fav = sym in fav_symbols
-                    star_icon = "★" if is_fav else "☆"
-                    left_txt = f"{sym}{desc_str}"
-                    pad_len = max(6, 46 - len(left_txt))
-                    padding = chr(160) * pad_len
-                    return f"{left_txt}{padding}{star_icon}"
-
-                col_p1, col_p2, col_p3, col_p4 = st.columns([1.8, 1.1, 1.1, 1.6])
-                
-                with col_p1:
-                    p_sym_choice = st.selectbox(
-                        "Symbol",
-                        options=all_symbols_ordered,
-                        format_func=format_sym_label,
-                        index=0,
-                        key="sel_pa_clean_sym"
-                    )
-                    
-                    if p_sym_choice == "CUSTOM SYMBOL":
-                        p_sym_final = st.text_input("Enter Custom Symbol", value="", placeholder="e.g. SOLUSDT", key="input_pa_custom_sym").strip().upper()
-                    else:
-                        p_sym_final = p_sym_choice
-
-                    if p_sym_final and p_sym_final != "CUSTOM SYMBOL":
-                        is_fav = p_sym_final in fav_symbols
-                        star_toggle_txt = f"★ Pinned to Top (Click to unstar {p_sym_final})" if is_fav else f"☆ Click to star & pin {p_sym_final} to top"
-                        if st.button(star_toggle_txt, key="btn_quick_star_action", use_container_width=True):
-                            database.toggle_favorite_symbol(p_sym_final)
-                            st.rerun()
-
-                with col_p2:
+                with col_p_sym:
+                    st.text_input("Active Target Asset", value=active_sym, disabled=True, key="pa_disp_active_sym")
+                with col_p_target:
                     p_target = st.number_input("Target Price ($)", value=2510.0, step=0.5, format="%.2f", key="input_pa_target_tab")
-                with col_p3:
+                with col_p_cond:
                     p_cond = st.selectbox("Condition", options=["ABOVE", "BELOW"], format_func=lambda x: "Rose Above (>=)" if x == "ABOVE" else "Dropped Below (<=)", key="input_pa_cond_tab")
-                with col_p4:
+                with col_p_notes:
                     p_notes = st.text_input("Alert Notes", value="", placeholder="e.g. Resistance breakout / 4H key level", key="input_pa_notes_tab")
-                    
+
                 if st.button("Set Price Alert", type="primary", key="btn_set_price_alert_tab", use_container_width=True):
-                    if not p_sym_final:
-                        st.error("Please specify a valid symbol.")
-                    else:
-                        database.create_price_alert(symbol=p_sym_final, target_price=p_target, condition=p_cond, notes=p_notes)
-                        st.success(f"Price alert set for {p_sym_final} {p_cond} ${p_target:,.2f}!")
-                        st.rerun()
-                    
+                    database.create_price_alert(symbol=active_sym, target_price=p_target, condition=p_cond, notes=p_notes)
+                    st.success(f"Price alert set for {active_sym} {p_cond} ${p_target:,.2f}!")
+                    st.rerun()
+
             # List of Price Alerts
             df_alerts = database.get_all_price_alerts(limit=50)
             if not df_alerts.empty:
