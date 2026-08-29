@@ -185,7 +185,7 @@ def sync_capital():
     
     params = {
         "from": from_str,
-        "limit": 100
+        "limit": 500
     }
 
     print(f"Fetching Capital.com transactions from {from_str}...")
