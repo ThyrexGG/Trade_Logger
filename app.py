@@ -1847,34 +1847,69 @@ def render_live_dashboard():
                     with col_tp_in:
                         order_tp = st.number_input("Take Profit", min_value=0.0, value=0.0, step=0.5, key="ws_order_tp_inp")
                         
+                    # Real-Time Risk & Reward Calculation
+                    import order_execution
+                    risk_info = order_execution.calculate_order_risk(
+                        symbol=st.session_state.active_ws_symbol,
+                        direction=order_dir,
+                        entry_price=2500.0 if "XAU" in st.session_state.active_ws_symbol else 1.0850,
+                        stop_loss=order_sl,
+                        take_profit=order_tp,
+                        volume=order_vol,
+                        account_balance=10000.0
+                    )
+                    
+                    if order_sl > 0 or order_tp > 0:
+                        if not risk_info["is_valid"]:
+                            st.error(risk_info["error"])
+                        else:
+                            st.markdown(f"""
+                            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 6px 10px; margin: 8px 0; font-size: 11px;">
+                                <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+                                    <span style="color:#8a99ad;">Risk ($):</span>
+                                    <b style="color:#ff5555;">-${risk_info['risk_amount']:,.2f} ({risk_info['risk_pct']}%)</b>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+                                    <span style="color:#8a99ad;">Target ($):</span>
+                                    <b style="color:#00ffcc;">+${risk_info['reward_amount']:,.2f} ({risk_info['reward_pct']}%)</b>
+                                </div>
+                                <div style="display:flex; justify-content:space-between;">
+                                    <span style="color:#8a99ad;">Reward / Risk:</span>
+                                    <b style="color:#bef264;">1 : {risk_info['risk_reward_ratio']:.2f}</b>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+
                     btn_col_color = "#00ffcc" if order_dir == "BUY" else "#ff5555"
                     
                     st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
                     if st.button(f"EXECUTE {order_dir} ({order_broker})", key="ws_btn_submit_order", use_container_width=True):
-                        with st.spinner(f"Routing {order_dir} order to {order_broker}..."):
-                            import order_execution
-                            if order_broker == "Capital.com":
-                                success, msg = order_execution.execute_capital_trade(
-                                    epic=st.session_state.active_ws_symbol,
-                                    direction=order_dir,
-                                    size=order_vol,
-                                    stop_loss=order_sl if order_sl > 0 else None,
-                                    take_profit=order_tp if order_tp > 0 else None
-                                )
-                            else:
-                                success, msg = order_execution.execute_mt5_trade(
-                                    symbol=st.session_state.active_ws_symbol,
-                                    direction=order_dir,
-                                    volume=order_vol,
-                                    sl=order_sl if order_sl > 0 else None,
-                                    tp=order_tp if order_tp > 0 else None
-                                )
-                                
-                            if success:
-                                st.success(msg)
-                                st.rerun()
-                            else:
-                                st.error(msg)
+                        if not risk_info["is_valid"]:
+                            st.error(risk_info["error"])
+                        else:
+                            with st.spinner(f"Routing {order_dir} order to {order_broker}..."):
+                                if order_broker == "Capital.com":
+                                    success, msg = order_execution.execute_capital_trade(
+                                        epic=st.session_state.active_ws_symbol,
+                                        direction=order_dir,
+                                        size=order_vol,
+                                        stop_loss=order_sl if order_sl > 0 else None,
+                                        take_profit=order_tp if order_tp > 0 else None
+                                    )
+                                else:
+                                    success, msg = order_execution.execute_mt5_trade(
+                                        symbol=st.session_state.active_ws_symbol,
+                                        direction=order_dir,
+                                        volume=order_vol,
+                                        sl=order_sl if order_sl > 0 else None,
+                                        tp=order_tp if order_tp > 0 else None
+                                    )
+                                    
+                                if success:
+                                    st.success(msg)
+                                    st.rerun()
+                                else:
+                                    st.error(msg)
 
             # 4. BOTTOM PANE: ACTIVE POSITIONS DOCK
             st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
