@@ -1788,19 +1788,19 @@ def render_live_dashboard():
                     custom_sym = st.text_input("Or Custom Ticker", value="", placeholder="e.g. BINANCE:SOLUSDT", key="tv_custom_sym")
                     if custom_sym.strip():
                         tv_symbol = custom_sym.strip().upper()
+                saved_layout_url = database.get_setting("tv_personal_layout_url", "")
                 with col_link:
-                    tv_web_url = f"https://www.tradingview.com/chart/?symbol={tv_symbol}"
+                    active_open_url = saved_layout_url if saved_layout_url else f"https://www.tradingview.com/chart/?symbol={tv_symbol}"
                     render_html(f"""
                     <div style="margin-top: 28px;">
-                        <a href="{tv_web_url}" target="_blank" style="display: inline-block; background: rgba(0, 255, 204, 0.12); color: #00ffcc; border: 1px solid rgba(0, 255, 204, 0.35); padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; width: 100%; text-align: center;">
-                            OPEN IN TRADINGVIEW
+                        <a href="{active_open_url}" target="_blank" style="display: inline-block; background: rgba(0, 255, 204, 0.12); color: #00ffcc; border: 1px solid rgba(0, 255, 204, 0.35); padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; width: 100%; text-align: center;">
+                            OPEN IN TRADINGVIEW CLOUD
                         </a>
                     </div>
                     """)
 
-                saved_layout_url = database.get_setting("tv_personal_layout_url", "")
-                with st.expander("Sync with Your Personal TradingView Account & Cloud Layout", expanded=(bool(saved_layout_url))):
-                    st.markdown("<p style='font-size:12px; color:#8a99ad; margin-bottom:8px;'>To permanently save all your trendlines, drawings, and indicators to your TradingView account across refreshes and devices, paste your personal chart URL below.</p>", unsafe_allow_html=True)
+                with st.expander("Saved TradingView Cloud Layout Link (Optional)", expanded=False):
+                    st.markdown("<p style='font-size:12px; color:#8a99ad; margin-bottom:8px;'>Save your personal TradingView layout URL (e.g. <code>https://www.tradingview.com/chart/xGIjkYmD/</code>). Clicking <b>OPEN IN TRADINGVIEW CLOUD</b> above will open your exact account workspace with all saved cloud drawings and indicators.</p>", unsafe_allow_html=True)
                     
                     col_lay_inp, col_lay_save, col_lay_clear = st.columns([2.5, 0.8, 0.8])
                     with col_lay_inp:

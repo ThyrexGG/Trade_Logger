@@ -19,33 +19,21 @@ DEFAULT_SYMBOLS = {
 def render_tradingview_chart(symbol="OANDA:XAUUSD", interval="15", height=700, custom_layout_url=None):
     """
     Renders an interactive TradingView Advanced Real-Time Pro Suite Chart.
-    Supports standard Pro Chart with localStorage drawing persistence or personal TradingView cloud layout.
+    Uses TradingView's official Advanced Real-Time Widget with local storage persistence and quick cloud link.
     """
     import database
     
-    # Check if a custom layout is saved in database or passed in
     saved_layout = database.get_setting("tv_personal_layout_url", "")
     active_layout = custom_layout_url.strip() if (custom_layout_url and custom_layout_url.strip()) else saved_layout
+    cloud_url = active_layout if active_layout else f"https://www.tradingview.com/chart/?symbol={symbol}"
+    if not cloud_url.startswith("http"):
+        cloud_url = "https://" + cloud_url
 
-    if active_layout:
-        clean_url = active_layout
-        if not clean_url.startswith("http"):
-            clean_url = "https://" + clean_url
-            
-        tv_html = f"""
-        <div class="tradingview-widget-container" style="height:100%;width:100%;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5);border:1px solid rgba(0,255,204,0.2);">
-            <iframe src="{clean_url}" style="width:100%; height:{height}px; border:none;" allow="clipboard-read; clipboard-write; storage-access; cookies; local-storage; camera; fullscreen"></iframe>
-        </div>
-        """
-        html(tv_html, height=height + 20)
-        return
-
-    # Standard Pro TradingView Widget with persistent client storage and auto-save
     container_id = "tradingview_pro_suite_canvas"
 
     tv_html = f"""
     <!-- TradingView Advanced Pro Widget -->
-    <div class="tradingview-widget-container" style="height:100%;width:100%;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5);border:1px solid rgba(0,255,204,0.2);">
+    <div class="tradingview-widget-container" style="height:100%;width:100%;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5);border:1px solid rgba(0,255,204,0.2);position:relative;">
       <div id="{container_id}" style="height:{height}px;width:100%;"></div>
       <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
       <script type="text/javascript">
