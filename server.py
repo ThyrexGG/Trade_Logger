@@ -261,6 +261,46 @@ def update_journal(payload: JournalUpdateRequest):
     )
     return {"status": "updated", "trade_id": payload.trade_id}
 
+class ChartDrawingsPayload(BaseModel):
+    symbol: str
+    drawings_data: str
+
+@app.get("/api/chart/drawings")
+def get_drawings(symbol: str = "XAUUSD"):
+    """Returns saved JSON drawings for a symbol."""
+    drawings = database.get_chart_drawings(symbol)
+    return {"symbol": symbol.upper(), "drawings_data": drawings}
+
+@app.post("/api/chart/drawings")
+def save_drawings(payload: ChartDrawingsPayload):
+    """Saves JSON drawings for a symbol to the database."""
+    database.save_chart_drawings(payload.symbol, payload.drawings_data)
+    return {"status": "saved", "symbol": payload.symbol.upper()}
+
+@app.get("/api/chart/executions")
+def get_chart_executions(symbol: str = "XAUUSD"):
+    """Returns real broker trade executions (entry/exit/PnL) for chart overlay."""
+    df_trades = database.get_closed_trades()
+    if df_trades.empty:
+        return {"executions": []}
+    
+    sym = symbol.upper().replace("/", "").replace(":", "").replace("FX", "").replace("OANDA", "").replace("BINANCE", "").replace("FOREXCOM", "")
+    df_sym = df_trades[df_trades["symbol"].str.upper().str.contains(sym, na=False)].copy()
+    
+    execs = []
+    for _, r in df_sym.iterrows():
+        execs.append({
+            "trade_id": str(r.get("trade_id", "")),
+            "direction": str(r.get("direction", "BUY")).upper(),
+            "volume": float(r.get("volume", 0.01)),
+            "entry_price": float(r.get("entry_price", 0.0)),
+            "exit_price": float(r.get("exit_price", 0.0)),
+            "net_profit": float(r.get("net_profit", 0.0)),
+            "entry_time": str(r.get("entry_time", "")),
+            "exit_time": str(r.get("exit_time", "")),
+        })
+    return {"executions": execs}
+
 @app.post("/api/sync")
 def trigger_sync():
     """Triggers background broker synchronization."""

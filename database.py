@@ -659,6 +659,67 @@ def set_setting(key, value):
         print(f"Error saving setting {key}: {e}")
         return False
 
+# ----------------- Super App Chart Drawings Database -----------------
+
+def get_chart_drawings(symbol):
+    """Fetches saved chart drawings JSON for a specific symbol."""
+    sym = str(symbol).strip().upper()
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS chart_drawings (
+                symbol TEXT PRIMARY KEY,
+                drawings_data TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
+        if is_postgres():
+            cursor.execute("SELECT drawings_data FROM chart_drawings WHERE symbol = %s", (sym,))
+        else:
+            cursor.execute("SELECT drawings_data FROM chart_drawings WHERE symbol = ?", (sym,))
+        row = cursor.fetchone()
+        conn.close()
+        return row[0] if row else "[]"
+    except Exception as e:
+        print(f"Error reading drawings for {sym}: {e}")
+        return "[]"
+
+def save_chart_drawings(symbol, drawings_json):
+    """Saves or updates chart drawings JSON for a specific symbol."""
+    sym = str(symbol).strip().upper()
+    now_str = datetime.now(timezone.utc).isoformat()
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS chart_drawings (
+                symbol TEXT PRIMARY KEY,
+                drawings_data TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
+        if is_postgres():
+            cursor.execute("""
+                INSERT INTO chart_drawings (symbol, drawings_data, updated_at)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (symbol) DO UPDATE SET
+                    drawings_data = EXCLUDED.drawings_data,
+                    updated_at = EXCLUDED.updated_at
+            """, (sym, str(drawings_json), now_str))
+        else:
+            cursor.execute("""
+                INSERT OR REPLACE INTO chart_drawings (symbol, drawings_data, updated_at)
+                VALUES (?, ?, ?)
+            """, (sym, str(drawings_json), now_str))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error saving drawings for {sym}: {e}")
+        return False
+
+
 
 if __name__ == "__main__":
     init_db()
