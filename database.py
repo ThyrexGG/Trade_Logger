@@ -158,6 +158,28 @@ def init_db():
         """)
         
         cursor.execute("""
+            CREATE TABLE IF NOT EXISTS execution_orders (
+                execution_id TEXT PRIMARY KEY,
+                signal_id TEXT UNIQUE NOT NULL,
+                symbol TEXT NOT NULL,
+                side TEXT NOT NULL,
+                requested_quantity DOUBLE PRECISION,
+                requested_entry DOUBLE PRECISION,
+                stop_loss DOUBLE PRECISION,
+                take_profit DOUBLE PRECISION,
+                broker TEXT NOT NULL,
+                mode TEXT NOT NULL,
+                state TEXT NOT NULL,
+                broker_order_id TEXT,
+                broker_position_id TEXT,
+                created_at TEXT NOT NULL,
+                submitted_at TEXT,
+                resolved_at TEXT,
+                last_error TEXT
+            );
+        """)
+        
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS received_signals (
                 signal_id TEXT PRIMARY KEY,
                 received_at TEXT NOT NULL,
@@ -286,6 +308,28 @@ def init_db():
             CREATE TABLE IF NOT EXISTS app_settings (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS execution_orders (
+                execution_id TEXT PRIMARY KEY,
+                signal_id TEXT UNIQUE NOT NULL,
+                symbol TEXT NOT NULL,
+                side TEXT NOT NULL,
+                requested_quantity REAL,
+                requested_entry REAL,
+                stop_loss REAL,
+                take_profit REAL,
+                broker TEXT NOT NULL,
+                mode TEXT NOT NULL,
+                state TEXT NOT NULL,
+                broker_order_id TEXT,
+                broker_position_id TEXT,
+                created_at TEXT NOT NULL,
+                submitted_at TEXT,
+                resolved_at TEXT,
+                last_error TEXT
             )
         """)
         
