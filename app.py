@@ -312,8 +312,50 @@ st.markdown("""
         display: none !important;
         visibility: hidden !important;
     }
-    header {
+    header[data-testid="stHeader"], header {
         background: transparent !important;
+        z-index: 99999 !important;
+    }
+
+    /* Prominent, Glowing Sidebar Expand / Collapse Toggle Button */
+    [data-testid="stSidebarCollapsedControl"],
+    [data-testid="collapsedControl"],
+    [data-testid="stSidebarCollapseButton"],
+    button[data-testid="stSidebarCollapseButton"],
+    [data-testid="stSidebarCollapsedControl"] button,
+    [data-testid="collapsedControl"] button {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        z-index: 999999 !important;
+        background: rgba(18, 24, 38, 0.95) !important;
+        border: 1px solid rgba(0, 255, 204, 0.5) !important;
+        border-radius: 8px !important;
+        box-shadow: 0 0 14px rgba(0, 255, 204, 0.3) !important;
+        color: #00ffcc !important;
+        transition: all 0.2s ease-in-out !important;
+    }
+
+    [data-testid="stSidebarCollapsedControl"]:hover,
+    [data-testid="collapsedControl"]:hover,
+    [data-testid="stSidebarCollapseButton"]:hover,
+    button[data-testid="stSidebarCollapseButton"]:hover,
+    [data-testid="stSidebarCollapsedControl"] button:hover {
+        background: rgba(0, 255, 204, 0.2) !important;
+        border-color: #00ffcc !important;
+        box-shadow: 0 0 20px rgba(0, 255, 204, 0.6) !important;
+        transform: scale(1.05) !important;
+    }
+
+    [data-testid="stSidebarCollapsedControl"] svg,
+    [data-testid="collapsedControl"] svg,
+    [data-testid="stSidebarCollapseButton"] svg,
+    button[data-testid="stSidebarCollapseButton"] svg {
+        fill: #00ffcc !important;
+        stroke: #00ffcc !important;
+        color: #00ffcc !important;
+        width: 22px !important;
+        height: 22px !important;
     }
     
     /* Adjust Streamlit main container top padding to remove excessive spacing */
