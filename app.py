@@ -307,13 +307,13 @@ st.markdown("""
         opacity: 0.8;
     }
     
-    /* Hide Streamlit top header white bar, toolbar, share/star buttons */
-    [data-testid="stHeader"], header, [data-testid="stToolbar"], .stAppDeployButton, [data-testid="stDecoration"], #MainMenu, footer {
+    /* Hide Streamlit toolbar and deploy buttons, but keep header so sidebar toggle is visible */
+    [data-testid="stToolbar"], .stAppDeployButton, #MainMenu, footer {
         display: none !important;
         visibility: hidden !important;
-        height: 0px !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
+    }
+    header {
+        background: transparent !important;
     }
     
     /* Adjust Streamlit main container top padding to remove excessive spacing */
@@ -917,12 +917,7 @@ st.markdown("""
         pointer-events: auto !important;
     }
 
-    /* Hide running status widget to keep sync 100% silent and backgrounded */
-    div[data-testid="stStatusWidget"],
-    .stStatusWidget {
-        display: none !important;
-        visibility: hidden !important;
-    }
+    /* Removed hiding of running status widget so user knows when it's loading */
 
     /* TradingView-Style Interactive Red Bookmark Ribbon Buttons */
     div[data-testid="column"] button[key^="tv_ribbon_btn_"] {
@@ -949,9 +944,7 @@ st.markdown("""
         gap: 12px !important;
         margin: 24px 0 !important;
     }
-    .stSpinner > div:first-child {
-        display: none !important;
-    }
+    /* Custom Spinner Styling (Removed display:none so user can see it loading) */
     .stSpinner::before {
         content: '' !important;
         display: inline-block !important;
@@ -1948,19 +1941,13 @@ def render_live_dashboard():
                 st.session_state[AI_CACHE_KEY] = _fresh
 
             ai_data = st.session_state.get(AI_CACHE_KEY, None)
-            
             if ai_data is None:
                 st.info("👆 Select your asset and strategy above, then press **▶ RUN ENGINE** to run the live analysis.")
-                st.stop()
 
-            if ai_data and ai_data.get("status") != "unavailable" and ai_data.get("status") != "error":
+            elif ai_data.get("status") != "unavailable" and ai_data.get("status") != "error":
                 factual = ai_data.get("factual_data", {})
                 bias = ai_data.get("confluence_bias", {}).get("bias", "Unknown")
-                
-                # We expect ai_data to have structured outputs since the new refactor
                 st_trend = ai_data.get("market_structure", {}).get("trend", "Unknown")
-                
-                # ML Probabilities
                 ml_buy = ai_data.get("ml_prob_buy", 0.0)
                 ml_sell = ai_data.get("ml_prob_sell", 0.0)
                 ml_neutral = ai_data.get("ml_prob_neutral", 0.0)
@@ -2206,10 +2193,11 @@ def render_live_dashboard():
                             st.markdown(f"<p style='font-size:12px; color:#8a99ad;'>Model data unavailable.</p>", unsafe_allow_html=True)
 
                 dq = ai_data.get("data_quality", {})
-                dq_str = f"Data: {dq.get('price_data', 'Unknown')} • News: {dq.get('news', 'Unknown')} • Vol: {dq.get('volume', 'Unknown')}"
-                st.markdown(f"<p style='font-size:10px; color:#64748b; margin-top:8px;'>Timestamp: {ai_data.get('timestamp','')} UTC • Confidence: {ai_data.get('confidence','')} • [Deterministic fallback logic used (Ollama unavailable or failed).]<br/>{ai_data.get('disclaimer','')}</p>", unsafe_allow_html=True)
+                dq_str = f"Data: {dq.get('price_data', 'Unknown')} \u2022 News: {dq.get('news', 'Unknown')} \u2022 Vol: {dq.get('volume', 'Unknown')}"
+                st.markdown(f"<p style='font-size:10px; color:#64748b; margin-top:8px;'>Timestamp: {ai_data.get('timestamp','')} UTC \u2022 Confidence: {ai_data.get('confidence','')} \u2022 [Deterministic fallback logic used (Ollama unavailable or failed).]<br/>{ai_data.get('disclaimer','')}</p>", unsafe_allow_html=True)
             else:
                 st.warning(ai_data.get("error", "AI market analysis could not load live data."))
+
 
         with tab_journal:
             # Account Separation Filter
