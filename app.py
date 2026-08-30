@@ -1883,16 +1883,20 @@ def render_live_dashboard():
                     components.html(html_code, height=850)
 
             # Retrieve AI Setup Data to render exact geometric lines on the chart
-            import ai_analysis
-            ai_data_for_chart = ai_analysis.analyze_market_context(symbol=st.session_state.active_ws_symbol, timeframe=active_tf)
-            setup_data_for_chart = ai_data_for_chart.get("deterministic_scenario", {}) if ai_data_for_chart else None
+            with st.spinner(f"Loading {st.session_state.active_ws_symbol} ({active_tf}) live chart & AI structure..."):
+                import ai_analysis
+                ws_cache_key = f"ws_ai_chart_{st.session_state.active_ws_symbol}_{active_tf}"
+                if ws_cache_key not in st.session_state:
+                    st.session_state[ws_cache_key] = ai_analysis.analyze_market_context(symbol=st.session_state.active_ws_symbol, timeframe=active_tf)
+                ai_data_for_chart = st.session_state.get(ws_cache_key)
+                setup_data_for_chart = ai_data_for_chart.get("deterministic_scenario", {}) if ai_data_for_chart else None
 
-            tradingview_widget.render_tradingview_chart(
-                symbol=st.session_state.active_ws_symbol,
-                interval=active_tf,
-                height=800,
-                ai_setup_data=setup_data_for_chart
-            )
+                tradingview_widget.render_tradingview_chart(
+                    symbol=st.session_state.active_ws_symbol,
+                    interval=active_tf,
+                    height=800,
+                    ai_setup_data=setup_data_for_chart
+                )
 
             # 4. BOTTOM PANE: ACTIVE POSITIONS DOCK
             st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)

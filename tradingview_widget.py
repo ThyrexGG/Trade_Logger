@@ -238,6 +238,16 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
           padding: 3px 8px;
           border-radius: 4px;
         }}
+
+        @keyframes chartSpin {{
+          0% {{ transform: rotate(0deg); }}
+          100% {{ transform: rotate(360deg); }}
+        }}
+
+        @keyframes pulseText {{
+          0% {{ opacity: 0.6; }}
+          100% {{ opacity: 1; text-shadow: 0 0 12px rgba(0, 255, 204, 0.6); }}
+        }}
       </style>
     </head>
     <body onclick="closeAllFlyouts(event)">
@@ -373,6 +383,13 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
 
         <!-- MAIN CHART AREA -->
         <div class="tv-chart-area">
+          <div id="chartLoadingOverlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #0a0e17; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; z-index: 100; transition: opacity 0.35s ease-out;">
+            <div style="width: 44px; height: 44px; border-radius: 50%; border: 3px solid rgba(0, 255, 204, 0.15); border-top-color: #00ffcc; border-right-color: #bef264; animation: chartSpin 0.75s cubic-bezier(0.4, 0, 0.2, 1) infinite; box-shadow: 0 0 20px rgba(0, 255, 204, 0.4);"></div>
+            <div style="color: #00ffcc; font-weight: 800; font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; animation: pulseText 1.2s ease-in-out infinite alternate;">
+              INITIALIZING {clean_sym} ({interval}) FEED...
+            </div>
+            <div style="color: #64748b; font-size: 11px; font-family: monospace;">Fetching real-time candles & synchronizing coordinate engine</div>
+          </div>
           <canvas id="drawingCanvas"></canvas>
           <div id="{container_id}" style="width: 100%; height: 100%;"></div>
         </div>
@@ -476,6 +493,17 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
         }});
         candleSeries.setData(candleData);
         chart.timeScale().fitContent();
+
+        // Dismiss In-Chart Loading Overlay
+        const _overlay = document.getElementById('chartLoadingOverlay');
+        if (_overlay) {{
+          if (!candleData || candleData.length === 0) {{
+            _overlay.innerHTML = '<div style="color:#f59e0b;font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;">No candle data available for {clean_sym}</div><div style="color:#8a99ad;font-size:11px;">Please verify your MT5 or market data provider connection.</div>';
+          }} else {{
+            _overlay.style.opacity = '0';
+            setTimeout(() => {{ _overlay.style.display = 'none'; }}, 350);
+          }}
+        }}
 
         // -------------------------------------------------------------
         // PHASE 5: TRADE SETUP ENGINE CHART INTEGRATION
