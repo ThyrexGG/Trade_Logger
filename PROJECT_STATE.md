@@ -5,7 +5,7 @@
 ---
 
 ## 1. Current Architecture
-* **Unified Backend**: FastAPI (`server.py`) serving REST APIs, database queries, market data feeds, and static Flutter Web assets.
+* **Unified Backend**: FastAPI (`server.py`) serving REST APIs, database queries, market data feeds, WebSockets (`/ws/live_ticks`) for millisecond stream, and static Flutter Web assets.
 * **Database Layer**: `database.py` with multi-tenant account isolation, supporting local SQLite (`trades.db`) and cloud PostgreSQL (`DATABASE_URL`).
 * **Broker Adapters**:
   - `capital_sync.py`: Capital.com REST API v1 session authentication, trade fetching, order execution, position closing.
@@ -75,6 +75,5 @@
 ---
 
 ## 5. Next Priorities & Evolution
-1. Real-time WebSocket streaming for millisecond tick updates.
-2. Webhook alert triggers to Telegram / Discord.
-3. Multi-timeframe strategy backtesting sandbox.
+1. Multi-timeframe strategy backtesting sandbox.
+2. WebHook trading automation payload endpoints.

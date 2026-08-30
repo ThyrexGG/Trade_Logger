@@ -98,6 +98,8 @@ def calculate_order_risk(symbol, direction, entry_price, stop_loss=None, take_pr
 
 def execute_capital_trade(epic, direction, size, stop_loss=None, take_profit=None):
     """Places a live trade on Capital.com real/demo account."""
+    return False, "LIVE TRADING PAUSED FOR SAFETY: Broker connections are temporarily disabled to prevent accidental capital loss."
+    
     session = capital_sync.get_session()
     if not session:
         return False, "Failed to authenticate with Capital.com session."
@@ -162,6 +164,8 @@ def close_capital_position(deal_id):
 
 def execute_mt5_trade(symbol, direction, volume, sl=None, tp=None):
     """Places a trade on MetaTrader 5 terminal running on local Windows PC."""
+    return False, "LIVE TRADING PAUSED FOR SAFETY: Broker connections are temporarily disabled to prevent accidental capital loss."
+    
     if not mt5_sync.MT5_AVAILABLE:
         return False, "MetaTrader 5 library is not available on this environment."
         

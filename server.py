@@ -3,7 +3,8 @@ import sqlite3
 import pandas as pd
 import numpy as np
 from typing import Optional, List
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, WebSocket, WebSocketDisconnect
+import asyncio
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from datetime import datetime
@@ -58,6 +59,49 @@ class JournalUpdateRequest(BaseModel):
 
 
 # --- API Routes ---
+
+@app.websocket("/ws/live_ticks/{symbol}")
+async def websocket_live_ticks(websocket: WebSocket, symbol: str):
+    """Streams live millisecond ticks for a specific symbol via WebSocket."""
+    await websocket.accept()
+    
+    # Optional: We can hook directly into MT5 if it's available on the server
+    mt5_available = False
+    try:
+        import mt5_sync
+        if mt5_sync.MT5_AVAILABLE:
+            import MetaTrader5 as mt5
+            if mt5.initialize():
+                mt5_available = True
+    except:
+        pass
+
+    try:
+        while True:
+            tick_data = {"symbol": symbol, "timestamp": datetime.utcnow().isoformat()}
+            
+            if mt5_available:
+                tick = mt5.symbol_info_tick(symbol)
+                if tick:
+                    tick_data["bid"] = tick.bid
+                    tick_data["ask"] = tick.ask
+                    tick_data["volume"] = tick.volume
+                    tick_data["source"] = "MT5"
+                else:
+                    # Fallback or empty if symbol not found in MT5
+                    tick_data["error"] = "No tick data"
+            else:
+                # If MT5 is not running, we could query Capital.com or Yahoo, but they are rate limited.
+                # For now, just send a heartbeat
+                tick_data["error"] = "MT5 not available for live ticks"
+                
+            await websocket.send_json(tick_data)
+            await asyncio.sleep(0.5) # 500ms broadcast rate
+            
+    except WebSocketDisconnect:
+        print(f"Client disconnected from live ticks for {symbol}")
+    except Exception as e:
+        print(f"WebSocket error for {symbol}: {e}")
 
 @app.get("/api/status")
 def get_status():

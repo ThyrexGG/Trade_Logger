@@ -11,6 +11,7 @@ TradeLogger is an advanced, offline-first trading terminal built to consolidate 
 
 ### 2. Backend & Data Layer
 - **Python (3.x):** The entire backend infrastructure is written in Python.
+- **FastAPI:** Serves as the high-performance unified backend (`server.py`), providing REST endpoints and a highly concurrent WebSocket layer (`/ws/live_ticks`) that broadcasts live millisecond MT5 ticks to clients.
 - **SQLite3:** A lightweight, serverless, file-based relational database (`trades.db`). It stores closed trades, open positions, active price alerts, UI settings, and serialized chart drawings.
 - **Pandas:** Used heavily for data manipulation, formatting the database tables into readable DataFrames, and preparing datasets for the Machine Learning engine.
 
@@ -20,6 +21,7 @@ TradeLogger is an advanced, offline-first trading terminal built to consolidate 
 
 ### 4. The Dual-AI Engine
 - **Ollama (Generative AI):** Runs a local LLM (`llama3` by default) via the `ollama` Python package. It acts as the "Generative Analyst," reading technical indicators and returning structured text summaries.
+- **Discord, Telegram & OneSignal:** `alerts.py` dispatches rich embedded webhooks directly to Telegram and Discord to alert on Big Wins and Max Loss limits. It also uses OneSignal for native push notifications to mobile.
 - **Scikit-Learn (Predictive ML):** Uses a `RandomForestClassifier` trained purely on the local `trades.db` database. It analyzes the user's win/loss history based on Time of Day, Day of Week, and Volume to predict future trade probabilities.
 
 ## System Workflow

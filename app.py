@@ -7,6 +7,11 @@ from datetime import datetime, timezone, timedelta
 import calendar
 import os
 import time
+import importlib
+import ai_analysis
+importlib.reload(ai_analysis)
+import market_data
+importlib.reload(market_data)
 
 import database
 import mt5_sync
@@ -1154,13 +1159,14 @@ def render_live_dashboard():
         # ----------------------------------------------------
         # TOP-LEVEL BIG BOLD HEADER VIEW SWITCHER
         # ----------------------------------------------------
-        tab_overview, tab_charts, tab_ai, tab_journal, tab_alerts, tab_terminal = st.tabs([
+        tab_overview, tab_charts, tab_ai, tab_journal, tab_alerts, tab_terminal, tab_sandbox = st.tabs([
             "ANALYTICS & OVERVIEW",
             "TRADING WORKSPACE",
             "AI MARKET CONTEXT",
             "TRADE JOURNAL",
             "PRICE ALERTS",
-            "QUICK TERMINAL"
+            "QUICK TERMINAL",
+            "SANDBOX"
         ])
 
         df_open = database.get_open_positions()
@@ -1868,7 +1874,7 @@ def render_live_dashboard():
                 ai_selected_sym = st.selectbox(
                     "Asset to Analyze",
                     options=["XAUUSD", "NAS100", "SPX500", "US30", "EURUSD", "GBPUSD", "USDJPY", "BTCUSD", "USOIL"],
-                    index=0,
+                    index=6,
                     key="ai_sel_symbol"
                 )
             with col_ai_tf:
@@ -1882,12 +1888,27 @@ def render_live_dashboard():
                 st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
                 run_ai_analysis = st.button("RUN AI ANALYSIS", key="btn_run_ai", use_container_width=True)
 
+            st.markdown("""<div style='background:rgba(0,0,0,0.15); padding:10px 14px; border-radius:4px; border-left:2px solid #3b82f6; margin-bottom:16px; margin-top:8px;'>
+                <span style='color:#cbd5e1; font-size:11px; font-weight:bold;'>🧠 HOW IT WORKS:</span> 
+                <span style='color:#8a99ad; font-size:11px;'>The engine pulls a live <b>100-candle sample</b> across <b>3 aligned timeframes</b> (e.g., if you select 1h, it scans 1h, 4h, and Daily). It runs a strict deterministic pipeline (Phases 1-17) alongside an ML Random Forest model, and uses an LLM solely for natural language synthesis.</span>
+            </div>""", unsafe_allow_html=True)
+
             import ai_analysis
             ai_data = ai_analysis.analyze_market_context(symbol=ai_selected_sym, timeframe=ai_selected_tf)
 
             if ai_data and ai_data.get("status") != "unavailable" and ai_data.get("status") != "error":
-                factual = ai_data["factual_data"]
-                bias = ai_data["trend_bias"]
+                factual = ai_data.get("factual_data", {})
+                bias = ai_data.get("confluence_bias", {}).get("bias", "Unknown")
+                
+                # We expect ai_data to have structured outputs since the new refactor
+                st_trend = ai_data.get("market_structure", {}).get("trend", "Unknown")
+                
+                # ML Probabilities
+                ml_buy = ai_data.get("ml_prob_buy", 0.0)
+                ml_sell = ai_data.get("ml_prob_sell", 0.0)
+                ml_neutral = ai_data.get("ml_prob_neutral", 0.0)
+                
+                # Get the detailed AI structure         
                 bias_color = "#00ffcc" if bias == "Bullish" else ("#ff5555" if bias == "Bearish" else "#f59e0b")
 
                 # Header Metric Cards
@@ -1907,82 +1928,210 @@ def render_live_dashboard():
 
                 ml_buy = ai_data.get("ml_prob_buy", 0.0)
                 ml_sell = ai_data.get("ml_prob_sell", 0.0)
-                
-                # --- ROW 1: MACRO & INSTITUTIONAL CONTEXT ---
-                st.markdown(f"<p style='font-size:11px;font-weight:800;color:#64748b;letter-spacing:0.8px;margin-bottom:6px;margin-top:12px;text-transform:uppercase;'>MACRO & INSTITUTIONAL CONTEXT</p>", unsafe_allow_html=True)
-                mac_col1, mac_col2, mac_col3 = st.columns(3)
-                
-                with mac_col1:
-                    with st.container(border=True):
-                        macro = ai_data.get('macro_data', {})
-                        st.markdown(f"<b style='color:#cbd5e1; font-size:13px;'>News Calendar</b>", unsafe_allow_html=True)
-                        st.markdown(f"<p style='font-size:12px; color:#8a99ad; margin-bottom:4px;'><b>Risk:</b> {macro.get('risk_level', 'Unknown')}</p>", unsafe_allow_html=True)
-                        st.markdown(f"<p style='font-size:12px; color:#8a99ad; margin-bottom:4px;'><b>Event:</b> {macro.get('event', 'N/A')}</p>", unsafe_allow_html=True)
-                        st.markdown(f"<p style='font-size:11px; color:#64748b;'>{macro.get('impact', '')}</p>", unsafe_allow_html=True)
-                
-                with mac_col2:
-                    with st.container(border=True):
-                        cot = ai_data.get('cot_data', {})
-                        ca = ai_data.get('cross_asset', {})
-                        st.markdown(f"<b style='color:#cbd5e1; font-size:13px;'>Institutional Positioning</b>", unsafe_allow_html=True)
-                        st.markdown(f"<p style='font-size:12px; color:#8a99ad; margin-bottom:4px;'><b>COT:</b> {cot.get('sentiment', 'Unknown')}</p>", unsafe_allow_html=True)
-                        st.markdown(f"<p style='font-size:12px; color:#8a99ad; margin-bottom:4px;'><b>Driver ({ca.get('asset','DXY')}):</b> {ca.get('dxy_trend', 'N/A')}</p>", unsafe_allow_html=True)
-                        st.markdown(f"<p style='font-size:11px; color:#64748b;'>{ca.get('signal_filter', '')}</p>", unsafe_allow_html=True)
-                
-                with mac_col3:
-                    with st.container(border=True):
-                        kz = ai_data.get('killzone', 'Unknown')
-                        ar = ai_data.get('asian_range', {})
-                        st.markdown(f"<b style='color:#cbd5e1; font-size:13px;'>Session Context</b>", unsafe_allow_html=True)
-                        st.markdown(f"<p style='font-size:12px; color:#8a99ad; margin-bottom:4px;'><b>Active Session:</b> {kz}</p>", unsafe_allow_html=True)
-                        if ar:
-                            st.markdown(f"<p style='font-size:12px; color:#8a99ad; margin-bottom:4px;'><b>Asian High:</b> {ar.get('asian_high', 'N/A')}</p>", unsafe_allow_html=True)
-                            st.markdown(f"<p style='font-size:12px; color:#8a99ad; margin-bottom:4px;'><b>Asian Low:</b> {ar.get('asian_low', 'N/A')}</p>", unsafe_allow_html=True)
-                        else:
-                            st.markdown(f"<p style='font-size:11px; color:#64748b;'>Asian Range not detected.</p>", unsafe_allow_html=True)
 
-                # --- ROW 2: DETERMINISTIC EXECUTION MODEL ---
-                col_sum1, col_sum2 = st.columns([1.5, 1.5])
+                details_style = "margin-top:10px;"
+                summary_style = "font-size:11px; color:#8a99ad; cursor:pointer; outline:none;"
+                content_style = "font-size:11px; color:#8a99ad; margin-top:6px; padding:8px; background:rgba(0,0,0,0.15); border-radius:4px; line-height:1.4;"
+
+                # --- ROW 1: MACRO & INSTITUTIONAL CONTEXT ---
+                st.markdown("<h4 style='color:#64748b; font-size:11px; font-weight:800; letter-spacing:0.8px; margin-top:10px; margin-bottom:5px; text-transform:uppercase;'>MACRO & INSTITUTIONAL CONTEXT</h4>", unsafe_allow_html=True)
+                mac1, mac2, mac3 = st.columns(3)
                 
+                with mac1:
+                    macro = ai_data.get('macro_data', {})
+                    mac_color = "#ff5555" if macro.get("risk_level") == "HIGH" else "#fbbf24" if macro.get("risk_level") == "MEDIUM" else "#00ffcc"
+                    mac_html = f"""<div style='background:rgba(255,255,255,0.02); padding:12px; border-left:3px solid {mac_color}; border-radius:4px;'>
+                        <b style='color:#cbd5e1;'>News Calendar</b><br/>
+                        <div style='margin-top:8px; margin-bottom:4px;'><span style='background:#1e293b; color:{mac_color}; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold;'>Risk: {macro.get('risk_level', 'UNKNOWN')}</span></div>
+                        <div style='font-family:monospace; font-size:10px; color:#8a99ad;'><span style='color:#475569;'>Event:</span> <span style='color:#cbd5e1;'>{macro.get('event', 'None')}</span> <br/> <span style='color:#475569;'>Time:</span> <span style='color:#cbd5e1;'>{macro.get('time_to_event', 'N/A')}</span></div>
+                        <details style='{details_style}'><summary style='{summary_style}'>📖 Impact</summary><div style='{content_style}'>{macro.get('impact', '')}</div></details>
+                    </div>"""
+                    st.markdown(mac_html, unsafe_allow_html=True)
+                
+                with mac2:
+                    cot = ai_data.get('cot_data', {})
+                    cot_html = f"""<div style='background:rgba(255,255,255,0.02); padding:12px; border-left:3px solid #8b5cf6; border-radius:4px;'>
+                        <b style='color:#cbd5e1;'>Institutional Positioning (COT)</b><br/>
+                        <div style='margin-top:8px; margin-bottom:4px;'><span style='background:#1e293b; color:#fbbf24; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold;'>{cot.get('sentiment', 'Neutral')}</span></div>
+                        <div style='font-family:monospace; font-size:10px; color:#8a99ad;'><span style='color:#475569;'>Commercials:</span> <span style='color:#cbd5e1;'>{cot.get('commercial_bias', 'N/A')}</span> <br/> <span style='color:#475569;'>Specs:</span> <span style='color:#cbd5e1;'>{cot.get('speculator_bias', 'N/A')}</span></div>
+                        <details style='{details_style}'><summary style='{summary_style}'>📖 What is this?</summary><div style='{content_style}'>Commitment of Traders (COT) report shows where the smart money (Commercials) and dumb money (Speculators) are currently heavily positioned.</div></details>
+                    </div>"""
+                    st.markdown(cot_html, unsafe_allow_html=True)
+                
+                with mac3:
+                    ca = ai_data.get('cross_asset', {})
+                    ca_html = f"""<div style='background:rgba(255,255,255,0.02); padding:12px; border-left:3px solid #0ea5e9; border-radius:4px;'>
+                        <b style='color:#cbd5e1;'>Cross-Asset Context ({ca.get('asset', 'DXY')})</b><br/>
+                        <div style='margin-top:8px; margin-bottom:4px;'><span style='background:#1e293b; color:#0ea5e9; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold;'>{ca.get('correlation', 'N/A')} CORRELATION</span></div>
+                        <div style='font-family:monospace; font-size:10px; color:#8a99ad;'><span style='color:#475569;'>Driver Trend:</span> <span style='color:#cbd5e1;'>{ca.get('dxy_trend', 'N/A')}</span> <br/> <span style='color:#475569;'>Filter:</span> <span style='color:#cbd5e1;'>{ca.get('signal_filter', 'N/A')}</span></div>
+                        <details style='{details_style}'><summary style='{summary_style}'>📖 What is this?</summary><div style='{content_style}'>Checks the trend of the underlying macro driver (like the US Dollar Index for EURUSD/XAUUSD) to see if you have institutional headwinds or tailwinds.</div></details>
+                    </div>"""
+                    st.markdown(ca_html, unsafe_allow_html=True)
+                    
+                st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
+
+                # ROW 2: ACTIVE SESSION
+                kz_status = ai_data.get("killzone", "Unknown")
+                kz_color = "#f59e0b" if "Asian" in kz_status else ("#00ffcc" if "London" in kz_status else ("#ff5555" if "NY" in kz_status else "#64748b"))
+                st.markdown(f"<div style='background:rgba(255,255,255,0.05); border-left:4px solid {kz_color}; padding:8px 12px; margin-bottom:12px; border-radius:4px;'><span style='font-size:10px; font-weight:800; color:#8a99ad; text-transform:uppercase;'>ACTIVE SESSION</span><br/><span style='font-size:14px; font-weight:700; color:{kz_color};'>{kz_status}</span></div>", unsafe_allow_html=True)
+
+                # ROW 3: DETERMINISTIC QUANTITATIVE LOGIC
+                st.markdown(f"<p style='font-size:11px;font-weight:800;color:#64748b;letter-spacing:0.8px;margin-bottom:6px;text-transform:uppercase;'>DETERMINISTIC QUANTITATIVE LOGIC</p>", unsafe_allow_html=True)
+                c_dq1, c_dq2, c_dq3, c_dq4 = st.columns(4)
+                
+                with c_dq1:
+                    mtf_align = ai_data.get('mtf_alignment', 'Unknown')
+                    align_col = "#00ffcc" if "Bullish" in mtf_align else ("#ff5555" if "Bearish" in mtf_align else "#64748b")
+                    html = f"""<div style='background:rgba(255,255,255,0.02); padding:12px; border-left:3px solid #3b82f6; border-radius:4px;'>
+                        <b style='color:#cbd5e1;'>MTF Trend Alignment</b><br/>
+                        <div style='margin-top:8px; margin-bottom:4px;'><span style='background:#1e293b; color:{align_col}; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold;'>{mtf_align}</span></div>
+                        <details style='{details_style}'><summary style='{summary_style}'>📖 What is this?</summary><div style='{content_style}'>Compares higher timeframe trends against current timeframe to confirm institutional sponsorship.</div></details>
+                    </div>"""
+                    st.markdown(html, unsafe_allow_html=True)
+                    
+                with c_dq2:
+                    regime = ai_data.get('market_regime', 'Unknown')
+                    reg_col = "#00ffcc" if "Expansion" in regime else "#64748b"
+                    html = f"""<div style='background:rgba(255,255,255,0.02); padding:12px; border-left:3px solid #8b5cf6; border-radius:4px;'>
+                        <b style='color:#cbd5e1;'>Market Volatility Regime</b><br/>
+                        <div style='margin-top:8px; margin-bottom:4px;'><span style='background:#1e293b; color:{reg_col}; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold;'>{regime}</span></div>
+                        <details style='{details_style}'><summary style='{summary_style}'>📖 What is this?</summary><div style='{content_style}'>Uses Average Directional Index (ADX) to determine if price is trending or consolidating.</div></details>
+                    </div>"""
+                    st.markdown(html, unsafe_allow_html=True)
+                    
+                with c_dq3:
+                    struct = ai_data.get('market_structure', {})
+                    st_trend = struct.get('trend', 'Unknown')
+                    st_col = "#00ffcc" if "Bullish" in st_trend else ("#ff5555" if "Bearish" in st_trend else "#64748b")
+                    html = f"""<div style='background:rgba(255,255,255,0.02); padding:12px; border-left:3px solid #f59e0b; border-radius:4px;'>
+                        <b style='color:#cbd5e1;'>Market Structure</b><br/>
+                        <div style='margin-top:8px; margin-bottom:4px;'><span style='background:#1e293b; color:{st_col}; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold;'>{st_trend}</span></div>
+                        <div style='font-family:monospace; font-size:10px; color:#8a99ad;'><span style='color:#475569;'>Swings:</span> {struct.get('recent_sequence', 'N/A')}<br/><span style='color:#475569;'>Break:</span> {struct.get('last_break', 'N/A')}</div>
+                        <details style='{details_style}'><summary style='{summary_style}'>📖 What is this?</summary><div style='{content_style}'>Analyzes Higher Highs / Lower Lows to confirm the immediate structural trend.</div></details>
+                    </div>"""
+                    st.markdown(html, unsafe_allow_html=True)
+                    
+                with c_dq4:
+                    vp = ai_data.get('volume_profile', {})
+                    html = f"""<div style='background:rgba(255,255,255,0.02); padding:12px; border-left:3px solid #10b981; border-radius:4px;'>
+                        <b style='color:#cbd5e1;'>Volume Profile & VWAP</b><br/>
+                        <div style='font-family:monospace; font-size:10px; color:#8a99ad; margin-top:8px;'>
+                        <span style='color:#475569;'>VWAP:</span> <span style='color:#f59e0b;'>{vp.get('vwap', 'N/A')}</span><br/>
+                        <span style='color:#475569;'>POC:</span> <span style='color:#3b82f6;'>{vp.get('poc', 'N/A')}</span><br/>
+                        <span style='color:#475569;'>VAH:</span> {vp.get('vah', 'N/A')} | <span style='color:#475569;'>VAL:</span> {vp.get('val', 'N/A')}
+                        </div>
+                        <div style='margin-top:4px;'><span style='font-size:8px; color:#64748b; text-transform:uppercase;'>TICK VOLUME</span></div>
+                        <details style='{details_style}'><summary style='{summary_style}'>📖 What is this?</summary><div style='{content_style}'>Maps volume distribution over price to find fair value areas and institutional accumulation zones. VWAP represents intraday fair price.</div></details>
+                    </div>"""
+                    st.markdown(html, unsafe_allow_html=True)
+
+                st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
+
+                # ROW 4: BOTTOM SPLIT
+                col_sum1, col_sum2 = st.columns([1.5, 1.5])
                 with col_sum1:
                     with st.container(border=True):
-                        st.markdown(f"<p style='font-size:11px;font-weight:800;color:#64748b;letter-spacing:0.8px;margin-bottom:6px;text-transform:uppercase;'>DETERMINISTIC SMC EXECUTION</p>", unsafe_allow_html=True)
+                        st.markdown(f"<p style='font-size:11px;font-weight:800;color:#64748b;letter-spacing:0.8px;margin-bottom:6px;text-transform:uppercase;'>LLM MARKET SYNTHESIS & TARGETS</p>", unsafe_allow_html=True)
+                        
+                        st.markdown(f"<p style='font-size:12px; color:#ffffff; margin-top:8px;'><b>What is Happening:</b></p>", unsafe_allow_html=True)
+                        st.markdown(f"<p style='font-size:12px; color:#00ffcc; border-left:2px solid #00ffcc; padding-left:8px;'>{ai_data.get('what_is_happening', 'N/A')}</p>", unsafe_allow_html=True)
+                        
+                        st.markdown(f"<p style='font-size:12px; color:#ffffff; margin-top:8px;'><b>Evidence / Why:</b></p>", unsafe_allow_html=True)
+                        st.markdown(f"<p style='font-size:12px; color:#8a99ad; border-left:2px solid #8a99ad; padding-left:8px;'>{ai_data.get('why', 'N/A')}</p>", unsafe_allow_html=True)
+                        
+                        st.markdown(f"<p style='font-size:12px; color:#ffffff; margin-top:8px;'><b>What Matters Next (Target):</b></p>", unsafe_allow_html=True)
+                        st.markdown(f"<p style='font-size:12px; color:#f59e0b; border-left:2px solid #f59e0b; padding-left:8px;'>{ai_data.get('what_matters_next', 'N/A')}</p>", unsafe_allow_html=True)
+                        
+                        st.markdown(f"<p style='font-size:12px; color:#ffffff; margin-top:8px;'><b>Confirmation & Invalidation:</b></p>", unsafe_allow_html=True)
+                        st.markdown(f"<p style='font-size:11px; color:#8a99ad; margin-bottom:2px;'>Confirms: <span style='color:#00ffcc;'>{ai_data.get('what_confirms', 'N/A')}</span></p>", unsafe_allow_html=True)
+                        st.markdown(f"<p style='font-size:11px; color:#8a99ad; margin-bottom:2px;'>Invalidates: <span style='color:#ff5555;'>{ai_data.get('what_invalidates', 'N/A')}</span></p>", unsafe_allow_html=True)
+
+                        ar = ai_data.get('asian_range', {})
+                        if ar:
+                            st.markdown(f"<p style='font-size:12px; color:#ffffff; margin-top:16px;'><b>Asian Range:</b></p>", unsafe_allow_html=True)
+                            st.markdown(f"<div><span style='background:#1e293b; color:#f59e0b; padding:4px 8px; border-radius:4px; font-size:12px; font-weight:bold;'>High: {ar.get('asian_high')}</span> &nbsp; <span style='background:#1e293b; color:#f59e0b; padding:4px 8px; border-radius:4px; font-size:12px; font-weight:bold;'>Low: {ar.get('asian_low')}</span></div>", unsafe_allow_html=True)
+
+                        st.markdown(f"<p style='font-size:12px; color:#ffffff; margin-top:16px;'><b>Liquidity Pools (Targets):</b></p>", unsafe_allow_html=True)
+                        liq = ai_data.get('liquidity_zones', {})
+                        
+                        bsl_list = liq.get('bsl', [])
+                        bsl_str = ", ".join([str(pool.get("price")) if isinstance(pool, dict) else str(pool) for pool in bsl_list]) if bsl_list else "None"
+                        ssl_list = liq.get('ssl', [])
+                        ssl_str = ", ".join([str(pool.get("price")) if isinstance(pool, dict) else str(pool) for pool in ssl_list]) if ssl_list else "None"
+                        
+                        st.markdown(f"<p style='font-size:11px; color:#8a99ad; margin-bottom:2px;'>BSL: <span style='color:#00ffcc;'>{bsl_str}</span></p>", unsafe_allow_html=True)
+                        st.markdown(f"<p style='font-size:11px; color:#8a99ad; margin-bottom:2px;'>SSL: <span style='color:#ff5555;'>{ssl_str}</span></p>", unsafe_allow_html=True)
+                        st.markdown(f"<details style='{details_style}'><summary style='{summary_style}'>📖 Liquidity Matrix</summary><div style='{content_style}'><b>Definition:</b> Major swing points acting as stops (liquidity). Smart money targets these areas.</div></details>", unsafe_allow_html=True)
+                        
+                        st.markdown(f"<p style='font-size:12px; color:#ffffff; margin-top:16px;'><b>Fair Value Gaps (FVG):</b></p>", unsafe_allow_html=True)
+                        fvgs = ai_data.get('fvg_data', [])
+                        if fvgs:
+                            fvg_str = " ".join([f"<span style='color:{'#00ffcc' if 'BISI' in f['type'] else '#ff5555'}; border:1px solid {'#00ffcc' if 'BISI' in f['type'] else '#ff5555'}; padding:2px 4px; border-radius:2px;'>{'Bullish' if 'BISI' in f['type'] else 'Bearish'} [{f['bottom']} - {f['top']}]</span>" for f in fvgs[:3]])
+                            st.markdown(f"<div style='font-size:11px;'>{fvg_str}</div>", unsafe_allow_html=True)
+                        else:
+                            st.markdown(f"<p style='font-size:11px; color:#64748b;'>No massive imbalances detected.</p>", unsafe_allow_html=True)
+                        st.markdown(f"<details style='{details_style}'><summary style='{summary_style}'>📖 FVG Matrix</summary><div style='{content_style}'><b>Definition:</b> 3-candle price delivery imbalances acting as magnets for price.</div></details>", unsafe_allow_html=True)
+
+                        st.markdown(f"<p style='font-size:12px; color:#ffffff; margin-top:16px;'><b>Institutional Order Blocks:</b></p>", unsafe_allow_html=True)
+                        obs = ai_data.get('ob_data', [])
+                        if obs:
+                            for ob in obs[:2]:
+                                ob_color = "#00ffcc" if "Bullish" in ob['type'] else "#ff5555"
+                                st.markdown(f"<div style='font-size:11px; color:{ob_color}; border:1px dashed {ob_color}; padding:4px; display:inline-block; margin-right:4px; margin-bottom:4px; border-radius:4px;'>{ob['type']} [{ob['bottom']} - {ob['top']}]</div>", unsafe_allow_html=True)
+                        else:
+                            st.markdown(f"<p style='font-size:11px; color:#64748b;'>No unmitigated order blocks detected.</p>", unsafe_allow_html=True)
+                        st.markdown(f"<details style='{details_style}'><summary style='{summary_style}'>📖 What is this?</summary><div style='{content_style}'>The last opposing candle before an explosive move. These act as high probability bounce zones when price returns.</div></details>", unsafe_allow_html=True)
+
+                with col_sum2:
+                    with st.container(border=True):
+                        st.markdown(f"<p style='font-size:11px;font-weight:800;color:#64748b;letter-spacing:0.8px;margin-bottom:6px;text-transform:uppercase;'>DETERMINISTIC SMC EXECUTION MODEL</p>", unsafe_allow_html=True)
                         
                         conf = ai_data.get('confluence_bias', {})
                         bias = conf.get('bias', 'Unknown')
                         score = conf.get('confidence', 0)
+                        bias_color = "#00ffcc" if bias == "Bullish" else "#ff5555" if bias == "Bearish" else "#fbbf24"
                         
+                        st.markdown(f"""<div style='background:rgba(255,255,255,0.02); padding:12px; border-left:3px solid {bias_color}; border-radius:4px; margin-bottom:12px;'>
+                            <b style='color:#cbd5e1;'>Phase 15: Confluence Bias</b><br/>
+                            <div style='margin-top:8px; margin-bottom:4px;'><span style='background:#1e293b; color:{bias_color}; padding:4px 8px; border-radius:4px; font-size:13px; font-weight:bold;'>{bias} ({score}% Confluence)</span></div>
+                        </div>""", unsafe_allow_html=True)
+
                         scenario = ai_data.get('deterministic_scenario', {})
+                        st.markdown(f"""<div style='background:rgba(255,255,255,0.02); padding:12px; border-left:3px solid #8b5cf6; border-radius:4px; margin-bottom:12px;'>
+                            <b style='color:#cbd5e1;'>Phase 16: Trade Scenario</b><br/>
+                            <div style='font-family:monospace; font-size:11px; color:#8a99ad; margin-top:8px; line-height:1.5;'>
+                            <span style='color:#475569;'>Status:</span> <span style='color:#f59e0b; font-weight:bold;'>{scenario.get('status')}</span><br/>
+                            <span style='color:#475569;'>Reason:</span> <span style='color:#cbd5e1;'>{scenario.get('reason')}</span><br/>
+                            <span style='color:#475569;'>Action:</span> <span style='color:#cbd5e1;'>{scenario.get('setup')}</span><br/>
+                            <span style='color:#475569;'>Target:</span> <span style='color:#00ffcc;'>{scenario.get('target')}</span><br/>
+                            <span style='color:#475569;'>Invalidation:</span> <span style='color:#ff5555;'>{scenario.get('invalidation')}</span>
+                            </div>
+                        </div>""", unsafe_allow_html=True)
+                        
                         val = ai_data.get('validation', {})
                         v_status = val.get('status', 'INVALID')
+                        v_color = "#00ffcc" if v_status == "VALID" else "#ff5555"
+                        v_reasons = "<br/>".join([f"- {r}" for r in val.get('warnings', [])])
                         
-                        st.markdown(f"<p style='color:#ffffff; font-size:13px;'><b>Bias:</b> {bias} ({score}% Confluence)</p>", unsafe_allow_html=True)
-                        st.markdown(f"<p style='font-size:12px; color:#8a99ad;'><b>Target:</b> {scenario.get('target', 'N/A')}</p>", unsafe_allow_html=True)
-                        st.markdown(f"<p style='font-size:12px; color:#8a99ad;'><b>Invalidation:</b> {scenario.get('invalidation', 'N/A')}</p>", unsafe_allow_html=True)
-                        st.markdown(f"<p style='font-size:12px; color:#8a99ad;'><b>Status:</b> {v_status}</p>", unsafe_allow_html=True)
-                        
-                        if v_status == "INVALID":
-                            for w in val.get('warnings', []):
-                                st.markdown(f"<p style='font-size:11px; color:#ff5555; margin-bottom:2px;'>- {w}</p>", unsafe_allow_html=True)
+                        st.markdown(f"""<div style='background:rgba(255,255,255,0.02); padding:12px; border-left:3px solid {v_color}; border-radius:4px;'>
+                            <b style='color:#cbd5e1;'>Phase 17: Validation Engine</b><br/>
+                            <div style='margin-top:8px; margin-bottom:4px;'><span style='background:#1e293b; color:{v_color}; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold;'>{v_status}</span></div>
+                            <div style='font-family:monospace; font-size:10px; color:#ff5555; margin-top:4px;'>{v_reasons if v_status == "INVALID" else "<span style='color:#00ffcc;'>All clear for execution.</span>"}</div>
+                        </div>""", unsafe_allow_html=True)
 
-                with col_sum2:
                     with st.container(border=True):
                         st.markdown(f"<p style='font-size:11px;font-weight:800;color:#64748b;letter-spacing:0.8px;margin-bottom:6px;text-transform:uppercase;'>ML EDGE SCORE (RANDOM FOREST)</p>", unsafe_allow_html=True)
-                        if ml_buy > 0 or ml_sell > 0:
+                        if ml_buy > 0 or ml_sell > 0 or ml_neutral > 0:
                             st.markdown(f"<p style='font-size:13px; color:#00ffcc; margin-bottom:4px;'><b>BUY Probability:</b> {ml_buy}%</p>", unsafe_allow_html=True)
                             st.markdown(f"<p style='font-size:13px; color:#ff5555; margin-bottom:4px;'><b>SELL Probability:</b> {ml_sell}%</p>", unsafe_allow_html=True)
+                            st.markdown(f"<p style='font-size:13px; color:#fbbf24; margin-bottom:4px;'><b>NEUTRAL Probability:</b> {ml_neutral}%</p>", unsafe_allow_html=True)
                             st.markdown(f"<p style='font-size:11px; color:#64748b;'>Model Confidence: {ai_data.get('ml_confidence', 'Unknown')}</p>", unsafe_allow_html=True)
                         else:
                             st.markdown(f"<p style='font-size:12px; color:#8a99ad;'>Model data unavailable.</p>", unsafe_allow_html=True)
 
-                # --- ROW 3: LLM GENERATIVE SYNTHESIS ---
-                with st.container(border=True):
-                    st.markdown(f"<p style='font-size:11px;font-weight:800;color:#64748b;letter-spacing:0.8px;margin-bottom:6px;text-transform:uppercase;'>LLM MARKET SYNTHESIS</p>", unsafe_allow_html=True)
-                    st.markdown(f"<p style='font-size:12px; color:#8a99ad;'><b>Killzone:</b> {ai_data.get('killzone_context', 'N/A')}</p>", unsafe_allow_html=True)
-                    st.markdown(f"<p style='font-size:12px; color:#8a99ad;'><b>Liquidity:</b> {ai_data.get('liquidity_matrix', 'N/A')}</p>", unsafe_allow_html=True)
-                    st.markdown(f"<p style='font-size:12px; color:#8a99ad;'><b>FVGs & Arrays:</b> {ai_data.get('fvg_imbalances', 'N/A')}</p>", unsafe_allow_html=True)
-
-                st.markdown(f"<p style='font-size:10px; color:#64748b; margin-top:8px;'>Timestamp: {ai_data.get('timestamp','')} • Confidence: {ai_data.get('confidence','')} • {ai_data.get('disclaimer','')}</p>", unsafe_allow_html=True)
+                dq = ai_data.get("data_quality", {})
+                dq_str = f"Data: {dq.get('price_data', 'Unknown')} • News: {dq.get('news', 'Unknown')} • Vol: {dq.get('volume', 'Unknown')}"
+                st.markdown(f"<p style='font-size:10px; color:#64748b; margin-top:8px;'>Timestamp: {ai_data.get('timestamp','')} UTC • Confidence: {ai_data.get('confidence','')} • [Deterministic fallback logic used (Ollama unavailable or failed).]<br/>{ai_data.get('disclaimer','')}</p>", unsafe_allow_html=True)
             else:
                 st.warning(ai_data.get("error", "AI market analysis could not load live data."))
 
@@ -2773,9 +2922,35 @@ def render_live_dashboard():
             </div>
             """, unsafe_allow_html=True)
             
+            # Phase 17 Execution Lock Logic
+            ai_data_state = st.session_state.get("market_context_result")
+            is_locked = False
+            lock_reasons = []
+            
+            if ai_data_state and isinstance(ai_data_state, dict):
+                val_data = ai_data_state.get("validation", {})
+                if val_data.get("status") == "INVALID":
+                    is_locked = True
+                    lock_reasons = val_data.get("warnings", ["Unknown Reason"])
+                    
+            degen_override = False
+            if is_locked:
+                st.markdown(f"""
+                <div style="background:rgba(255,85,85,0.1); border:1px solid #ff5555; border-radius:8px; padding:12px; margin-bottom:12px;">
+                    <div style="color:#ff5555; font-weight:800; font-size:13px; margin-bottom:6px;">⚠️ AI VALIDATION LOCK ACTIVE</div>
+                    <div style="color:#cbd5e1; font-size:12px; margin-bottom:8px;">The deterministic engine has flagged this setup as INVALID due to:</div>
+                    <ul style="color:#ff5555; font-size:11px; margin-top:0;">
+                        {''.join([f"<li>{r}</li>" for r in lock_reasons])}
+                    </ul>
+                </div>
+                """, unsafe_allow_html=True)
+                degen_override = st.checkbox("Override AI Validation Lock (Degen Mode)", key="degen_override")
+                
+            disable_exec = is_locked and not degen_override
+            
             col_btn_buy, col_btn_sell = st.columns(2)
             with col_btn_buy:
-                if st.button("SUBMIT BUY ORDER", type="primary", key="btn_exec_buy", use_container_width=True):
+                if st.button("SUBMIT BUY ORDER", type="primary", key="btn_exec_buy", use_container_width=True, disabled=disable_exec):
                     with st.spinner("Submitting BUY order..."):
                         if trade_acc == "CAPITAL_REAL":
                             ok, msg = order_execution.execute_capital_trade(epic=term_symbol, direction="BUY", size=term_size, stop_loss=term_sl if term_sl > 0 else None, take_profit=term_tp if term_tp > 0 else None)
@@ -2787,7 +2962,7 @@ def render_live_dashboard():
                         else:
                             st.error(msg)
             with col_btn_sell:
-                if st.button("SUBMIT SELL ORDER", key="btn_exec_sell", use_container_width=True):
+                if st.button("SUBMIT SELL ORDER", key="btn_exec_sell", use_container_width=True, disabled=disable_exec):
                     with st.spinner("Submitting SELL order..."):
                         if trade_acc == "CAPITAL_REAL":
                             ok, msg = order_execution.execute_capital_trade(epic=term_symbol, direction="SELL", size=term_size, stop_loss=term_sl if term_sl > 0 else None, take_profit=term_tp if term_tp > 0 else None)
@@ -2844,5 +3019,70 @@ def render_live_dashboard():
                                 st.rerun()
                             else:
                                 st.error(msg)
+                                
+    with tab_sandbox:
+        st.markdown("<h3 style='color:#ffffff;font-size:1.3rem;margin-bottom:6px;font-weight:800;text-transform:uppercase;'>Multi-Timeframe Strategy Sandbox</h3>", unsafe_allow_html=True)
+        st.markdown("<p style='color:#94a3b8;font-size:0.9rem;margin-bottom:24px;'>Simulate mechanical edge models on historical data without risking live capital.</p>", unsafe_allow_html=True)
+        
+        with st.container(border=True):
+            st.markdown("<div style='font-size:0.75rem;font-weight:800;color:#00ffcc;letter-spacing:1px;margin-bottom:12px;'>BACKTEST CONFIGURATION</div>", unsafe_allow_html=True)
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                test_symbol = st.selectbox("Asset Symbol", ["EURUSD", "GBPUSD", "XAUUSD", "BTCUSD", "US30", "NAS100", "SPX500"], index=0)
+                test_timeframe = st.selectbox("Granularity", ["1h", "1d"], index=0, help="Higher timeframes are faster to simulate over long periods.")
+            with col2:
+                test_strategy = st.selectbox("Strategy Template", ["Trend Continuation", "Mean Reversion"])
+                test_capital = st.number_input("Starting Capital ($)", value=10000.0, step=1000.0)
+            with col3:
+                test_risk = st.number_input("Risk Per Trade (%)", value=1.0, step=0.1, max_value=5.0)
+                test_sl = st.number_input("Stop Loss (ATR Multiple)", value=1.5, step=0.1)
+                test_tp = st.number_input("Take Profit (ATR Multiple)", value=2.0, step=0.1)
+                
+            run_test = st.button("RUN SIMULATION", use_container_width=True, type="primary")
+            
+        if run_test:
+            with st.spinner("Fetching historical data and running simulation..."):
+                import backtester
+                res = backtester.run_backtest(
+                    symbol=test_symbol,
+                    timeframe=test_timeframe,
+                    strategy=test_strategy,
+                    risk_pct=test_risk,
+                    sl_atr=test_sl,
+                    tp_atr=test_tp,
+                    capital=test_capital
+                )
+                
+                if "error" in res:
+                    st.error(res["error"])
+                else:
+                    st.success("Simulation Complete!")
+                    metrics = res["metrics"]
+                    
+                    st.markdown("<div style='margin-top:24px;font-size:0.75rem;font-weight:800;color:#bef264;letter-spacing:1px;margin-bottom:12px;'>PERFORMANCE METRICS</div>", unsafe_allow_html=True)
+                    mc1, mc2, mc3, mc4, mc5 = st.columns(5)
+                    mc1.metric("Win Rate", metrics["Win Rate"])
+                    mc2.metric("Profit Factor", metrics["Profit Factor"])
+                    mc3.metric("Max Drawdown", metrics["Max Drawdown"])
+                    mc4.metric("Total Trades", metrics["Total Trades"])
+                    mc5.metric("Final Capital", metrics["Final Capital"])
+                    
+                    st.markdown("<div style='margin-top:24px;font-size:0.75rem;font-weight:800;color:#00ffcc;letter-spacing:1px;margin-bottom:12px;'>EQUITY CURVE</div>", unsafe_allow_html=True)
+                    eq_curve = res["equity_curve"]
+                    df_eq = pd.DataFrame(eq_curve)
+                    df_eq['time'] = pd.to_datetime(df_eq['time'])
+                    fig = px.line(df_eq, x='time', y='equity', color_discrete_sequence=['#00ffcc'])
+                    fig.update_layout(
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        font=dict(color='#94a3b8'),
+                        margin=dict(l=0, r=0, t=10, b=0),
+                        xaxis=dict(showgrid=False, title=""),
+                        yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)', title="Equity ($)")
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    with st.expander("View Trade Log"):
+                        st.dataframe(pd.DataFrame(res["trades"]), use_container_width=True)
 
 render_live_dashboard()

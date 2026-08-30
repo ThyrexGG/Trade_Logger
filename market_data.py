@@ -162,14 +162,36 @@ def calculate_liquidity_zones(df, left_bars=10, right_bars=10):
     
     # STRICT GEOMETRY VALIDATION (Phase 8)
     # BSL pools must be physically above the current price to be targeted as buy-side liquidity
-    valid_bsl = [round(float(h), 5) for h in swing_highs if h > current_price]
-    
+    valid_bsl = []
+    for h in swing_highs:
+        val = round(float(h), 5)
+        if val > current_price:
+            dist = round(abs(val - current_price), 5)
+            valid_bsl.append({
+                "type": "BSL",
+                "price": val,
+                "source": "Swing High",
+                "distance_from_price": dist,
+                "status": "UNTAPPED"
+            })
+            
     # SSL pools must be physically below the current price to be targeted as sell-side liquidity
-    valid_ssl = [round(float(l), 5) for l in swing_lows if l < current_price]
+    valid_ssl = []
+    for l in swing_lows:
+        val = round(float(l), 5)
+        if val < current_price:
+            dist = round(abs(current_price - val), 5)
+            valid_ssl.append({
+                "type": "SSL",
+                "price": val,
+                "source": "Swing Low",
+                "distance_from_price": dist,
+                "status": "UNTAPPED"
+            })
     
     # Sort BSL ascending (closest resistance first), SSL descending (closest support first)
-    valid_bsl.sort()
-    valid_ssl.sort(reverse=True)
+    valid_bsl.sort(key=lambda x: x['distance_from_price'])
+    valid_ssl.sort(key=lambda x: x['distance_from_price'])
     
     # Return the closest 3 valid pools for each
     return {
@@ -292,6 +314,16 @@ def detect_fvgs(df):
     recent_df = df.tail(50).copy().reset_index(drop=True)
     unmitigated_fvgs = []
     
+    # Calculate a rough ATR for dynamic gap threshold filtering (avoid microscopic gaps)
+    tr1 = recent_df['high'] - recent_df['low']
+    tr2 = abs(recent_df['high'] - recent_df['close'].shift())
+    tr3 = abs(recent_df['low'] - recent_df['close'].shift())
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    atr = tr.mean()
+    min_gap_size = atr * 0.05 if atr > 0 else 0.0001
+    
+    current_idx = len(recent_df) - 1
+    
     for i in range(2, len(recent_df)):
         c1 = recent_df.iloc[i-2]
         c3 = recent_df.iloc[i]
@@ -300,21 +332,29 @@ def detect_fvgs(df):
         
         # Bullish FVG: C1 High < C3 Low
         if c1['high'] < c3['low']:
-            fvg = {
-                "type": "Bullish",
-                "top": round(float(c3['low']), 5),
-                "bottom": round(float(c1['high']), 5),
-                "index": i
-            }
+            gap_size = float(c3['low'] - c1['high'])
+            if gap_size > min_gap_size:
+                fvg = {
+                    "type": "Bullish",
+                    "top": round(float(c3['low']), 5),
+                    "bottom": round(float(c1['high']), 5),
+                    "creation_time": int(c3['time']),
+                    "age_candles": current_idx - i,
+                    "status": "FRESH"
+                }
             
         # Bearish FVG: C1 Low > C3 High
         elif c1['low'] > c3['high']:
-            fvg = {
-                "type": "Bearish",
-                "top": round(float(c1['low']), 5),
-                "bottom": round(float(c3['high']), 5),
-                "index": i
-            }
+            gap_size = float(c1['low'] - c3['high'])
+            if gap_size > min_gap_size:
+                fvg = {
+                    "type": "Bearish",
+                    "top": round(float(c1['low']), 5),
+                    "bottom": round(float(c3['high']), 5),
+                    "creation_time": int(c3['time']),
+                    "age_candles": current_idx - i,
+                    "status": "FRESH"
+                }
             
         if fvg:
             # Mitigation Check: Scan forward from candle i+1 to end of dataframe
@@ -323,19 +363,21 @@ def detect_fvgs(df):
                 future_c = recent_df.iloc[j]
                 
                 if fvg['type'] == 'Bullish':
-                    # If future price dips below the gap 'top', it's tested/mitigated
-                    if future_c['low'] <= fvg['top']:
+                    # If future price dips below the gap 'bottom', it's fully tested/mitigated
+                    if future_c['low'] <= fvg['bottom']:
                         is_mitigated = True
                         break
+                    elif future_c['low'] <= fvg['top']:
+                        fvg['status'] = "PARTIALLY_FILLED"
                 elif fvg['type'] == 'Bearish':
-                    # If future price rallies above the gap 'bottom', it's tested/mitigated
-                    if future_c['high'] >= fvg['bottom']:
+                    # If future price rallies above the gap 'top', it's fully tested/mitigated
+                    if future_c['high'] >= fvg['top']:
                         is_mitigated = True
                         break
+                    elif future_c['high'] >= fvg['bottom']:
+                        fvg['status'] = "PARTIALLY_FILLED"
                         
             if not is_mitigated:
-                # Remove index before returning to save tokens in prompt
-                del fvg['index']
                 unmitigated_fvgs.append(fvg)
                 
     # Return up to 4 most recent unmitigated gaps
@@ -354,6 +396,7 @@ def detect_order_blocks(df, lookback=50):
         
     recent_df = df.tail(lookback).copy().reset_index(drop=True)
     obs = []
+    current_idx = len(recent_df) - 1
     
     for i in range(2, len(recent_df) - 2):
         c = recent_df.iloc[i]
@@ -375,7 +418,11 @@ def detect_order_blocks(df, lookback=50):
                     obs.append({
                         "type": "Bullish OB",
                         "top": round(ob_top, 5),
-                        "bottom": round(ob_bottom, 5)
+                        "bottom": round(ob_bottom, 5),
+                        "origin_timestamp": int(c['time']),
+                        "origin_candle": f"O:{c['open']:.5f} H:{c['high']:.5f} L:{c['low']:.5f} C:{c['close']:.5f}",
+                        "age_candles": current_idx - i,
+                        "mitigation_status": "UNMITIGATED"
                     })
                     
         # Bearish OB: C is Bullish, C+1 and C+2 are strongly Bearish
@@ -395,7 +442,11 @@ def detect_order_blocks(df, lookback=50):
                     obs.append({
                         "type": "Bearish OB",
                         "top": round(ob_top, 5),
-                        "bottom": round(ob_bottom, 5)
+                        "bottom": round(ob_bottom, 5),
+                        "origin_timestamp": int(c['time']),
+                        "origin_candle": f"O:{c['open']:.5f} H:{c['high']:.5f} L:{c['low']:.5f} C:{c['close']:.5f}",
+                        "age_candles": current_idx - i,
+                        "mitigation_status": "UNMITIGATED"
                     })
                     
     return obs[-3:]
@@ -488,23 +539,30 @@ def calculate_market_structure(df, lookback=5):
     df['swing_low'] = df['low'] == df['low'].rolling(window=lookback*2+1, center=True).min()
     
     # Extract the actual swing points
-    swing_highs = df[df['swing_high']]['high'].dropna().values.tolist()
-    swing_lows = df[df['swing_low']]['low'].dropna().values.tolist()
+    highs = df[df['swing_high']]
+    lows = df[df['swing_low']]
     
-    if len(swing_highs) < 2 or len(swing_lows) < 2:
-        return {"trend": "Consolidating", "recent_sequence": "Insufficient Data", "last_break": "None"}
+    if len(highs) < 2 or len(lows) < 2:
+        return {
+            "trend": "INSUFFICIENT STRUCTURAL DATA",
+            "recent_sequence": "N/A",
+            "last_break": "No confirmed swing/break event detected.",
+            "last_swing_high": None,
+            "last_swing_low": None
+        }
         
-    last_sh = swing_highs[-1]
-    prev_sh = swing_highs[-2]
+    last_sh = float(highs['high'].iloc[-1])
+    prev_sh = float(highs['high'].iloc[-2])
     
-    last_sl = swing_lows[-1]
-    prev_sl = swing_lows[-2]
+    last_sl = float(lows['low'].iloc[-1])
+    prev_sl = float(lows['low'].iloc[-2])
     
     # Determine Sequence
     high_seq = "HH" if last_sh > prev_sh else "LH"
     low_seq = "HL" if last_sl > prev_sl else "LL"
     
-    current_price = df['close'].iloc[-1]
+    current_price = float(df['close'].iloc[-1])
+    current_time = int(df['time'].iloc[-1])
     
     # Determine BOS / MSS state
     structure_bias = "Consolidating"
@@ -517,20 +575,20 @@ def calculate_market_structure(df, lookback=5):
     elif high_seq == "HH" and low_seq == "LL":
         structure_bias = "Expanding Volatility (Megaphone)"
     
-    last_break = "None"
+    break_event = "No confirmed break"
     if current_price > last_sh:
-        last_break = "Bullish BOS/MSS (Price broke above last Swing High)"
+        break_event = f"Bullish BOS/MSS. Broken swing high: {last_sh:.5f}. Confirmation: Candle close. Break timestamp: {current_time} UTC."
         structure_bias = "Bullish Breakout"
     elif current_price < last_sl:
-        last_break = "Bearish BOS/MSS (Price broke below last Swing Low)"
+        break_event = f"Bearish BOS/MSS. Broken swing low: {last_sl:.5f}. Confirmation: Candle close. Break timestamp: {current_time} UTC."
         structure_bias = "Bearish Breakdown"
         
     return {
         "trend": structure_bias,
         "recent_sequence": f"{high_seq} and {low_seq}",
-        "last_break": last_break,
-        "last_swing_high": round(float(last_sh), 5),
-        "last_swing_low": round(float(last_sl), 5)
+        "last_break": break_event,
+        "last_swing_high": round(last_sh, 5),
+        "last_swing_low": round(last_sl, 5)
     }
 
 def detect_active_killzone():
@@ -607,18 +665,103 @@ def calculate_asian_range(df):
         }
     return None
 
+import time
+_API_CACHE = {}
+
 def fetch_macro_news(symbol):
     """
     Phase 12: Macro/News Risk Engine.
-    Placeholder/Mock for economic calendar data.
+    Fetches live economic calendar data from ForexFactory to determine event risk.
     """
-    # Deterministic mock based on symbol for pipeline completion
-    if "USD" in symbol:
-        return {"risk_level": "HIGH", "event": "FOMC Press Conference", "time_to_event": "2h 15m", "impact": "High volatility expected. Technicals may be invalidated."}
-    elif "EUR" in symbol:
-        return {"risk_level": "MEDIUM", "event": "ECB Interest Rate Decision", "time_to_event": "Tomorrow", "impact": "Standard Euro volatility."}
-    else:
-        return {"risk_level": "LOW", "event": "No high-impact news", "time_to_event": "N/A", "impact": "Technicals respected."}
+    # Check Cache (1-hour TTL) to prevent HTTP 429 Rate Limits
+    cache_key = f"news_{symbol}"
+    if cache_key in _API_CACHE:
+        data, timestamp = _API_CACHE[cache_key]
+        if time.time() - timestamp < 3600:
+            return data
+
+    try:
+        url = 'https://nfs.faireconomy.media/ff_calendar_thisweek.json'
+        import requests
+        from datetime import datetime, timezone
+        
+        # 5-second timeout so the trading terminal never hangs
+        res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=5)
+        if res.status_code != 200:
+            raise ValueError(f"Status Code {res.status_code}")
+            
+        events = res.json()
+        now_utc = datetime.now(timezone.utc)
+        
+        # Extract target currencies from symbol (e.g. EURUSD -> EUR, USD)
+        target_currencies = ["All"]
+        sym = symbol.upper()
+        if "USD" in sym: target_currencies.append("USD")
+        if "EUR" in sym: target_currencies.append("EUR")
+        if "GBP" in sym: target_currencies.append("GBP")
+        if "JPY" in sym: target_currencies.append("JPY")
+        if "AUD" in sym: target_currencies.append("AUD")
+        if "NZD" in sym: target_currencies.append("NZD")
+        if "CAD" in sym: target_currencies.append("CAD")
+        if "CHF" in sym: target_currencies.append("CHF")
+        if "XAU" in sym or "GOLD" in sym: target_currencies.append("USD")
+        if "US100" in sym or "NAS100" in sym or "US30" in sym or "SPX" in sym: target_currencies.append("USD")
+        
+        closest_event = None
+        min_delta = float('inf')
+        
+        for e in events:
+            if e.get("impact") == "High" and e.get("country") in target_currencies:
+                try:
+                    # Date format: 2026-08-30T11:15:00-04:00
+                    ev_date_str = e.get("date", "")
+                    if not ev_date_str: continue
+                    ev_dt = datetime.fromisoformat(ev_date_str).astimezone(timezone.utc)
+                    
+                    delta_seconds = (ev_dt - now_utc).total_seconds()
+                    
+                    # We only care about events in the future (or very recently passed)
+                    if delta_seconds > -3600 and delta_seconds < min_delta:
+                        min_delta = delta_seconds
+                        closest_event = e
+                        closest_event['delta_seconds'] = delta_seconds
+                except Exception:
+                    continue
+                    
+        if closest_event:
+            hrs = closest_event['delta_seconds'] / 3600.0
+            time_str = f"in {hrs:.1f}h" if hrs > 0 else f"{-hrs:.1f}h ago"
+            
+            risk = "HIGH" if hrs < 12 else "MEDIUM"
+            result = {
+                "risk_level": risk, 
+                "event": f"{closest_event['country']} {closest_event['title']}", 
+                "time_to_event": time_str, 
+                "impact": "High volatility expected. Technicals may be invalidated.", 
+                "affected_assets": [closest_event['country']]
+            }
+        else:
+            result = {
+                "risk_level": "LOW", 
+                "event": "No imminent high-impact news", 
+                "time_to_event": "N/A", 
+                "impact": "Technicals respected.", 
+                "affected_assets": []
+            }
+            
+        _API_CACHE[cache_key] = (result, time.time())
+        return result
+            
+    except Exception as e:
+        print(f"News fetch error: {e}")
+        # Graceful fallback on network failure
+        return {
+            "risk_level": "UNKNOWN", 
+            "event": "News API Unavailable", 
+            "time_to_event": "N/A", 
+            "impact": "Fallback: Trade with standard risk.", 
+            "affected_assets": []
+        }
 
 def fetch_cot_data(symbol):
     """
@@ -626,26 +769,95 @@ def fetch_cot_data(symbol):
     Placeholder/Mock for institutional positioning (CFTC).
     """
     if "XAU" in symbol or "GOLD" in symbol:
-        return {"commercial_bias": "Net Long (+45k contracts)", "speculator_bias": "Net Short (-20k contracts)", "sentiment": "Strong Bullish Sponsorship"}
+        return {"commercial_bias": "Net Long (+45k contracts)", "speculator_bias": "Net Short (-20k contracts)", "sentiment": "COT POSITIONING: Current positioning is consistent with XAU upside risk. Not a short-term timing signal."}
     elif "USD" in symbol:
-        return {"commercial_bias": "Net Short (-15k contracts)", "speculator_bias": "Net Long (+10k contracts)", "sentiment": "Bearish USD Reversal Imminent"}
+        return {"commercial_bias": "Net Short (-15k contracts)", "speculator_bias": "Net Long (+10k contracts)", "sentiment": "COT POSITIONING: Current positioning is consistent with USD downside risk. Not a short-term timing signal."}
     else:
-        return {"commercial_bias": "Neutral", "speculator_bias": "Neutral", "sentiment": "No clear institutional footprint"}
+        return {"commercial_bias": "Neutral", "speculator_bias": "Neutral", "sentiment": "No clear institutional footprint in recent CFTC data."}
 
 def fetch_cross_asset(symbol):
     """
     Phase 14: Cross-Asset Correlation Engine.
-    Checks DXY (US Dollar Index) trend if trading a USD pair.
-    Placeholder mock logic for architecture completion.
     """
-    if symbol in ["EURUSD", "GBPUSD"]:
-        return {"asset": "DXY", "correlation": "Inverse", "dxy_trend": "Bullish", "signal_filter": "Headwinds for EURUSD longs. Wait for DXY resistance."}
-    elif symbol in ["USDJPY", "USDCAD"]:
-        return {"asset": "DXY", "correlation": "Direct", "dxy_trend": "Bullish", "signal_filter": "Tailwinds for USD longs. High probability setup."}
-    elif symbol in ["XAUUSD", "BTCUSD"]:
-        return {"asset": "US10Y", "correlation": "Inverse", "dxy_trend": "Bearish (Yields Dropping)", "signal_filter": "Strong macro tailwind for Gold/BTC longs."}
+    sym = symbol.upper()
+    
+    cache_key = f"cross_asset_{sym}"
+    if cache_key in _API_CACHE:
+        data, timestamp = _API_CACHE[cache_key]
+        if time.time() - timestamp < 3600:
+            return data
+            
+    proxy_ticker = ""
+    proxy_name = ""
+    correlation = ""
+    
+    if sym in ["EURUSD", "GBPUSD", "AUDUSD", "NZDUSD"]:
+        proxy_ticker = "DX-Y.NYB"
+        proxy_name = "DXY"
+        correlation = "Inverse"
+    elif sym in ["USDJPY", "USDCAD", "USDCHF"]:
+        proxy_ticker = "DX-Y.NYB"
+        proxy_name = "DXY"
+        correlation = "Direct"
+    elif "XAU" in sym or "GOLD" in sym or "BTC" in sym or "SILVER" in sym or "XAG" in sym:
+        proxy_ticker = "^TNX"
+        proxy_name = "US10Y"
+        correlation = "Inverse"
+    elif "US100" in sym or "NAS100" in sym or "US30" in sym or "SPX" in sym or "GER40" in sym:
+        proxy_ticker = "^VIX"
+        proxy_name = "VIX"
+        correlation = "Inverse"
     else:
-        return {"asset": "S&P500", "correlation": "Risk-On", "dxy_trend": "Neutral", "signal_filter": "Equities dictating flow."}
+        return {"asset": "S&P500", "correlation": "Risk-On Context", "dxy_trend": "Neutral", "signal_filter": "Mixed / Unclear macro flow."}
+        
+    try:
+        import yfinance as yf
+        import numpy as np
+        
+        data = yf.Ticker(proxy_ticker).history(period="5d")
+        if data.empty or len(data) < 3:
+            raise ValueError("Insufficient proxy data")
+            
+        closes = data['Close'].values
+        x = np.arange(len(closes))
+        slope, _ = np.polyfit(x, closes, 1)
+        
+        trend = "Bullish" if slope > 0 else "Bearish"
+        
+        # Calculate Tailwind / Headwind
+        signal = ""
+        if correlation == "Inverse":
+            if trend == "Bullish":
+                signal = f"Headwind: {proxy_name} strength provides a macro headwind for longs."
+            else:
+                signal = f"Supportive: Dropping {proxy_name} provides a macro tailwind for longs."
+        else: # Direct
+            if trend == "Bullish":
+                signal = f"Supportive: {proxy_name} strength provides a macro tailwind for longs."
+            else:
+                signal = f"Headwind: Dropping {proxy_name} provides a macro headwind for longs."
+                
+        # Add actual percentage change for context
+        pct_change = ((closes[-1] - closes[0]) / closes[0]) * 100
+        trend_str = f"{trend} ({pct_change:+.2f}% over 5d)"
+        
+        result = {
+            "asset": proxy_name,
+            "correlation": f"Generally {correlation}",
+            "dxy_trend": trend_str,
+            "signal_filter": signal
+        }
+        _API_CACHE[cache_key] = (result, time.time())
+        return result
+        
+    except Exception as e:
+        print(f"Cross-Asset fetch error: {e}")
+        return {
+            "asset": proxy_name,
+            "correlation": f"Generally {correlation}",
+            "dxy_trend": "UNKNOWN",
+            "signal_filter": "API Unavailable. Trade with standard risk."
+        }
 
 def calculate_confluence(ai_data):
     """
@@ -655,53 +867,86 @@ def calculate_confluence(ai_data):
     score = 0
     max_score = 6
     
+    supporting = []
+    counter = []
+    
     # MTF Alignment
     mtf = ai_data.get('mtf_alignment', '')
-    if "Bullish" in mtf: score += 1
-    elif "Bearish" in mtf: score -= 1
+    if "Bullish" in mtf: 
+        score += 1
+        supporting.append(f"MTF Bullish Aligned")
+    elif "Bearish" in mtf: 
+        score -= 1
+        counter.append(f"MTF Bearish Aligned")
     
     # Market Regime
     reg = ai_data.get('market_regime', '')
-    if "Bullish" in reg: score += 1
-    elif "Bearish" in reg: score -= 1
+    if "Bullish" in reg: 
+        score += 1
+        supporting.append(f"Volatility expanding upwards")
+    elif "Bearish" in reg: 
+        score -= 1
+        counter.append(f"Volatility expanding downwards")
         
     # Market Structure
     struct = ai_data.get('market_structure', {}).get('trend', '')
-    if "Bullish" in struct: score += 1
-    elif "Bearish" in struct: score -= 1
+    if "Bullish" in struct: 
+        score += 1
+        supporting.append(f"Bullish Market Structure")
+    elif "Bearish" in struct: 
+        score -= 1
+        counter.append(f"Bearish Market Structure")
         
     # ML Edge
-    buy_prob = ai_data.get('ml_data', {}).get('buy_prob', 0)
-    sell_prob = ai_data.get('ml_data', {}).get('sell_prob', 0)
-    if buy_prob > 50: score += 1
-    elif sell_prob > 50: score -= 1
+    buy_prob = ai_data.get('ml_prob_buy', 0)
+    sell_prob = ai_data.get('ml_prob_sell', 0)
+    if buy_prob > 50: 
+        score += 1
+        supporting.append(f"ML Model favors longs ({buy_prob}%)")
+    elif sell_prob > 50: 
+        score -= 1
+        counter.append(f"ML Model favors shorts ({sell_prob}%)")
         
     # COT / Macro (Simplified)
     cot = ai_data.get('cot_data', {}).get('sentiment', '')
-    if "Bullish" in cot: score += 1
-    elif "Bearish" in cot: score -= 1
+    if "upside" in cot: 
+        score += 1
+        supporting.append("COT positioning favors longs")
+    elif "downside" in cot: 
+        score -= 1
+        counter.append("COT positioning favors shorts")
         
     cross = ai_data.get('cross_asset', {}).get('signal_filter', '')
-    if "tailwind" in cross.lower(): score += 1
-    elif "headwind" in cross.lower(): score -= 1
+    if "tailwind" in cross.lower(): 
+        score += 1
+        supporting.append(f"Cross-asset macro tailwind")
+    elif "headwind" in cross.lower(): 
+        score -= 1
+        counter.append(f"Cross-asset macro headwind")
 
     # Determine Bias
     if score >= 3:
         bias = "Bullish"
-        conf = min(round((score / max_score) * 100), 100)
+        conf = "Moderate" if score <= 4 else "Strong"
     elif score <= -3:
         bias = "Bearish"
-        conf = min(round((abs(score) / max_score) * 100), 100)
+        conf = "Moderate" if score >= -4 else "Strong"
     else:
         bias = "Neutral"
-        conf = min(round((abs(score) / max_score) * 100), 100)
+        conf = "Low / Weak"
         
-    return {"bias": bias, "confidence": conf, "raw_score": score}
+    return {
+        "bias": bias, 
+        "confidence": conf, 
+        "raw_score": score,
+        "supporting_evidence": supporting,
+        "counter_evidence": counter
+    }
 
 def build_trade_scenarios(ai_data, bias):
     """
     Phase 16: Scenario Engine.
-    Deterministically builds targets (Liquidity) and invalidation (Order Blocks).
+    Deterministically builds structured targets, validation geometry, and WAIT logic.
     """
     liq = ai_data.get('liquidity_zones', {})
     obs = ai_data.get('ob_data', [])
@@ -717,24 +962,83 @@ def build_trade_scenarios(ai_data, bias):
         if "Bearish" in ob.get('type', '') and bear_ob is None:
             bear_ob = ob.get('top')
             
-    scenario = {"setup": "Wait for clear market structure.", "target": "N/A", "invalidation": "N/A"}
+    # Default to NO-TRADE state
+    scenario = {
+        "status": "NO-TRADE",
+        "reason": "Bias is Neutral. Waiting for clear market structure.",
+        "setup": "N/A",
+        "target": "N/A",
+        "invalidation": "N/A",
+        "geometry": "INVALID"
+    }
     
     if bias == "Bullish":
-        target = bsl[0] if bsl else "Open Air (No immediate BSL)"
-        inval = bull_ob if bull_ob else "Recent Swing Low"
-        scenario = {
-            "setup": "Wait for sweep of SSL or tap into Bullish FVG/OB, then look for MSS.",
-            "target": str(target),
-            "invalidation": str(inval)
-        }
+        if not bsl:
+            scenario = {
+                "status": "NO-TRADE",
+                "reason": "INSUFFICIENT LIQUIDITY TARGET",
+                "setup": "Cannot construct a bullish scenario without a valid BSL target above price.",
+                "target": "N/A",
+                "invalidation": "N/A",
+                "geometry": "INVALID"
+            }
+        else:
+            target = bsl[0]
+            inval = bull_ob if bull_ob else ai_data.get('market_structure', {}).get('last_swing_low', None)
+            
+            # Verify SL < Entry < TP Geometry implicitly by knowing inval < target
+            if inval and float(inval) < float(target):
+                scenario = {
+                    "status": "WAITING",
+                    "reason": "Awaiting lower-timeframe MSS trigger.",
+                    "setup": "Wait for sweep of SSL or tap into Bullish FVG/OB, then look for MSS.",
+                    "target": str(target),
+                    "invalidation": str(inval),
+                    "geometry": "VALID"
+                }
+            else:
+                scenario = {
+                    "status": "NO-TRADE",
+                    "reason": "SCENARIO GEOMETRY REJECTED",
+                    "setup": "Calculated invalidation level is higher than or equal to target level.",
+                    "target": str(target),
+                    "invalidation": str(inval),
+                    "geometry": "INVALID"
+                }
+                
     elif bias == "Bearish":
-        target = ssl[0] if ssl else "Open Air (No immediate SSL)"
-        inval = bear_ob if bear_ob else "Recent Swing High"
-        scenario = {
-            "setup": "Wait for sweep of BSL or tap into Bearish FVG/OB, then look for MSS.",
-            "target": str(target),
-            "invalidation": str(inval)
-        }
+        if not ssl:
+            scenario = {
+                "status": "NO-TRADE",
+                "reason": "INSUFFICIENT LIQUIDITY TARGET",
+                "setup": "Cannot construct a bearish scenario without a valid SSL target below price.",
+                "target": "N/A",
+                "invalidation": "N/A",
+                "geometry": "INVALID"
+            }
+        else:
+            target = ssl[0]
+            inval = bear_ob if bear_ob else ai_data.get('market_structure', {}).get('last_swing_high', None)
+            
+            # Verify TP < Entry < SL Geometry implicitly by knowing target < inval
+            if inval and float(target) < float(inval):
+                scenario = {
+                    "status": "WAITING",
+                    "reason": "Awaiting lower-timeframe MSS trigger.",
+                    "setup": "Wait for sweep of BSL or tap into Bearish FVG/OB, then look for MSS.",
+                    "target": str(target),
+                    "invalidation": str(inval),
+                    "geometry": "VALID"
+                }
+            else:
+                scenario = {
+                    "status": "NO-TRADE",
+                    "reason": "SCENARIO GEOMETRY REJECTED",
+                    "setup": "Calculated invalidation level is lower than or equal to target level.",
+                    "target": str(target),
+                    "invalidation": str(inval),
+                    "geometry": "INVALID"
+                }
     
     return scenario
 
@@ -743,22 +1047,32 @@ def validate_trade_model(ai_data, confluence):
     Phase 17: Final Validation Engine.
     Sanity checks macro risk and session timing to flag invalid setups.
     """
-    macro_risk = ai_data.get('macro_data', {}).get('risk_level', 'LOW')
+    macro = ai_data.get('macro_data', {})
+    macro_risk = macro.get('risk_level', 'LOW')
+    affected_assets = macro.get('affected_assets', [])
+    sym = ai_data.get('symbol', '')
+    
     kz = ai_data.get('killzone', 'Dead Zone')
-    conf = confluence.get('confidence', 0)
+    conf_score = confluence.get('raw_score', 0)
     
     status = "VALID"
     reasons = []
     
-    if macro_risk == "HIGH":
+    # Event only affects asset if symbol contains the currency (e.g. "USD" in "XAUUSD")
+    asset_affected = False
+    for asset in affected_assets:
+        if asset in sym:
+            asset_affected = True
+            
+    if macro_risk == "HIGH" and asset_affected:
         status = "INVALID"
-        reasons.append("High-Impact Macro Event Pending")
+        reasons.append(f"High-Impact Macro Event Pending ({macro.get('event')})")
         
     if "Dead Zone" in kz or "Consolidation" in kz:
         status = "INVALID"
         reasons.append("Outside Active Killzone (Low Volatility)")
         
-    if confluence.get('bias') == "Neutral" or conf < 40:
+    if confluence.get('bias') == "Neutral" or abs(conf_score) < 3:
         status = "INVALID"
         reasons.append("Low Technical Confluence (Choppy Market)")
         

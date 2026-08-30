@@ -18,6 +18,7 @@ except Exception:
     pass
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip('"\' ')
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "").strip('"\' ')
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "").strip('"\' ')
 
 def send_onesignal_push(title, message, data=None):
     """Sends native push notification to mobile devices via OneSignal REST API."""
@@ -64,6 +65,33 @@ def send_telegram_alert(message_markdown):
         return resp.status_code == 200
     except Exception as e:
         print(f"Telegram alert error: {e}")
+        return False
+
+def send_discord_alert(title, description, color=0x00FFCC, fields=None):
+    """Sends a rich embed message to a Discord webhook."""
+    if not DISCORD_WEBHOOK_URL:
+        return False
+        
+    embed = {
+        "title": title,
+        "description": description,
+        "color": color
+    }
+    
+    if fields:
+        embed["fields"] = fields
+        
+    payload = {
+        "username": "TradeLogger Engine",
+        "avatar_url": "https://cdn-icons-png.flaticon.com/512/3665/3665939.png",
+        "embeds": [embed]
+    }
+    
+    try:
+        resp = requests.post(DISCORD_WEBHOOK_URL, json=payload, timeout=8)
+        return resp.status_code in [200, 204]
+    except Exception as e:
+        print(f"Discord alert error: {e}")
         return False
 
 def send_windows_toast(title, message):
@@ -141,13 +169,16 @@ def notify_trade_closed(trade, rules=None):
     if is_win and pnl >= big_win_thresh:
         title = f"BIG WIN: +${pnl:,.2f} • {sym}"
         msg = f"Target Exceeded! {dir_str} on {acc_label} • Net PnL: +${pnl:,.2f} • Held: {dur_str}"
+        discord_color = 0x00FFCC # Cyan
     elif not is_win and abs(pnl) >= max_loss_thresh:
         title = f"MAX LOSS ALERT: -${abs(pnl):,.2f} • {sym}"
         msg = f"Risk Limit Exceeded! {dir_str} on {acc_label} • Net PnL: -${abs(pnl):,.2f} • Held: {dur_str}"
+        discord_color = 0xFF5555 # Red
     else:
         status_label = "PROFIT" if is_win else "LOSS"
         title = f"{status_label}: {pnl_sign}${abs(pnl):,.2f} • {sym}"
         msg = f"{dir_str} on {acc_label} • Net PnL: {pnl_sign}${abs(pnl):,.2f} • Held: {dur_str}"
+        discord_color = 0x00FFCC if is_win else 0xFF5555
     
     # Check if notify_on_all_trades is enabled or if threshold was met
     if rules.get("notify_on_all_trades", True) or (is_win and pnl >= big_win_thresh) or (not is_win and abs(pnl) >= max_loss_thresh):
@@ -165,6 +196,16 @@ def notify_trade_closed(trade, rules=None):
             f""
         )
         send_telegram_alert(tg_text)
+        
+        discord_fields = [
+            {"name": "Account", "value": acc_label, "inline": True},
+            {"name": "Direction", "value": dir_str, "inline": True},
+            {"name": "Duration", "value": dur_str, "inline": True},
+            {"name": "Net PnL", "value": f"**{pnl_sign}${abs(pnl):,.2f}**", "inline": False},
+            {"name": "Entry", "value": f"{trade.get('entry_price', 0):.5f}", "inline": True},
+            {"name": "Exit", "value": f"{trade.get('exit_price', 0):.5f}", "inline": True}
+        ]
+        send_discord_alert(title, "A trade was just closed.", discord_color, discord_fields)
     
     return title, msg
 
@@ -187,6 +228,13 @@ def notify_risk_warning(account_id, current_loss, limit):
         f""
     )
     send_telegram_alert(tg_text)
+    
+    discord_fields = [
+        {"name": "Current Drawdown", "value": f"-${abs(current_loss):,.2f}", "inline": True},
+        {"name": "Daily Floor Limit", "value": f"${limit:,.0f}", "inline": True},
+        {"name": "Recommendation", "value": "Stop trading immediately to protect your evaluation account!", "inline": False}
+    ]
+    send_discord_alert(title, f"Warning: Daily loss reached **{pct:.1f}%** of limit!", 0xFF5555, discord_fields)
     return title, msg
 
 def notify_price_alert(symbol, current_price, target_price, condition, notes=""):
@@ -211,6 +259,15 @@ def notify_price_alert(symbol, current_price, target_price, condition, notes="")
         tg_text += f"<b>Notes:</b> {notes}\n"
     tg_text += ""
     send_telegram_alert(tg_text)
+    
+    discord_fields = [
+        {"name": "Current Price", "value": f"**${current_price:,.2f}**", "inline": True},
+        {"name": "Target Level", "value": f"${target_price:,.2f} ({condition})", "inline": True}
+    ]
+    if notes:
+        discord_fields.append({"name": "Notes", "value": notes, "inline": False})
+    
+    send_discord_alert(f"Price Alert Triggered: {sym}", f"{sym} {cond_label} target ${target_price:,.2f}", 0xF59E0B, discord_fields)
     return title, msg
 
 if __name__ == "__main__":
