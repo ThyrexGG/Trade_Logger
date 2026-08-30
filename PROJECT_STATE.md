@@ -301,7 +301,16 @@ Get-Process python | Stop-Process -Force
 
 ---
 
-## 5. Next Priorities & Evolution
-1. Advanced Research Engine (Walk-Forward Analysis Rolling, Monte Carlo).
-2. WebHook trading automation payload endpoints.
-3. Discord Integration (Paused/Deferred by user).
+## 5. Working Features Status Update (Phase 11)
+* **Broker-Reconciled Risk Check (MT5/Capital)**: `VERIFIED`
+* **Idempotent Webhook Execution (`SHADOW` / `PAPER` / `LIVE`)**: `VERIFIED`
+* **Signal Attribution Analytics (Expectancy & Win Rate per Setup)**: `VERIFIED`
+* **Portfolio Risk Management Engine (Correlation & Exposure)**: `VERIFIED`
+* **Continuous Paper Execution Simulator**: `VERIFIED`
+
+---
+
+## 6. Next Priorities & Evolution (Phase 12)
+1. Live Automation Check & Institutional Rollout.
+2. WebHook trading automation payload endpoints tuning.
+3. Live Walk-Forward / Paper-to-Live Divergence Monitoring.

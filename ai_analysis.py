@@ -144,7 +144,7 @@ def analyze_market_context(symbol="XAUUSD", timeframe="1h", model_name="llama3",
          
     mtf_indicators = {}
     for tf, candles in mtf_data_raw.items():
-        if candles:
+        if tf not in ["warmup_valid", "required_candles", "available_bias_candles"] and candles:
             indics = calculate_technical_indicators(candles)
             if indics:
                 mtf_indicators[tf] = indics
@@ -251,12 +251,13 @@ You are the explanation layer of a highly disciplined deterministic trading engi
 The deterministic engine has already calculated the Trade Setup, Confluence, and Key Levels.
 DO NOT hallucinate prices. DO NOT invent targets. DO NOT invent indicators.
 DO NOT override the deterministic engine's setup state.
-Your job is ONLY to EXPLAIN the current setup to the user in a clear, concise manner.
+Your job is ONLY to EXPLAIN the current setup to the user in a clear, concise manner separating facts from interpretation.
 
 Return ONLY a raw JSON object strictly following this schema:
 {{
+  "facts": "List the deterministic facts (e.g. 4H bias is BULLISH, NY Killzone is active).",
+  "interpretation": "1-2 sentences interpreting how the facts align for the current setup.",
   "what_is_happening": "1-2 sentences summarizing the current market state (Trend, Volatility, Session) based on the data.",
-  "why": "1-2 sentences explaining the deterministic evidence driving the generated Trade Setup.",
   "what_confirms": "1 sentence defining what needs to happen to trigger the setup (e.g., lower timeframe MSS).",
   "what_invalidates": "1 sentence defining the exact structural invalidation level provided by the setup."
 }}
@@ -276,7 +277,10 @@ OB: {json.dumps(ob_data, indent=2)}
 - News/Macro: {macro_data['risk_level']} Risk ({macro_data['event']})
 - ML BUY Edge: {buy_prob_val}% | SELL Edge: {sell_prob_val}%
 
-5. DETERMINISTIC TRADE SETUP (ALREADY CALCULATED):
+5. HISTORICAL EDGE METRICS (FROM DATABASE ANALYTICS):
+- Setup Type ({setup_scenario.get('setup_type', 'N/A')}): Historical Win Rate based on past signals. (Use this to anchor context, but explain it plainly).
+
+6. DETERMINISTIC TRADE SETUP (ALREADY CALCULATED):
 {json.dumps(setup_scenario, indent=2)}
 """
             response = ollama.chat(model=model_name, messages=[
@@ -298,15 +302,17 @@ OB: {json.dumps(ob_data, indent=2)}
             
     if not ai_data:
         ai_data = {
+            "facts": "Deterministic logic used.",
+            "interpretation": "Ollama unavailable. Relying purely on deterministic setup.",
             "what_is_happening": "Ollama unavailable. Fallback mode active.",
-            "why": "Unable to process synthesis. Relying purely on deterministic setup.",
             "what_confirms": setup_scenario.get("trigger", "N/A"),
             "what_invalidates": setup_scenario.get("invalidation", "N/A")
         }
         disclaimer = "[!] Deterministic fallback logic used (Ollama unavailable or failed)."
 
+    final_output["facts"] = ai_data.get("facts", "")
+    final_output["interpretation"] = ai_data.get("interpretation", "")
     final_output["what_is_happening"] = ai_data.get("what_is_happening", "")
-    final_output["why"] = ai_data.get("why", "")
     final_output["what_confirms"] = ai_data.get("what_confirms", "")
     final_output["what_invalidates"] = ai_data.get("what_invalidates", "")
     final_output["what_matters_next"] = setup_scenario.get("target", "N/A")

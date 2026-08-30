@@ -15,7 +15,7 @@ class ICT2022Model(BaseStrategy):
     def analyze(self, df: pd.DataFrame, current_index: int, context: dict = None) -> dict:
         # Require at least 20 bars to look back
         if current_index < 20:
-            return self.build_no_trade("Insufficient data for ICT 2022 Model.")
+            return self.build_no_trade("Insufficient data for ICT 2022 Model.", context)
             
         # Ensure SMC features are calculated. In a live system this is done once, but we check here just in case.
         if 'last_swing_high' not in df.columns:
@@ -27,6 +27,12 @@ class ICT2022Model(BaseStrategy):
         
         sl_atr = context.get('sl_atr', 1.0) if context else 1.0
         tp_atr = context.get('tp_atr', 2.5) if context else 2.5
+        
+        bias_tf = context.get('bias_tf', '1D') if context else '1D'
+        struct_tf = context.get('struct_tf', '4H') if context else '4H'
+        
+        # MTF Context
+        htf_bias = row.get('HTF_Bias_BIAS', 'NEUTRAL')
         
         # Look back window for the setup sequence (e.g., 20 bars)
         lookback = 20
@@ -65,6 +71,10 @@ class ICT2022Model(BaseStrategy):
                             break
                             
                     if sweep_detected:
+                        # Enforce HTF Alignment for MTF Phase 7
+                        if htf_bias == "BEARISH":
+                            return self.build_no_trade("Setup is BULLISH but HTF Bias is BEARISH (Counter-trend).", context)
+                            
                         # VALID BULLISH SETUP
                         entry = close
                         # Proper ICT Stop Loss is beyond the sweep low
@@ -75,6 +85,13 @@ class ICT2022Model(BaseStrategy):
                         if hasattr(row, 'is_asia') and getattr(row, 'is_asia'): session_name = "ASIA"
                         elif hasattr(row, 'is_london') and getattr(row, 'is_london'): session_name = "LONDON"
                         elif hasattr(row, 'is_ny') and getattr(row, 'is_ny'): session_name = "NEW_YORK"
+                        
+                        # Confluence Scoring
+                        c_score = 0
+                        c_reasons = []
+                        if htf_bias == "BULLISH": c_score += 1; c_reasons.append("HTF Bias Aligned")
+                        if session_name in ["LONDON", "NEW_YORK"]: c_score += 1; c_reasons.append("Active Killzone")
+                        if sweep.get("type") in ["PDL", "PWL"]: c_score += 1; c_reasons.append("HTF Liquidity Swept")
                         
                         return {
                             "status": "READY",
@@ -92,8 +109,14 @@ class ICT2022Model(BaseStrategy):
                             "confidence": "High",
                             "setup_quality": "A",
                             "liquidity_type": sweep.get("type", "SWING_LOW"),
+                            "liquidity_timeframe": "EXECUTION" if sweep.get("type") not in ["PDH", "PDL", "PWH", "PWL"] else bias_tf,
                             "session": session_name,
-                            "reason": "N/A"
+                            "reason": "N/A",
+                            "bias_timeframe": bias_tf,
+                            "structure_timeframe": struct_tf,
+                            "htf_bias": htf_bias,
+                            "confluence_score": f"{c_score}/3",
+                            "confluence_reasons": c_reasons
                         }
 
         # Check for Bearish Setup (BSL Sweep -> Bearish MSS -> Bearish FVG)
@@ -124,6 +147,10 @@ class ICT2022Model(BaseStrategy):
                             break
                             
                     if sweep_detected:
+                        # Enforce HTF Alignment for MTF Phase 7
+                        if htf_bias == "BULLISH":
+                            return self.build_no_trade("Setup is BEARISH but HTF Bias is BULLISH (Counter-trend).", context)
+
                         # VALID BEARISH SETUP
                         entry = close
                         sl = sweep["level"] + (atr * 0.2) if sweep["level"] else entry + (atr * sl_atr)
@@ -133,6 +160,13 @@ class ICT2022Model(BaseStrategy):
                         if hasattr(row, 'is_asia') and getattr(row, 'is_asia'): session_name = "ASIA"
                         elif hasattr(row, 'is_london') and getattr(row, 'is_london'): session_name = "LONDON"
                         elif hasattr(row, 'is_ny') and getattr(row, 'is_ny'): session_name = "NEW_YORK"
+                        
+                        # Confluence Scoring
+                        c_score = 0
+                        c_reasons = []
+                        if htf_bias == "BEARISH": c_score += 1; c_reasons.append("HTF Bias Aligned")
+                        if session_name in ["LONDON", "NEW_YORK"]: c_score += 1; c_reasons.append("Active Killzone")
+                        if sweep.get("type") in ["PDH", "PWH"]: c_score += 1; c_reasons.append("HTF Liquidity Swept")
                         
                         return {
                             "status": "READY",
@@ -150,8 +184,14 @@ class ICT2022Model(BaseStrategy):
                             "confidence": "High",
                             "setup_quality": "A",
                             "liquidity_type": sweep.get("type", "SWING_HIGH"),
+                            "liquidity_timeframe": "EXECUTION" if sweep.get("type") not in ["PDH", "PDL", "PWH", "PWL"] else bias_tf,
                             "session": session_name,
-                            "reason": "N/A"
+                            "reason": "N/A",
+                            "bias_timeframe": bias_tf,
+                            "structure_timeframe": struct_tf,
+                            "htf_bias": htf_bias,
+                            "confluence_score": f"{c_score}/3",
+                            "confluence_reasons": c_reasons
                         }
                         
-        return self.build_no_trade("No ICT 2022 setup detected in recent window.")
+        return self.build_no_trade("No ICT 2022 setup detected in recent window.", context)

@@ -141,6 +141,49 @@ def get_realtime_candles(symbol="XAUUSD", timeframe="15m", count=250):
     # 4. Fallback: Return empty array instead of fake synthetic data
     return []
 
+def get_market_health(symbol="XAUUSD", timeframe="1m"):
+    """
+    Checks the health and freshness of the market data.
+    Returns a dictionary:
+    {
+        "status": "HEALTHY" | "DEGRADED" | "STALE" | "DISCONNECTED",
+        "last_tick": int,
+        "data_age": int,
+        "symbol_available": bool,
+        "broker_connection": str
+    }
+    """
+    res = {
+        "status": "DISCONNECTED",
+        "last_tick": 0,
+        "data_age": 999999,
+        "symbol_available": False,
+        "broker_connection": "None"
+    }
+    
+    candles = get_realtime_candles(symbol, timeframe, count=2)
+    if not candles:
+        return res
+        
+    res["symbol_available"] = True
+    res["broker_connection"] = "Active"
+    
+    last_candle_time = candles[-1]["time"]
+    res["last_tick"] = last_candle_time
+    
+    now = int(time.time())
+    age = now - last_candle_time
+    res["data_age"] = max(0, age)
+    
+    if age < 120:
+        res["status"] = "HEALTHY"
+    elif age < 300:
+        res["status"] = "DEGRADED"
+    else:
+        res["status"] = "STALE"
+        
+    return res
+
 def calculate_liquidity_zones(df, left_bars=10, right_bars=10):
     """
     Phase 8: Strict Liquidity Engine Audit.
@@ -199,67 +242,97 @@ def calculate_liquidity_zones(df, left_bars=10, right_bars=10):
         "ssl": valid_ssl[:3]
     }
 
-def get_mtf_data(symbol="XAUUSD", base_timeframe="15m"):
+def get_mtf_data(symbol, base_timeframe="1h"):
     """
-    Fetches Multi-Timeframe (MTF) data simultaneously for alignment context.
+    Fetches the execution timeframe, structure timeframe, and bias timeframe.
+    Enforces strict warmup limitations to prevent false setups.
     """
-    mtf_map = {
-        "1m": ["1m", "5m", "15m"],
-        "5m": ["5m", "15m", "1h"],
-        "15m": ["15m", "1h", "4h"],
-        "1h": ["1h", "4h", "D"],
-        "4h": ["4h", "D", "W"],
-        "D": ["D", "W", "M"]
-    }
-    
-    timeframes_to_fetch = mtf_map.get(base_timeframe, [base_timeframe, "1h", "D"])
-    
-    mtf_data = {}
-    for tf in timeframes_to_fetch:
-        mtf_data[tf] = get_realtime_candles(symbol, tf, count=100)
+    # Mapping
+    struct_tf = "4h"
+    bias_tf = "1d"
+    if base_timeframe.lower() in ["1d", "d"]:
+        struct_tf = "1wk"
+        bias_tf = "1mo"
+    elif base_timeframe.lower() == "15m":
+        struct_tf = "1h"
+        bias_tf = "4h"
+    elif base_timeframe.lower() == "5m":
+        struct_tf = "15m"
+        bias_tf = "1h"
         
-    return mtf_data
+    def fetch_live(sym, tf, bars=250):
+        # We need at least 200 bars for EMA 200 validation
+        try:
+            return get_realtime_candles(sym, tf, count=bars)
+        except Exception:
+            return []
+            
+    exec_data = fetch_live(symbol, base_timeframe)
+    struct_data = fetch_live(symbol, struct_tf)
+    bias_data = fetch_live(symbol, bias_tf)
+    
+    # Warmup Validation
+    # We must enforce that the AI system receives NO TRADE if insufficient data exists
+    if len(bias_data) < 200:
+        print(f"[!] INSUFFICIENT WARMUP DATA. {bias_tf} requires 200 bars, got {len(bias_data)}.")
+        return {
+            base_timeframe: exec_data,
+            struct_tf: struct_data,
+            bias_tf: bias_data,
+            "warmup_valid": False,
+            "required_candles": 200,
+            "available_bias_candles": len(bias_data)
+        }
 
-def calculate_mtf_alignment(symbol="XAUUSD", base_timeframe="15m"):
+    return {
+        base_timeframe: exec_data,
+        struct_tf: struct_data,
+        bias_tf: bias_data,
+        "warmup_valid": True
+    }
+
+def calculate_mtf_alignment(symbol, timeframe):
     """
-    Phase 4: Calculates deterministic trend alignment across multiple timeframes.
-    Returns the alignment status string.
+    Evaluates Trend Bias on Structure and Bias timeframes.
+    Phase 7.5: Must use calculate_htf_bias deterministically from mtf_engine.
     """
-    mtf_data = get_mtf_data(symbol, base_timeframe)
+    data = get_mtf_data(symbol, timeframe)
+    if not data or not data.get("warmup_valid", False):
+        return {"alignment": "UNKNOWN", "score": 0, "reason": "Insufficient warmup data"}
+        
+    # We find the keys
+    keys = list(data.keys())
+    keys = [k for k in keys if k not in ["warmup_valid", "required_candles", "available_bias_candles"]]
     
-    trends = {}
-    for tf, candles in mtf_data.items():
-        if not candles or len(candles) < 50:
-            trends[tf] = "Unknown"
-            continue
-            
-        df = pd.DataFrame(candles)
-        ema20 = df['close'].ewm(span=20, adjust=False).mean().iloc[-1]
-        ema50 = df['close'].ewm(span=50, adjust=False).mean().iloc[-1]
+    # For live evaluation, we don't need full pd merge if we just want the instantaneous state
+    # But for parity we should pass the raw data out to the analyzer.
+    import strategies.mtf_engine as mtf_engine
+    
+    struct_tf = [k for k in keys if k != timeframe][0] if len(keys) > 1 else timeframe
+    bias_tf = [k for k in keys if k != timeframe and k != struct_tf][0] if len(keys) > 2 else struct_tf
+    
+    df_bias = pd.DataFrame(data[bias_tf])
+    if not df_bias.empty:
+        bias = mtf_engine.calculate_htf_bias(df_bias)
+    else:
+        bias = "NEUTRAL"
         
-        if ema20 > ema50:
-            trends[tf] = "Bullish"
-        elif ema20 < ema50:
-            trends[tf] = "Bearish"
-        else:
-            trends[tf] = "Neutral"
-            
-    tfs = list(trends.keys())
-    if len(tfs) >= 3:
-        ltf, mtf, htf = tfs[0], tfs[1], tfs[2]
+    df_struct = pd.DataFrame(data[struct_tf])
+    if not df_struct.empty:
+        struct_bias = mtf_engine.calculate_htf_bias(df_struct)
+    else:
+        struct_bias = "NEUTRAL"
+
+    if bias == "BULLISH" and struct_bias == "BULLISH":
+        return {"alignment": "FULL BULLISH", "score": 2}
+    elif bias == "BEARISH" and struct_bias == "BEARISH":
+        return {"alignment": "FULL BEARISH", "score": -2}
+    elif bias == "BULLISH":
+        return {"alignment": "HTF BULLISH, STRUCT MIXED", "score": 1}
+    elif bias == "BEARISH":
+        return {"alignment": "HTF BEARISH, STRUCT MIXED", "score": -1}
         
-        if trends[ltf] == trends[mtf] == trends[htf] == "Bullish":
-            return f"Strong Bullish Aligned ({ltf}, {mtf}, {htf})"
-        elif trends[ltf] == trends[mtf] == trends[htf] == "Bearish":
-            return f"Strong Bearish Aligned ({ltf}, {mtf}, {htf})"
-        elif trends[htf] == "Bullish" and trends[ltf] == "Bearish":
-            return f"Mixed (Macro {htf} Bullish, Micro {ltf} Bearish Pullback)"
-        elif trends[htf] == "Bearish" and trends[ltf] == "Bullish":
-            return f"Mixed (Macro {htf} Bearish, Micro {ltf} Bullish Retracement)"
-        else:
-            return f"Unaligned / Consolidating ({ltf}: {trends[ltf]}, {mtf}: {trends[mtf]}, {htf}: {trends[htf]})"
-            
-    return "Insufficient MTF Data"
+    return {"alignment": "NEUTRAL", "score": 0}
 
 def calculate_market_regime(df):
     """

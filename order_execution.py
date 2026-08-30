@@ -52,6 +52,16 @@ def calculate_order_risk(symbol, direction, entry_price, stop_loss=None, take_pr
     if entry <= 0:
         return res
 
+    if vol <= 0:
+        res["is_valid"] = False
+        res["error"] = "Volume must be greater than 0."
+        return res
+        
+    if dir_str not in ["BUY", "SELL"]:
+        res["is_valid"] = False
+        res["error"] = "Invalid direction. Must be BUY or SELL."
+        return res
+
     # 1. SL Validation & Risk Calculation
     if sl is not None:
         if dir_str == "BUY" and sl >= entry:
@@ -98,11 +108,9 @@ def calculate_order_risk(symbol, direction, entry_price, stop_loss=None, take_pr
 
 def execute_capital_trade(epic, direction, size, stop_loss=None, take_profit=None):
     """Places a live trade on Capital.com real/demo account."""
-    return False, "LIVE TRADING PAUSED FOR SAFETY: Broker connections are temporarily disabled to prevent accidental capital loss."
-    
     session = capital_sync.get_session()
     if not session:
-        return False, "Failed to authenticate with Capital.com session."
+        return {"status": "error", "message": "Failed to authenticate with Capital.com session."}
         
     cst = session.get("cst")
     x_sec = session.get("x_security_token")
@@ -133,12 +141,12 @@ def execute_capital_trade(epic, direction, size, stop_loss=None, take_profit=Non
         res_data = r.json() if r.content else {}
         if r.status_code in [200, 201]:
             deal_ref = res_data.get("dealReference", "OK")
-            return True, f"Capital.com Order Placed! Ref: {deal_ref}"
+            return {"status": "success", "message": "Capital.com Order Placed", "order_id": deal_ref, "execution_price": None}
         else:
             err_msg = res_data.get("errorCode", r.text)
-            return False, f"Capital.com Error ({r.status_code}): {err_msg}"
+            return {"status": "error", "message": f"Capital.com Error ({r.status_code}): {err_msg}"}
     except Exception as e:
-        return False, f"Connection error: {e}"
+        return {"status": "error", "message": f"Connection error: {e}"}
 
 def close_capital_position(deal_id):
     """Closes an open position on Capital.com."""
@@ -164,15 +172,14 @@ def close_capital_position(deal_id):
 
 def execute_mt5_trade(symbol, direction, volume, sl=None, tp=None):
     """Places a trade on MetaTrader 5 terminal running on local Windows PC."""
-    return False, "LIVE TRADING PAUSED FOR SAFETY: Broker connections are temporarily disabled to prevent accidental capital loss."
     
     if not mt5_sync.MT5_AVAILABLE:
-        return False, "MetaTrader 5 library is not available on this environment."
+        return {"status": "error", "message": "MetaTrader 5 library is not available on this environment."}
         
     try:
         import MetaTrader5 as mt5
         if not mt5.initialize():
-            return False, f"MT5 initialize failed: {mt5.last_error()}"
+            return {"status": "error", "message": f"MT5 initialize failed: {mt5.last_error()}"}
             
         sym = str(symbol).upper()
         symbol_info = mt5.symbol_info(sym)
@@ -185,16 +192,16 @@ def execute_mt5_trade(symbol, direction, volume, sl=None, tp=None):
                     break
                     
         if symbol_info is None:
-            return False, f"Symbol '{sym}' not found in MT5 Market Watch."
+            return {"status": "error", "message": f"Symbol '{sym}' not found in MT5 Market Watch."}
             
         if not symbol_info.visible:
             if not mt5.symbol_select(sym, True):
-                return False, f"Failed to select symbol '{sym}'."
+                return {"status": "error", "message": f"Failed to select symbol '{sym}'."}
                 
         order_type = mt5.ORDER_TYPE_BUY if str(direction).upper() == "BUY" else mt5.ORDER_TYPE_SELL
         tick = mt5.symbol_info_tick(sym)
         if not tick:
-            return False, f"No live market tick received for {sym}."
+            return {"status": "error", "message": f"No live market tick received for {sym}."}
             
         price = tick.ask if order_type == mt5.ORDER_TYPE_BUY else tick.bid
         
@@ -218,11 +225,11 @@ def execute_mt5_trade(symbol, direction, volume, sl=None, tp=None):
         result = mt5.order_send(request)
         if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
             comment = result.comment if result else mt5.last_error()
-            return False, f"MT5 Order Rejected: {comment}"
+            return {"status": "error", "message": f"MT5 Order Rejected: {comment}"}
             
-        return True, f"MT5 Order Executed! Ticket #{result.order}"
+        return {"status": "success", "message": "MT5 Order Executed", "order_id": str(result.order), "execution_price": result.price}
     except Exception as e:
-        return False, f"MT5 trade execution error: {e}"
+        return {"status": "error", "message": f"MT5 trade execution error: {e}"}
 
 def close_mt5_position(ticket_id):
     """Closes an open MT5 position by ticket ID."""

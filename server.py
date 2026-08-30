@@ -384,6 +384,8 @@ def trigger_sync():
     return {"status": "sync_completed"}
 
 
+import time
+
 class OrderExecutionRequest(BaseModel):
     symbol: str
     account_id: str
@@ -393,34 +395,95 @@ class OrderExecutionRequest(BaseModel):
     price: Optional[float] = None
     stop_loss: Optional[float] = None
     take_profit: Optional[float] = None
+    strategy: Optional[str] = "Manual (UI)"
+    timeframe: Optional[str] = "Manual"
 
-import order_execution
+class WebhookPayload(BaseModel):
+    secret: str
+    signal_id: str
+    timestamp: float
+    symbol: str
+    direction: str
+    volume: float
+    account_type: str = "MT5" # MT5 or CAPITAL
+    stop_loss: Optional[float] = None
+    take_profit: Optional[float] = None
+    strategy: Optional[str] = "Webhook"
+    timeframe: Optional[str] = "Unknown"
+    current_price: Optional[float] = None
+
+import execution_pipeline
+import uuid
 
 @app.post("/api/order/execute")
 def execute_trade_order(payload: OrderExecutionRequest):
-    """Executes a trade on Capital.com or MT5 based on account selection."""
-    if "Capital.com" in payload.account_id or payload.account_id == "CAPITAL_REAL":
-        success, msg = order_execution.execute_capital_trade(
-            epic=payload.symbol,
-            direction=payload.direction,
-            size=payload.volume,
-            stop_loss=payload.stop_loss,
-            take_profit=payload.take_profit
-        )
-    else:
-        success, msg = order_execution.execute_mt5_trade(
-            symbol=payload.symbol,
-            direction=payload.direction,
-            volume=payload.volume,
-            sl=payload.stop_loss,
-            tp=payload.take_profit
-        )
+    """Executes a trade on Capital.com or MT5 based on account selection via the Canonical Pipeline."""
+    account_type = "CAPITAL" if "Capital.com" in payload.account_id or payload.account_id == "CAPITAL_REAL" else "MT5"
     
-    if success:
-        return {"status": "executed", "message": msg}
+    res = execution_pipeline.submit_order(
+        signal_id=f"UI_{uuid.uuid4().hex[:8]}",
+        symbol=payload.symbol,
+        direction=payload.direction,
+        volume=payload.volume,
+        account_type=account_type,
+        stop_loss=payload.stop_loss,
+        take_profit=payload.take_profit,
+        strategy=payload.strategy,
+        timeframe=payload.timeframe,
+        timestamp=time.time(),
+        current_price=payload.price
+    )
+    
+    if res["status"] == "success":
+        return {"status": "executed", "message": res["message"]}
     else:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=400, detail=msg)
+        raise HTTPException(status_code=400, detail=res["message"])
+
+from fastapi import Request, HTTPException
+import collections
+
+# Rate Limiter Configuration: max 20 requests per minute per IP
+_webhook_rate_limit_cache = collections.defaultdict(list)
+
+@app.post("/api/webhook/tradingview")
+def tradingview_webhook(payload: WebhookPayload, request: Request):
+    """
+    Automated execution endpoint for TradingView Webhooks.
+    """
+    client_ip = request.client.host if request.client else "unknown"
+    now = time.time()
+    
+    # Clean up old requests
+    _webhook_rate_limit_cache[client_ip] = [t for t in _webhook_rate_limit_cache[client_ip] if now - t < 60]
+    
+    if len(_webhook_rate_limit_cache[client_ip]) >= 20:
+        raise HTTPException(status_code=429, detail="Rate limit exceeded. Try again later.")
+        
+    _webhook_rate_limit_cache[client_ip].append(now)
+
+    import os
+    EXPECTED_SECRET = os.getenv("WEBHOOK_SECRET", "changeme_in_production!")
+    if payload.secret != EXPECTED_SECRET:
+        raise HTTPException(status_code=401, detail="Unauthorized Webhook Secret")
+        
+    res = execution_pipeline.submit_order(
+        signal_id=payload.signal_id,
+        symbol=payload.symbol,
+        direction=payload.direction,
+        volume=payload.volume,
+        account_type=payload.account_type,
+        stop_loss=payload.stop_loss,
+        take_profit=payload.take_profit,
+        strategy=payload.strategy,
+        timeframe=payload.timeframe,
+        timestamp=payload.timestamp,
+        current_price=payload.current_price
+    )
+        
+    if res["status"] == "success":
+        return {"status": "success", "message": f"Webhook triggered trade: {res['message']}"}
+    else:
+        raise HTTPException(status_code=400, detail=f"Webhook execution failed: {res['message']}")
 
 
 # Mount Flutter Web App as static build

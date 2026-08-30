@@ -153,3 +153,105 @@ def calculate_performance_metrics(df_trades, initial_balance=10000.0):
         "best_symbols": best_syms,
         "worst_symbols": worst_syms
     }
+
+def _calculate_subset_stats(subset_df):
+    """Helper to calculate WR and Expectancy from a joined signals+trades dataframe."""
+    if subset_df.empty:
+        return {"count": 0, "win_rate": 0.0, "expectancy": 0.0, "avg_win": 0.0, "avg_loss": 0.0}
+    
+    # Needs a net_profit column from closed_trades
+    if "net_profit" not in subset_df.columns:
+        return {"count": len(subset_df), "win_rate": 0.0, "expectancy": 0.0, "avg_win": 0.0, "avg_loss": 0.0}
+        
+    trades = subset_df.dropna(subset=["net_profit"])
+    total = len(trades)
+    if total == 0:
+        return {"count": len(subset_df), "win_rate": 0.0, "expectancy": 0.0, "avg_win": 0.0, "avg_loss": 0.0}
+        
+    wins = trades[trades["net_profit"] > 0]
+    losses = trades[trades["net_profit"] < 0]
+    
+    wr = len(wins) / total
+    lr = len(losses) / total
+    
+    avg_win = float(wins["net_profit"].mean()) if not wins.empty else 0.0
+    avg_loss = float(abs(losses["net_profit"].mean())) if not losses.empty else 0.0
+    
+    expectancy = (wr * avg_win) - (lr * avg_loss)
+    
+    return {
+        "count": total,
+        "win_rate": round(wr * 100.0, 2),
+        "expectancy": round(expectancy, 2),
+        "avg_win": round(avg_win, 2),
+        "avg_loss": round(avg_loss, 2)
+    }
+
+def calculate_liquidity_performance(signals_df, trades_df):
+    if signals_df.empty or trades_df.empty: return {}
+    # Merge signals and trades based on broker_order_id or signal_id
+    # Wait, received_signals has order_id which matches trades.trade_id or positions.position_id?
+    # execution_audit_log has broker_order_id. closed_trades has trade_id = 'TRADE_' + pos_id.
+    # We will assume signals_df has 'setup_type' and 'order_id'. 
+    # Trades has 'trade_id' containing the order_id.
+    
+    # Strip prefixes to merge
+    signals = signals_df.copy()
+    trades = trades_df.copy()
+    
+    if "order_id" not in signals.columns or "trade_id" not in trades.columns:
+        return {}
+        
+    # Standardize IDs for merging
+    signals["clean_id"] = signals["order_id"].astype(str).str.replace(r'^(POS_|TRADE_)', '', regex=True)
+    trades["clean_id"] = trades["trade_id"].astype(str).str.replace(r'^(POS_|TRADE_)', '', regex=True)
+    
+    merged = pd.merge(signals, trades, on="clean_id", how="inner")
+    
+    if "setup_type" not in merged.columns:
+        return {}
+        
+    results = {}
+    for setup, group in merged.groupby("setup_type"):
+        results[str(setup)] = _calculate_subset_stats(group)
+    return results
+
+def calculate_killzone_performance(signals_df, trades_df):
+    if signals_df.empty or trades_df.empty: return {}
+    signals = signals_df.copy()
+    trades = trades_df.copy()
+    
+    if "order_id" not in signals.columns or "trade_id" not in trades.columns:
+        return {}
+        
+    signals["clean_id"] = signals["order_id"].astype(str).str.replace(r'^(POS_|TRADE_)', '', regex=True)
+    trades["clean_id"] = trades["trade_id"].astype(str).str.replace(r'^(POS_|TRADE_)', '', regex=True)
+    merged = pd.merge(signals, trades, on="clean_id", how="inner")
+    
+    if "session" not in merged.columns:
+        return {}
+        
+    results = {}
+    for session, group in merged.groupby("session"):
+        results[str(session)] = _calculate_subset_stats(group)
+    return results
+
+def calculate_mtf_confluence(signals_df, trades_df):
+    if signals_df.empty or trades_df.empty: return {}
+    signals = signals_df.copy()
+    trades = trades_df.copy()
+    
+    if "order_id" not in signals.columns or "trade_id" not in trades.columns:
+        return {}
+        
+    signals["clean_id"] = signals["order_id"].astype(str).str.replace(r'^(POS_|TRADE_)', '', regex=True)
+    trades["clean_id"] = trades["trade_id"].astype(str).str.replace(r'^(POS_|TRADE_)', '', regex=True)
+    merged = pd.merge(signals, trades, on="clean_id", how="inner")
+    
+    if "confluence_score" not in merged.columns:
+        return {}
+        
+    results = {}
+    for score, group in merged.groupby("confluence_score"):
+        results[f"Score {score}"] = _calculate_subset_stats(group)
+    return results

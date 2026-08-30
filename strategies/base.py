@@ -51,7 +51,7 @@ class BaseStrategy(ABC):
         """
         pass
         
-    def build_no_trade(self, reason: str) -> dict:
+    def build_no_trade(self, reason: str, context: dict = None) -> dict:
         """Helper to quickly return a NO TRADE payload."""
         return {
             "status": "NO TRADE",
@@ -69,6 +69,12 @@ class BaseStrategy(ABC):
             "confidence": "N/A",
             "setup_quality": "N/A",
             "liquidity_type": "N/A",
+            "liquidity_timeframe": "N/A",
             "session": "N/A",
-            "reason": reason
+            "reason": reason,
+            "bias_timeframe": context.get('bias_tf', 'N/A') if context else 'N/A',
+            "structure_timeframe": context.get('struct_tf', 'N/A') if context else 'N/A',
+            "htf_bias": "N/A",
+            "confluence_score": "0",
+            "confluence_reasons": []
         }

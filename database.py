@@ -123,6 +123,52 @@ def init_db():
             );
         """)
         
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+        """)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS execution_audit_log (
+                id SERIAL PRIMARY KEY,
+                signal_id TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                symbol TEXT NOT NULL,
+                strategy TEXT,
+                timeframe TEXT,
+                direction TEXT,
+                entry_price DOUBLE PRECISION,
+                sl DOUBLE PRECISION,
+                tp DOUBLE PRECISION,
+                requested_risk DOUBLE PRECISION,
+                actual_risk DOUBLE PRECISION,
+                calculated_size DOUBLE PRECISION,
+                final_size DOUBLE PRECISION,
+                broker TEXT,
+                validation_result TEXT,
+                risk_result TEXT,
+                execution_result TEXT,
+                broker_order_id TEXT,
+                execution_price DOUBLE PRECISION,
+                error_msg TEXT,
+                reject_reason TEXT
+            );
+        """)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS received_signals (
+                signal_id TEXT PRIMARY KEY,
+                received_at TEXT NOT NULL,
+                status TEXT NOT NULL,
+                symbol TEXT NOT NULL,
+                direction TEXT NOT NULL,
+                broker TEXT NOT NULL,
+                order_id TEXT
+            );
+        """)
+        
         # Add migration columns for closed_trades in Postgres safely
         try:
             cursor.execute("ALTER TABLE closed_trades ADD COLUMN IF NOT EXISTS chart_snapshot_url TEXT;")
@@ -130,6 +176,29 @@ def init_db():
             cursor.execute("ALTER TABLE closed_trades ADD COLUMN IF NOT EXISTS rating INTEGER DEFAULT 0;")
         except Exception:
             pass
+        # Add migration columns for received_signals safely
+        try:
+            cursor.execute("ALTER TABLE received_signals ADD COLUMN IF NOT EXISTS strategy TEXT DEFAULT 'Manual';")
+            cursor.execute("ALTER TABLE received_signals ADD COLUMN IF NOT EXISTS timeframe TEXT DEFAULT 'Unknown';")
+            cursor.execute("ALTER TABLE received_signals ADD COLUMN IF NOT EXISTS setup_type TEXT DEFAULT 'Unknown';")
+            cursor.execute("ALTER TABLE received_signals ADD COLUMN IF NOT EXISTS session TEXT DEFAULT 'Unknown';")
+            cursor.execute("ALTER TABLE received_signals ADD COLUMN IF NOT EXISTS htf_bias TEXT DEFAULT 'Unknown';")
+            cursor.execute("ALTER TABLE received_signals ADD COLUMN IF NOT EXISTS confluence_score DOUBLE PRECISION DEFAULT 0;")
+            cursor.execute("ALTER TABLE received_signals ADD COLUMN IF NOT EXISTS signal_outcome TEXT DEFAULT 'NOT_TRIGGERED';")
+        except Exception:
+            pass
+
+        # Correlation Matrix
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS correlation_matrix (
+                symbol_1 TEXT NOT NULL,
+                symbol_2 TEXT NOT NULL,
+                time_window INTEGER NOT NULL,
+                correlation DOUBLE PRECISION NOT NULL,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY (symbol_1, symbol_2, time_window)
+            );
+        """)
     else:
         # SQLite Schema
         cursor.execute("""
@@ -210,6 +279,52 @@ def init_db():
                 created_at TEXT NOT NULL,
                 triggered_at TEXT DEFAULT NULL,
                 notes TEXT DEFAULT NULL
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS received_signals (
+                signal_id TEXT PRIMARY KEY,
+                received_at TEXT NOT NULL,
+                status TEXT NOT NULL,
+                symbol TEXT NOT NULL,
+                direction TEXT NOT NULL,
+                broker TEXT NOT NULL,
+                order_id TEXT
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS execution_audit_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                signal_id TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                symbol TEXT NOT NULL,
+                strategy TEXT,
+                timeframe TEXT,
+                direction TEXT,
+                entry_price REAL,
+                sl REAL,
+                tp REAL,
+                requested_risk REAL,
+                actual_risk REAL,
+                calculated_size REAL,
+                final_size REAL,
+                broker TEXT,
+                validation_result TEXT,
+                risk_result TEXT,
+                execution_result TEXT,
+                broker_order_id TEXT,
+                execution_price REAL,
+                error_msg TEXT,
+                reject_reason TEXT
             )
         """)
 
@@ -719,8 +834,150 @@ def save_chart_drawings(symbol, drawings_json):
         print(f"Error saving drawings for {sym}: {e}")
         return False
 
+# ----------------- Execution Audit Log Database -----------------
 
+def log_execution(log_data: dict):
+    """Saves a structured record of an execution attempt."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    keys = ["signal_id", "timestamp", "symbol", "strategy", "timeframe", "direction", 
+            "entry_price", "sl", "tp", "requested_risk", "actual_risk", "calculated_size", 
+            "final_size", "broker", "validation_result", "risk_result", "execution_result", 
+            "broker_order_id", "execution_price", "error_msg", "reject_reason"]
+    
+    for k in keys:
+        if k not in log_data:
+            log_data[k] = None
+            
+    cols = ", ".join(keys)
+    if is_postgres():
+        vals = ", ".join([f"%({k})s" for k in keys])
+        cursor.execute(f"INSERT INTO execution_audit_log ({cols}) VALUES ({vals})", log_data)
+    else:
+        vals = ", ".join([f":{k}" for k in keys])
+        cursor.execute(f"INSERT INTO execution_audit_log ({cols}) VALUES ({vals})", log_data)
+        
+    conn.commit()
+    conn.close()
+
+def get_recent_audit_logs(limit=50):
+    conn = get_connection()
+    df = pd.read_sql_query(f"SELECT * FROM execution_audit_log ORDER BY id DESC LIMIT {limit}", conn)
+    conn.close()
+    return df.to_dict(orient="records")
+
+# ----------------- Idempotency & Replay Protection -----------------
+
+def has_signal(signal_id: str) -> bool:
+    """Checks if a signal_id has already been processed to ensure idempotency."""
+    if not signal_id:
+        return False
+    try:
+        conn = get_connection()
+        df = pd.read_sql_query(f"SELECT signal_id FROM received_signals WHERE signal_id = '{signal_id}'", conn)
+        conn.close()
+        return not df.empty
+    except Exception:
+        # In case of DB failure during idempotency check, default to False to fail closed later if needed,
+        # but realistically we shouldn't block on just this check failing if the execution log works.
+        # Actually, for safety, if we can't check idempotency, we should probably fail closed.
+        raise RuntimeError("Database unavailable for idempotency check.")
+
+def record_signal(signal_id: str, status: str, symbol: str, direction: str, broker: str, order_id: str = None,
+                  strategy: str = "Manual", timeframe: str = "Unknown", setup_type: str = "Unknown",
+                  session: str = "Unknown", htf_bias: str = "Unknown", confluence_score: float = 0.0,
+                  signal_outcome: str = "NOT_TRIGGERED"):
+    """Records a processed signal into the database."""
+    if not signal_id:
+        return
+    now_str = datetime.now(timezone.utc).isoformat()
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        if is_postgres():
+            cursor.execute("""
+                INSERT INTO received_signals (
+                    signal_id, received_at, status, symbol, direction, broker, order_id,
+                    strategy, timeframe, setup_type, session, htf_bias, confluence_score, signal_outcome
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (signal_id) DO UPDATE SET
+                    signal_outcome = EXCLUDED.signal_outcome,
+                    status = EXCLUDED.status,
+                    order_id = EXCLUDED.order_id
+            """, (signal_id, now_str, status, symbol, direction, broker, order_id, 
+                  strategy, timeframe, setup_type, session, htf_bias, float(confluence_score), signal_outcome))
+        else:
+            cursor.execute("""
+                INSERT INTO received_signals (
+                    signal_id, received_at, status, symbol, direction, broker, order_id,
+                    strategy, timeframe, setup_type, session, htf_bias, confluence_score, signal_outcome
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(signal_id) DO UPDATE SET
+                    signal_outcome=excluded.signal_outcome,
+                    status=excluded.status,
+                    order_id=excluded.order_id
+            """, (signal_id, now_str, status, symbol, direction, broker, order_id,
+                  strategy, timeframe, setup_type, session, htf_bias, float(confluence_score), signal_outcome))
+            
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error recording signal {signal_id}: {e}")
+
+def save_correlation(symbol_1: str, symbol_2: str, time_window: int, correlation: float):
+    """Saves a correlation value between two symbols."""
+    now_str = datetime.now(timezone.utc).isoformat()
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        # Always store alphabetically to prevent duplicates (e.g. A-B vs B-A)
+        s1, s2 = sorted([symbol_1, symbol_2])
+        
+        if is_postgres():
+            cursor.execute("""
+                INSERT INTO correlation_matrix (symbol_1, symbol_2, time_window, correlation, updated_at)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (symbol_1, symbol_2, time_window) DO UPDATE SET
+                    correlation = EXCLUDED.correlation,
+                    updated_at = EXCLUDED.updated_at
+            """, (s1, s2, time_window, float(correlation), now_str))
+        else:
+            cursor.execute("""
+                INSERT INTO correlation_matrix (symbol_1, symbol_2, time_window, correlation, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(symbol_1, symbol_2, time_window) DO UPDATE SET
+                    correlation=excluded.correlation,
+                    updated_at=excluded.updated_at
+            """, (s1, s2, time_window, float(correlation), now_str))
+            
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error saving correlation {symbol_1}-{symbol_2}: {e}")
+
+def get_correlations(time_window: int = 20):
+    """Returns a dictionary mapping (symbol_1, symbol_2) to their correlation value."""
+    try:
+        conn = get_connection()
+        df = pd.read_sql_query(f"SELECT symbol_1, symbol_2, correlation FROM correlation_matrix WHERE time_window = {int(time_window)}", conn)
+        conn.close()
+        
+        result = {}
+        for _, row in df.iterrows():
+            result[(row["symbol_1"], row["symbol_2"])] = float(row["correlation"])
+            result[(row["symbol_2"], row["symbol_1"])] = float(row["correlation"])
+        return result
+    except Exception as e:
+        print(f"Error reading correlations: {e}")
+        return {}
 
 if __name__ == "__main__":
     init_db()
     print("Database initialized successfully with Price Alerts, Trade Journal, and Favorite Symbols.")
+
+
