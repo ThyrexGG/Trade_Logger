@@ -307,14 +307,33 @@ st.markdown("""
         opacity: 0.8;
     }
     
-    /* Hide Streamlit toolbar and deploy buttons, but keep header so sidebar toggle is visible */
-    [data-testid="stToolbar"], .stAppDeployButton, #MainMenu, footer {
+    /* Hide Streamlit deploy button & footer, but keep toolbar and status widget visible */
+    .stAppDeployButton, #MainMenu, footer {
         display: none !important;
         visibility: hidden !important;
     }
     header[data-testid="stHeader"], header {
         background: transparent !important;
         z-index: 99999 !important;
+    }
+
+    /* Streamlit Top-Right Live Status Indicator */
+    [data-testid="stStatusWidget"],
+    .stStatusWidget {
+        display: flex !important;
+        visibility: visible !important;
+        background: rgba(18, 24, 38, 0.95) !important;
+        border: 1px solid rgba(0, 255, 204, 0.5) !important;
+        border-radius: 20px !important;
+        padding: 4px 12px !important;
+        box-shadow: 0 0 14px rgba(0, 255, 204, 0.3) !important;
+        color: #00ffcc !important;
+        font-weight: 700 !important;
+    }
+    [data-testid="stStatusWidget"] svg,
+    .stStatusWidget svg {
+        fill: #00ffcc !important;
+        stroke: #00ffcc !important;
     }
 
     /* Prominent, Glowing Sidebar Expand / Collapse Toggle Button */
@@ -1007,6 +1026,10 @@ st.markdown("""
         letter-spacing: 1px !important;
         text-transform: uppercase !important;
         animation: pulseGlow 1.5s ease-in-out infinite alternate !important;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
     }
     @keyframes pulseGlow {
         from { opacity: 0.6; }
