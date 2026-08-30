@@ -20,7 +20,7 @@ DEFAULT_SYMBOLS = {
     "US Crude Oil": "USOIL"
 }
 
-def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom_layout_url=None):
+def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom_layout_url=None, ai_setup_data=None):
     """
     Renders our Native TradingView SuperApp Charting Suite with precision (Time, Price) coordinate-locked drawing tools:
     - Drawings are permanently attached to candle timestamps and prices (not screen pixels).
@@ -60,6 +60,9 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
     saved_drawings = database.get_chart_drawings(clean_sym)
     if not saved_drawings or saved_drawings == "None":
         saved_drawings = "[]"
+
+    # Serialize setup data
+    ai_setup_json = json.dumps(ai_setup_data) if ai_setup_data else "null"
 
     container_id = f"superapp_tv_canvas_{clean_sym}"
 
@@ -473,6 +476,53 @@ def render_tradingview_chart(symbol="XAUUSD", interval="15m", height=780, custom
         }});
         candleSeries.setData(candleData);
         chart.timeScale().fitContent();
+
+        // -------------------------------------------------------------
+        // PHASE 5: TRADE SETUP ENGINE CHART INTEGRATION
+        // -------------------------------------------------------------
+        const setupData = {ai_setup_json};
+        if (setupData && (setupData.status === "READY" || setupData.status === "WAITING")) {{
+            if (setupData.ideal_entry && setupData.ideal_entry !== "N/A") {{
+                candleSeries.createPriceLine({{
+                    price: parseFloat(setupData.ideal_entry),
+                    color: '#3b82f6',
+                    lineWidth: 2,
+                    lineStyle: LightweightCharts.LineStyle.Solid,
+                    axisLabelVisible: true,
+                    title: 'ENTRY (' + setupData.setup + ')',
+                }});
+            }}
+            if (setupData.stop_loss && setupData.stop_loss !== "N/A") {{
+                candleSeries.createPriceLine({{
+                    price: parseFloat(setupData.stop_loss),
+                    color: '#ff5555',
+                    lineWidth: 2,
+                    lineStyle: LightweightCharts.LineStyle.Dashed,
+                    axisLabelVisible: true,
+                    title: 'STOP LOSS',
+                }});
+            }}
+            if (setupData.tp1 && setupData.tp1 !== "N/A") {{
+                candleSeries.createPriceLine({{
+                    price: parseFloat(setupData.tp1),
+                    color: '#10b981',
+                    lineWidth: 2,
+                    lineStyle: LightweightCharts.LineStyle.Dashed,
+                    axisLabelVisible: true,
+                    title: 'TAKE PROFIT 1',
+                }});
+            }}
+            if (setupData.tp2 && setupData.tp2 !== "N/A") {{
+                candleSeries.createPriceLine({{
+                    price: parseFloat(setupData.tp2),
+                    color: '#10b981',
+                    lineWidth: 1,
+                    lineStyle: LightweightCharts.LineStyle.Dotted,
+                    axisLabelVisible: true,
+                    title: 'TAKE PROFIT 2',
+                }});
+            }}
+        }}
 
         // Trade Execution Markers
         if (executions && executions.length > 0) {{

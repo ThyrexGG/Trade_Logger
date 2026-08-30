@@ -945,102 +945,20 @@ def calculate_confluence(ai_data):
 
 def build_trade_scenarios(ai_data, bias):
     """
-    Phase 16: Scenario Engine.
-    Deterministically builds structured targets, validation geometry, and WAIT logic.
+    Phase 16 & Trade Setup Engine Integration.
+    Routes raw factual data into the deterministic Trade Setup Engine.
     """
-    liq = ai_data.get('liquidity_zones', {})
-    obs = ai_data.get('ob_data', [])
+    import trade_setup_engine
     
-    bsl = liq.get('bsl', [])
-    ssl = liq.get('ssl', [])
+    confluence = ai_data.get('confluence_bias', {'bias': bias, 'raw_score': 0})
     
-    bull_ob = None
-    bear_ob = None
-    for ob in obs:
-        if "Bullish" in ob.get('type', '') and bull_ob is None:
-            bull_ob = ob.get('bottom')
-        if "Bearish" in ob.get('type', '') and bear_ob is None:
-            bear_ob = ob.get('top')
-            
-    # Default to NO-TRADE state
-    scenario = {
-        "status": "NO-TRADE",
-        "reason": "Bias is Neutral. Waiting for clear market structure.",
-        "setup": "N/A",
-        "target": "N/A",
-        "invalidation": "N/A",
-        "geometry": "INVALID"
-    }
-    
-    if bias == "Bullish":
-        if not bsl:
-            scenario = {
-                "status": "NO-TRADE",
-                "reason": "INSUFFICIENT LIQUIDITY TARGET",
-                "setup": "Cannot construct a bullish scenario without a valid BSL target above price.",
-                "target": "N/A",
-                "invalidation": "N/A",
-                "geometry": "INVALID"
-            }
-        else:
-            target = bsl[0]
-            inval = bull_ob if bull_ob else ai_data.get('market_structure', {}).get('last_swing_low', None)
-            
-            # Verify SL < Entry < TP Geometry implicitly by knowing inval < target
-            if inval and float(inval) < float(target):
-                scenario = {
-                    "status": "WAITING",
-                    "reason": "Awaiting lower-timeframe MSS trigger.",
-                    "setup": "Wait for sweep of SSL or tap into Bullish FVG/OB, then look for MSS.",
-                    "target": str(target),
-                    "invalidation": str(inval),
-                    "geometry": "VALID"
-                }
-            else:
-                scenario = {
-                    "status": "NO-TRADE",
-                    "reason": "SCENARIO GEOMETRY REJECTED",
-                    "setup": "Calculated invalidation level is higher than or equal to target level.",
-                    "target": str(target),
-                    "invalidation": str(inval),
-                    "geometry": "INVALID"
-                }
-                
-    elif bias == "Bearish":
-        if not ssl:
-            scenario = {
-                "status": "NO-TRADE",
-                "reason": "INSUFFICIENT LIQUIDITY TARGET",
-                "setup": "Cannot construct a bearish scenario without a valid SSL target below price.",
-                "target": "N/A",
-                "invalidation": "N/A",
-                "geometry": "INVALID"
-            }
-        else:
-            target = ssl[0]
-            inval = bear_ob if bear_ob else ai_data.get('market_structure', {}).get('last_swing_high', None)
-            
-            # Verify TP < Entry < SL Geometry implicitly by knowing target < inval
-            if inval and float(target) < float(inval):
-                scenario = {
-                    "status": "WAITING",
-                    "reason": "Awaiting lower-timeframe MSS trigger.",
-                    "setup": "Wait for sweep of BSL or tap into Bearish FVG/OB, then look for MSS.",
-                    "target": str(target),
-                    "invalidation": str(inval),
-                    "geometry": "VALID"
-                }
-            else:
-                scenario = {
-                    "status": "NO-TRADE",
-                    "reason": "SCENARIO GEOMETRY REJECTED",
-                    "setup": "Calculated invalidation level is lower than or equal to target level.",
-                    "target": str(target),
-                    "invalidation": str(inval),
-                    "geometry": "INVALID"
-                }
-    
-    return scenario
+    # Extract the user's selected strategy from the UI if present, otherwise default
+    selected_strategy = ai_data.get('active_strategy', 'ICT 2022 Model')
+
+    engine = trade_setup_engine.TradeSetupEngine(ai_data, confluence, strategy_name=selected_strategy)
+    setup = engine.determine_setup()
+
+    return setup
 
 def validate_trade_model(ai_data, confluence):
     """

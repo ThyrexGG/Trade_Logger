@@ -74,6 +74,11 @@
 
 ---
 
+* **Multi-Timeframe Strategy Backtesting Engine**: `VERIFIED` (Phase 2 Hardened: UTC Standardized, Instrument Sizing Modeled, OOS Split Available, Fixed Spread Modeled)
+
+---
+
 ## 5. Next Priorities & Evolution
-1. Multi-timeframe strategy backtesting sandbox.
+1. Advanced Research Engine (Walk-Forward Analysis Rolling, Monte Carlo).
 2. WebHook trading automation payload endpoints.
+3. Discord Integration (Paused/Deferred by user).

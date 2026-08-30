@@ -17,6 +17,7 @@ import database
 import mt5_sync
 import capital_sync
 import tradingview_widget
+importlib.reload(tradingview_widget)
 import order_execution
 
 def render_html(html_str):
@@ -1049,7 +1050,7 @@ def render_live_dashboard():
                     initial_balance = st.number_input("Balance ($)", min_value=10.0, value=1000.0, step=100.0, key="empty_bal")
                 with col_mt5:
                     st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
-                    if st.button("Sync MT5", key="empty_sync_mt5", use_container_width=True):
+                    if st.button("⟳ Sync MT5", key="empty_sync_mt5", use_container_width=True):
                         with st.spinner("Syncing MT5..."):
                             success = mt5_sync.sync_mt5()
                             if success:
@@ -1189,7 +1190,7 @@ def render_live_dashboard():
                     col_mt5, col_cap = st.columns(2)
                     with col_mt5:
                         st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
-                        if st.button("Sync MT5", key="active_sync_mt5", use_container_width=True):
+                        if st.button("⟳ Sync MT5", key="active_sync_mt5", use_container_width=True):
                             if not mt5_sync.MT5_AVAILABLE:
                                 st.info("MT5 sync connects to the MetaTrader 5 terminal on your Windows PC. Syncing on your PC uploads trades directly to your cloud dashboard.")
                             else:
@@ -1813,10 +1814,16 @@ def render_live_dashboard():
                     
                     components.html(html_code, height=850)
 
+            # Retrieve AI Setup Data to render exact geometric lines on the chart
+            import ai_analysis
+            ai_data_for_chart = ai_analysis.analyze_market_context(symbol=st.session_state.active_ws_symbol, timeframe=active_tf)
+            setup_data_for_chart = ai_data_for_chart.get("deterministic_scenario", {}) if ai_data_for_chart else None
+
             tradingview_widget.render_tradingview_chart(
                 symbol=st.session_state.active_ws_symbol,
                 interval=active_tf,
-                height=800
+                height=800,
+                ai_setup_data=setup_data_for_chart
             )
 
             # 4. BOTTOM PANE: ACTIVE POSITIONS DOCK
@@ -1869,32 +1876,49 @@ def render_live_dashboard():
             st.markdown("<h3 style='color:#ffffff;font-size:1.3rem;margin:0 0 4px 0;font-weight:800;text-transform:uppercase;'>AI Technical & Market Context Analysis</h3>", unsafe_allow_html=True)
             st.markdown("<p style='color:#8a99ad;font-size:13px;margin-bottom:14px;'>Deterministic technical indicator synthesis & structured market scenarios. Never hallucinates prices.</p>", unsafe_allow_html=True)
 
-            col_ai_sym, col_ai_tf, col_ai_btn = st.columns([1.5, 1.2, 1.2])
+            col_ai_sym, col_ai_tf, col_ai_strat, col_ai_btn = st.columns([1.0, 0.8, 1.5, 1.0])
             with col_ai_sym:
                 ai_selected_sym = st.selectbox(
-                    "Asset to Analyze",
+                    "Asset",
                     options=["XAUUSD", "NAS100", "SPX500", "US30", "EURUSD", "GBPUSD", "USDJPY", "BTCUSD", "USOIL"],
                     index=6,
                     key="ai_sel_symbol"
                 )
             with col_ai_tf:
                 ai_selected_tf = st.selectbox(
-                    "Timeframe Context",
-                    options=["15m", "1h", "4h", "D"],
-                    index=1,
+                    "Timeframe",
+                    options=["1m", "5m", "15m", "1h", "4h", "D"],
+                    index=3,
                     key="ai_sel_tf"
                 )
+            with col_ai_strat:
+                import strategies
+                ai_strat_list = strategies.get_all_strategy_names()
+                ai_selected_strat = st.selectbox("Strategy Framework", options=ai_strat_list, index=0, key="ai_sel_strat")
+                
             with col_ai_btn:
                 st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
-                run_ai_analysis = st.button("RUN AI ANALYSIS", key="btn_run_ai", use_container_width=True)
+                run_ai_analysis = st.button("▶ RUN ENGINE", key="btn_run_ai", use_container_width=True)
 
             st.markdown("""<div style='background:rgba(0,0,0,0.15); padding:10px 14px; border-radius:4px; border-left:2px solid #3b82f6; margin-bottom:16px; margin-top:8px;'>
                 <span style='color:#cbd5e1; font-size:11px; font-weight:bold;'>🧠 HOW IT WORKS:</span> 
-                <span style='color:#8a99ad; font-size:11px;'>The engine pulls a live <b>100-candle sample</b> across <b>3 aligned timeframes</b> (e.g., if you select 1h, it scans 1h, 4h, and Daily). It runs a strict deterministic pipeline (Phases 1-17) alongside an ML Random Forest model, and uses an LLM solely for natural language synthesis.</span>
+                <span style='color:#8a99ad; font-size:11px;'>The engine runs the selected deterministic strategy on live price action, automatically calculating Liquidity Sweeps, FVGs, and Market Structure.</span>
             </div>""", unsafe_allow_html=True)
 
             import ai_analysis
-            ai_data = ai_analysis.analyze_market_context(symbol=ai_selected_sym, timeframe=ai_selected_tf)
+            
+            # --- Gate heavy analysis behind the button ---
+            AI_CACHE_KEY = f"ai_data_{ai_selected_sym}_{ai_selected_tf}_{ai_selected_strat}"
+            if run_ai_analysis:
+                with st.spinner(f"⚙️ Running {ai_selected_strat} on {ai_selected_sym} {ai_selected_tf}..."):
+                    _fresh = ai_analysis.analyze_market_context(symbol=ai_selected_sym, timeframe=ai_selected_tf, strategy_name=ai_selected_strat)
+                st.session_state[AI_CACHE_KEY] = _fresh
+
+            ai_data = st.session_state.get(AI_CACHE_KEY, None)
+            
+            if ai_data is None:
+                st.info("👆 Select your asset and strategy above, then press **▶ RUN ENGINE** to run the live analysis.")
+                st.stop()
 
             if ai_data and ai_data.get("status") != "unavailable" and ai_data.get("status") != "error":
                 factual = ai_data.get("factual_data", {})
@@ -2084,29 +2108,48 @@ def render_live_dashboard():
 
                 with col_sum2:
                     with st.container(border=True):
-                        st.markdown(f"<p style='font-size:11px;font-weight:800;color:#64748b;letter-spacing:0.8px;margin-bottom:6px;text-transform:uppercase;'>DETERMINISTIC SMC EXECUTION MODEL</p>", unsafe_allow_html=True)
+                        st.markdown(f"<p style='font-size:11px;font-weight:800;color:#64748b;letter-spacing:0.8px;margin-bottom:6px;text-transform:uppercase;'>TRADE SETUP ENGINE</p>", unsafe_allow_html=True)
                         
-                        conf = ai_data.get('confluence_bias', {})
-                        bias = conf.get('bias', 'Unknown')
-                        score = conf.get('confidence', 0)
-                        bias_color = "#00ffcc" if bias == "Bullish" else "#ff5555" if bias == "Bearish" else "#fbbf24"
-                        
-                        st.markdown(f"""<div style='background:rgba(255,255,255,0.02); padding:12px; border-left:3px solid {bias_color}; border-radius:4px; margin-bottom:12px;'>
-                            <b style='color:#cbd5e1;'>Phase 15: Confluence Bias</b><br/>
-                            <div style='margin-top:8px; margin-bottom:4px;'><span style='background:#1e293b; color:{bias_color}; padding:4px 8px; border-radius:4px; font-size:13px; font-weight:bold;'>{bias} ({score}% Confluence)</span></div>
-                        </div>""", unsafe_allow_html=True)
-
                         scenario = ai_data.get('deterministic_scenario', {})
-                        st.markdown(f"""<div style='background:rgba(255,255,255,0.02); padding:12px; border-left:3px solid #8b5cf6; border-radius:4px; margin-bottom:12px;'>
-                            <b style='color:#cbd5e1;'>Phase 16: Trade Scenario</b><br/>
-                            <div style='font-family:monospace; font-size:11px; color:#8a99ad; margin-top:8px; line-height:1.5;'>
-                            <span style='color:#475569;'>Status:</span> <span style='color:#f59e0b; font-weight:bold;'>{scenario.get('status')}</span><br/>
-                            <span style='color:#475569;'>Reason:</span> <span style='color:#cbd5e1;'>{scenario.get('reason')}</span><br/>
-                            <span style='color:#475569;'>Action:</span> <span style='color:#cbd5e1;'>{scenario.get('setup')}</span><br/>
-                            <span style='color:#475569;'>Target:</span> <span style='color:#00ffcc;'>{scenario.get('target')}</span><br/>
-                            <span style='color:#475569;'>Invalidation:</span> <span style='color:#ff5555;'>{scenario.get('invalidation')}</span>
-                            </div>
-                        </div>""", unsafe_allow_html=True)
+                        setup_status = scenario.get('status', 'NO TRADE')
+                        quality = scenario.get('setup_quality', 'NO TRADE')
+                        
+                        # Colors
+                        if setup_status == "READY": status_col = "#00ffcc"
+                        elif setup_status == "WAITING": status_col = "#f59e0b"
+                        elif setup_status == "WATCHING": status_col = "#3b82f6"
+                        elif setup_status == "INVALIDATED": status_col = "#ff5555"
+                        else: status_col = "#64748b"
+
+                        if quality in ["A+", "A"]: qual_col = "#00ffcc"
+                        elif quality == "B": qual_col = "#3b82f6"
+                        elif quality == "C": qual_col = "#f59e0b"
+                        else: qual_col = "#64748b"
+                        
+                        setup_html = f"""
+<div style='background:rgba(255,255,255,0.02); padding:12px; border-left:3px solid {status_col}; border-radius:4px; margin-bottom:12px;'>
+    <div style='display:flex; justify-content:space-between; align-items:center;'>
+        <b style='color:#cbd5e1; font-size:14px;'>{scenario.get('setup', 'N/A')} SETUP</b>
+        <span style='background:#1e293b; color:{status_col}; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold;'>STATE: {setup_status}</span>
+    </div>
+    <div style='font-family:monospace; font-size:11px; color:#8a99ad; margin-top:12px; line-height:1.6; background:rgba(0,0,0,0.15); padding:8px; border-radius:4px;'>
+        <div style='display:flex; justify-content:space-between;'><span>Entry Zone:</span> <span style='color:#00ffcc;'>{scenario.get('entry_zone', 'N/A')}</span></div>
+        <div style='display:flex; justify-content:space-between;'><span>Ideal Entry:</span> <span style='color:#00ffcc;'>{scenario.get('ideal_entry', 'N/A')}</span></div>
+        <div style='display:flex; justify-content:space-between;'><span>Stop Loss:</span> <span style='color:#ff5555;'>{scenario.get('stop_loss', 'N/A')}</span></div>
+        <div style='display:flex; justify-content:space-between;'><span>Take Profit 1:</span> <span style='color:#10b981;'>{scenario.get('tp1', 'N/A')}</span></div>
+        <div style='display:flex; justify-content:space-between;'><span>Take Profit 2:</span> <span style='color:#10b981;'>{scenario.get('tp2', 'N/A')}</span></div>
+    </div>
+    <div style='display:flex; justify-content:space-between; margin-top:12px;'>
+        <div><span style='color:#475569; font-size:10px;'>R:R:</span> <span style='color:#cbd5e1; font-weight:bold; font-size:12px;'>{scenario.get('risk_reward', 'N/A')}</span></div>
+        <div><span style='color:#475569; font-size:10px;'>Grade:</span> <span style='color:{qual_col}; font-weight:bold; font-size:12px;'>{quality}</span></div>
+        <div><span style='color:#475569; font-size:10px;'>Conf:</span> <span style='color:#cbd5e1; font-weight:bold; font-size:12px;'>{scenario.get('confidence', 'N/A')}</span></div>
+    </div>
+    <div style='margin-top:12px; padding-top:12px; border-top:1px dashed #334155; font-size:11px; color:#cbd5e1;'>
+        <b>Reason/Trigger:</b> <span style='color:#f59e0b;'>{scenario.get('trigger', scenario.get('reason', 'N/A'))}</span>
+    </div>
+</div>
+"""
+                        st.markdown(setup_html, unsafe_allow_html=True)
                         
                         val = ai_data.get('validation', {})
                         v_status = val.get('status', 'INVALID')
@@ -2114,9 +2157,9 @@ def render_live_dashboard():
                         v_reasons = "<br/>".join([f"- {r}" for r in val.get('warnings', [])])
                         
                         st.markdown(f"""<div style='background:rgba(255,255,255,0.02); padding:12px; border-left:3px solid {v_color}; border-radius:4px;'>
-                            <b style='color:#cbd5e1;'>Phase 17: Validation Engine</b><br/>
+                            <b style='color:#cbd5e1;'>Macro Validation Filter</b><br/>
                             <div style='margin-top:8px; margin-bottom:4px;'><span style='background:#1e293b; color:{v_color}; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold;'>{v_status}</span></div>
-                            <div style='font-family:monospace; font-size:10px; color:#ff5555; margin-top:4px;'>{v_reasons if v_status == "INVALID" else "<span style='color:#00ffcc;'>All clear for execution.</span>"}</div>
+                            <div style='font-family:monospace; font-size:10px; color:#ff5555; margin-top:4px;'>{v_reasons if v_status == "INVALID" else "<span style='color:#00ffcc;'>All macro clear for execution.</span>"}</div>
                         </div>""", unsafe_allow_html=True)
 
                     with st.container(border=True):
@@ -2492,7 +2535,47 @@ def render_live_dashboard():
         st.markdown("<h3 style='color:#ffffff;font-size:1.3rem;margin-bottom:6px;font-weight:800;text-transform:uppercase;'>Price Alerts & Risk Studio</h3>", unsafe_allow_html=True)
         st.markdown("<p style='color:#8a99ad;font-size:13px;margin-bottom:16px;'>Set target price cross alerts and configure custom profit targets or risk limits.</p>", unsafe_allow_html=True)
         
-        sub_t_price, sub_t_rules = st.tabs(["LIVE PRICE TARGET ALERTS", "PROFIT & LOSS ALERT RULES"])
+        sub_t_setup, sub_t_price, sub_t_rules = st.tabs(["TRADE SETUP ALERTS", "LIVE PRICE TARGET ALERTS", "PROFIT & LOSS ALERT RULES"])
+        
+        with sub_t_setup:
+            st.markdown("<h4 style='color:#ffffff;font-size:14px;font-weight:700;text-transform:uppercase;margin:10px 0 10px 0;'>Deterministic State Transitions</h4>", unsafe_allow_html=True)
+            st.markdown("<p style='color:#8a99ad;font-size:12px;margin-bottom:16px;'>This view monitors the AI Trade Setup Engine and notifies you of logical state transitions (e.g. WATCHING ➔ READY ➔ INVALIDATED).</p>", unsafe_allow_html=True)
+            
+            ai_data_state = st.session_state.get("market_context_result")
+            if ai_data_state:
+                scenario = ai_data_state.get("deterministic_scenario", {})
+                setup_status = scenario.get("status", "NO TRADE")
+                
+                # Colors
+                if setup_status == "READY": status_col = "#00ffcc"
+                elif setup_status == "WAITING": status_col = "#f59e0b"
+                elif setup_status == "WATCHING": status_col = "#3b82f6"
+                elif setup_status == "INVALIDATED": status_col = "#ff5555"
+                else: status_col = "#64748b"
+                
+                setup_alert_html = f"""
+<div style="background: rgba(18, 24, 38, 0.7); border: 1px solid rgba(255,255,255,0.08); border-left: 4px solid {status_col}; border-radius: 10px; padding: 14px 18px; margin-bottom: 12px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <span style="font-weight: 800; font-size: 15px; color: #ffffff;">{scenario.get("symbol", "UNKNOWN")} • {scenario.get("setup", "N/A")} SETUP</span>
+        <span style="font-size: 11px; padding: 4px 8px; border-radius: 4px; background: rgba(255,255,255,0.06); color: {status_col}; font-weight:800;">{setup_status}</span>
+    </div>
+    <div style="font-size: 13px; color: #cbd5e1; margin-bottom: 8px;">
+        <b>Trigger:</b> {scenario.get("trigger", "N/A")}
+    </div>
+    <div style="font-size: 13px; color: #ff5555; margin-bottom: 8px;">
+        <b>Invalidation:</b> {scenario.get("invalidation", "N/A")}
+    </div>
+    <div style="font-size: 11px; color: #8a99ad; margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px;">
+        <span style="color:#00ffcc;">Entry:</span> {scenario.get("ideal_entry", "N/A")} &nbsp;|&nbsp; 
+        <span style="color:#ff5555;">SL:</span> {scenario.get("stop_loss", "N/A")} &nbsp;|&nbsp; 
+        <span style="color:#10b981;">TP1:</span> {scenario.get("tp1", "N/A")} &nbsp;|&nbsp; 
+        <span style="color:#10b981;">TP2:</span> {scenario.get("tp2", "N/A")}
+    </div>
+</div>
+"""
+                st.markdown(setup_alert_html, unsafe_allow_html=True)
+            else:
+                st.info("No active AI Trade Setup available. Run the AI Sandbox first to initialize the engine.")
         
         with sub_t_price:
             with st.container(border=True):
@@ -3026,17 +3109,29 @@ def render_live_dashboard():
         
         with st.container(border=True):
             st.markdown("<div style='font-size:0.75rem;font-weight:800;color:#00ffcc;letter-spacing:1px;margin-bottom:12px;'>BACKTEST CONFIGURATION</div>", unsafe_allow_html=True)
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3, col4, col5 = st.columns(5)
             with col1:
-                test_symbol = st.selectbox("Asset Symbol", ["EURUSD", "GBPUSD", "XAUUSD", "BTCUSD", "US30", "NAS100", "SPX500"], index=0)
+                test_symbol = st.selectbox("Asset Symbol", ["USDJPY", "EURUSD", "GBPUSD", "XAUUSD", "BTCUSD", "US30", "NAS100", "SPX500"], index=0)
                 test_timeframe = st.selectbox("Granularity", ["1h", "1d"], index=0, help="Higher timeframes are faster to simulate over long periods.")
             with col2:
-                test_strategy = st.selectbox("Strategy Template", ["Trend Continuation", "Mean Reversion"])
+                import strategies
+                sb_strat_list = strategies.get_all_strategy_names()
+                test_strategy = st.selectbox("Strategy Template", sb_strat_list)
                 test_capital = st.number_input("Starting Capital ($)", value=10000.0, step=1000.0)
             with col3:
                 test_risk = st.number_input("Risk Per Trade (%)", value=1.0, step=0.1, max_value=5.0)
                 test_sl = st.number_input("Stop Loss (ATR Multiple)", value=1.5, step=0.1)
+            with col4:
                 test_tp = st.number_input("Take Profit (ATR Multiple)", value=2.0, step=0.1)
+                test_slippage = st.number_input("Slippage (Absolute)", value=0.0001, format="%f")
+            with col5:
+                test_commission = st.number_input("Commission (%)", value=0.01, step=0.01)
+                test_fixed_spread = st.number_input("Fixed Spread", value=0.0, format="%f")
+                
+            test_train_split = st.slider("Train/Test Split (In-Sample %)", min_value=0.1, max_value=1.0, value=0.7, step=0.1, help="Reserve recent data for Out-of-Sample testing.")
+                
+            st.markdown("<div style='font-size:0.75rem;font-weight:800;color:#f59e0b;letter-spacing:1px;margin-bottom:6px;margin-top:12px;'>BACKTEST VALIDITY CHECKLIST</div>", unsafe_allow_html=True)
+            st.markdown("<p style='font-size:0.8rem;color:#94a3b8;'>• <b>Execution:</b> Next-Bar Market Order (0-bar Look-Ahead PASS)<br/>• <b>Data:</b> Yahoo Finance (UTC Standardized)<br/>• <b>Instrument Constraints:</b> MODELED (Min Qty / Step Rounding enforced)</p>", unsafe_allow_html=True)
                 
             run_test = st.button("RUN SIMULATION", use_container_width=True, type="primary")
             
@@ -3050,22 +3145,36 @@ def render_live_dashboard():
                     risk_pct=test_risk,
                     sl_atr=test_sl,
                     tp_atr=test_tp,
-                    capital=test_capital
+                    capital=test_capital,
+                    slippage=test_slippage,
+                    commission_pct=test_commission,
+                    fixed_spread=test_fixed_spread,
+                    train_split=test_train_split
                 )
                 
                 if "error" in res:
                     st.error(res["error"])
                 else:
                     st.success("Simulation Complete!")
-                    metrics = res["metrics"]
+                    metrics_is = res["metrics_is"]
+                    metrics_oos = res["metrics_oos"]
                     
-                    st.markdown("<div style='margin-top:24px;font-size:0.75rem;font-weight:800;color:#bef264;letter-spacing:1px;margin-bottom:12px;'>PERFORMANCE METRICS</div>", unsafe_allow_html=True)
-                    mc1, mc2, mc3, mc4, mc5 = st.columns(5)
-                    mc1.metric("Win Rate", metrics["Win Rate"])
-                    mc2.metric("Profit Factor", metrics["Profit Factor"])
-                    mc3.metric("Max Drawdown", metrics["Max Drawdown"])
-                    mc4.metric("Total Trades", metrics["Total Trades"])
-                    mc5.metric("Final Capital", metrics["Final Capital"])
+                    st.markdown("<div style='margin-top:24px;font-size:0.75rem;font-weight:800;color:#bef264;letter-spacing:1px;margin-bottom:12px;'>IN-SAMPLE PERFORMANCE (TRAINING DATA)</div>", unsafe_allow_html=True)
+                    mc1, mc2, mc3, mc4 = st.columns(4)
+                    mc1.metric("Win Rate", metrics_is["Win Rate"])
+                    mc2.metric("Profit Factor", metrics_is["Profit Factor"])
+                    mc3.metric("Max Drawdown", metrics_is["Max Drawdown"])
+                    mc4.metric("Total Trades", metrics_is["Total Trades"])
+                    
+                    if metrics_oos:
+                        st.markdown("<div style='margin-top:24px;font-size:0.75rem;font-weight:800;color:#00ffcc;letter-spacing:1px;margin-bottom:12px;'>OUT-OF-SAMPLE PERFORMANCE (UNSEEN DATA)</div>", unsafe_allow_html=True)
+                        mo1, mo2, mo3, mo4 = st.columns(4)
+                        mo1.metric("Win Rate", metrics_oos["Win Rate"])
+                        mo2.metric("Profit Factor", metrics_oos["Profit Factor"])
+                        mo3.metric("Max Drawdown", metrics_oos["Max Drawdown"])
+                        mo4.metric("Total Trades", metrics_oos["Total Trades"])
+                        
+                    st.markdown(f"<div style='margin-top:24px;font-size:1.1rem;font-weight:800;color:#ffffff;letter-spacing:1px;margin-bottom:12px;'>Final Capital: {res['final_capital']}</div>", unsafe_allow_html=True)
                     
                     st.markdown("<div style='margin-top:24px;font-size:0.75rem;font-weight:800;color:#00ffcc;letter-spacing:1px;margin-bottom:12px;'>EQUITY CURVE</div>", unsafe_allow_html=True)
                     eq_curve = res["equity_curve"]
@@ -3086,3 +3195,5 @@ def render_live_dashboard():
                         st.dataframe(pd.DataFrame(res["trades"]), use_container_width=True)
 
 render_live_dashboard()
+
+# Force Streamlit Reload
