@@ -1,6 +1,6 @@
 # PROJECT STATE & ARCHITECTURAL RECORD
 **TradeLogger Terminal — Living System Memory**
-*Last Updated: 30 August 2026*
+*Last Updated: 30 August 2026, Session 2*
 
 > **HOW TO USE THIS FILE**
 > Start any new AI session with: *"Read PROJECT_STATE.md and continue where we left off."*
@@ -10,14 +10,18 @@
 
 ## 1. What This Project Is
 
-A professional-grade **trading research and journaling terminal** built for a liquidity-based, ICT/SMC methodology trader. It is NOT a simple trade log — it is a full research stack:
+A professional-grade **trading research, journaling, and execution terminal** built for a liquidity-based, ICT/SMC methodology trader. It is NOT a simple trade log — it is a full research + execution stack:
 
-- **Streamlit Desktop Terminal** (`app.py`) — primary UI, 6 tabs
+- **Streamlit Desktop Terminal** (`app.py`) — primary UI, 8 tabs
 - **Deterministic AI Market Analysis Engine** (`ai_analysis.py`) — 17-phase pipeline
 - **Modular Strategy Framework** (`strategies/`) — unified engine for live + backtest
 - **Historical Backtester** (`backtester.py`) — OOS-split, SMC-aware, limit order aware
-- **MT5 + Capital.com broker sync** — live position tracking
-- **FastAPI WebSocket server** (`server.py`) — live tick streaming
+- **Walk-Forward Optimization** (`wfo.py`) — rolling window parameter optimization
+- **MT5 + Capital.com broker sync** — live position tracking + execution
+- **Canonical Execution Pipeline** (`execution_pipeline.py`) — fail-closed order routing
+- **Risk Engine** (`portfolio_risk.py`) — portfolio-level risk controls
+- **Account State Layer** (`account_state.py`) — broker-reconciled balances
+- **FastAPI WebSocket server** (`server.py`) — live tick streaming + webhook receiver
 - **Flutter mobile app** (`trade_logger_app/`) — companion mobile UI
 - **Trade Journal** with screenshots, setup tags, ratings
 
@@ -28,17 +32,24 @@ A professional-grade **trading research and journaling terminal** built for a li
 ### Backend Files
 | File | Purpose |
 |------|---------|
-| `app.py` | Main Streamlit UI (6 tabs) |
-| `server.py` | FastAPI REST + WebSocket server |
+| `app.py` | Main Streamlit UI (8 tabs) |
+| `server.py` | FastAPI REST + WebSocket server + webhook receiver |
 | `database.py` | SQLite + PostgreSQL multi-tenant DB |
 | `market_data.py` | Live data fetching, liquidity, FVG, OB, confluence |
 | `ai_analysis.py` | 17-phase AI/deterministic analysis pipeline |
 | `trade_setup_engine.py` | Live deterministic strategy evaluator |
 | `backtester.py` | Historical simulation engine |
-| `analytics.py` | Win rate, PF, SQN, drawdown calculations |
+| `wfo.py` | Walk-Forward Optimization engine |
+| `analytics.py` | Win rate, PF, SQN, drawdown, attribution analytics |
 | `mt5_sync.py` | MetaTrader 5 local bridge |
 | `capital_sync.py` | Capital.com REST API bridge |
 | `alerts.py` | Price alert daemon |
+| `execution_pipeline.py` | Canonical order routing (WEBHOOK → RISK → BROKER) |
+| `order_execution.py` | Broker order submission (MT5 + Capital.com) |
+| `portfolio_risk.py` | Portfolio-level risk controls (correlation, exposure) |
+| `account_state.py` | Broker-reconciled account state fetching |
+| `paper_simulator.py` | Continuous paper execution simulator |
+| `reconciliation.py` | Paper-to-live divergence reconciliation |
 
 ### Strategy Framework (`strategies/`)
 | File | Purpose |
@@ -51,14 +62,57 @@ A professional-grade **trading research and journaling terminal** built for a li
 | `trend_continuation.py` | EMA crossover continuation |
 | `mean_reversion.py` | RSI extreme reversal |
 
+### Test Suite (`tests/`)
+| File | Purpose |
+|------|---------|
+| `test_execution_safety.py` | 28 execution safety branches |
+| `test_phase11.py` | Portfolio risk & paper fill pricing |
+| `test_paper_execution.py` | Paper execution simulation |
+| `test_broker_reconciliation.py` | Broker reconciliation |
+| `test_mtf_validation.py` | Multi-timeframe validation |
+| `test_wfo.py` | Walk-forward optimization |
+| `test_account_risk.py` | Account risk controls |
+| `test_failure_injection.py` | Failure injection testing |
+
 ---
 
-## 3. Strategy Framework — Critical Design Decisions
+## 3. Execution Pipeline Architecture (Phase 9-10)
+
+### Canonical Order Flow
+```
+WEBHOOK / SIGNAL
+      ↓
+CANONICAL PIPELINE (execution_pipeline.py)
+      ↓
+RISK ENGINE (portfolio_risk.py)
+      ↓
+BROKER API (order_execution.py)
+```
+
+### Safety Controls
+- **Fail-Closed Principle**: Database unavailable → Cannot verify risk → DO NOT TRADE
+- **Persistent Idempotency**: SQLite-backed signal_id deduplication (survives restart)
+- **Kill Switch**: Global `KILL_SWITCH` flag halts all automated execution
+- **Execution State Machine**: `PENDING → SUBMITTED → FILLED | REJECTED | UNKNOWN`
+- **Stale Signal Protection**: Signals older than 300s are rejected
+- **HMAC Webhook Signing**: Cryptographic verification of inbound webhooks
+- **Execution Modes**: `SHADOW` (log only) → `PAPER` (simulated) → `LIVE` (real money)
+
+### Risk Controls (portfolio_risk.py)
+- Max daily loss: 3% of account equity (uses broker-reported floating PnL)
+- Max total open risk: 15% of equity
+- Max symbol exposure: 2 positions per instrument
+- Max directional exposure: 4 positions in same direction
+- Correlated asset rejection: >0.80 correlation threshold
+
+---
+
+## 4. Strategy Framework — Critical Design Decisions
 
 ### Unified Execution Model
 Both `trade_setup_engine.py` (live) and `backtester.py` (historical) call `strategy.analyze(df, current_index, context)` from the same registry. Zero duplicated logic.
 
-### BaseStrategy Output Schema (Phase 6 — current)
+### BaseStrategy Output Schema
 ```python
 {
     "status": "READY" | "WATCHING" | "WAITING" | "NO TRADE" | "INVALIDATED",
@@ -75,7 +129,7 @@ Both `trade_setup_engine.py` (live) and `backtester.py` (historical) call `strat
     "invalidation": str,
     "confidence": "Low" | "Medium" | "High",
     "setup_quality": "A+" | "A" | "B" | "C",
-    "liquidity_type": str,   # e.g. "BSL_PDH", "SSL_ASIAN", "SWING_LOW"
+    "liquidity_type": str,
     "session": "ASIA" | "LONDON" | "NEW_YORK" | "N/A",
     "reason": str
 }
@@ -87,8 +141,8 @@ Both `trade_setup_engine.py` (live) and `backtester.py` (historical) call `strat
 - **PDH/PDL**: `daily_highs.shift(1)` mapped back to df — strictly previous day
 - **Asian Range**: Only populated after 06:00 UTC — uses yesterday's range during Asia session
 - **Session flags**: `is_asia` (00-06 UTC), `is_london` (07-16 UTC), `is_ny` (12-20 UTC)
-- **Column normalization**: All OHLC normalized to Title Case at entry (handles MT5 lowercase + yfinance Title Case)
-- **Liquidity sweep priority**: PDH/PDL > Asian Range > Fractal Swings. Returns `type` field.
+- **Column normalization**: All OHLC normalized to Title Case at entry
+- **Liquidity sweep priority**: PDH/PDL > Asian Range > Fractal Swings
 
 ### Backtester Execution
 - `MARKET`: fill at next bar Open + slippage
@@ -98,35 +152,42 @@ Both `trade_setup_engine.py` (live) and `backtester.py` (historical) call `strat
 
 ---
 
-## 4. Known Bugs Fixed (Do Not Reintroduce)
+## 5. Known Bugs Fixed (Do Not Reintroduce)
 
 | Bug | Fix |
 |-----|-----|
-| `KeyError: 'High'` on live data | `smc_utils.py` normalizes OHLC column names at entry with `col.capitalize()` |
-| `TypeError: 'Timestamp' cannot be integer` | Use `df.index.get_loc(last_fvg_idx)` for `iloc` in `ict_2022_model.py` |
-| `TradeSetupEngine unexpected kwarg 'strategy_name'` | Stale `.pyc` — clear `__pycache__` + `strategies/__pycache__` |
+| `KeyError: 'High'` on live data | `smc_utils.py` normalizes OHLC column names at entry |
+| `TypeError: 'Timestamp' cannot be integer` | Use `df.index.get_loc(last_fvg_idx)` for `iloc` |
+| `TradeSetupEngine unexpected kwarg 'strategy_name'` | Stale `.pyc` — clear `__pycache__` |
 | `df.dropna()` wiping df after SMC features | Changed to `dropna(subset=['Open','High','Low','Close'])` |
 | AI analysis running on every Streamlit rerun | Gated behind `▶ RUN ENGINE` button with `st.session_state` cache |
-| Orphaned Streamlit process on port 8501 | `Get-Process python | Stop-Process -Force` then restart |
+| Orphaned Streamlit process on port 8501 | `Get-Process python \| Stop-Process -Force` then restart |
+| **`st.stop()` in AI tab blanking all downstream tabs** | **Replaced with `if/elif/else` branching (no `st.stop()`)** |
+| **CSS hiding sidebar expand arrow** | **Removed `[data-testid="stHeader"]` from `display:none` rule** |
+| **CSS hiding loading spinner/status widget** | **Removed `.stSpinner > div:first-child { display:none }` and `stStatusWidget` hiding** |
 
 ---
 
-## 5. UI Tab Structure (app.py)
+## 6. UI Tab Structure (app.py)
 
 | Tab | Key Feature |
 |-----|-------------|
-| Analytics & Overview | Account metrics, equity curve, position table |
+| Analytics & Overview | Account metrics, equity curve, position table, calendar |
 | Trading Workspace | Live chart, drawing tools, order execution panel |
-| AI Market Context | `▶ RUN ENGINE` button → runs selected strategy on live data, caches result in session_state |
+| AI Market Context | `▶ RUN ENGINE` button → runs selected strategy on live data |
 | Trade Journal | Per-trade journal with screenshots, setup tags, ratings |
-| Price Alerts | Threshold alert management |
+| Price Alerts | Threshold alert management, risk studio |
+| Quick Terminal | Quick order execution interface |
 | Sandbox | Strategy selection, parameters, OOS backtest, equity curve |
+| System Health & Paper | Component status, paper execution monitoring |
 
 **Important**: AI Market Context tab runs analysis ONLY on button press — not on every page load. Result cached by `AI_CACHE_KEY = f"ai_data_{symbol}_{tf}_{strategy}"`.
 
+**Important**: The AI tab must NEVER use `st.stop()` — it halts the entire script and blanks all subsequent tabs.
+
 ---
 
-## 6. AI Analysis Pipeline (17 Phases)
+## 7. AI Analysis Pipeline (17 Phases)
 
 1. Live OHLC data fetch (MT5 → Binance → Yahoo Finance fallback)
 2. ML Random Forest edge scoring (3-class: BUY/SELL/NEUTRAL)
@@ -148,25 +209,56 @@ Both `trade_setup_engine.py` (live) and `backtester.py` (historical) call `strat
 
 ---
 
-## 7. Audit Results (30 Aug 2026)
+## 8. Phase Completion Status
 
-| Component | Status |
-|-----------|--------|
-| Session detection (Asia/London/NY) | ✅ IMPLEMENTED |
-| PDH / PDL | ✅ IMPLEMENTED |
-| Asian Range High/Low | ✅ IMPLEMENTED (look-ahead safe) |
-| Previous Week High/Low | ❌ NOT YET |
-| Equal Highs/Lows detection | ❌ NOT YET |
-| Look-ahead bias (swings + FVGs) | ✅ PASS (synthetic tests) |
-| MTF strategy inputs | ❌ NOT YET (single-TF only) |
-| Displacement validation | ❌ NOT YET (FVG assumed = displacement) |
-| ICT SL beyond sweep low | ✅ IMPLEMENTED |
-| LIMIT execution model + gap-fill | ✅ IMPLEMENTED |
-| Live/backtest parity | ✅ VERIFIED |
+| Phase | Description | Status |
+|-------|-------------|--------|
+| Phase 1-5 | Core UI, Broker Sync, Analytics, AI Pipeline | ✅ COMPLETE |
+| Phase 6 | Modular Strategy Framework | ✅ COMPLETE |
+| Phase 7 | Multi-Timeframe Strategy Engine | ✅ COMPLETE |
+| Phase 7.5 | MTF Validation | ✅ COMPLETE |
+| Phase 8 | Walk-Forward Optimization + Monte Carlo | ✅ COMPLETE |
+| Phase 9 | Production Execution, Risk & Safety | ✅ COMPLETE |
+| Phase 9.5 | Execution Safety Audit (28/28 tests) | ✅ COMPLETE |
+| Phase 10 | Broker-Reconciled Risk & Paper-to-Live | ✅ COMPLETE |
+| Phase 11 | Live Paper Validation & Portfolio Research | ✅ COMPLETE |
+| Phase 11.5 | Code Integrity Audit & UX Fixes | ✅ COMPLETE |
+| Phase 12 | Live Automation & Institutional Rollout | 🔲 NOT STARTED |
 
 ---
 
-## 8. Defaults
+## 9. Database Schema Summary
+
+| Table | Key Columns |
+|-------|-------------|
+| `closed_trades` | `trade_id`, `account_id`, `symbol`, `direction`, `volume`, `entry_price`, `exit_price`, `commission`, `swap`, `gross_profit`, `net_profit`, `entry_time`, `exit_time`, `duration_minutes`, `setup_tag`, `chart_snapshot_url`, `notes`, `rating` |
+| `raw_deals` | `deal_id`, `account_id`, `symbol`, `type`, `volume`, `price`, `commission`, `swap`, `profit`, `timestamp`, `position_id` |
+| `open_positions` | `position_id`, `account_id`, `symbol`, `direction`, `volume`, `entry_price`, `current_price`, `sl`, `tp`, `floating_pnl`, `swap`, `open_time`, `updated_at` |
+| `price_alerts` | `alert_id`, `symbol`, `target_price`, `condition`, `is_active`, `created_at`, `triggered_at`, `notes` |
+| `trade_journal` | `trade_id`, `notes`, `strategy`, `rating`, `screenshot_path`, `updated_at` |
+| `app_settings` | `key`, `value` |
+| `chart_drawings` | `symbol`, `drawings_data`, `updated_at` |
+| `received_signals` | `signal_id`, `order_id`, `strategy`, `timeframe`, `setup_type`, `confluence`, `session`, `signal_outcome` |
+| `execution_audit_log` | `signal_id`, `symbol`, `direction`, `volume`, `status`, `broker_order_id`, `execution_mode`, `timestamp` |
+| `correlation_matrix` | `symbol_a`, `symbol_b`, `correlation`, `window`, `updated_at` |
+
+---
+
+## 10. Design System Tokens
+
+| Token | Value |
+|-------|-------|
+| Background | `#0a0e17` / `#0c0f16` |
+| Cards | `#0e131f` / `#131722` |
+| Bullish / Highlight | `#00ffcc` |
+| Bearish / Loss | `#ff5555` |
+| Warning / Gold | `#f59e0b` |
+| Growth / Secondary | `#bef264` |
+| Font | Inter + monospace numbers |
+
+---
+
+## 11. Defaults
 
 - **Default symbol**: USDJPY (XAUUSD secondary)
 - **Default timeframe**: 15m
@@ -176,23 +268,15 @@ Both `trade_setup_engine.py` (live) and `backtester.py` (historical) call `strat
 
 ---
 
-## 9. Next Development Priorities
-
-1. Equal Highs/Lows detection in `smc_utils.py`
-2. Previous Week High/Low in `smc_utils.py`
-3. MTF strategy inputs — inject last completed higher-TF candle into `BaseStrategy.analyze()`
-4. Displacement validation — verify impulsive move size vs ATR
-5. Walk-forward / Monte Carlo in backtester
-6. WebHook automation endpoints
-
----
-
-## 10. How to Run
+## 12. How to Run
 
 ```powershell
-# Start
-cd C:\Users\Asus\Desktop\Trade_Logger
-python -m streamlit run app.py
+# Start Streamlit Terminal
+cd C:\Users\Thyrex 2.0\Desktop\Trade_Logger
+python -m streamlit run app.py --server.port 8502
+
+# Start FastAPI Server (for webhooks)
+python server.py
 
 # Stop all Python processes
 Get-Process python | Stop-Process -Force
@@ -200,117 +284,12 @@ Get-Process python | Stop-Process -Force
 
 ---
 
-## 11. Database Schema
+## 13. Next Priorities & Evolution (Phase 12)
 
-| Table | Key Columns |
-|-------|-------------|
-| `closed_trades` | `trade_id`, `account_id`, `symbol`, `direction`, `volume`, `entry_price`, `exit_price`, `net_profit`, `entry_time`, `exit_time`, `setup_tag` |
-| `open_positions` | `position_id`, `account_id`, `symbol`, `direction`, `volume`, `entry_price`, `sl`, `tp`, `floating_pnl` |
-| `price_alerts` | `alert_id`, `symbol`, `target_price`, `condition`, `is_active` |
-| `trade_journal` | `trade_id`, `notes`, `strategy`, `rating`, `screenshot_path` |
-| `chart_drawings` | `symbol`, `drawings_data` |
-
----
-
-## 12. Design System Tokens
-
-| Token | Value |
-|-------|-------|
-| Background | `#0a0e17` |
-| Cards | `#0e131f` / `#131722` |
-| Bullish / Highlight | `#00ffcc` |
-| Bearish / Loss | `#ff5555` |
-| Warning / Gold | `#f59e0b` |
-| Growth / Secondary | `#bef264` |
-| Font | Inter + monospace numbers |
-
-
----
-
-## 1. Current Architecture
-* **Unified Backend**: FastAPI (`server.py`) serving REST APIs, database queries, market data feeds, WebSockets (`/ws/live_ticks`) for millisecond stream, and static Flutter Web assets.
-* **Database Layer**: `database.py` with multi-tenant account isolation, supporting local SQLite (`trades.db`) and cloud PostgreSQL (`DATABASE_URL`).
-* **Broker Adapters**:
-  - `capital_sync.py`: Capital.com REST API v1 session authentication, trade fetching, order execution, position closing.
-  - `mt5_sync.py`: Local Windows MetaTrader 5 C-extension bridge, deal reconstruction, balance fetching, order execution.
-* **Analytics Engine**: `analytics.py` providing deterministic financial metrics (Win Rate, Profit Factor, Expectancy, SQN, Max DD, Long/Short performance).
-* **AI Analysis Pipeline**: `ai_analysis.py` synthesizing deterministic indicators into structured market context with zero hallucination.
-  - Phase 2: ML Engine 3-class deterministic edges.
-  - Phase 3: Data Quality normalisation rules.
-  - Phase 4: Multi-Timeframe Alignment math.
-  - Phase 5: Deterministic Volatility Regimes (ADX).
-  - Phase 6: Volume Profile (POC/VAH/VAL) & Session VWAP using Tick Volume.
-  - Phase 7: Deterministic Market Structure (BOS/MSS & Swings).
-  - Phase 8: Strict Liquidity Engine Audit (Price-relative BSL/SSL Geometry).
-  - Phase 9: Fair Value Gaps (FVG) Mitigation Engine (Tested vs Untested).
-  - Phase 10: Institutional Order Blocks (Unmitigated OB Detection).
-  - Phase 11: Session Engine (Asian Range High/Low Mapping).
-  - Phase 12: Macro/News Risk Engine (Implementation pipeline complete; uses deterministic mock).
-  - Phase 13: Commitment of Traders (COT) Engine (Implementation pipeline complete; uses deterministic mock).
-  - Phase 14: Cross-Asset Correlation Engine (Implementation pipeline complete; checks DXY vs Base Pair).
-  - Phase 15: Confluence Engine (Deterministic AI Override - Weighs MTF/Macro/Technical factors for Bias).
-  - Phase 16: Scenario Engine (Deterministic AI Override - Computes BSL/SSL targets and OB invalidation).
-  - Phase 17: Final Validation Engine (Sanity checks macro risk and session timing).
-* **AI Architecture Status**: FULLY COMPLETE. The dual-engine pipeline is completely built out and handles 17 phases of technical and fundamental synthesis.
-* **Charting Engine**: `tradingview_widget.py` powered by Lightweight Charts 4.1.1 with precision `(time, price)` coordinate projection and SQLite drawing persistence.
-* **User Interfaces**:
-  - Desktop Terminal: Streamlit `app.py` (Multi-pane Trading Workspace, Analytics & Overview, AI Market Context, Trade Journal, Alerts).
-  - Mobile & Web: Flutter 3 `trade_logger_app/`.
-
----
-
-## 2. Working Features Status
-* **Capital.com Account & Trade Sync**: `VERIFIED`
-* **MT5 Local IPC Sync**: `VERIFIED`
-* **Multi-Broker Account Separation**: `VERIFIED`
-* **Unified Multi-Pane Trading Workspace**: `VERIFIED`
-* **Coordinate-Locked Chart Drawing Tools**: `VERIFIED`
-* **Pre-Trade Risk Management & Validation**: `VERIFIED`
-* **Position Closure (MT5 & Capital.com)**: `VERIFIED`
-* **Deterministic Analytics Calculations**: `VERIFIED`
-* **Structured AI Market Context Engine**: `VERIFIED`
-* **Persistent SQLite Drawing Storage**: `VERIFIED`
-* **Threshold Price Alerts Daemon**: `VERIFIED`
-
----
-
-## 3. Database Schema Summary
-* `closed_trades`: `trade_id`, `account_id`, `symbol`, `direction`, `volume`, `entry_price`, `exit_price`, `commission`, `swap`, `gross_profit`, `net_profit`, `entry_time`, `exit_time`, `duration_minutes`, `setup_tag`.
-* `raw_deals`: `deal_id`, `account_id`, `symbol`, `type`, `volume`, `price`, `commission`, `swap`, `profit`, `timestamp`, `position_id`.
-* `open_positions`: `position_id`, `account_id`, `symbol`, `direction`, `volume`, `entry_price`, `current_price`, `sl`, `tp`, `floating_pnl`, `swap`, `open_time`, `updated_at`.
-* `price_alerts`: `alert_id`, `symbol`, `target_price`, `condition`, `is_active`, `created_at`, `triggered_at`, `notes`.
-* `trade_journal`: `trade_id`, `notes`, `strategy`, `rating`, `screenshot_path`, `updated_at`.
-* `app_settings`: `key`, `value`.
-* `chart_drawings`: `symbol`, `drawings_data`, `updated_at`.
-
----
-
-## 4. Design System Tokens
-* **Background Primary**: `#0a0e17`
-* **Card & Sidebar Background**: `#0e131f` / `#131722`
-* **Borders**: `rgba(255, 255, 255, 0.08)` / `rgba(0, 255, 204, 0.25)`
-* **Semantic Cyan (Bullish / Highlight)**: `#00ffcc`
-* **Semantic Lime (Growth / Secondary)**: `#bef264`
-* **Semantic Red (Bearish / Loss)**: `#ff5555`
-* **Semantic Gold (Warning / Fibonacci)**: `#f59e0b`
-* **Typography**: Clean, high-density financial typography using `Inter` and monospace numbers.
-
----
-
-* **Multi-Timeframe Strategy Backtesting Engine**: `VERIFIED` (Phase 2 Hardened: UTC Standardized, Instrument Sizing Modeled, OOS Split Available, Fixed Spread Modeled)
-
----
-
-## 5. Working Features Status Update (Phase 11)
-* **Broker-Reconciled Risk Check (MT5/Capital)**: `VERIFIED`
-* **Idempotent Webhook Execution (`SHADOW` / `PAPER` / `LIVE`)**: `VERIFIED`
-* **Signal Attribution Analytics (Expectancy & Win Rate per Setup)**: `VERIFIED`
-* **Portfolio Risk Management Engine (Correlation & Exposure)**: `VERIFIED`
-* **Continuous Paper Execution Simulator**: `VERIFIED`
-
----
-
-## 6. Next Priorities & Evolution (Phase 12)
-1. Live Automation Check & Institutional Rollout.
-2. WebHook trading automation payload endpoints tuning.
-3. Live Walk-Forward / Paper-to-Live Divergence Monitoring.
+1. Live Automation Check & Institutional Rollout
+2. WebHook trading automation payload endpoints tuning
+3. Live Walk-Forward / Paper-to-Live Divergence Monitoring
+4. Equal Highs/Lows detection in `smc_utils.py`
+5. Previous Week High/Low in `smc_utils.py`
+6. MTF strategy inputs — inject last completed higher-TF candle into `BaseStrategy.analyze()`
+7. Displacement validation — verify impulsive move size vs ATR
