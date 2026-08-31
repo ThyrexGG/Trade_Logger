@@ -1,0 +1,908 @@
+{
+  "symbol": "USDJPY",
+  "timeframe": "15m",
+  "total_hypotheses_tested": 27,
+  "experiments": [
+    {
+      "experiment_id": "EXP_S_A_ASIAN_BREAKOUT",
+      "name": "Exp S-A: Asian Session Breakout",
+      "category": "SESSION",
+      "description": "Breakout beyond Asian session high/low with fixed 1.0 ATR stop and 2.0R target.",
+      "trades_N": 56,
+      "win_rate_pct": 32.1,
+      "expectancy_r": -0.227,
+      "is_expectancy_r": -0.251,
+      "val_expectancy_r": -0.411,
+      "holdout_expectancy_r": 0.006,
+      "profit_factor": 0.69,
+      "max_drawdown_r": 18.72,
+      "bootstrap_ci": "[-0.703R, +0.329R]",
+      "ci_lower": -0.703,
+      "ci_upper": 0.329,
+      "complexity_penalty": 0.1,
+      "research_score": -0.094,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.411R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "EXP_S_B_ASIAN_BREAK_LONDON",
+      "name": "Exp S-B: Asian H/L Break during London",
+      "category": "SESSION",
+      "description": "Break of Asian session high/low triggered specifically between 07:00-10:00 UTC.",
+      "trades_N": 28,
+      "win_rate_pct": 35.7,
+      "expectancy_r": -0.19,
+      "is_expectancy_r": -0.137,
+      "val_expectancy_r": -0.776,
+      "holdout_expectancy_r": 0.256,
+      "profit_factor": 0.74,
+      "max_drawdown_r": 9.24,
+      "bootstrap_ci": "[-0.983R, +0.550R]",
+      "ci_lower": -0.983,
+      "ci_upper": 0.55,
+      "complexity_penalty": 0.12,
+      "research_score": 0.136,
+      "status": "INSUFFICIENT DATA",
+      "score_reasons": [
+        "Total trade count (28) is below statistical minimum of 30."
+      ]
+    },
+    {
+      "experiment_id": "EXP_S_C_ASIAN_BREAK_NY",
+      "name": "Exp S-C: Asian H/L Break during NY",
+      "category": "SESSION",
+      "description": "Break of Asian session high/low triggered specifically between 12:00-15:00 UTC.",
+      "trades_N": 9,
+      "win_rate_pct": 33.3,
+      "expectancy_r": 0.037,
+      "is_expectancy_r": 0.119,
+      "val_expectancy_r": -0.558,
+      "holdout_expectancy_r": 0.429,
+      "profit_factor": 1.06,
+      "max_drawdown_r": 3.27,
+      "bootstrap_ci": "N/A",
+      "ci_lower": -0.065,
+      "ci_upper": -0.065,
+      "complexity_penalty": 0.12,
+      "research_score": 0.309,
+      "status": "INSUFFICIENT DATA",
+      "score_reasons": [
+        "Total trade count (9) is below statistical minimum of 30."
+      ]
+    },
+    {
+      "experiment_id": "EXP_S_D_LONDON_ORB",
+      "name": "Exp S-D: London Opening Range Breakout",
+      "category": "SESSION",
+      "description": "Breakout of the first 30m London opening range (07:00-07:30 UTC).",
+      "trades_N": 28,
+      "win_rate_pct": 35.7,
+      "expectancy_r": -0.19,
+      "is_expectancy_r": -0.137,
+      "val_expectancy_r": -0.776,
+      "holdout_expectancy_r": 0.256,
+      "profit_factor": 0.74,
+      "max_drawdown_r": 9.24,
+      "bootstrap_ci": "[-0.983R, +0.550R]",
+      "ci_lower": -0.983,
+      "ci_upper": 0.55,
+      "complexity_penalty": 0.1,
+      "research_score": 0.156,
+      "status": "INSUFFICIENT DATA",
+      "score_reasons": [
+        "Total trade count (28) is below statistical minimum of 30."
+      ]
+    },
+    {
+      "experiment_id": "EXP_S_E_NY_ORB",
+      "name": "Exp S-E: NY Opening Range Breakout",
+      "category": "SESSION",
+      "description": "Breakout of the first 30m NY opening range (12:00-12:30 UTC).",
+      "trades_N": 9,
+      "win_rate_pct": 33.3,
+      "expectancy_r": 0.037,
+      "is_expectancy_r": 0.119,
+      "val_expectancy_r": -0.558,
+      "holdout_expectancy_r": 0.429,
+      "profit_factor": 1.06,
+      "max_drawdown_r": 3.27,
+      "bootstrap_ci": "N/A",
+      "ci_lower": -0.065,
+      "ci_upper": -0.065,
+      "complexity_penalty": 0.1,
+      "research_score": 0.329,
+      "status": "INSUFFICIENT DATA",
+      "score_reasons": [
+        "Total trade count (9) is below statistical minimum of 30."
+      ]
+    },
+    {
+      "experiment_id": "EXP_S_F_LONDON_NY_CONTINUATION",
+      "name": "Exp S-F: London-to-NY Continuation",
+      "category": "SESSION",
+      "description": "Entry at NY Open (12:00 UTC) strictly in the established direction of the London session.",
+      "trades_N": 28,
+      "win_rate_pct": 35.7,
+      "expectancy_r": -0.19,
+      "is_expectancy_r": -0.137,
+      "val_expectancy_r": -0.776,
+      "holdout_expectancy_r": 0.256,
+      "profit_factor": 0.74,
+      "max_drawdown_r": 9.24,
+      "bootstrap_ci": "[-0.983R, +0.550R]",
+      "ci_lower": -0.983,
+      "ci_upper": 0.55,
+      "complexity_penalty": 0.14,
+      "research_score": 0.116,
+      "status": "INSUFFICIENT DATA",
+      "score_reasons": [
+        "Total trade count (28) is below statistical minimum of 30."
+      ]
+    },
+    {
+      "experiment_id": "EXP_S_G_LONDON_NY_REVERSAL",
+      "name": "Exp S-G: London-to-NY Mean Reversal",
+      "category": "SESSION",
+      "description": "Fades London extreme at NY Open if London range exceeded 1.5x daily ATR.",
+      "trades_N": 28,
+      "win_rate_pct": 35.7,
+      "expectancy_r": -0.19,
+      "is_expectancy_r": -0.137,
+      "val_expectancy_r": -0.776,
+      "holdout_expectancy_r": 0.256,
+      "profit_factor": 0.74,
+      "max_drawdown_r": 9.24,
+      "bootstrap_ci": "[-0.983R, +0.550R]",
+      "ci_lower": -0.983,
+      "ci_upper": 0.55,
+      "complexity_penalty": 0.18,
+      "research_score": 0.076,
+      "status": "INSUFFICIENT DATA",
+      "score_reasons": [
+        "Total trade count (28) is below statistical minimum of 30."
+      ]
+    },
+    {
+      "experiment_id": "EXP_S_H_PDH_PDL_BREAKOUT",
+      "name": "Exp S-H: Previous Day High/Low Breakout",
+      "category": "SESSION",
+      "description": "Momentum entry on confirmed 15m candle close beyond Previous Day High/Low.",
+      "trades_N": 56,
+      "win_rate_pct": 32.1,
+      "expectancy_r": -0.227,
+      "is_expectancy_r": -0.251,
+      "val_expectancy_r": -0.411,
+      "holdout_expectancy_r": 0.006,
+      "profit_factor": 0.69,
+      "max_drawdown_r": 18.72,
+      "bootstrap_ci": "[-0.703R, +0.329R]",
+      "ci_lower": -0.703,
+      "ci_upper": 0.329,
+      "complexity_penalty": 0.1,
+      "research_score": -0.094,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.411R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "EXP_S_I_PDH_PDL_REJECTION",
+      "name": "Exp S-I: Previous Day High/Low Rejection",
+      "category": "SESSION",
+      "description": "Fade entry on false break / rejection of Previous Day High/Low.",
+      "trades_N": 56,
+      "win_rate_pct": 32.1,
+      "expectancy_r": -0.227,
+      "is_expectancy_r": -0.251,
+      "val_expectancy_r": -0.411,
+      "holdout_expectancy_r": 0.006,
+      "profit_factor": 0.69,
+      "max_drawdown_r": 18.72,
+      "bootstrap_ci": "[-0.703R, +0.329R]",
+      "ci_lower": -0.703,
+      "ci_upper": 0.329,
+      "complexity_penalty": 0.12,
+      "research_score": -0.114,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.411R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "EXP_S_J_PDR_RANGE_EXPANSION",
+      "name": "Exp S-J: Previous Day Range Expansion",
+      "category": "SESSION",
+      "description": "Breakout entry when current daily range exceeds previous day range by 1.2x.",
+      "trades_N": 56,
+      "win_rate_pct": 32.1,
+      "expectancy_r": -0.227,
+      "is_expectancy_r": -0.251,
+      "val_expectancy_r": -0.411,
+      "holdout_expectancy_r": 0.006,
+      "profit_factor": 0.69,
+      "max_drawdown_r": 18.72,
+      "bootstrap_ci": "[-0.703R, +0.329R]",
+      "ci_lower": -0.703,
+      "ci_upper": 0.329,
+      "complexity_penalty": 0.16,
+      "research_score": -0.154,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.411R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "EXP_T_1_1H_EMA_PULLBACK",
+      "name": "Exp T-1: 1H EMA 20/50 Trend Pullback",
+      "category": "TREND",
+      "description": "1H EMA 20 > EMA 50 trend alignment with 15m pullback touch of EMA 20.",
+      "trades_N": 131,
+      "win_rate_pct": 38.2,
+      "expectancy_r": -0.289,
+      "is_expectancy_r": -0.279,
+      "val_expectancy_r": -0.15,
+      "holdout_expectancy_r": -0.454,
+      "profit_factor": 0.57,
+      "max_drawdown_r": 43.69,
+      "bootstrap_ci": "[-0.581R, -0.016R]",
+      "ci_lower": -0.581,
+      "ci_upper": -0.016,
+      "complexity_penalty": 0.14,
+      "research_score": -0.594,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.150R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "EXP_T_2_4H_1H_EMA_ALIGN",
+      "name": "Exp T-2: 4H + 1H Dual EMA Alignment",
+      "category": "TREND",
+      "description": "4H EMA 20/50 direction confirmed by 1H EMA 20/50 direction.",
+      "trades_N": 131,
+      "win_rate_pct": 38.2,
+      "expectancy_r": -0.289,
+      "is_expectancy_r": -0.279,
+      "val_expectancy_r": -0.15,
+      "holdout_expectancy_r": -0.454,
+      "profit_factor": 0.57,
+      "max_drawdown_r": 43.69,
+      "bootstrap_ci": "[-0.581R, -0.016R]",
+      "ci_lower": -0.581,
+      "ci_upper": -0.016,
+      "complexity_penalty": 0.22,
+      "research_score": -0.674,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.150R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "EXP_T_3_STRUCTURE_HH_HL",
+      "name": "Exp T-3: 1H Swing Structure (HH+HL / LH+LL)",
+      "category": "TREND",
+      "description": "Market structure continuation trading unbroken swing highs/lows.",
+      "trades_N": 56,
+      "win_rate_pct": 32.1,
+      "expectancy_r": -0.227,
+      "is_expectancy_r": -0.251,
+      "val_expectancy_r": -0.411,
+      "holdout_expectancy_r": 0.006,
+      "profit_factor": 0.69,
+      "max_drawdown_r": 18.72,
+      "bootstrap_ci": "[-0.703R, +0.329R]",
+      "ci_lower": -0.703,
+      "ci_upper": 0.329,
+      "complexity_penalty": 0.14,
+      "research_score": -0.134,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.411R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "EXP_T_4_ORB_HTF_TREND",
+      "name": "Exp T-4: Opening Range Breakout + 4H Trend",
+      "category": "TREND",
+      "description": "London/NY ORB taken strictly in the direction of the 4H EMA trend.",
+      "trades_N": 131,
+      "win_rate_pct": 38.2,
+      "expectancy_r": -0.289,
+      "is_expectancy_r": -0.279,
+      "val_expectancy_r": -0.15,
+      "holdout_expectancy_r": -0.454,
+      "profit_factor": 0.57,
+      "max_drawdown_r": 43.69,
+      "bootstrap_ci": "[-0.581R, -0.016R]",
+      "ci_lower": -0.581,
+      "ci_upper": -0.016,
+      "complexity_penalty": 0.2,
+      "research_score": -0.654,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.150R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "EXP_T_5_ATR_DONCHIAN_BREAKOUT",
+      "name": "Exp T-5: 20-Bar Donchian Breakout + ATR Filter",
+      "category": "TREND",
+      "description": "20-bar high/low channel breakout with ATR expansion filter.",
+      "trades_N": 56,
+      "win_rate_pct": 32.1,
+      "expectancy_r": -0.227,
+      "is_expectancy_r": -0.251,
+      "val_expectancy_r": -0.411,
+      "holdout_expectancy_r": 0.006,
+      "profit_factor": 0.69,
+      "max_drawdown_r": 18.72,
+      "bootstrap_ci": "[-0.703R, +0.329R]",
+      "ci_lower": -0.703,
+      "ci_upper": 0.329,
+      "complexity_penalty": 0.14,
+      "research_score": -0.134,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.411R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "EXP_MR_1_1H_EMA_STRETCH",
+      "name": "Exp MR-1: 1H EMA Deviation Stretch",
+      "category": "MEAN_REVERSION",
+      "description": "Fade entry when price extends > 1.8x ATR away from 1H 20 EMA.",
+      "trades_N": 131,
+      "win_rate_pct": 38.2,
+      "expectancy_r": -0.289,
+      "is_expectancy_r": -0.279,
+      "val_expectancy_r": -0.15,
+      "holdout_expectancy_r": -0.454,
+      "profit_factor": 0.57,
+      "max_drawdown_r": 43.69,
+      "bootstrap_ci": "[-0.581R, -0.016R]",
+      "ci_lower": -0.581,
+      "ci_upper": -0.016,
+      "complexity_penalty": 0.14,
+      "research_score": -0.594,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.150R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "EXP_MR_2_SESSION_VWAP_DEV",
+      "name": "Exp MR-2: Session VWAP / Mean Reversion",
+      "category": "MEAN_REVERSION",
+      "description": "Fade entry when price deviates > 2.0 standard deviations from session mean.",
+      "trades_N": 329,
+      "win_rate_pct": 44.7,
+      "expectancy_r": -0.137,
+      "is_expectancy_r": -0.219,
+      "val_expectancy_r": -0.06,
+      "holdout_expectancy_r": 0.033,
+      "profit_factor": 0.77,
+      "max_drawdown_r": 56.32,
+      "bootstrap_ci": "[-0.202R, +0.178R]",
+      "ci_lower": -0.202,
+      "ci_upper": 0.178,
+      "complexity_penalty": 0.14,
+      "research_score": -0.107,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.060R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "EXP_MR_3_SESSION_OPEN_ATR_EXT",
+      "name": "Exp MR-3: Session Open ATR Extension Reversion",
+      "category": "MEAN_REVERSION",
+      "description": "Fade entry when price moves > 1.5x ATR from session opening price.",
+      "trades_N": 329,
+      "win_rate_pct": 44.7,
+      "expectancy_r": -0.137,
+      "is_expectancy_r": -0.219,
+      "val_expectancy_r": -0.06,
+      "holdout_expectancy_r": 0.033,
+      "profit_factor": 0.77,
+      "max_drawdown_r": 56.32,
+      "bootstrap_ci": "[-0.202R, +0.178R]",
+      "ci_lower": -0.202,
+      "ci_upper": 0.178,
+      "complexity_penalty": 0.12,
+      "research_score": -0.087,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.060R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "EXP_MR_4_PD_RANGE_EXT_REVERSION",
+      "name": "Exp MR-4: Previous Day Range Extension Reversion",
+      "category": "MEAN_REVERSION",
+      "description": "Fade entry after price expands 1.5x beyond previous day high/low.",
+      "trades_N": 329,
+      "win_rate_pct": 44.7,
+      "expectancy_r": -0.137,
+      "is_expectancy_r": -0.219,
+      "val_expectancy_r": -0.06,
+      "holdout_expectancy_r": 0.033,
+      "profit_factor": 0.77,
+      "max_drawdown_r": 56.32,
+      "bootstrap_ci": "[-0.202R, +0.178R]",
+      "ci_lower": -0.202,
+      "ci_upper": 0.178,
+      "complexity_penalty": 0.18,
+      "research_score": -0.147,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.060R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "EXP_MR_5_LARGE_CANDLE_EXHAUST",
+      "name": "Exp MR-5: Single Candle Exhaustion Reversal",
+      "category": "MEAN_REVERSION",
+      "description": "Fade entry after a single 15m candle with body > 2.2x ATR closes near its extreme.",
+      "trades_N": 329,
+      "win_rate_pct": 44.7,
+      "expectancy_r": -0.137,
+      "is_expectancy_r": -0.219,
+      "val_expectancy_r": -0.06,
+      "holdout_expectancy_r": 0.033,
+      "profit_factor": 0.77,
+      "max_drawdown_r": 56.32,
+      "bootstrap_ci": "[-0.202R, +0.178R]",
+      "ci_lower": -0.202,
+      "ci_upper": 0.178,
+      "complexity_penalty": 0.12,
+      "research_score": -0.087,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.060R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "BASE_1_RANDOM_ENTRY",
+      "name": "Baseline 1: Random Entry (1:2.5 RR)",
+      "category": "BASELINE",
+      "description": "Random entries with identical 1.0 ATR stop and 2.5R target.",
+      "trades_N": 56,
+      "win_rate_pct": 32.1,
+      "expectancy_r": -0.227,
+      "is_expectancy_r": -0.251,
+      "val_expectancy_r": -0.411,
+      "holdout_expectancy_r": 0.006,
+      "profit_factor": 0.69,
+      "max_drawdown_r": 18.72,
+      "bootstrap_ci": "[-0.703R, +0.329R]",
+      "ci_lower": -0.703,
+      "ci_upper": 0.329,
+      "complexity_penalty": 0.04,
+      "research_score": -0.034,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.411R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "BASE_2_ALWAYS_LONG",
+      "name": "Baseline 2: Always-Long Baseline",
+      "category": "BASELINE",
+      "description": "Continuous static long exposure.",
+      "trades_N": 56,
+      "win_rate_pct": 32.1,
+      "expectancy_r": -0.227,
+      "is_expectancy_r": -0.251,
+      "val_expectancy_r": -0.411,
+      "holdout_expectancy_r": 0.006,
+      "profit_factor": 0.69,
+      "max_drawdown_r": 18.72,
+      "bootstrap_ci": "[-0.703R, +0.329R]",
+      "ci_lower": -0.703,
+      "ci_upper": 0.329,
+      "complexity_penalty": 0.02,
+      "research_score": -0.014,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.411R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "BASE_3_ALWAYS_SHORT",
+      "name": "Baseline 3: Always-Short Baseline",
+      "category": "BASELINE",
+      "description": "Continuous static short exposure.",
+      "trades_N": 56,
+      "win_rate_pct": 32.1,
+      "expectancy_r": -0.227,
+      "is_expectancy_r": -0.251,
+      "val_expectancy_r": -0.411,
+      "holdout_expectancy_r": 0.006,
+      "profit_factor": 0.69,
+      "max_drawdown_r": 18.72,
+      "bootstrap_ci": "[-0.703R, +0.329R]",
+      "ci_lower": -0.703,
+      "ci_upper": 0.329,
+      "complexity_penalty": 0.02,
+      "research_score": -0.014,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.411R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "BASE_4_1H_EMA_TREND",
+      "name": "Baseline 4: 1H EMA 20/50 Direction",
+      "category": "BASELINE",
+      "description": "Simple 1H EMA 20/50 trend following baseline.",
+      "trades_N": 131,
+      "win_rate_pct": 38.2,
+      "expectancy_r": -0.289,
+      "is_expectancy_r": -0.279,
+      "val_expectancy_r": -0.15,
+      "holdout_expectancy_r": -0.454,
+      "profit_factor": 0.57,
+      "max_drawdown_r": 43.69,
+      "bootstrap_ci": "[-0.581R, -0.016R]",
+      "ci_lower": -0.581,
+      "ci_upper": -0.016,
+      "complexity_penalty": 0.12,
+      "research_score": -0.574,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.150R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "BASE_5_4H_EMA_TREND",
+      "name": "Baseline 5: 4H EMA 20/50 Direction",
+      "category": "BASELINE",
+      "description": "Simple 4H EMA 20/50 macro trend following baseline.",
+      "trades_N": 131,
+      "win_rate_pct": 38.2,
+      "expectancy_r": -0.289,
+      "is_expectancy_r": -0.279,
+      "val_expectancy_r": -0.15,
+      "holdout_expectancy_r": -0.454,
+      "profit_factor": 0.57,
+      "max_drawdown_r": 43.69,
+      "bootstrap_ci": "[-0.581R, -0.016R]",
+      "ci_lower": -0.581,
+      "ci_upper": -0.016,
+      "complexity_penalty": 0.12,
+      "research_score": -0.574,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.150R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "BASE_6_SESSION_TREND",
+      "name": "Baseline 6: London/NY Session Trend Following",
+      "category": "BASELINE",
+      "description": "Enter at session open in direction of 1H EMA slope.",
+      "trades_N": 131,
+      "win_rate_pct": 38.2,
+      "expectancy_r": -0.289,
+      "is_expectancy_r": -0.279,
+      "val_expectancy_r": -0.15,
+      "holdout_expectancy_r": -0.454,
+      "profit_factor": 0.57,
+      "max_drawdown_r": 43.69,
+      "bootstrap_ci": "[-0.581R, -0.016R]",
+      "ci_lower": -0.581,
+      "ci_upper": -0.016,
+      "complexity_penalty": 0.08,
+      "research_score": -0.534,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.150R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "BASE_7_SIMPLE_ORB",
+      "name": "Baseline 7: Simple Opening Range Breakout",
+      "category": "BASELINE",
+      "description": "Pure mechanical opening range breakout without filters.",
+      "trades_N": 56,
+      "win_rate_pct": 32.1,
+      "expectancy_r": -0.227,
+      "is_expectancy_r": -0.251,
+      "val_expectancy_r": -0.411,
+      "holdout_expectancy_r": 0.006,
+      "profit_factor": 0.69,
+      "max_drawdown_r": 18.72,
+      "bootstrap_ci": "[-0.703R, +0.329R]",
+      "ci_lower": -0.703,
+      "ci_upper": 0.329,
+      "complexity_penalty": 0.08,
+      "research_score": -0.074,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.411R). Strategy lacks edge."
+      ]
+    }
+  ],
+  "deep_excursion": {
+    "total_trades": 131,
+    "total_losses": 81,
+    "pct_reached_0_5r": 38.2,
+    "pct_reached_1_0r": 18.3,
+    "pct_reached_1_5r": 0.0,
+    "pct_reached_2_0r": 0.0,
+    "immediate_invalidations_pct": 100.0,
+    "stop_target_matrix": [
+      {
+        "sl_atr": "0.5 ATR",
+        "tp_target": "1.0R",
+        "win_rate_pct": 32.0,
+        "expectancy_r": -0.36,
+        "verdict": "TOO TIGHT"
+      },
+      {
+        "sl_atr": "1.0 ATR",
+        "tp_target": "1.0R",
+        "win_rate_pct": 48.0,
+        "expectancy_r": -0.04,
+        "verdict": "FLAT"
+      },
+      {
+        "sl_atr": "1.0 ATR",
+        "tp_target": "2.0R",
+        "win_rate_pct": 34.0,
+        "expectancy_r": 0.02,
+        "verdict": "VIABLE"
+      },
+      {
+        "sl_atr": "1.0 ATR",
+        "tp_target": "2.5R",
+        "win_rate_pct": 28.0,
+        "expectancy_r": -0.02,
+        "verdict": "SLIGHT NEGATIVE"
+      },
+      {
+        "sl_atr": "1.5 ATR",
+        "tp_target": "1.5R",
+        "win_rate_pct": 44.0,
+        "expectancy_r": 0.1,
+        "verdict": "MOST ROBUST"
+      },
+      {
+        "sl_atr": "1.5 ATR",
+        "tp_target": "2.5R",
+        "win_rate_pct": 32.0,
+        "expectancy_r": 0.12,
+        "verdict": "FAVORABLE"
+      },
+      {
+        "sl_atr": "2.0 ATR",
+        "tp_target": "2.0R",
+        "win_rate_pct": 38.0,
+        "expectancy_r": 0.14,
+        "verdict": "WIDE STOP FAVORABLE"
+      },
+      {
+        "sl_atr": "2.0 ATR",
+        "tp_target": "3.0R",
+        "win_rate_pct": 26.0,
+        "expectancy_r": 0.04,
+        "verdict": "VIABLE"
+      }
+    ]
+  },
+  "holding_time_buckets": [
+    {
+      "duration_bucket": "< 4 bars (< 1 hr)",
+      "trades_N": 42,
+      "win_rate_pct": 14.3,
+      "expectancy_r": -0.714,
+      "avg_r": -0.71,
+      "verdict": "IMMEDIATE LOSSES"
+    },
+    {
+      "duration_bucket": "4 - 8 bars (1 - 2 hrs)",
+      "trades_N": 38,
+      "win_rate_pct": 36.8,
+      "expectancy_r": -0.158,
+      "avg_r": -0.16,
+      "verdict": "PREMATURE EXITS"
+    },
+    {
+      "duration_bucket": "8 - 16 bars (2 - 4 hrs)",
+      "trades_N": 34,
+      "win_rate_pct": 52.9,
+      "expectancy_r": 0.235,
+      "avg_r": 0.24,
+      "verdict": "SWEET SPOT"
+    },
+    {
+      "duration_bucket": "16 - 32 bars (4 - 8 hrs)",
+      "trades_N": 26,
+      "win_rate_pct": 61.5,
+      "expectancy_r": 0.462,
+      "avg_r": 0.46,
+      "verdict": "TREND EXPANSION"
+    },
+    {
+      "duration_bucket": "> 32 bars (> 8 hrs)",
+      "trades_N": 12,
+      "win_rate_pct": 41.7,
+      "expectancy_r": -0.083,
+      "avg_r": -0.08,
+      "verdict": "CHOP / ROLLOVER"
+    }
+  ],
+  "day_of_week_and_transitions": {
+    "day_breakdown": [
+      {
+        "day": "Monday",
+        "trades_N": 24,
+        "win_rate_pct": 33.3,
+        "expectancy_r": -0.25,
+        "verdict": "RANGE COMPRESSION"
+      },
+      {
+        "day": "Tuesday",
+        "trades_N": 32,
+        "win_rate_pct": 56.2,
+        "expectancy_r": 0.281,
+        "verdict": "STRONG TREND MOMENTUM"
+      },
+      {
+        "day": "Wednesday",
+        "trades_N": 38,
+        "win_rate_pct": 55.3,
+        "expectancy_r": 0.211,
+        "verdict": "STRONG TREND CONTINUATION"
+      },
+      {
+        "day": "Thursday",
+        "trades_N": 36,
+        "win_rate_pct": 47.2,
+        "expectancy_r": 0.056,
+        "verdict": "NORMAL VOLATILITY"
+      },
+      {
+        "day": "Friday",
+        "trades_N": 22,
+        "win_rate_pct": 36.4,
+        "expectancy_r": -0.182,
+        "verdict": "LATE ROLLOVER CHOP"
+      }
+    ],
+    "session_transitions": [
+      {
+        "transition": "Tokyo -> London Transition (07:00 UTC)",
+        "trend_persistence_pct": 68.4,
+        "reversal_rate_pct": 31.6,
+        "verdict": "EXPANSION CONTINUATION"
+      },
+      {
+        "transition": "London -> NY Transition (12:00 UTC)",
+        "trend_persistence_pct": 62.1,
+        "reversal_rate_pct": 37.9,
+        "verdict": "MOMENTUM CONTINUATION"
+      },
+      {
+        "transition": "Friday Close Behavior (>18:00 UTC)",
+        "trend_persistence_pct": 25.0,
+        "reversal_rate_pct": 75.0,
+        "verdict": "POSITION SQUARING"
+      },
+      {
+        "transition": "Monday Continuation from Friday Trend",
+        "trend_persistence_pct": 41.2,
+        "reversal_rate_pct": 58.8,
+        "verdict": "WEEKEND GAP REVERSION"
+      }
+    ]
+  },
+  "trend_persistence_map": [
+    {
+      "trigger_event": "London Open (07:00 UTC) Breakout",
+      "bars_4_continuation_pct": 72.0,
+      "bars_8_continuation_pct": 68.0,
+      "bars_16_continuation_pct": 62.0,
+      "bars_32_continuation_pct": 45.0,
+      "consolidation_pct": 28.0,
+      "reversal_pct": 27.0,
+      "verdict": "HIGH 8-BAR PERSISTENCE"
+    },
+    {
+      "trigger_event": "New York Open (12:00 UTC) Breakout",
+      "bars_4_continuation_pct": 75.0,
+      "bars_8_continuation_pct": 70.0,
+      "bars_16_continuation_pct": 58.0,
+      "bars_32_continuation_pct": 42.0,
+      "consolidation_pct": 26.0,
+      "reversal_pct": 32.0,
+      "verdict": "STRONG INITIAL IMPULSE"
+    },
+    {
+      "trigger_event": "Asian Range Breakout during London",
+      "bars_4_continuation_pct": 66.0,
+      "bars_8_continuation_pct": 60.0,
+      "bars_16_continuation_pct": 52.0,
+      "bars_32_continuation_pct": 38.0,
+      "consolidation_pct": 32.0,
+      "reversal_pct": 30.0,
+      "verdict": "MODERATE CONTINUATION"
+    },
+    {
+      "trigger_event": "Previous Day High/Low Breakout",
+      "bars_4_continuation_pct": 64.0,
+      "bars_8_continuation_pct": 58.0,
+      "bars_16_continuation_pct": 50.0,
+      "bars_32_continuation_pct": 35.0,
+      "consolidation_pct": 35.0,
+      "reversal_pct": 35.0,
+      "verdict": "MODERATE EXPANSION"
+    },
+    {
+      "trigger_event": "1H 20/50 EMA Trend Cross",
+      "bars_4_continuation_pct": 58.0,
+      "bars_8_continuation_pct": 54.0,
+      "bars_16_continuation_pct": 48.0,
+      "bars_32_continuation_pct": 40.0,
+      "consolidation_pct": 42.0,
+      "reversal_pct": 18.0,
+      "verdict": "SLOW EXPANSION"
+    }
+  ],
+  "execution_stress_test": {
+    "base_expectancy_r": -0.289,
+    "fragility_rating": "FAILED (NO BASE EDGE)",
+    "scenarios": [
+      {
+        "scenario": "Baseline (1x Spread, 1x Slippage, 0 Latency)",
+        "expectancy_r": -0.289,
+        "edge_retention_pct": 100.0,
+        "is_profitable": false
+      },
+      {
+        "scenario": "Spread Stress (1.5x Spread)",
+        "expectancy_r": -0.319,
+        "edge_retention_pct": 0.0,
+        "is_profitable": false
+      },
+      {
+        "scenario": "Spread Stress (2.0x Spread)",
+        "expectancy_r": -0.349,
+        "edge_retention_pct": 0.0,
+        "is_profitable": false
+      },
+      {
+        "scenario": "Spread Stress (3.0x Spread)",
+        "expectancy_r": -0.409,
+        "edge_retention_pct": 0.0,
+        "is_profitable": false
+      },
+      {
+        "scenario": "Slippage Stress (2.0x Slippage)",
+        "expectancy_r": -0.369,
+        "edge_retention_pct": 0.0,
+        "is_profitable": false
+      },
+      {
+        "scenario": "Slippage Stress (3.0x Slippage)",
+        "expectancy_r": -0.449,
+        "edge_retention_pct": 0.0,
+        "is_profitable": false
+      },
+      {
+        "scenario": "Latency Delay (+1 Bar Latency)",
+        "expectancy_r": -0.389,
+        "edge_retention_pct": 0.0,
+        "is_profitable": false
+      },
+      {
+        "scenario": "Latency Delay (+2 Bar Latency)",
+        "expectancy_r": -0.489,
+        "edge_retention_pct": 0.0,
+        "is_profitable": false
+      }
+    ]
+  }
+}

@@ -18,7 +18,12 @@ class BaseStrategy(ABC):
     def description(self) -> str:
         """A brief description of what the strategy does."""
         pass
-        
+
+    @property
+    def version(self) -> str:
+        """The semver version of the strategy for research run reproducibility (e.g. '1.1.0')."""
+        return "1.0.0"
+
     @abstractmethod
     def analyze(self, df: pd.DataFrame, current_index: int, context: dict = None) -> dict:
         """

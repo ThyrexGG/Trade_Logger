@@ -9,6 +9,10 @@ class ICT2022Model(BaseStrategy):
         return "ICT 2022 Model"
         
     @property
+    def version(self) -> str:
+        return "1.1.0"
+
+    @property
     def description(self) -> str:
         return "Waits for a Liquidity Sweep, followed by a Market Structure Shift (MSS) with displacement (FVG), then enters on retracement into the FVG."
         

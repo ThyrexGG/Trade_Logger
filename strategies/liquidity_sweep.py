@@ -8,6 +8,10 @@ class LiquiditySweepStrategy(BaseStrategy):
         return "Liquidity Sweep Reversal"
         
     @property
+    def version(self) -> str:
+        return "1.1.0"
+
+    @property
     def description(self) -> str:
         return "Detects a sweep of a major swing high (BSL) or low (SSL) that rejects and closes back inside the range, entering a reversal trade immediately."
         

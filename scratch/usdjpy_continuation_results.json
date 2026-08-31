@@ -1,0 +1,1434 @@
+{
+  "symbol": "USDJPY",
+  "timeframe": "15m",
+  "total_hypotheses_tested": 12,
+  "ablation_experiments": [
+    {
+      "experiment_id": "EXP_CONT_A_EMA_ONLY",
+      "name": "Exp Cont A: 4H EMA Trend Only",
+      "description": "Pure 4H EMA 20/50 trend following without liquidity or SMC filters.",
+      "trades_N": 131,
+      "win_rate_pct": 38.2,
+      "expectancy_r": -0.289,
+      "is_expectancy_r": -0.279,
+      "val_expectancy_r": -0.15,
+      "holdout_expectancy_r": -0.454,
+      "profit_factor": 0.57,
+      "max_drawdown_r": 43.69,
+      "bootstrap_ci": "[-0.581R, -0.016R]",
+      "ci_lower": -0.581,
+      "ci_upper": -0.016,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.150R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "EXP_CONT_B_EMA_SWINGS",
+      "name": "Exp Cont B: 4H EMA + 1H Swings",
+      "description": "4H EMA trend confirmed with 1H Market Structure swing highs/lows.",
+      "trades_N": 56,
+      "win_rate_pct": 32.1,
+      "expectancy_r": -0.227,
+      "is_expectancy_r": -0.251,
+      "val_expectancy_r": -0.411,
+      "holdout_expectancy_r": 0.006,
+      "profit_factor": 0.69,
+      "max_drawdown_r": 18.72,
+      "bootstrap_ci": "[-0.703R, +0.329R]",
+      "ci_lower": -0.703,
+      "ci_upper": 0.329,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.411R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "EXP_CONT_C_BASE_CONTINUATION",
+      "name": "Exp Cont C: Base SMC Continuation",
+      "description": "4H Bias -> Counter-trend sweep -> 15m BOS -> FVG Retracement Entry.",
+      "trades_N": 56,
+      "win_rate_pct": 32.1,
+      "expectancy_r": -0.227,
+      "is_expectancy_r": -0.251,
+      "val_expectancy_r": -0.411,
+      "holdout_expectancy_r": 0.006,
+      "profit_factor": 0.69,
+      "max_drawdown_r": 18.72,
+      "bootstrap_ci": "[-0.703R, +0.329R]",
+      "ci_lower": -0.703,
+      "ci_upper": 0.329,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.411R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "EXP_CONT_D_DISPLACEMENT_1_0",
+      "name": "Exp Cont D: Exp C + Displacement > 1.0x ATR",
+      "description": "Requires 15m BOS impulse candle body to exceed 1.0x ATR.",
+      "trades_N": 56,
+      "win_rate_pct": 32.1,
+      "expectancy_r": -0.227,
+      "is_expectancy_r": -0.251,
+      "val_expectancy_r": -0.411,
+      "holdout_expectancy_r": 0.006,
+      "profit_factor": 0.69,
+      "max_drawdown_r": 18.72,
+      "bootstrap_ci": "[-0.703R, +0.329R]",
+      "ci_lower": -0.703,
+      "ci_upper": 0.329,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.411R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "EXP_CONT_E_DISPLACEMENT_1_5",
+      "name": "Exp Cont E: Exp C + Displacement > 1.5x ATR",
+      "description": "Requires 15m BOS impulse candle body to exceed 1.5x ATR.",
+      "trades_N": 56,
+      "win_rate_pct": 32.1,
+      "expectancy_r": -0.227,
+      "is_expectancy_r": -0.251,
+      "val_expectancy_r": -0.411,
+      "holdout_expectancy_r": 0.006,
+      "profit_factor": 0.69,
+      "max_drawdown_r": 18.72,
+      "bootstrap_ci": "[-0.703R, +0.329R]",
+      "ci_lower": -0.703,
+      "ci_upper": 0.329,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.411R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "EXP_CONT_F_KILLZONES_ONLY",
+      "name": "Exp Cont F: Exp D + London/NY Killzones",
+      "description": "Restricted strictly to London (07-10 UTC) and NY AM (12-15 UTC) sessions.",
+      "trades_N": 37,
+      "win_rate_pct": 35.1,
+      "expectancy_r": -0.135,
+      "is_expectancy_r": -0.122,
+      "val_expectancy_r": -0.663,
+      "holdout_expectancy_r": 0.291,
+      "profit_factor": 0.81,
+      "max_drawdown_r": 11.58,
+      "bootstrap_ci": "[-0.814R, +0.525R]",
+      "ci_lower": -0.814,
+      "ci_upper": 0.525,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.663R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "EXP_CONT_G_HTF_LIQUIDITY",
+      "name": "Exp Cont G: Exp F + PDH/PDL/PWH/PWL Sweeps",
+      "description": "Continuation trigger gated strictly by Higher Timeframe liquidity sweeps.",
+      "trades_N": 3,
+      "win_rate_pct": 33.3,
+      "expectancy_r": -0.127,
+      "is_expectancy_r": 1.666,
+      "val_expectancy_r": -1.028,
+      "holdout_expectancy_r": -1.018,
+      "profit_factor": 0.81,
+      "max_drawdown_r": 2.05,
+      "bootstrap_ci": "N/A",
+      "ci_lower": -1.023,
+      "ci_upper": -1.023,
+      "status": "INSUFFICIENT DATA",
+      "score_reasons": [
+        "Total trade count (3) is below statistical minimum of 30."
+      ]
+    },
+    {
+      "experiment_id": "EXP_CONT_H_ASIAN_SWEEPS",
+      "name": "Exp Cont H: Exp F + Asian Range Sweeps",
+      "description": "Continuation trigger gated strictly by Asian High/Low sweeps during London.",
+      "trades_N": 8,
+      "win_rate_pct": 75.0,
+      "expectancy_r": 1.143,
+      "is_expectancy_r": 0.42,
+      "val_expectancy_r": 1.808,
+      "holdout_expectancy_r": 1.925,
+      "profit_factor": 5.43,
+      "max_drawdown_r": 1.04,
+      "bootstrap_ci": "N/A",
+      "ci_lower": 1.867,
+      "ci_upper": 1.867,
+      "status": "INSUFFICIENT DATA",
+      "score_reasons": [
+        "Total trade count (8) is below statistical minimum of 30."
+      ]
+    },
+    {
+      "experiment_id": "EXP_CONT_I_PREMIUM_DISCOUNT",
+      "name": "Exp Cont I: Exp F + Premium/Discount Gating",
+      "description": "Long entries permitted strictly in Discount (<50%), Short in Premium (>50%).",
+      "trades_N": 37,
+      "win_rate_pct": 35.1,
+      "expectancy_r": -0.135,
+      "is_expectancy_r": -0.122,
+      "val_expectancy_r": -0.663,
+      "holdout_expectancy_r": 0.291,
+      "profit_factor": 0.81,
+      "max_drawdown_r": 11.58,
+      "bootstrap_ci": "[-0.814R, +0.525R]",
+      "ci_lower": -0.814,
+      "ci_upper": 0.525,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.663R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "EXP_CONT_J_OTE_ZONE",
+      "name": "Exp Cont J: Exp F + 0.618-0.786 OTE Retracement",
+      "description": "Entry permitted strictly when retracement reaches Optimal Trade Entry Fibonacci zone.",
+      "trades_N": 37,
+      "win_rate_pct": 35.1,
+      "expectancy_r": -0.135,
+      "is_expectancy_r": -0.122,
+      "val_expectancy_r": -0.663,
+      "holdout_expectancy_r": 0.291,
+      "profit_factor": 0.81,
+      "max_drawdown_r": 11.58,
+      "bootstrap_ci": "[-0.814R, +0.525R]",
+      "ci_lower": -0.814,
+      "ci_upper": 0.525,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.663R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "EXP_CONT_K_ORDER_BLOCK_OVERLAP",
+      "name": "Exp Cont K: Exp F + Order Block Confluence",
+      "description": "Requires the continuation FVG to overlap with an institutional Order Block.",
+      "trades_N": 37,
+      "win_rate_pct": 35.1,
+      "expectancy_r": -0.135,
+      "is_expectancy_r": -0.122,
+      "val_expectancy_r": -0.663,
+      "holdout_expectancy_r": 0.291,
+      "profit_factor": 0.81,
+      "max_drawdown_r": 11.58,
+      "bootstrap_ci": "[-0.814R, +0.525R]",
+      "ci_lower": -0.814,
+      "ci_upper": 0.525,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.663R). Strategy lacks edge."
+      ]
+    },
+    {
+      "experiment_id": "EXP_CONT_L_LIMIT_ENTRY_FVG",
+      "name": "Exp Cont L: Exp F + Limit at FVG Midpoint (CE)",
+      "description": "Limit order entry placed at Consequent Encroachment (50% midpoint) of FVG.",
+      "trades_N": 37,
+      "win_rate_pct": 35.1,
+      "expectancy_r": -0.135,
+      "is_expectancy_r": -0.122,
+      "val_expectancy_r": -0.663,
+      "holdout_expectancy_r": 0.291,
+      "profit_factor": 0.81,
+      "max_drawdown_r": 11.58,
+      "bootstrap_ci": "[-0.814R, +0.525R]",
+      "ci_lower": -0.814,
+      "ci_upper": 0.525,
+      "status": "FAILED",
+      "score_reasons": [
+        "Out-of-Sample expectancy is negative (-0.663R). Strategy lacks edge."
+      ]
+    }
+  ],
+  "directional_profile": {
+    "long_trades": 28,
+    "long_win_rate_pct": 32.1,
+    "long_expectancy_r": -0.235,
+    "short_trades": 28,
+    "short_win_rate_pct": 32.1,
+    "short_expectancy_r": -0.219,
+    "directional_bias_verdict": "NEUTRAL"
+  },
+  "mae_mfe_profile": {
+    "total_trades": 56,
+    "total_losses": 38,
+    "reached_1r_loss_count": 0,
+    "reached_1r_stopout_pct": 0.0,
+    "reached_2r_loss_count": 0,
+    "reached_2r_stopout_pct": 0.0,
+    "immediate_invalidations_pct": 100.0,
+    "structural_diagnosis": "IMMEDIATE SETUP FAILURE: Over 60% of losing trades were stopped out immediately without any favorable movement. Strategy trigger is entering against active volatility."
+  },
+  "liquidity_attribution": [
+    {
+      "liquidity_type": "INTERNAL_SWING",
+      "trades_N": 30,
+      "sample_tier": "LOW (30-99)",
+      "win_rate_pct": 30.0,
+      "expectancy_r": -0.36,
+      "mean_r": -0.36,
+      "median_r": -1.043,
+      "profit_factor": 0.52,
+      "max_drawdown_r": 11.97,
+      "avg_mae_r": 0.62,
+      "avg_mfe_r": 0.61,
+      "cumulative_r": -10.81
+    },
+    {
+      "liquidity_type": "EQH",
+      "trades_N": 9,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 22.2,
+      "expectancy_r": -0.493,
+      "mean_r": -0.493,
+      "median_r": -1.05,
+      "profit_factor": 0.43,
+      "max_drawdown_r": 3.56,
+      "avg_mae_r": 0.67,
+      "avg_mfe_r": 0.6,
+      "cumulative_r": -4.44
+    },
+    {
+      "liquidity_type": "ASIAN_HIGH",
+      "trades_N": 4,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 75.0,
+      "expectancy_r": 1.153,
+      "mean_r": 1.153,
+      "median_r": 1.845,
+      "profit_factor": 5.45,
+      "max_drawdown_r": 0.0,
+      "avg_mae_r": 0.35,
+      "avg_mfe_r": 1.49,
+      "cumulative_r": 4.61
+    },
+    {
+      "liquidity_type": "ASIAN_LOW",
+      "trades_N": 4,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 75.0,
+      "expectancy_r": 1.134,
+      "mean_r": 1.134,
+      "median_r": 1.831,
+      "profit_factor": 5.4,
+      "max_drawdown_r": 1.03,
+      "avg_mae_r": 0.35,
+      "avg_mfe_r": 1.47,
+      "cumulative_r": 4.53
+    },
+    {
+      "liquidity_type": "SWING_HIGH",
+      "trades_N": 3,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 0.0,
+      "expectancy_r": -1.047,
+      "mean_r": -1.047,
+      "median_r": -1.038,
+      "profit_factor": 0.0,
+      "max_drawdown_r": 2.1,
+      "avg_mae_r": 0.8,
+      "avg_mfe_r": 0.3,
+      "cumulative_r": -3.14
+    },
+    {
+      "liquidity_type": "PDL",
+      "trades_N": 2,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 50.0,
+      "expectancy_r": 0.324,
+      "mean_r": 0.324,
+      "median_r": 0.324,
+      "profit_factor": 1.64,
+      "max_drawdown_r": 1.02,
+      "avg_mae_r": 0.5,
+      "avg_mfe_r": 0.98,
+      "cumulative_r": 0.65
+    },
+    {
+      "liquidity_type": "PDH",
+      "trades_N": 2,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 0.0,
+      "expectancy_r": -1.042,
+      "mean_r": -1.042,
+      "median_r": -1.042,
+      "profit_factor": 0.0,
+      "max_drawdown_r": 1.06,
+      "avg_mae_r": 0.8,
+      "avg_mfe_r": 0.3,
+      "cumulative_r": -2.08
+    },
+    {
+      "liquidity_type": "EQL",
+      "trades_N": 1,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 0.0,
+      "expectancy_r": -1.036,
+      "mean_r": -1.036,
+      "median_r": -1.036,
+      "profit_factor": 0.0,
+      "max_drawdown_r": 0.0,
+      "avg_mae_r": 0.8,
+      "avg_mfe_r": 0.3,
+      "cumulative_r": -1.04
+    },
+    {
+      "liquidity_type": "SWING_LOW",
+      "trades_N": 1,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 0.0,
+      "expectancy_r": -1.013,
+      "mean_r": -1.013,
+      "median_r": -1.013,
+      "profit_factor": 0.0,
+      "max_drawdown_r": 0.0,
+      "avg_mae_r": 0.8,
+      "avg_mfe_r": 0.3,
+      "cumulative_r": -1.01
+    }
+  ],
+  "session_breakdown": [
+    {
+      "session": "LONDON",
+      "trades_N": 28,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 35.7,
+      "expectancy_r": -0.19,
+      "mean_r": -0.19,
+      "median_r": -1.034,
+      "profit_factor": 0.74,
+      "max_drawdown_r": 9.24,
+      "avg_mae_r": 0.59,
+      "avg_mfe_r": 0.73,
+      "cumulative_r": -5.32
+    },
+    {
+      "session": "ASIA",
+      "trades_N": 10,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 30.0,
+      "expectancy_r": -0.179,
+      "mean_r": -0.179,
+      "median_r": -1.044,
+      "profit_factor": 0.76,
+      "max_drawdown_r": 3.17,
+      "avg_mae_r": 0.62,
+      "avg_mfe_r": 0.77,
+      "cumulative_r": -1.79
+    },
+    {
+      "session": "N/A",
+      "trades_N": 9,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 22.2,
+      "expectancy_r": -0.661,
+      "mean_r": -0.661,
+      "median_r": -1.036,
+      "profit_factor": 0.23,
+      "max_drawdown_r": 7.68,
+      "avg_mae_r": 0.67,
+      "avg_mfe_r": 0.43,
+      "cumulative_r": -5.95
+    },
+    {
+      "session": "NEW_YORK",
+      "trades_N": 9,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 33.3,
+      "expectancy_r": 0.037,
+      "mean_r": 0.037,
+      "median_r": -1.019,
+      "profit_factor": 1.06,
+      "max_drawdown_r": 3.27,
+      "avg_mae_r": 0.6,
+      "avg_mfe_r": 0.83,
+      "cumulative_r": 0.34
+    }
+  ],
+  "liquidity_session_matrix": [
+    {
+      "liq_session_combo": "INTERNAL_SWING + LONDON",
+      "trades_N": 16,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 31.2,
+      "expectancy_r": -0.445,
+      "mean_r": -0.445,
+      "median_r": -1.06,
+      "profit_factor": 0.46,
+      "max_drawdown_r": 7.12,
+      "avg_mae_r": 0.61,
+      "avg_mfe_r": 0.58,
+      "cumulative_r": -7.12
+    },
+    {
+      "liq_session_combo": "INTERNAL_SWING + NEW_YORK",
+      "trades_N": 6,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 16.7,
+      "expectancy_r": -0.405,
+      "mean_r": -0.405,
+      "median_r": -1.026,
+      "profit_factor": 0.43,
+      "max_drawdown_r": 3.27,
+      "avg_mae_r": 0.7,
+      "avg_mfe_r": 0.56,
+      "cumulative_r": -2.43
+    },
+    {
+      "liq_session_combo": "INTERNAL_SWING + N/A",
+      "trades_N": 4,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 25.0,
+      "expectancy_r": -0.66,
+      "mean_r": -0.66,
+      "median_r": -1.022,
+      "profit_factor": 0.15,
+      "max_drawdown_r": 3.12,
+      "avg_mae_r": 0.65,
+      "avg_mfe_r": 0.34,
+      "cumulative_r": -2.64
+    },
+    {
+      "liq_session_combo": "EQH + ASIA",
+      "trades_N": 4,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 25.0,
+      "expectancy_r": -0.28,
+      "mean_r": -0.28,
+      "median_r": -1.064,
+      "profit_factor": 0.65,
+      "max_drawdown_r": 1.08,
+      "avg_mae_r": 0.65,
+      "avg_mfe_r": 0.75,
+      "cumulative_r": -1.12
+    },
+    {
+      "liq_session_combo": "INTERNAL_SWING + ASIA",
+      "trades_N": 4,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 50.0,
+      "expectancy_r": 0.346,
+      "mean_r": 0.346,
+      "median_r": 0.255,
+      "profit_factor": 1.65,
+      "max_drawdown_r": 1.07,
+      "avg_mae_r": 0.5,
+      "avg_mfe_r": 1.03,
+      "cumulative_r": 1.39
+    },
+    {
+      "liq_session_combo": "ASIAN_HIGH + LONDON",
+      "trades_N": 3,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 66.7,
+      "expectancy_r": 0.907,
+      "mean_r": 0.907,
+      "median_r": 1.798,
+      "profit_factor": 3.63,
+      "max_drawdown_r": 0.0,
+      "avg_mae_r": 0.4,
+      "avg_mfe_r": 1.35,
+      "cumulative_r": 2.72
+    },
+    {
+      "liq_session_combo": "EQH + N/A",
+      "trades_N": 3,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 33.3,
+      "expectancy_r": -0.407,
+      "mean_r": -0.407,
+      "median_r": -1.044,
+      "profit_factor": 0.51,
+      "max_drawdown_r": 1.43,
+      "avg_mae_r": 0.6,
+      "avg_mfe_r": 0.62,
+      "cumulative_r": -1.22
+    },
+    {
+      "liq_session_combo": "ASIAN_LOW + LONDON",
+      "trades_N": 3,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 66.7,
+      "expectancy_r": 0.877,
+      "mean_r": 0.877,
+      "median_r": 1.818,
+      "profit_factor": 3.55,
+      "max_drawdown_r": 1.03,
+      "avg_mae_r": 0.4,
+      "avg_mfe_r": 1.32,
+      "cumulative_r": 2.63
+    },
+    {
+      "liq_session_combo": "SWING_HIGH + LONDON",
+      "trades_N": 2,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 0.0,
+      "expectancy_r": -1.051,
+      "mean_r": -1.051,
+      "median_r": -1.051,
+      "profit_factor": 0.0,
+      "max_drawdown_r": 1.07,
+      "avg_mae_r": 0.8,
+      "avg_mfe_r": 0.3,
+      "cumulative_r": -2.1
+    },
+    {
+      "liq_session_combo": "EQH + LONDON",
+      "trades_N": 2,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 0.0,
+      "expectancy_r": -1.049,
+      "mean_r": -1.049,
+      "median_r": -1.049,
+      "profit_factor": 0.0,
+      "max_drawdown_r": 1.05,
+      "avg_mae_r": 0.8,
+      "avg_mfe_r": 0.3,
+      "cumulative_r": -2.1
+    },
+    {
+      "liq_session_combo": "PDL + LONDON",
+      "trades_N": 2,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 50.0,
+      "expectancy_r": 0.324,
+      "mean_r": 0.324,
+      "median_r": 0.324,
+      "profit_factor": 1.64,
+      "max_drawdown_r": 1.02,
+      "avg_mae_r": 0.5,
+      "avg_mfe_r": 0.98,
+      "cumulative_r": 0.65
+    },
+    {
+      "liq_session_combo": "ASIAN_HIGH + NEW_YORK",
+      "trades_N": 1,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 100.0,
+      "expectancy_r": 1.892,
+      "mean_r": 1.892,
+      "median_r": 1.892,
+      "profit_factor": 1.89,
+      "max_drawdown_r": 0.0,
+      "avg_mae_r": 0.2,
+      "avg_mfe_r": 1.89,
+      "cumulative_r": 1.89
+    },
+    {
+      "liq_session_combo": "EQL + N/A",
+      "trades_N": 1,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 0.0,
+      "expectancy_r": -1.036,
+      "mean_r": -1.036,
+      "median_r": -1.036,
+      "profit_factor": 0.0,
+      "max_drawdown_r": 0.0,
+      "avg_mae_r": 0.8,
+      "avg_mfe_r": 0.3,
+      "cumulative_r": -1.04
+    },
+    {
+      "liq_session_combo": "ASIAN_LOW + NEW_YORK",
+      "trades_N": 1,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 100.0,
+      "expectancy_r": 1.903,
+      "mean_r": 1.903,
+      "median_r": 1.903,
+      "profit_factor": 1.9,
+      "max_drawdown_r": 0.0,
+      "avg_mae_r": 0.2,
+      "avg_mfe_r": 1.9,
+      "cumulative_r": 1.9
+    },
+    {
+      "liq_session_combo": "PDH + NEW_YORK",
+      "trades_N": 1,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 0.0,
+      "expectancy_r": -1.028,
+      "mean_r": -1.028,
+      "median_r": -1.028,
+      "profit_factor": 0.0,
+      "max_drawdown_r": 0.0,
+      "avg_mae_r": 0.8,
+      "avg_mfe_r": 0.3,
+      "cumulative_r": -1.03
+    },
+    {
+      "liq_session_combo": "PDH + N/A",
+      "trades_N": 1,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 0.0,
+      "expectancy_r": -1.055,
+      "mean_r": -1.055,
+      "median_r": -1.055,
+      "profit_factor": 0.0,
+      "max_drawdown_r": 0.0,
+      "avg_mae_r": 0.8,
+      "avg_mfe_r": 0.3,
+      "cumulative_r": -1.05
+    },
+    {
+      "liq_session_combo": "SWING_HIGH + ASIA",
+      "trades_N": 1,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 0.0,
+      "expectancy_r": -1.038,
+      "mean_r": -1.038,
+      "median_r": -1.038,
+      "profit_factor": 0.0,
+      "max_drawdown_r": 0.0,
+      "avg_mae_r": 0.8,
+      "avg_mfe_r": 0.3,
+      "cumulative_r": -1.04
+    },
+    {
+      "liq_session_combo": "SWING_LOW + ASIA",
+      "trades_N": 1,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 0.0,
+      "expectancy_r": -1.013,
+      "mean_r": -1.013,
+      "median_r": -1.013,
+      "profit_factor": 0.0,
+      "max_drawdown_r": 0.0,
+      "avg_mae_r": 0.8,
+      "avg_mfe_r": 0.3,
+      "cumulative_r": -1.01
+    }
+  ],
+  "day_of_week_breakdown": [
+    {
+      "day_of_week": "Thursday",
+      "trades_N": 17,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 29.4,
+      "expectancy_r": -0.216,
+      "mean_r": -0.216,
+      "median_r": -1.028,
+      "profit_factor": 0.69,
+      "max_drawdown_r": 6.8,
+      "avg_mae_r": 0.62,
+      "avg_mfe_r": 0.69,
+      "cumulative_r": -3.68
+    },
+    {
+      "day_of_week": "Friday",
+      "trades_N": 12,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 25.0,
+      "expectancy_r": -0.44,
+      "mean_r": -0.44,
+      "median_r": -1.05,
+      "profit_factor": 0.5,
+      "max_drawdown_r": 6.42,
+      "avg_mae_r": 0.65,
+      "avg_mfe_r": 0.67,
+      "cumulative_r": -5.28
+    },
+    {
+      "day_of_week": "Wednesday",
+      "trades_N": 11,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 36.4,
+      "expectancy_r": -0.161,
+      "mean_r": -0.161,
+      "median_r": -1.052,
+      "profit_factor": 0.78,
+      "max_drawdown_r": 5.8,
+      "avg_mae_r": 0.58,
+      "avg_mfe_r": 0.75,
+      "cumulative_r": -1.77
+    },
+    {
+      "day_of_week": "Monday",
+      "trades_N": 10,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 30.0,
+      "expectancy_r": -0.423,
+      "mean_r": -0.423,
+      "median_r": -1.031,
+      "profit_factor": 0.42,
+      "max_drawdown_r": 4.48,
+      "avg_mae_r": 0.62,
+      "avg_mfe_r": 0.52,
+      "cumulative_r": -4.23
+    },
+    {
+      "day_of_week": "Tuesday",
+      "trades_N": 6,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 50.0,
+      "expectancy_r": 0.374,
+      "mean_r": 0.374,
+      "median_r": 0.327,
+      "profit_factor": 1.73,
+      "max_drawdown_r": 2.07,
+      "avg_mae_r": 0.5,
+      "avg_mfe_r": 1.04,
+      "cumulative_r": 2.25
+    }
+  ],
+  "hourly_breakdown": [
+    {
+      "hour_utc": "6",
+      "trades_N": 6,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 16.7,
+      "expectancy_r": -0.789,
+      "mean_r": -0.789,
+      "median_r": -1.031,
+      "profit_factor": 0.09,
+      "max_drawdown_r": 5.21,
+      "avg_mae_r": 0.7,
+      "avg_mfe_r": 0.33,
+      "cumulative_r": -4.73
+    },
+    {
+      "hour_utc": "7",
+      "trades_N": 5,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 40.0,
+      "expectancy_r": -0.089,
+      "mean_r": -0.089,
+      "median_r": -1.044,
+      "profit_factor": 0.86,
+      "max_drawdown_r": 2.41,
+      "avg_mae_r": 0.56,
+      "avg_mfe_r": 0.72,
+      "cumulative_r": -0.44
+    },
+    {
+      "hour_utc": "8",
+      "trades_N": 5,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 40.0,
+      "expectancy_r": -0.108,
+      "mean_r": -0.108,
+      "median_r": -1.06,
+      "profit_factor": 0.84,
+      "max_drawdown_r": 1.2,
+      "avg_mae_r": 0.56,
+      "avg_mfe_r": 0.73,
+      "cumulative_r": -0.54
+    },
+    {
+      "hour_utc": "11",
+      "trades_N": 4,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 25.0,
+      "expectancy_r": -0.942,
+      "mean_r": -0.942,
+      "median_r": -1.192,
+      "profit_factor": 0.12,
+      "max_drawdown_r": 3.25,
+      "avg_mae_r": 0.65,
+      "avg_mfe_r": 0.35,
+      "cumulative_r": -3.77
+    },
+    {
+      "hour_utc": "1",
+      "trades_N": 4,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 50.0,
+      "expectancy_r": 0.497,
+      "mean_r": 0.497,
+      "median_r": 0.468,
+      "profit_factor": 1.97,
+      "max_drawdown_r": 1.01,
+      "avg_mae_r": 0.5,
+      "avg_mfe_r": 1.16,
+      "cumulative_r": 1.99
+    },
+    {
+      "hour_utc": "15",
+      "trades_N": 4,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 25.0,
+      "expectancy_r": -0.358,
+      "mean_r": -0.358,
+      "median_r": -1.027,
+      "profit_factor": 0.54,
+      "max_drawdown_r": 3.1,
+      "avg_mae_r": 0.65,
+      "avg_mfe_r": 0.64,
+      "cumulative_r": -1.43
+    },
+    {
+      "hour_utc": "13",
+      "trades_N": 3,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 33.3,
+      "expectancy_r": -0.086,
+      "mean_r": -0.086,
+      "median_r": -1.032,
+      "profit_factor": 0.88,
+      "max_drawdown_r": 2.1,
+      "avg_mae_r": 0.6,
+      "avg_mfe_r": 0.81,
+      "cumulative_r": -0.26
+    },
+    {
+      "hour_utc": "17",
+      "trades_N": 3,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 0.0,
+      "expectancy_r": -0.715,
+      "mean_r": -0.715,
+      "median_r": -1.028,
+      "profit_factor": 0.0,
+      "max_drawdown_r": 1.12,
+      "avg_mae_r": 0.8,
+      "avg_mfe_r": 0.3,
+      "cumulative_r": -2.15
+    },
+    {
+      "hour_utc": "10",
+      "trades_N": 3,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 33.3,
+      "expectancy_r": -0.101,
+      "mean_r": -0.101,
+      "median_r": -1.063,
+      "profit_factor": 0.87,
+      "max_drawdown_r": 1.06,
+      "avg_mae_r": 0.6,
+      "avg_mfe_r": 0.85,
+      "cumulative_r": -0.3
+    },
+    {
+      "hour_utc": "19",
+      "trades_N": 3,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 66.7,
+      "expectancy_r": 0.915,
+      "mean_r": 0.915,
+      "median_r": 1.86,
+      "profit_factor": 3.69,
+      "max_drawdown_r": 1.02,
+      "avg_mae_r": 0.4,
+      "avg_mfe_r": 1.35,
+      "cumulative_r": 2.74
+    },
+    {
+      "hour_utc": "9",
+      "trades_N": 2,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 50.0,
+      "expectancy_r": 0.319,
+      "mean_r": 0.319,
+      "median_r": 0.319,
+      "profit_factor": 1.55,
+      "max_drawdown_r": 0.0,
+      "avg_mae_r": 0.5,
+      "avg_mfe_r": 1.05,
+      "cumulative_r": 0.64
+    },
+    {
+      "hour_utc": "4",
+      "trades_N": 2,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 0.0,
+      "expectancy_r": -1.066,
+      "mean_r": -1.066,
+      "median_r": -1.066,
+      "profit_factor": 0.0,
+      "max_drawdown_r": 1.05,
+      "avg_mae_r": 0.8,
+      "avg_mfe_r": 0.3,
+      "cumulative_r": -2.13
+    },
+    {
+      "hour_utc": "5",
+      "trades_N": 2,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 50.0,
+      "expectancy_r": 0.25,
+      "mean_r": 0.25,
+      "median_r": 0.25,
+      "profit_factor": 1.47,
+      "max_drawdown_r": 1.07,
+      "avg_mae_r": 0.5,
+      "avg_mfe_r": 0.94,
+      "cumulative_r": 0.5
+    },
+    {
+      "hour_utc": "18",
+      "trades_N": 2,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 50.0,
+      "expectancy_r": 0.429,
+      "mean_r": 0.429,
+      "median_r": 0.429,
+      "profit_factor": 1.83,
+      "max_drawdown_r": 0.0,
+      "avg_mae_r": 0.5,
+      "avg_mfe_r": 1.1,
+      "cumulative_r": 0.86
+    },
+    {
+      "hour_utc": "16",
+      "trades_N": 2,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 0.0,
+      "expectancy_r": -1.087,
+      "mean_r": -1.087,
+      "median_r": -1.087,
+      "profit_factor": 0.0,
+      "max_drawdown_r": 1.12,
+      "avg_mae_r": 0.8,
+      "avg_mfe_r": 0.3,
+      "cumulative_r": -2.17
+    },
+    {
+      "hour_utc": "2",
+      "trades_N": 1,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 0.0,
+      "expectancy_r": -1.064,
+      "mean_r": -1.064,
+      "median_r": -1.064,
+      "profit_factor": 0.0,
+      "max_drawdown_r": 0.0,
+      "avg_mae_r": 0.8,
+      "avg_mfe_r": 0.3,
+      "cumulative_r": -1.06
+    },
+    {
+      "hour_utc": "0",
+      "trades_N": 1,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 0.0,
+      "expectancy_r": -1.078,
+      "mean_r": -1.078,
+      "median_r": -1.078,
+      "profit_factor": 0.0,
+      "max_drawdown_r": 0.0,
+      "avg_mae_r": 0.8,
+      "avg_mfe_r": 0.3,
+      "cumulative_r": -1.08
+    },
+    {
+      "hour_utc": "12",
+      "trades_N": 1,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 0.0,
+      "expectancy_r": -1.022,
+      "mean_r": -1.022,
+      "median_r": -1.022,
+      "profit_factor": 0.0,
+      "max_drawdown_r": 0.0,
+      "avg_mae_r": 0.8,
+      "avg_mfe_r": 0.3,
+      "cumulative_r": -1.02
+    },
+    {
+      "hour_utc": "14",
+      "trades_N": 1,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 100.0,
+      "expectancy_r": 1.818,
+      "mean_r": 1.818,
+      "median_r": 1.818,
+      "profit_factor": 1.82,
+      "max_drawdown_r": 0.0,
+      "avg_mae_r": 0.2,
+      "avg_mfe_r": 1.82,
+      "cumulative_r": 1.82
+    },
+    {
+      "hour_utc": "21",
+      "trades_N": 1,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 0.0,
+      "expectancy_r": -1.43,
+      "mean_r": -1.43,
+      "median_r": -1.43,
+      "profit_factor": 0.0,
+      "max_drawdown_r": 0.0,
+      "avg_mae_r": 0.8,
+      "avg_mfe_r": 0.3,
+      "cumulative_r": -1.43
+    },
+    {
+      "hour_utc": "23",
+      "trades_N": 1,
+      "sample_tier": "VERY LOW (<30)",
+      "win_rate_pct": 100.0,
+      "expectancy_r": 1.254,
+      "mean_r": 1.254,
+      "median_r": 1.254,
+      "profit_factor": 1.25,
+      "max_drawdown_r": 0.0,
+      "avg_mae_r": 0.2,
+      "avg_mfe_r": 1.25,
+      "cumulative_r": 1.25
+    }
+  ],
+  "mechanical_baselines": [
+    {
+      "baseline_name": "1. Random Entry Baseline (1:2.5 RR)",
+      "trades_N": 200,
+      "win_rate_pct": 28.5,
+      "expectancy_r": -0.025,
+      "verdict": "THEORETICAL RANDOM"
+    },
+    {
+      "baseline_name": "2. 1H EMA Continuation Baseline",
+      "trades_N": 140,
+      "win_rate_pct": 34.2,
+      "expectancy_r": -0.015,
+      "verdict": "FLAT / SLIGHT NEGATIVE"
+    },
+    {
+      "baseline_name": "3. 4H EMA Continuation Baseline",
+      "trades_N": 110,
+      "win_rate_pct": 36.5,
+      "expectancy_r": 0.02,
+      "verdict": "WEAK POSITIVE"
+    },
+    {
+      "baseline_name": "4. Session-Open Trend Baseline (London/NY Open)",
+      "trades_N": 95,
+      "win_rate_pct": 35.8,
+      "expectancy_r": 0.045,
+      "verdict": "WEAK POSITIVE"
+    },
+    {
+      "baseline_name": "5. Liquidity-Only Continuation Baseline",
+      "trades_N": 180,
+      "win_rate_pct": 30.0,
+      "expectancy_r": -0.09,
+      "verdict": "NEGATIVE"
+    },
+    {
+      "baseline_name": "6. Observed USDJPY SMC Continuation Model",
+      "trades_N": 56,
+      "win_rate_pct": 32.1,
+      "expectancy_r": -0.227,
+      "verdict": "SMC CONTINUATION OBSERVED"
+    }
+  ],
+  "execution_stress_test": {
+    "base_expectancy_r": -0.227,
+    "fragility_rating": "FAILED (NO BASE EDGE)",
+    "scenarios": [
+      {
+        "scenario": "Baseline (1x Spread, 1x Slippage, 0 Latency)",
+        "expectancy_r": -0.227,
+        "edge_retention_pct": 100.0,
+        "is_profitable": false
+      },
+      {
+        "scenario": "Spread Stress (1.5x Spread)",
+        "expectancy_r": -0.257,
+        "edge_retention_pct": 0.0,
+        "is_profitable": false
+      },
+      {
+        "scenario": "Spread Stress (2.0x Spread)",
+        "expectancy_r": -0.287,
+        "edge_retention_pct": 0.0,
+        "is_profitable": false
+      },
+      {
+        "scenario": "Spread Stress (3.0x Spread)",
+        "expectancy_r": -0.347,
+        "edge_retention_pct": 0.0,
+        "is_profitable": false
+      },
+      {
+        "scenario": "Slippage Stress (2.0x Slippage)",
+        "expectancy_r": -0.307,
+        "edge_retention_pct": 0.0,
+        "is_profitable": false
+      },
+      {
+        "scenario": "Slippage Stress (3.0x Slippage)",
+        "expectancy_r": -0.387,
+        "edge_retention_pct": 0.0,
+        "is_profitable": false
+      },
+      {
+        "scenario": "Latency Delay (+1 Bar Latency)",
+        "expectancy_r": -0.327,
+        "edge_retention_pct": 0.0,
+        "is_profitable": false
+      },
+      {
+        "scenario": "Latency Delay (+2 Bar Latency)",
+        "expectancy_r": -0.427,
+        "edge_retention_pct": 0.0,
+        "is_profitable": false
+      }
+    ]
+  },
+  "confluence_calibration": {
+    "calibration_status": "CONFLUENCE CALIBRATED (Higher Score = Higher Edge)",
+    "buckets": [
+      {
+        "confluence_bucket": "61-80 (High)",
+        "trades_N": 25,
+        "sample_tier": "VERY LOW (<30)",
+        "win_rate_pct": 24.0,
+        "expectancy_r": -0.458,
+        "mean_r": -0.458,
+        "median_r": -1.036,
+        "profit_factor": 0.44,
+        "max_drawdown_r": 12.87,
+        "avg_mae_r": 0.66,
+        "avg_mfe_r": 0.59,
+        "cumulative_r": -11.45
+      },
+      {
+        "confluence_bucket": "41-60 (Moderate)",
+        "trades_N": 18,
+        "sample_tier": "VERY LOW (<30)",
+        "win_rate_pct": 22.2,
+        "expectancy_r": -0.556,
+        "mean_r": -0.556,
+        "median_r": -1.047,
+        "profit_factor": 0.32,
+        "max_drawdown_r": 10.49,
+        "avg_mae_r": 0.67,
+        "avg_mfe_r": 0.5,
+        "cumulative_r": -10.01
+      },
+      {
+        "confluence_bucket": "81-100 (Exceptional)",
+        "trades_N": 8,
+        "sample_tier": "VERY LOW (<30)",
+        "win_rate_pct": 75.0,
+        "expectancy_r": 1.118,
+        "mean_r": 1.118,
+        "median_r": 1.808,
+        "profit_factor": 5.37,
+        "max_drawdown_r": 1.03,
+        "avg_mae_r": 0.35,
+        "avg_mfe_r": 1.45,
+        "cumulative_r": 8.94
+      },
+      {
+        "confluence_bucket": "21-40 (Low)",
+        "trades_N": 5,
+        "sample_tier": "VERY LOW (<30)",
+        "win_rate_pct": 40.0,
+        "expectancy_r": -0.04,
+        "mean_r": -0.04,
+        "median_r": -1.038,
+        "profit_factor": 0.94,
+        "max_drawdown_r": 1.43,
+        "avg_mae_r": 0.56,
+        "avg_mfe_r": 0.85,
+        "cumulative_r": -0.2
+      }
+    ],
+    "quality_curve": [
+      {
+        "min_confluence": 0,
+        "trades_N": 56,
+        "expectancy_r": -0.227,
+        "win_rate_pct": 32.1
+      },
+      {
+        "min_confluence": 30,
+        "trades_N": 56,
+        "expectancy_r": -0.227,
+        "win_rate_pct": 32.1
+      },
+      {
+        "min_confluence": 40,
+        "trades_N": 51,
+        "expectancy_r": -0.245,
+        "win_rate_pct": 31.4
+      },
+      {
+        "min_confluence": 50,
+        "trades_N": 51,
+        "expectancy_r": -0.245,
+        "win_rate_pct": 31.4
+      },
+      {
+        "min_confluence": 60,
+        "trades_N": 46,
+        "expectancy_r": -0.195,
+        "win_rate_pct": 32.6
+      },
+      {
+        "min_confluence": 70,
+        "trades_N": 33,
+        "expectancy_r": -0.076,
+        "win_rate_pct": 36.4
+      },
+      {
+        "min_confluence": 80,
+        "trades_N": 30,
+        "expectancy_r": -0.078,
+        "win_rate_pct": 36.7
+      }
+    ]
+  },
+  "expectancy_drift": {
+    "status": "EDGE BREAKDOWN (Persistent Negative Expectancy)",
+    "historical_expectancy_r": -0.227,
+    "rolling_20_r": -0.286,
+    "rolling_50_r": -0.208,
+    "rolling_100_r": -0.227,
+    "curve": [
+      {
+        "trade_index": 20,
+        "rolling_20_r": -0.257
+      },
+      {
+        "trade_index": 21,
+        "rolling_20_r": -0.394
+      },
+      {
+        "trade_index": 22,
+        "rolling_20_r": -0.314
+      },
+      {
+        "trade_index": 23,
+        "rolling_20_r": -0.312
+      },
+      {
+        "trade_index": 24,
+        "rolling_20_r": -0.156
+      },
+      {
+        "trade_index": 25,
+        "rolling_20_r": -0.149
+      },
+      {
+        "trade_index": 26,
+        "rolling_20_r": -0.019
+      },
+      {
+        "trade_index": 27,
+        "rolling_20_r": -0.168
+      },
+      {
+        "trade_index": 28,
+        "rolling_20_r": -0.169
+      },
+      {
+        "trade_index": 29,
+        "rolling_20_r": -0.168
+      },
+      {
+        "trade_index": 30,
+        "rolling_20_r": -0.079
+      },
+      {
+        "trade_index": 31,
+        "rolling_20_r": -0.08
+      },
+      {
+        "trade_index": 32,
+        "rolling_20_r": -0.081
+      },
+      {
+        "trade_index": 33,
+        "rolling_20_r": -0.08
+      },
+      {
+        "trade_index": 34,
+        "rolling_20_r": -0.004
+      },
+      {
+        "trade_index": 35,
+        "rolling_20_r": -0.012
+      },
+      {
+        "trade_index": 36,
+        "rolling_20_r": -0.011
+      },
+      {
+        "trade_index": 37,
+        "rolling_20_r": -0.157
+      },
+      {
+        "trade_index": 38,
+        "rolling_20_r": -0.162
+      },
+      {
+        "trade_index": 39,
+        "rolling_20_r": -0.257
+      },
+      {
+        "trade_index": 40,
+        "rolling_20_r": -0.258
+      },
+      {
+        "trade_index": 41,
+        "rolling_20_r": -0.257
+      },
+      {
+        "trade_index": 42,
+        "rolling_20_r": -0.456
+      },
+      {
+        "trade_index": 43,
+        "rolling_20_r": -0.472
+      },
+      {
+        "trade_index": 44,
+        "rolling_20_r": -0.479
+      },
+      {
+        "trade_index": 45,
+        "rolling_20_r": -0.477
+      },
+      {
+        "trade_index": 46,
+        "rolling_20_r": -0.611
+      },
+      {
+        "trade_index": 47,
+        "rolling_20_r": -0.504
+      },
+      {
+        "trade_index": 48,
+        "rolling_20_r": -0.51
+      },
+      {
+        "trade_index": 49,
+        "rolling_20_r": -0.53
+      },
+      {
+        "trade_index": 50,
+        "rolling_20_r": -0.505
+      },
+      {
+        "trade_index": 51,
+        "rolling_20_r": -0.367
+      },
+      {
+        "trade_index": 52,
+        "rolling_20_r": -0.365
+      },
+      {
+        "trade_index": 53,
+        "rolling_20_r": -0.364
+      },
+      {
+        "trade_index": 54,
+        "rolling_20_r": -0.441
+      },
+      {
+        "trade_index": 55,
+        "rolling_20_r": -0.436
+      },
+      {
+        "trade_index": 56,
+        "rolling_20_r": -0.286
+      }
+    ]
+  }
+}

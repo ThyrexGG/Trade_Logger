@@ -1,6 +1,6 @@
 # PROJECT STATE & ARCHITECTURAL RECORD
 **TradeLogger Terminal — Living System Memory**
-*Last Updated: 31 August 2026, Session 5 (Phase 12B & Phase 13 Fully Completed & Verified)*
+*Last Updated: 31 August 2026, Session 11 (Phase 19 True Multi-Timeframe ICT/SMC Engine & Best-Asset Discovery Completed & Verified)*
 
 > **HOW TO USE THIS FILE**
 > Start any new AI session with: *"Read PROJECT_STATE.md and continue where we left off."*
@@ -12,11 +12,13 @@
 
 A professional-grade **trading research, journaling, and execution terminal** built for a liquidity-based, ICT/SMC methodology trader. It is NOT a simple trade log — it is a full research + execution stack:
 
-- **Streamlit Desktop Terminal** (`app.py`) — primary UI, 8 tabs with Execution Operations & System Health Panel, Pre-Trade Risk Preview, and Live Execution Controls
+- **Streamlit Desktop Terminal** (`app.py`) — primary UI, 9 tabs including dedicated **RESEARCH LAB** with USDJPY Reversal Lab (Phase 15), USDJPY Continuation Lab (Phase 16), USDJPY Edge Discovery Lab (Phase 17), USDJPY Conditional Validation Lab (Phase 18), and True MTF Research Lab (Phase 19), Execution Operations & System Health Panel, Pre-Trade Risk Preview, and Live Execution Controls (Strictly zero emojis across all UI tabs, buttons, metrics, and logs)
+- **True Multi-Timeframe Strategy Engine & Best-Asset Discovery** (`true_mtf_engine.py`) — 1D Macro Bias $\to$ 4H Draw on Liquidity $\to$ 15M Setup $\to$ 5M Confirmation $\to$ 1M Precision Execution, 18-State Execution State Machine, Zero Lookahead Assertions, Structural SL (SL-A to SL-E), Dynamic Targets (2R–7R), Standardized 16-Asset Discovery Universe
+- **Strategy Edge Discovery & Research Engine** (`research_engine.py`, `research_analytics.py`, `usdjpy_research.py`, `usdjpy_continuation_research.py`, `usdjpy_edge_discovery.py`, `usdjpy_conditional_validation.py`) — Three-layer data partition (60% Train / 20% Validation / 20% Untouched Holdout), 95% Bootstrap Confidence Intervals, Cumulative Multiple Testing Tracker (92 hypotheses), 5,000-Iteration Permutation Test Engine, Rolling Walk-Forward Optimization, 5,000-Run Monte Carlo Simulator, and Cost Sensitivity Stress Tester
 - **Structured SMC / ICT Data Models & Context** (`strategies/smc_models.py`, `strategies/smc_utils.py`) — immutable dataclasses for LiquidityPools, FVGs, OrderBlocks, DealingRanges, and Multi-Timeframe SMCContext snapshots
 - **Deterministic AI Market Analysis Engine** (`ai_analysis.py`) — 17-phase pipeline with structured SMC context prompt injection
-- **Modular Strategy Framework** (`strategies/`) — unified engine for live + backtest
-- **Historical Backtester** (`backtester.py`) — OOS-split, SMC-aware, limit order aware
+- **Modular Strategy Framework** (`strategies/`) — unified engine for live + backtest with strict semver versioning (`strategy_version = "1.0.0"` / `"1.1.0"` / `"2.0.0"`)
+- **Historical Backtester** (`backtester.py`) — OOS-split, SMC-aware, limit order aware, exact SL/TP/liquidity metadata tracking
 - **Walk-Forward Optimization** (`wfo.py`) — rolling window parameter optimization
 - **Broker Abstraction Layer** (`broker_adapter.py`) — normalized MT5, Capital.com, PaperAdapter & ShadowAdapter interface
 - **Canonical Execution State Machine** (`execution_pipeline.py`) — 14-state deterministic order gateway with atomic mutex claims and in-flight risk reservations
@@ -35,7 +37,14 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 ### Backend Files
 | File | Purpose |
 |------|---------|
-| `app.py` | Main Streamlit UI (8 tabs) + Live Execution Operations Panel + Pre-Trade Risk Card |
+| `app.py` | Main Streamlit UI (9 tabs) + Research Lab (Reversal, Continuation, Edge Discovery, Conditional Validation, True MTF) + Operations Panel |
+| `true_mtf_engine.py` | Dedicated True Multi-Timeframe (1D->4H->15M->5M->1M) Engine, 18-State Machine, Execution Timeframe Comparer, 16-Asset Discovery Universe |
+| `usdjpy_conditional_validation.py` | Dedicated USDJPY Regime-Conditional Validation Engine (5,000-Run Permutation Tester, 5,000-Run Monte Carlo, Rolling WFO, Multi-Testing Ledger) |
+| `usdjpy_edge_discovery.py` | Dedicated USDJPY 27-Condition Mechanical Discovery Engine, Regime Classifier, Deep Excursion Analyzer, Holding-Time Profiler, Trend Persistence Map |
+| `usdjpy_continuation_research.py` | Dedicated USDJPY 12-Condition Trend-Continuation Ablation Suite, Directional/Session diagnostics, MAE/MFE Profiler, Mechanical Baselines |
+| `usdjpy_research.py` | Dedicated USDJPY 12-Condition Reversal Ablation Suite, Directional/Session diagnostics, MAE/MFE Profiler, Mechanical Baselines |
+| `research_engine.py` | 3-Layer Splitter (Train/Val/Holdout), Multiple Testing Tracker, Bootstrap 95% CI Estimator, Scorecard Classifier |
+| `research_analytics.py` | Liquidity Source Attribution, Session Matrix, Confluence Calibration Curve, Execution Stress, Drift Monitor |
 | `server.py` | FastAPI REST + WebSocket server + webhook receiver (Canonical Order Routed) |
 | `database.py` | SQLite + PostgreSQL multi-tenant DB with thread-safe queries & test WAL mode |
 | `market_data.py` | Live data fetching, bid/ask ticks, liquidity, FVG, OB, confluence |
@@ -58,17 +67,24 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 | File | Purpose |
 |------|---------|
 | `base.py` | `BaseStrategy` abstract class — unified schema |
+| `usdjpy_smc_continuation.py` | USDJPY SMC Trend Continuation: 4H Bias -> Counter-trend Sweep -> 15m BOS -> FVG Entry (`strategy_version = "1.0.0"`) |
 | `smc_models.py` | Structured immutable dataclasses: `LiquidityPool`, `FairValueGap`, `OrderBlock`, `DealingRange`, `MarketStructureEvent`, `SMCContext` |
 | `__init__.py` | Registry: `get_strategy()`, `get_all_strategy_names()` |
 | `smc_utils.py` | Vectorized SMC: Swings, FVG, Sessions, PDH/PDL, PWH/PWL, Asian range, EQH/EQL, Dealing Range, Structured Extractors |
-| `ict_2022_model.py` | ICT 2022: SSL/BSL Sweep → MSS → FVG retracement |
-| `liquidity_sweep.py` | Liquidity Sweep Reversal (immediate sweep entry) |
+| `ict_2022_model.py` | ICT 2022: SSL/BSL Sweep → MSS → FVG retracement (`strategy_version = "1.1.0"`) |
+| `liquidity_sweep.py` | Liquidity Sweep Reversal (immediate sweep entry, `strategy_version = "1.1.0"`) |
 | `trend_continuation.py` | EMA crossover continuation |
 | `mean_reversion.py` | RSI extreme reversal |
 
-### Automated Test Suite (`tests/`) — 83 PASSED, 2 SKIPPED, 0 FAILED
+### Automated Test Suite Status (120 PASSED, 2 SKIPPED — 100% REGRESSION PASS RATE)
 | File | Purpose | Test Count |
 |------|---------|------------|
+| `test_true_mtf_research.py` | 18-state lifecycle, zero-lookahead assertions, 1M vs 5M vs 15M benchmark, cross-asset ranking | 5 PASSED |
+| `test_usdjpy_conditional_validation.py` | Mathematical auditor, subgroup metrics, permutation reproducibility, WFO, Monte Carlo, cost stress | 9 PASSED |
+| `test_usdjpy_edge_discovery.py` | USDJPY 27-condition catalog, regime classifier, deep excursion, holding times, day-of-week, persistence | 5 PASSED |
+| `test_usdjpy_continuation.py` | USDJPY 12 continuation ablation configs, directional bias, MAE/MFE excursion, mechanical baselines | 5 PASSED |
+| `test_usdjpy_research.py` | USDJPY 12 reversal ablation configs, directional bias, MAE/MFE profit giveback, mechanical baselines | 5 PASSED |
+| `test_research_lab.py` | 3-layer split, bootstrap reproducibility, multiple testing counter, scorecard, R-normalization, liquidity/session matrix, confluence curve | 8 PASSED |
 | `test_smc_models.py` | SMC structured models, CE, MT, Premium/Discount, IFVG, Pre-Trade Risk Preview | 5 PASSED |
 | `test_symbol_mapping.py` | Canonical symbol normalization, aliases, suffixes, broker translation | 5 PASSED |
 | `test_instrument_specs.py` | Instrument specifications, lot step alignment, min/max volume limits | 7 PASSED |
@@ -80,7 +96,7 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 | `test_account_risk.py` | Risk limits, floating daily loss breach, portfolio aggregate risk | 4 PASSED |
 | `test_broker_reconciliation.py` | Discrepancy matrices (MATCHED, LOCAL_ONLY, BROKER_ONLY, MISMATCH) | 5 PASSED |
 | `test_execution_state_machine.py` | 14-state transitions, persistence, signal_id idempotency | 4 PASSED |
-| `test_execution_failure_injection.py` | Broker timeouts to UNKNOWN, reconciliation to FILLED/NOT_FILLED, kill switch | 7 PASSED |
+| `test_failure_injection.py` | Broker timeouts to UNKNOWN, reconciliation to FILLED/NOT_FILLED, kill switch | 7 PASSED |
 | `test_execution_safety.py` | Core execution safety, webhook HMAC, payload validation, future ts rejection | 20 PASSED |
 | `test_paper_execution.py` | End-to-end paper and shadow execution pipelines | 3 PASSED |
 | `test_mtf_validation.py` | MTF lookahead proof, future candle mutation, bias audit | 4 PASSED |
@@ -301,12 +317,15 @@ Get-Process python | Stop-Process -Force
 
 ---
 
-## 13. Next Priorities & Evolution (Phase 12)
+## 13. Next Priorities & Evolution (Phase 13 → Phase 14)
 
-1. Live Automation Check & Institutional Rollout
-2. WebHook trading automation payload endpoints tuning
-3. Live Walk-Forward / Paper-to-Live Divergence Monitoring
-4. Equal Highs/Lows detection in `smc_utils.py`
-5. Previous Week High/Low in `smc_utils.py`
-6. MTF strategy inputs — inject last completed higher-TF candle into `BaseStrategy.analyze()`
-7. Displacement validation — verify impulsive move size vs ATR
+1. **MT5 Demo / Live Auto-Trading Execution**:
+   - **Webhook Mode**: Route incoming TradingView alerts (`/webhook`) directly to MT5 terminal (`broker: "MT5"`) with canonical risk checks, dynamic lot sizing, and floating daily loss gates.
+   - **Autonomous Strategy Scanner Loop**: Optional background worker to continuously scan live candles (1m/5m/15m) for ICT 2022 / Liquidity Sweep setups and auto-dispatch orders directly to MT5 Demo.
+2. **WebHook Trading Automation Payload Endpoints & Secret Security**:
+   - Fine-tune HMAC signature validation and automated alert format documentation.
+3. **Live Walk-Forward / Paper-to-Live Divergence Monitoring**:
+   - Track slippage, latency, and fill price divergence between Paper simulation and MT5 Demo executions.
+4. **Institutional Trade Setup Visualization**:
+   - Dynamic Fibonacci OTE overlays, FVG boxes, and dealing range equilibrium markers plotted directly on the interactive TradingView canvas in `app.py`.
+

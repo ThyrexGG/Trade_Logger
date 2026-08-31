@@ -222,6 +222,7 @@ def run_backtest(symbol, timeframe="1h", strategy="Trend Continuation", risk_pct
                     sl = raw_sl
                     tp = limit_order['tp1']
                     entry_time = idx
+                    active_setup_meta = limit_order.copy()
                 
                 limit_order = None
             else:
@@ -271,11 +272,17 @@ def run_backtest(symbol, timeframe="1h", strategy="Trend Continuation", risk_pct
                     "position_size": shares,
                     "entry_price": entry_price,
                     "exit_price": exit_price,
+                    "stop_loss": sl,
+                    "take_profit": tp,
                     "gross_pnl": gross_pnl,
                     "commission": commission,
                     "pnl": net_pnl,
                     "equity": current_capital,
-                    "is_oos": is_oos
+                    "is_oos": is_oos,
+                    "liquidity_type": active_setup_meta.get("liquidity_type", "SWING_LEVEL") if 'active_setup_meta' in locals() else "SWING_LEVEL",
+                    "session": active_setup_meta.get("session", "OUT_OF_SESSION") if 'active_setup_meta' in locals() else "OUT_OF_SESSION",
+                    "confluence_score": active_setup_meta.get("confluence_score", "0") if 'active_setup_meta' in locals() else "0",
+                    "confluence_reasons": active_setup_meta.get("confluence_reasons", []) if 'active_setup_meta' in locals() else []
                 })
                 in_trade = False
                 

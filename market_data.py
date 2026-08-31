@@ -998,13 +998,18 @@ def calculate_confluence(ai_data):
     counter = []
     
     # MTF Alignment
-    mtf = ai_data.get('mtf_alignment', '')
-    if "Bullish" in mtf: 
+    mtf_raw = ai_data.get('mtf_alignment', '')
+    if isinstance(mtf_raw, dict):
+        mtf = mtf_raw.get('alignment', '')
+    else:
+        mtf = str(mtf_raw)
+
+    if "BULLISH" in mtf.upper(): 
         score += 1
-        supporting.append(f"MTF Bullish Aligned")
-    elif "Bearish" in mtf: 
+        supporting.append("MTF Bullish Aligned")
+    elif "BEARISH" in mtf.upper(): 
         score -= 1
-        counter.append(f"MTF Bearish Aligned")
+        counter.append("MTF Bearish Aligned")
     
     # Market Regime
     reg = ai_data.get('market_regime', '')
