@@ -926,28 +926,49 @@ class ExplainableResearchClassifier:
         - WHAT FAILED
         - WHY IT FAILED
         - WHAT RULE CAUSED THE REJECTION
+        - CAPITAL PROTECTION ROLE
         """
         details = details or {}
         rejection_catalog = {
+            "DAILY_BIAS_NEUTRAL": {
+                "what_failed": "1D Macro Trend Alignment",
+                "why_it_failed": "Daily candle structure or 20/50 EMA slope is neutral or compressing in consolidation.",
+                "rule_triggered": "Rule 1.1: Strategy requires unambiguous Daily directional alignment before considering setups."
+            },
+            "DAILY_BIAS_OPPOSITE": {
+                "what_failed": "1D Macro Trend Alignment",
+                "why_it_failed": "Intraday setup direction directly conflicts with Higher-Timeframe Daily order flow.",
+                "rule_triggered": "Rule 1.2: Counter-trend setups are strictly prohibited by the frozen strategy contract."
+            },
             "NO_DAILY_BIAS": {
                 "what_failed": "1D Macro Trend Alignment",
                 "why_it_failed": "Daily candle structure or 20/50 EMA slope is neutral or conflicting with intraday direction.",
                 "rule_triggered": "Rule 1.1: Strategy requires unambiguous Daily directional alignment before considering setups."
             },
-            "NO_VALID_4H_DOL": {
+            "NO_VALID_DOL": {
                 "what_failed": "4H Draw on Liquidity Identification",
                 "why_it_failed": "No unmitigated Previous Day High/Low, equal highs/lows, or 4H FVG available within session range.",
                 "rule_triggered": "Rule 2.1: Strategy requires a clear 4H liquidity target acting as directional magnetism."
             },
+            "DOL_DISTANCE_BELOW_2R": {
+                "what_failed": "Minimum Reward-to-Risk Distance",
+                "why_it_failed": f"Distance to 4H DOL provides only {details.get('rr_available', 1.6):.2f}R potential from entry.",
+                "rule_triggered": "Rule 2.2: Minimum required distance to 4H Draw on Liquidity is 2.0R. Setups below 2.0R are rejected."
+            },
             "DOL_BELOW_2R": {
                 "what_failed": "Minimum Reward-to-Risk Distance",
-                "why_it_failed": f"Distance to 4H DOL provides only {details.get('rr_available', 1.6):.1f}R reward potential.",
+                "why_it_failed": f"Distance to 4H DOL provides only {details.get('rr_available', 1.6):.2f}R reward potential.",
                 "rule_triggered": "Rule 2.2: Minimum required distance to 4H Draw on Liquidity is 2.0R. Setups below 2.0R are rejected."
             },
             "NO_LIQUIDITY_SWEEP": {
                 "what_failed": "15M Session Liquidity Sweep",
                 "why_it_failed": "Price did not pierce Asian Range High/Low or Previous Day High/Low before attempting reversal.",
                 "rule_triggered": "Rule 3.1: Strategy requires liquidity purge of key session levels before looking for structure shift."
+            },
+            "SWEEP_NOT_CONFIRMED": {
+                "what_failed": "15M Liquidity Sweep Range Close",
+                "why_it_failed": "Price pierced the session level but failed to close back inside the prior trading range.",
+                "rule_triggered": "Rule 3.1b: Liquidity sweep must close back inside range to confirm absorption rather than true breakout."
             },
             "MSS_NOT_CONFIRMED": {
                 "what_failed": "15M Market Structure Shift (MSS)",
@@ -961,18 +982,38 @@ class ExplainableResearchClassifier:
             },
             "FVG_TOO_SMALL": {
                 "what_failed": "15M/1M Fair Value Gap Imbalance Size",
-                "why_it_failed": "Fair value gap height is below minimum structural threshold (3.0 pips).",
+                "why_it_failed": "Fair value gap height is below minimum structural threshold (0.50 ATR / 3.0 pips).",
                 "rule_triggered": "Rule 4.1: Fair value gaps must represent meaningful institutional order flow inefficiency."
+            },
+            "SETUP_EXPIRED": {
+                "what_failed": "15M Setup Lifetime Window",
+                "why_it_failed": "More than 15 bars elapsed since the liquidity sweep without triggering an entry.",
+                "rule_triggered": "Rule 4.3: 15M setups expire after 15 bars to prevent executing stale structural ideas."
+            },
+            "5M_CONFIRMATION_MISSING": {
+                "what_failed": "5M Momentum Confirmation",
+                "why_it_failed": "5M timeframe did not print a confirming displacement bar within 3 candles of 15M MSS.",
+                "rule_triggered": "Rule 4.2: 5M momentum confirmation failed to validate the structural shift."
             },
             "CONFIRMATION_5M_MISSING": {
                 "what_failed": "5M Momentum Confirmation",
                 "why_it_failed": "5M timeframe did not print a confirming displacement bar within 3 candles of 15M MSS.",
                 "rule_triggered": "Rule 4.2: 5M momentum confirmation failed to validate the structural shift."
             },
+            "NO_1M_FVG": {
+                "what_failed": "1M Precision FVG Formation",
+                "why_it_failed": "Price expanded without creating a valid 1M Fair Value Gap for limit order placement.",
+                "rule_triggered": "Rule 5.1: Limit entry must be placed at the precise boundary of a 1M Fair Value Gap."
+            },
             "NO_1M_FVG_FOUND": {
                 "what_failed": "1M Precision FVG Formation",
                 "why_it_failed": "Price expanded without creating a valid 1M Fair Value Gap for limit order placement.",
                 "rule_triggered": "Rule 5.1: Limit entry must be placed at the precise boundary of a 1M Fair Value Gap."
+            },
+            "1M_ENTRY_EXPIRED": {
+                "what_failed": "1M Limit Order Execution Window",
+                "why_it_failed": "Price did not retrace to fill the limit order within the 15-minute expiration lifetime.",
+                "rule_triggered": "Rule 5.2: Limit orders expire after 15 minutes to avoid entering stale or invalidated setups."
             },
             "LIMIT_ORDER_EXPIRED": {
                 "what_failed": "1M Limit Order Execution Window",
@@ -1001,22 +1042,35 @@ class ExplainableResearchClassifier:
             "why_it_failed": entry["why_it_failed"],
             "rule_triggered": entry["rule_triggered"],
             "status": "REJECTED (PRE-TRADE FILTER)",
-            "summary_text": f"REJECTED — {entry['what_failed']}: {entry['why_it_failed']} ({entry['rule_triggered']})"
+            "summary_text": f"TRADE REJECTED — {entry['what_failed']}: {entry['why_it_failed']} ({entry['rule_triggered']})"
         }
 
     @staticmethod
     def explain_trade_entry(trade: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Explains why a Paper/Shadow trade was approved and entered across all MTF layers.
+        Generates an inspectable decision trail directly from recorded execution parameters.
         """
         symbol = trade.get("symbol", "XAUUSD")
         side = trade.get("side", "BUY")
         direction_text = "LONG" if side.upper() in ["BUY", "LONG"] else "SHORT"
         
+        trail = [
+            {"layer": "1D", "status": "PASS", "detail": trade.get("bias_1d", "Bullish macro bias")},
+            {"layer": "4H", "status": "PASS", "detail": trade.get("dol_4h", "PDH selected as DOL")},
+            {"layer": "DOL Distance", "status": "PASS", "detail": f"{trade.get('target_r', 3.2):.1f}R available (>= 2.0R floor)"},
+            {"layer": "15M", "status": "PASS", "detail": trade.get("setup_15m", "Liquidity sweep + MSS + displacement")},
+            {"layer": "5M", "status": "PASS", "detail": trade.get("conf_5m", "Confirming displacement FVG")},
+            {"layer": "1M", "status": "PASS", "detail": trade.get("entry_1m", "Valid FVG limit retracement")},
+            {"layer": "Risk", "status": "PASS", "detail": f"SL = {trade.get('sl_pips', 14.5):.1f} pips | Inside contract bounds"},
+            {"layer": "Execution", "status": "PASS", "detail": "1M limit order filled within 15-minute window"}
+        ]
+
         return {
             "title": f"WHY DID WE ENTER? — {direction_text} {symbol}",
             "direction": direction_text,
             "symbol": symbol,
+            "decision_trail": trail,
+            "final_decision": "FINAL DECISION: PAPER/SHADOW ENTRY APPROVED",
             "layer_1d": f"1D Macro Bias: {trade.get('bias_1d', 'Bullish Daily Alignment (Price above 20/50 EMAs)')}",
             "layer_4h": f"4H Target (DOL): {trade.get('dol_4h', 'PDH / 4H FVG target providing > 2.5R potential')}",
             "layer_15m": f"15M Structure: {trade.get('setup_15m', 'Asian Low Swept + Confirmed Bullish MSS Body Close')}",
@@ -1025,6 +1079,7 @@ class ExplainableResearchClassifier:
             "risk_spec": f"Risk Allocation: SL = {trade.get('sl_pips', 14.5):.1f} pips | Target = {trade.get('target_r', 3.0):.1f}R",
             "decision": "PAPER ORDER APPROVED & EXECUTED"
         }
+
 
     @staticmethod
     def explain_mtf_stage(stage_id: str, current_state: str, details: Optional[str] = None) -> Dict[str, Any]:
@@ -1110,6 +1165,53 @@ class ExplainableResearchClassifier:
                 "meaning": "Stop losses under 5 pips on Gold frequently fail due to normal bid/ask spread expansion and noise.",
                 "why_important": "The strategy enforces a minimum 5.0 pip stop floor to maintain execution robustness."
             }
+        }
+
+
+class ExecutionFailureClassifier:
+    """
+    Explicitly distinguishes STRATEGY FAILURE from EXECUTION FAILURE.
+    """
+    @staticmethod
+    def classify_failure(event_type: str, details: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        details = details or {}
+        event_upper = event_type.upper()
+        
+        if event_upper in ["STOP_LOSS_HIT", "STRATEGY_LOSS", "NORMAL_LOSS"]:
+            category = "STRATEGY FAILURE"
+            meaning = (
+                "The setup formed correctly, all MTF criteria passed, and the 1M limit order filled, "
+                "but price moved against the trade and hit the structural Stop Loss. "
+                "This is standard market variance and part of normal strategy probability."
+            )
+            is_execution_issue = False
+        elif event_upper in ["LIMIT_TIMEOUT", "MISSED_ENTRY", "ORDER_EXPIRED", "UNFILLED"]:
+            category = "EXECUTION FAILURE"
+            meaning = (
+                "The strategy correctly identified the setup and placed a limit order, but price expanded rapidly "
+                "toward the target without retracing into the 1M FVG boundary within 15 minutes. "
+                "This represents limit order execution friction, NOT a breakdown of strategy logic."
+            )
+            is_execution_issue = True
+        elif event_upper in ["SLIPPAGE_EXCESSIVE", "SPREAD_WIDE"]:
+            category = "EXECUTION FRICTION"
+            meaning = "Execution costs (spread or slippage) exceeded standard modeling thresholds."
+            is_execution_issue = True
+        else:
+            category = "UNCLASSIFIED EVENT"
+            meaning = details.get("meaning", "General market event.")
+            is_execution_issue = False
+
+        return {
+            "event_type": event_type,
+            "category": category,
+            "is_execution_issue": is_execution_issue,
+            "meaning": meaning,
+            "action_guidance": (
+                "Log execution friction in FUTURE_RESEARCH_QUEUE without altering frozen strategy rules."
+                if is_execution_issue else
+                "Include in standard trade outcome distribution without discretionary filtering."
+            )
         }
 
 

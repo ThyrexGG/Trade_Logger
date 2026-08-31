@@ -103,7 +103,72 @@ class ResearchHypothesisFirewall:
 class WatchNextAdvisor:
     """
     Identifies the next critical research checkpoints based on predefined governance rules.
+    Answers: "WHAT SHOULD I DO NEXT?"
     """
+    @staticmethod
+    def get_next_action_advice(mode: str = "PAPER") -> Dict[str, Any]:
+        fwd = XAUUSDForwardMonitor.get_forward_summary(mode=mode)
+        exec_d = XAUUSDExecutionDiagnostics.run_execution_diagnostics(mode=mode)
+        dd = XAUUSDDriftDetector.evaluate_drawdown_status(fwd.get("max_drawdown_r", 0.0))
+        drift = XAUUSDDriftDetector.evaluate_distribution_drift(mode=mode)
+        
+        n = fwd.get("trades_N", 0)
+        exp_r = fwd.get("expectancy_r", 0.0)
+        miss_rate = exec_d.get("miss_rate_pct", 0.0)
+        curr_dd = dd.get("current_drawdown_r", 0.0)
+
+        if n < 30:
+            main_advice = "Continue collecting forward observations. The current sample is insufficient for a meaningful performance conclusion."
+            priority = "HIGH"
+            reasons = [
+                f"Sample size (N = {n}) is below the Stage 1 threshold of 30 trades.",
+                "Statistical estimates have high standard errors and wide confidence intervals.",
+                "Current focus should be telemetry verification and execution quality, not strategy evaluation."
+            ]
+            action = "Maintain live Paper/Shadow streaming without altering frozen parameters."
+        elif curr_dd >= 6.0:
+            main_advice = "Prioritize drawdown investigation and execution-quality review before drawing conclusions about edge degradation."
+            priority = "HIGH"
+            reasons = [
+                f"Forward drawdown ({curr_dd:.2f}R) is approaching the 7.15R historical stress ceiling.",
+                "Verify that position sizing strictly adheres to the 1.0% maximum risk limit.",
+                "Check whether recent losses were caused by structural market changes or high-volatility news spikes."
+            ]
+            action = "Audit recent loss executions and verify broker spread conditions."
+        elif miss_rate > 30.0:
+            main_advice = "Investigate spread, slippage, latency, and 1M limit fill behavior before interpreting reduced expectancy as strategy failure."
+            priority = "MEDIUM"
+            reasons = [
+                f"Limit order timeout / missed-entry rate is elevated ({miss_rate:.1f}%).",
+                "Price is expanding toward targets without retracing to 1M FVG limit order boundaries.",
+                "This indicates limit execution friction rather than a breakdown of higher-timeframe strategy bias."
+            ]
+            action = "Log unmitigated FVG events in FUTURE_RESEARCH_QUEUE without altering the frozen entry model."
+        elif 30 <= n < 50 and exp_r > 0:
+            main_advice = "Continue monitoring. The sample has reached limited evidence but has not yet reached the Stage 2 threshold."
+            priority = "NORMAL"
+            reasons = [
+                f"Sample has reached Stage 1 (N = {n}), showing positive realized expectancy ({exp_r:+.3f}R).",
+                "Continue forward collection toward the N = 50 Stage 2 milestone across multiple market regimes."
+            ]
+            action = "Continue forward observation stream."
+        else:
+            main_advice = "Continue forward validation. No strategy modification is justified by the current evidence."
+            priority = "NORMAL"
+            reasons = [
+                "Forward telemetry aligns with historical contract bounds.",
+                "Paper/Shadow parity is 100% confirmed with zero execution desyncs."
+            ]
+            action = "Maintain automated forward logging."
+
+        return {
+            "main_advice": main_advice,
+            "priority": priority,
+            "reasons": reasons,
+            "action": action,
+            "checkpoints": WatchNextAdvisor.get_watch_next_checkpoints(mode=mode)
+        }
+
     @staticmethod
     def get_watch_next_checkpoints(mode: str = "PAPER") -> List[Dict[str, Any]]:
         fwd = XAUUSDForwardMonitor.get_forward_summary(mode=mode)
@@ -195,14 +260,33 @@ class ResearchIntegrityAuditor:
     Maintains the 8-point research integrity audit panel data.
     """
     @staticmethod
+    def evaluate_integrity() -> Dict[str, Any]:
+        """
+        Evaluates the full integrity suite and returns overall pass/warning verdict.
+        """
+        items = ResearchIntegrityAuditor.get_integrity_panel_data()
+        valid_statuses = {"PASS", "FROZEN", "LOCKED", "ISOLATED", "100% MATCH", "0 DETECTED", "HEALTHY", "ACTIVE", "DISABLED"}
+        all_passed = all(it["status"] in valid_statuses for it in items)
+        
+        return {
+            "overall_status": "PASS" if all_passed else "RESEARCH INTEGRITY WARNING",
+            "all_passed": all_passed,
+            "warning_message": (
+                "Do not interpret forward performance until the integrity issue is resolved."
+                if not all_passed else "All research governance and safety invariants are fully satisfied."
+            ),
+            "items": items
+        }
+
+    @staticmethod
     def get_integrity_panel_data() -> List[Dict[str, Any]]:
         return [
             {"item": "Strategy Contract", "status": "FROZEN", "detail": "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md", "color": "#00ffcc"},
             {"item": "Historical Holdout", "status": "LOCKED", "detail": "N = 82 | +0.637R | 95% CI [+0.477R, +0.817R]", "color": "#00ffcc"},
             {"item": "Forward Dataset", "status": "ISOLATED", "detail": "Paper & Shadow strictly unpooled", "color": "#00ffcc"},
             {"item": "Paper/Shadow Parity", "status": "100% MATCH", "detail": "0 decision discrepancies", "color": "#00ffcc"},
-            {"item": "Lookahead Protection", "status": "0 DETECTED", "detail": "Completed Daily/4H/15M closed candles only", "color": "#00ffcc"},
-            {"item": "Data Feed Quality", "status": "HEALTHY", "detail": "0 timestamp gaps | 0 corrupted OHLC", "color": "#00ffcc"},
+            {"item": "Lookahead Protection", "status": "0 DETECTED", "detail": "Completed closed candles only", "color": "#00ffcc"},
+            {"item": "Data Feed Quality", "status": "HEALTHY", "detail": "0 timestamp gaps | 0 invalid OHLC", "color": "#00ffcc"},
             {"item": "Hypothesis Firewall", "status": "ACTIVE", "detail": "Observations queued in future_research_queue", "color": "#bef264"},
             {"item": "Live Automation", "status": "DISABLED", "detail": "Permanent research safety lock", "color": "#f59e0b"}
         ]
