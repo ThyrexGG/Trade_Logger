@@ -1822,6 +1822,172 @@ def render_xauusd_forward_evidence_center(key_prefix=""):
 
     st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
 
+    # 1G. MASTER RESEARCH COMMAND CENTER & OBSERVATION INSPECTOR (Phases 39-42)
+    with st.expander("MASTER RESEARCH COMMAND CENTER, OBSERVATION INSPECTOR & GOVERNANCE (PHASES 39–42)", expanded=True):
+        import xauusd_forward_observation_quality
+        import xauusd_event_traceability
+        import xauusd_evidence_reproducibility
+        import xauusd_master_research_command
+
+        master_health = xauusd_master_research_command.MasterResearchHealthEvaluator.evaluate_master_health("XAUUSD")
+        instant_status = xauusd_master_research_command.WhatDoINeedToKnowNowSynthesizer.get_instant_status("XAUUSD")
+
+        # Top Master Health Hero
+        st.markdown(f"""
+        <div style="background:rgba(15,23,42,0.95); border:2px solid {master_health['master_color']}; border-radius:8px; padding:14px 18px; margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <div>
+                    <div style="font-size:10px; font-weight:800; color:#8a99ad; text-transform:uppercase; letter-spacing:1px;">MASTER FORWARD RESEARCH HEALTH (PHASE 42)</div>
+                    <div style="font-size:16px; font-weight:900; color:{master_health['master_color']};">{master_health['master_state']}</div>
+                </div>
+                <div style="font-size:11px; color:#cbd5e1; text-align:right;">
+                    Forward Paper N: <b style="color:#00ffcc;">{master_health['forward_paper_n']}</b> | Quarantined: <b style="color:{'#ef4444' if master_health['quarantined_count'] > 0 else '#00ffcc'};">{master_health['quarantined_count']}</b><br/>
+                    Strategy Contract: <b style="color:#00ffcc;">PHASE 21 FROZEN</b> | Automation: <b style="color:#f59e0b;">DISABLED PERMANENTLY</b>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # 4-Quadrant Instant Status
+        st.markdown("<p style='font-size:11px; font-weight:800; color:#00ffcc; letter-spacing:1px; text-transform:uppercase; margin-bottom:6px;'>What Do I Need To Know Right Now? (4 Operational Pillars)</p>", unsafe_allow_html=True)
+        q_mkt, q_news, q_strat, q_ev = st.columns(4)
+
+        with q_mkt:
+            mq = instant_status["market_quadrant"]
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); border-top:3px solid {mq['color']}; border-radius:6px; padding:10px; height:100%;">
+                <div style="font-size:10px; font-weight:800; color:{mq['color']}; text-transform:uppercase;">{mq['title']}</div>
+                <div style="font-size:11px; color:#cbd5e1; margin-top:4px; line-height:1.4;">
+                    Price: <b style="color:#ffffff;">${mq['current_price']:.2f}</b><br/>
+                    Session: <b style="color:#00ffcc;">{mq['current_session']}</b><br/>
+                    Holidays: <b style="color:#ffffff;">{mq['active_holidays_count']}</b> ({mq['liquidity_condition']})
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with q_news:
+            nq = instant_status["news_quadrant"]
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); border-top:3px solid {nq['color']}; border-radius:6px; padding:10px; height:100%;">
+                <div style="font-size:10px; font-weight:800; color:{nq['color']}; text-transform:uppercase;">{nq['title']}</div>
+                <div style="font-size:11px; color:#cbd5e1; margin-top:4px; line-height:1.4;">
+                    Events Today: <b style="color:#ffffff;">{nq['events_today_count']}</b><br/>
+                    Next High Impact: <b style="color:#bef264;">{nq['next_high_impact_event']}</b><br/>
+                    Source: <span style="color:#8a99ad; font-size:10px;">{nq['provider_source']}</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with q_strat:
+            sq = instant_status["strategy_quadrant"]
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); border-top:3px solid {sq['color']}; border-radius:6px; padding:10px; height:100%;">
+                <div style="font-size:10px; font-weight:800; color:{sq['color']}; text-transform:uppercase;">{sq['title']}</div>
+                <div style="font-size:11px; color:#cbd5e1; margin-top:4px; line-height:1.4;">
+                    1D Bias: <b style="color:#ffffff;">{sq['current_bias_1d']}</b> | 4H DOL: <b style="color:#ffffff;">{sq['dol_4h']}</b><br/>
+                    Setup State: <b style="color:#00ffcc;">{sq['setup_state']}</b><br/>
+                    Action: <span style="color:#bef264; font-size:10px;">{sq['action_guidance']}</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with q_ev:
+            eq = instant_status["evidence_quadrant"]
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); border-top:3px solid {eq['color']}; border-radius:6px; padding:10px; height:100%;">
+                <div style="font-size:10px; font-weight:800; color:{eq['color']}; text-transform:uppercase;">{eq['title']}</div>
+                <div style="font-size:11px; color:#cbd5e1; margin-top:4px; line-height:1.4;">
+                    Paper Observations: <b style="color:#00ffcc;">{eq['paper_n']}</b><br/>
+                    Quarantined: <b style="color:#ffffff;">{eq['quarantined_n']}</b><br/>
+                    Safety: <span style="color:#f59e0b; font-weight:700; font-size:10px;">{eq['live_automation']}</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Tabs for Observation Inspector, 5-Pillar Daily Review, Governance Matrix, Audit Export
+        tab_cmd_insp, tab_cmd_rev, tab_cmd_gov, tab_cmd_exp = st.tabs([
+            "OBSERVATION FORENSIC INSPECTOR",
+            "5-PILLAR DAILY RESEARCH REVIEW",
+            "9-PILLAR GOVERNANCE MATRIX",
+            "DETERMINISTIC AUDIT EXPORT"
+        ])
+
+        with tab_cmd_insp:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Observation Forensic Inspector (Identity, Horizon, Quality Score, Quarantine)</p>", unsafe_allow_html=True)
+            df_all_trades = XAUUSDForwardJournal.get_forward_trades(mode="PAPER")
+            if not df_all_trades.empty:
+                obs_ids = df_all_trades["signal_id"].dropna().tolist() if "signal_id" in df_all_trades.columns else []
+                if obs_ids:
+                    sel_obs_id = st.selectbox("Select Observation To Inspect:", options=obs_ids, key=f"sel_obs_insp_{key_prefix}")
+                    sel_row = df_all_trades[df_all_trades["signal_id"] == sel_obs_id].iloc[0].to_dict()
+                    insp_out = xauusd_master_research_command.ComprehensiveObservationInspector.inspect_observation(sel_row)
+
+                    c_i1, c_i2 = st.columns(2)
+                    with c_i1:
+                        st.markdown(f"""
+                        <div style="background:rgba(255,255,255,0.02); border-left:3px solid #38bdf8; border-radius:4px; padding:10px; font-size:11px; color:#cbd5e1;">
+                            <b>Observation ID:</b> {insp_out['identity']['observation_id']}<br/>
+                            • Timestamp: {insp_out['temporal_audit']['timestamp']}<br/>
+                            • Classification: <b style="color:{insp_out['temporal_audit']['status_color']};">{insp_out['temporal_audit']['classification']}</b><br/>
+                            • SHA-256 Fingerprint: <span style="font-family:monospace; color:#00ffcc; font-size:10px;">{insp_out['identity']['fingerprint'][:16]}...</span><br/>
+                            • Contract Hash: <span style="font-family:monospace; color:#8a99ad; font-size:10px;">{insp_out['identity']['contract_hash'][:16]}...</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    with c_i2:
+                        q_sc = insp_out["evidence_quality_score"]
+                        st.markdown(f"""
+                        <div style="background:rgba(255,255,255,0.02); border-left:3px solid {q_sc['verdict_color']}; border-radius:4px; padding:10px; font-size:11px; color:#cbd5e1;">
+                            <b>Evidence Quality Score:</b> <b style="color:{q_sc['verdict_color']}; font-size:13px;">{q_sc['total_score']} / 100 ({q_sc['rating']})</b><br/>
+                            • Lookahead Status: <b style="color:{insp_out['information_horizon']['status_color']};">{insp_out['information_horizon']['status']}</b><br/>
+                            • Context Attribution: <b style="color:{insp_out['context_attribution']['tag_color']};">{insp_out['context_attribution']['attribution_tag']}</b><br/>
+                            • Non-Causal Note: <span style="font-size:10px; color:#8a99ad;">{insp_out['context_attribution']['explanation']}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+            else:
+                st.info("No forward observations recorded yet to inspect.")
+
+        with tab_cmd_rev:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Structured 5-Pillar Daily Research Review</p>", unsafe_allow_html=True)
+            rev_dt = st.date_input("Select Review Date:", value=datetime.now(timezone.utc).date(), key=f"rev_dt_p42_{key_prefix}")
+            daily_rev = xauusd_event_traceability.StructuredDailyReviewSynthesizer.synthesize_daily_review(rev_dt)
+
+            c_r1, c_r2, c_r3, c_r4 = st.columns(4)
+            with c_r1:
+                st.markdown(f"<div style='font-size:11px;'><b>Market & Liquidity:</b><br/><span style='color:{daily_rev['market_pillar']['status_color']}; font-weight:700;'>{daily_rev['market_pillar']['liquidity_condition']}</span><br/>Holidays: {daily_rev['market_pillar']['active_holidays']}</div>", unsafe_allow_html=True)
+            with c_r2:
+                st.markdown(f"<div style='font-size:11px;'><b>Macro News:</b><br/><span style='color:{daily_rev['news_pillar']['status_color']}; font-weight:700;'>{daily_rev['news_pillar']['events_captured']} Events Captured</span><br/>Missed High: {daily_rev['news_pillar']['missed_high_impact']}</div>", unsafe_allow_html=True)
+            with c_r3:
+                st.markdown(f"<div style='font-size:11px;'><b>Strategy Contract:</b><br/><span style='color:{daily_rev['strategy_pillar']['status_color']}; font-weight:700;'>{daily_rev['strategy_pillar']['contract_status']}</span><br/>Observations: {daily_rev['strategy_pillar']['completed_observations']}</div>", unsafe_allow_html=True)
+            with c_r4:
+                st.markdown(f"<div style='font-size:11px;'><b>Evidence Quality:</b><br/><span style='color:{daily_rev['quality_pillar']['status_color']}; font-weight:700;'>{daily_rev['quality_pillar']['quality_score']} / 100</span><br/>Quarantined: {daily_rev['quality_pillar']['quarantined_count']}</div>", unsafe_allow_html=True)
+
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.02); border-left:3px solid #00ffcc; border-radius:4px; padding:10px; font-size:11px; color:#cbd5e1; margin-top:10px;">
+                <b>Research Interpretation:</b> {daily_rev['research_interpretation']}
+            </div>
+            """, unsafe_allow_html=True)
+
+        with tab_cmd_gov:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>9-Pillar Governance Invalidation Matrix</p>", unsafe_allow_html=True)
+            gov_matrix = xauusd_evidence_reproducibility.GovernanceInvalidationMatrix.evaluate_governance()
+            df_gov = pd.DataFrame(gov_matrix["pillars"])
+            st.dataframe(df_gov, use_container_width=True)
+
+        with tab_cmd_exp:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#bef264;'>Deterministic Audit Report & Export Subsystem</p>", unsafe_allow_html=True)
+            exp_dt = st.date_input("Select Export Date:", value=datetime.now(timezone.utc).date(), key=f"exp_dt_p42_{key_prefix}")
+            c_exp1, c_exp2 = st.columns(2)
+            with c_exp1:
+                if st.button("GENERATE MARKDOWN AUDIT DOSSIER", key=f"btn_gen_md_{key_prefix}", use_container_width=True):
+                    md_text = xauusd_evidence_reproducibility.AuditExportSubsystem.generate_markdown_audit_report(exp_dt)
+                    st.text_area("Markdown Report Content:", value=md_text, height=200, key=f"txt_md_exp_{key_prefix}")
+            with c_exp2:
+                if st.button("GENERATE STRUCTURED AUDIT BUNDLE (JSON)", key=f"btn_gen_json_{key_prefix}", use_container_width=True):
+                    json_bundle = xauusd_evidence_reproducibility.AuditExportSubsystem.generate_audit_bundle(exp_dt)
+                    st.json(json_bundle)
+
+    st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
+
     # HONEST EMPTY / LOW-DATA UX (Phase 31)
     if core_ev_stats['trades_n'] == 0:
         st.markdown("""
