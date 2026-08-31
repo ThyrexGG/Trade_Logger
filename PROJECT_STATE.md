@@ -1,6 +1,6 @@
 # PROJECT STATE & ARCHITECTURAL RECORD
 **TradeLogger Terminal — Living System Memory**
-*Last Updated: 31 August 2026, Session 11 (Phase 19 True Multi-Timeframe ICT/SMC Engine & Best-Asset Discovery Completed & Verified)*
+*Last Updated: 31 August 2026, Session 12 (Phase 20 XAUUSD True MTF Adversarial Verification & Paper/Shadow Audit Completed & Verified)*
 
 > **HOW TO USE THIS FILE**
 > Start any new AI session with: *"Read PROJECT_STATE.md and continue where we left off."*
@@ -12,9 +12,10 @@
 
 A professional-grade **trading research, journaling, and execution terminal** built for a liquidity-based, ICT/SMC methodology trader. It is NOT a simple trade log — it is a full research + execution stack:
 
-- **Streamlit Desktop Terminal** (`app.py`) — primary UI, 9 tabs including dedicated **RESEARCH LAB** with USDJPY Reversal Lab (Phase 15), USDJPY Continuation Lab (Phase 16), USDJPY Edge Discovery Lab (Phase 17), USDJPY Conditional Validation Lab (Phase 18), and True MTF Research Lab (Phase 19), Execution Operations & System Health Panel, Pre-Trade Risk Preview, and Live Execution Controls (Strictly zero emojis across all UI tabs, buttons, metrics, and logs)
-- **True Multi-Timeframe Strategy Engine & Best-Asset Discovery** (`true_mtf_engine.py`) — 1D Macro Bias $\to$ 4H Draw on Liquidity $\to$ 15M Setup $\to$ 5M Confirmation $\to$ 1M Precision Execution, 18-State Execution State Machine, Zero Lookahead Assertions, Structural SL (SL-A to SL-E), Dynamic Targets (2R–7R), Standardized 16-Asset Discovery Universe
-- **Strategy Edge Discovery & Research Engine** (`research_engine.py`, `research_analytics.py`, `usdjpy_research.py`, `usdjpy_continuation_research.py`, `usdjpy_edge_discovery.py`, `usdjpy_conditional_validation.py`) — Three-layer data partition (60% Train / 20% Validation / 20% Untouched Holdout), 95% Bootstrap Confidence Intervals, Cumulative Multiple Testing Tracker (92 hypotheses), 5,000-Iteration Permutation Test Engine, Rolling Walk-Forward Optimization, 5,000-Run Monte Carlo Simulator, and Cost Sensitivity Stress Tester
+- **Streamlit Desktop Terminal** (`app.py`) — primary UI, 9 tabs including dedicated **RESEARCH LAB** with USDJPY Reversal Lab (Phase 15), USDJPY Continuation Lab (Phase 16), USDJPY Edge Discovery Lab (Phase 17), USDJPY Conditional Validation Lab (Phase 18), True MTF Research Lab (Phase 19), and XAUUSD Adversarial Audit Lab (Phase 20), Execution Operations & System Health Panel, Pre-Trade Risk Preview, and Live Execution Controls (Strictly zero emojis across all UI tabs, buttons, metrics, and logs)
+- **XAUUSD True MTF Adversarial Engine & Paper/Shadow Replayer** (`xauusd_audit_engine.py`) — 6 Execution Model Benchmark (15M vs 5M vs 1M FVG Limit), Structural SL Models (SL-A to SL-E) + 0.90x–1.10x Perturbation Sensitivity, Target Models A to F, 2D Parameter Perturbation Plateau (-20% to +20%), 10,000-Simulation Monte Carlo, and Canonical Execution Pipeline Replay (Paper & Shadow)
+- **True Multi-Timeframe Strategy Engine & Best-Asset Discovery** (`true_mtf_engine.py`) — 1D Macro Bias $\to$ 4H Draw on Liquidity $\to$ 15M Setup $\to$ 5M Confirmation $\to$ 1M Precision Execution, 18-State Execution State Machine, Zero Lookahead Assertions, Standardized 16-Asset Discovery Universe
+- **Strategy Edge Discovery & Research Engine** (`research_engine.py`, `research_analytics.py`, `usdjpy_research.py`, `usdjpy_continuation_research.py`, `usdjpy_edge_discovery.py`, `usdjpy_conditional_validation.py`) — Three-layer data partition (60% Train / 20% Validation / 20% Untouched Holdout), 95% Bootstrap Confidence Intervals, Cumulative Multiple Testing Tracker (108 hypotheses), 5,000-Iteration Permutation Test Engine, Rolling Walk-Forward Optimization, and Cost Sensitivity Stress Tester
 - **Structured SMC / ICT Data Models & Context** (`strategies/smc_models.py`, `strategies/smc_utils.py`) — immutable dataclasses for LiquidityPools, FVGs, OrderBlocks, DealingRanges, and Multi-Timeframe SMCContext snapshots
 - **Deterministic AI Market Analysis Engine** (`ai_analysis.py`) — 17-phase pipeline with structured SMC context prompt injection
 - **Modular Strategy Framework** (`strategies/`) — unified engine for live + backtest with strict semver versioning (`strategy_version = "1.0.0"` / `"1.1.0"` / `"2.0.0"`)
@@ -37,7 +38,8 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 ### Backend Files
 | File | Purpose |
 |------|---------|
-| `app.py` | Main Streamlit UI (9 tabs) + Research Lab (Reversal, Continuation, Edge Discovery, Conditional Validation, True MTF) + Operations Panel |
+| `app.py` | Main Streamlit UI (9 tabs) + Research Lab (Reversal, Continuation, Edge Discovery, Conditional Validation, True MTF, XAUUSD Audit) + Operations Panel |
+| `xauusd_audit_engine.py` | Dedicated XAUUSD True MTF Adversarial Audit Engine (6-Model Execution Benchmark, Structural SL Sensitivity, Parameter Perturbation Surface, 10k Monte Carlo, Canonical Pipeline Replayer) |
 | `true_mtf_engine.py` | Dedicated True Multi-Timeframe (1D->4H->15M->5M->1M) Engine, 18-State Machine, Execution Timeframe Comparer, 16-Asset Discovery Universe |
 | `usdjpy_conditional_validation.py` | Dedicated USDJPY Regime-Conditional Validation Engine (5,000-Run Permutation Tester, 5,000-Run Monte Carlo, Rolling WFO, Multi-Testing Ledger) |
 | `usdjpy_edge_discovery.py` | Dedicated USDJPY 27-Condition Mechanical Discovery Engine, Regime Classifier, Deep Excursion Analyzer, Holding-Time Profiler, Trend Persistence Map |
@@ -76,9 +78,10 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 | `trend_continuation.py` | EMA crossover continuation |
 | `mean_reversion.py` | RSI extreme reversal |
 
-### Automated Test Suite Status (120 PASSED, 2 SKIPPED — 100% REGRESSION PASS RATE)
+### Automated Test Suite Status (131 PASSED, 2 SKIPPED — 100% REGRESSION PASS RATE)
 | File | Purpose | Test Count |
 |------|---------|------------|
+| `test_phase20_mtf_integrity.py` | Adversarial future mutation lookahead proof, timestamp strictness, SL/TP models, perturbation plateau, paper/shadow replay parity | 11 PASSED |
 | `test_true_mtf_research.py` | 18-state lifecycle, zero-lookahead assertions, 1M vs 5M vs 15M benchmark, cross-asset ranking | 5 PASSED |
 | `test_usdjpy_conditional_validation.py` | Mathematical auditor, subgroup metrics, permutation reproducibility, WFO, Monte Carlo, cost stress | 9 PASSED |
 | `test_usdjpy_edge_discovery.py` | USDJPY 27-condition catalog, regime classifier, deep excursion, holding times, day-of-week, persistence | 5 PASSED |
