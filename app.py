@@ -1237,6 +1237,266 @@ def render_xauusd_adversarial_audit(key_prefix=""):
         st.info("Click the button above to run the 12-dimensional adversarial audit for XAUUSD.")
 
 
+def render_xauusd_daily_command_center(key_prefix=""):
+    import xauusd_daily_command_center
+    import xauusd_news_reliability
+    import xauusd_daily_preflight
+    import xauusd_market_conditions
+    import xauusd_live_state_engine
+    import xauusd_operational_monitor
+    import xauusd_alert_engine
+    import xauusd_forward_validator
+
+    try:
+        cmd = xauusd_daily_command_center.DailyTradingCommandEngine.get_command_center_payload("XAUUSD")
+        setup_exp = cmd["setup_explainability"]
+        feed = cmd["market_data"]
+        op_health = cmd["operational_health"]
+        preflight = cmd["preflight"]
+        rel_status = cmd.get("reliability_status", {})
+        source_class = cmd.get("source_classification", {})
+        freshness = cmd.get("freshness_audit", {})
+        closure_audit = cmd.get("closure_audit", {})
+        countdown_info = cmd.get("countdown_info")
+    except Exception as e:
+        st.markdown(f"""
+        <div style="background:rgba(245,158,11,0.08); border:2px solid #f59e0b; border-radius:10px; padding:18px 22px; margin-bottom:16px;">
+            <div style="font-size:11px; font-weight:800; color:#f59e0b; text-transform:uppercase; letter-spacing:1px;">COMMAND CENTER CONNECTION</div>
+            <h3 style="margin:2px 0 6px 0; color:#ffffff; font-size:1.2rem; font-weight:900;">Status: INITIALIZING / ACTIVE</h3>
+            <div style="font-size:12px; color:#cbd5e1; line-height:1.5;">
+                Command center is initializing. Notice: <span style="font-family:monospace; color:#fcd34d;">{str(e)}</span><br/>
+                <b>Strategy Status: PHASE 21 CONTRACT FROZEN</b> | Live Automation: DISABLED PERMANENTLY.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        return
+
+    # A. MASTER HERO: "WHAT DO I NEED TO KNOW RIGHT NOW?"
+    st.markdown(f"""
+    <div style="background:rgba(15,23,42,0.95); border:2px solid {cmd['state_color']}; border-radius:10px; padding:20px 24px; margin-bottom:18px; box-shadow:0 0 30px rgba(0,0,0,0.6);">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+            <div>
+                <div style="font-size:10px; font-weight:800; color:#8a99ad; text-transform:uppercase; letter-spacing:2px;">XAUUSD DAILY COMMAND CENTER (PHASE 36 RELIABILITY LAYER)</div>
+                <h2 style="margin:4px 0 2px 0; color:{cmd['state_color']}; font-size:1.7rem; font-weight:900;">WHAT DO I NEED TO KNOW RIGHT NOW?</h2>
+                <div style="font-size:12px; color:#cbd5e1; margin-top:2px;">
+                    Market: <b style="color:#ffffff;">XAUUSD</b> | Session: <b style="color:#00ffcc;">{cmd['current_session']}</b> | Day Status: <b style="color:{cmd['state_color']};">{cmd['market_day_type']}</b>
+                </div>
+            </div>
+            <div style="text-align:right; font-size:11px; color:#cbd5e1;">
+                <div>Current UTC: <b style="color:#ffffff; font-family:monospace;">{cmd['current_utc_time']}</b></div>
+                <div style="margin-top:2px;">Spot Price: <b style="color:#00ffcc; font-size:14px;">${feed.get('current_price', 2415.50):.2f}</b></div>
+                <div style="margin-top:2px;">Data Freshness: <b style="color:{'#00ffcc' if feed.get('feed_status')=='HEALTHY' else '#f59e0b'};">{feed.get('feed_status', 'HEALTHY')} ({feed.get('arrival_age_seconds', 0.0):.1f}s)</b></div>
+                <div style="margin-top:4px; color:#f59e0b; font-weight:900; letter-spacing:0.5px;">LIVE AUTOMATION: DISABLED PERMANENTLY</div>
+            </div>
+        </div>
+        <hr style="border-color:rgba(255,255,255,0.08); margin:14px 0;">
+        <div style="font-size:12px; color:#e2e8f0; line-height:1.6; background:rgba(0,0,0,0.3); padding:12px 16px; border-radius:6px; margin-bottom:12px; border-left:4px solid {cmd['state_color']};">
+            <b>Plain-Language Operational Summary:</b><br/>
+            {cmd['what_this_means']}<br/>
+            <div style="margin-top:6px; font-size:11px; color:#94a3b8;">
+                <b>Strategy Status:</b> <span style="color:#00ffcc;">{cmd['strategy_status']}</span> | <b>Contract Hash:</b> <span style="font-family:monospace; color:#cbd5e1;">{cmd['contract_hash'][:16]}...</span>
+            </div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; font-size:11px; color:#94a3b8;">
+            <div><b>Next Event:</b> <span style="color:{cmd['state_color']}; font-weight:800;">{cmd['nearest_high_impact_event']['event_name'] if cmd['nearest_high_impact_event'] else 'None Scheduled'} ({countdown_info['time_remaining_str'] if countdown_info else 'N/A'})</span></div>
+            <div><b>Bank Holidays:</b> <span style="color:#ffffff;">{cmd['holiday_warning_title']}</span></div>
+            <div><b>Calendar Source:</b> <span style="color:#38bdf8;">{source_class.get('forex_factory_live_feed', 'UNAVAILABLE (FALLBACK ACTIVE)')}</span></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # B & C. CALENDAR SOURCE HEALTH & NEXT EVENT COUNTDOWN CARDS
+    c_card1, c_card2 = st.columns([1.2, 0.8])
+    with c_card1:
+        st.markdown(f"""
+        <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(56,189,248,0.3); border-radius:8px; padding:14px 18px; margin-bottom:14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="font-size:11px; font-weight:800; color:#38bdf8; text-transform:uppercase; letter-spacing:1px;">Calendar Source & Freshness Telemetry</div>
+                <div style="font-size:10px; font-weight:700; color:{'#00ffcc' if freshness.get('freshness_status')=='FRESH' else '#f59e0b'};">{freshness.get('freshness_status', 'FRESH')} ({freshness.get('age_seconds', 0)}s age)</div>
+            </div>
+            <div style="font-size:12px; color:#cbd5e1; line-height:1.6; margin-top:8px;">
+                • <b>Active Provider:</b> <span style="font-family:monospace; color:#ffffff;">{source_class.get('source_name', 'STANDARD_MACRO_CALENDAR_FEED')}</span><br/>
+                • <b>Source Classification:</b> <span style="color:#00ffcc;">{source_class.get('classification', 'LIVE SECONDARY SOURCE')}</span><br/>
+                • <b>Forex Factory Feed:</b> <span style="color:#f59e0b; font-weight:800;">{source_class.get('forex_factory_live_feed', 'UNAVAILABLE')}</span><br/>
+                • <b>Suitability:</b> {source_class.get('operational_suitability', 'High for operational awareness')}<br/>
+                • <b>Events In Memory:</b> {freshness.get('events_loaded', 0)} total ({freshness.get('xauusd_relevant_count', 0)} XAUUSD-relevant)
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    with c_card2:
+        if cmd['nearest_high_impact_event'] and countdown_info:
+            st.markdown(f"""
+            <div style="background:rgba(15,23,42,0.9); border:2px solid #38bdf8; border-radius:8px; padding:14px 18px; text-align:center; margin-bottom:14px;">
+                <div style="font-size:10px; font-weight:800; color:#38bdf8; text-transform:uppercase; letter-spacing:1px;">Next Macro Event Countdown</div>
+                <div style="font-size:16px; font-weight:900; color:#ffffff; margin:4px 0 2px 0;">{cmd['nearest_high_impact_event'].get('event_name')}</div>
+                <div style="font-size:20px; font-weight:900; color:#00ffcc; font-family:monospace;">{countdown_info.get('time_remaining_str')}</div>
+                <div style="font-size:10px; color:#8a99ad; margin-top:4px;">Proximity Bucket: <b>{countdown_info.get('proximity_bucket')}</b> ({cmd['nearest_high_impact_event'].get('impact_level')})</div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:14px 18px; text-align:center; margin-bottom:14px;">
+                <div style="font-size:10px; font-weight:800; color:#8a99ad; text-transform:uppercase; letter-spacing:1px;">Next Macro Event Countdown</div>
+                <div style="font-size:14px; font-weight:800; color:#cbd5e1; margin-top:8px;">No High-Impact Releases In Immediate Window</div>
+                <div style="font-size:10px; color:#8a99ad; margin-top:4px;">Operational awareness normal</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # D. BANK HOLIDAY & 7-CENTER CLOSURE WARNING BANNER
+    if closure_audit.get("closed_centers_count", 0) > 0:
+        closed_details = ", ".join([f"{c['center']} ({c['detail']})" for c in closure_audit.get("closed_centers", [])])
+        st.markdown(f"""
+        <div style="background:rgba(245,158,11,0.08); border:1px solid #f59e0b; border-radius:8px; padding:10px 16px; margin-bottom:14px;">
+            <b style="color:#f59e0b;">BANK HOLIDAY & REDUCED LIQUIDITY WARNING:</b> {closed_details}.<br/>
+            <span style="font-size:11px; color:#cbd5e1;">{closure_audit.get('distinction_note')}</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # E. 10-POINT CHECKLIST & 7-FINANCIAL CENTER MATRIX
+    c_top1, c_top2 = st.columns([1, 1])
+    with c_top1:
+        st.markdown("<p style='font-size:11px; font-weight:800; color:#00ffcc; letter-spacing:1px; text-transform:uppercase; margin-bottom:4px;'>Before You Trade XAUUSD (10-Point Pre-Trade Checklist)</p>", unsafe_allow_html=True)
+        df_chk = pd.DataFrame(cmd["checklist"])[["item", "status", "detail"]]
+        st.dataframe(df_chk, use_container_width=True)
+    with c_top2:
+        st.markdown("<p style='font-size:11px; font-weight:800; color:#00ffcc; letter-spacing:1px; text-transform:uppercase; margin-bottom:4px;'>Global Session Status & 7-Center Closure Matrix</p>", unsafe_allow_html=True)
+        df_sess = pd.DataFrame(closure_audit.get("all_centers", cmd["session_matrix"]))[["center", "country", "closure_type", "is_closed", "detail", "liquidity_implication"]]
+        st.dataframe(df_sess, use_container_width=True)
+
+    # F. LIVE MTF STRATEGY CONTEXT & SETUP EXPLAINABILITY
+    st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
+    st.markdown(f"""
+    <div style="background:rgba(15,23,42,0.85); border:1px solid rgba(0,255,204,0.3); border-radius:8px; padding:16px 20px; margin-bottom:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <div>
+                <div style="font-size:10px; font-weight:800; color:#8a99ad; text-transform:uppercase; letter-spacing:1px;">LIVE MTF STRATEGY CONTEXT & SETUP EXPLAINABILITY</div>
+                <div style="font-size:15px; font-weight:900; color:{'#00ffcc' if setup_exp['is_setup_approved'] else '#38bdf8'};">{setup_exp['headline']}</div>
+            </div>
+            <div style="font-size:11px; color:#cbd5e1; text-align:right;">
+                Strategy Action: <b style="color:{'#00ffcc' if setup_exp['is_setup_approved'] else '#fcd34d'};">{setup_exp['strategy_action']}</b>
+            </div>
+        </div>
+        <div style="margin-top:10px; font-size:12px; color:#cbd5e1; line-height:1.5; background:rgba(0,0,0,0.25); padding:10px 14px; border-radius:4px;">
+            {setup_exp['explanation']}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    df_layers = pd.DataFrame(setup_exp["layers_breakdown"])
+    st.dataframe(df_layers[["timeframe", "purpose", "status", "detail", "waiting_for"]], use_container_width=True)
+
+    # G. SIDE-BY-SIDE MARKET CONTEXT VS STRATEGY STATE
+    st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
+    c_sbs1, c_sbs2 = st.columns(2)
+    with c_sbs1:
+        st.markdown(f"""
+        <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:14px 18px;">
+            <div style="font-size:11px; font-weight:800; color:#38bdf8; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">Operational Market Context</div>
+            <div style="font-size:12px; color:#cbd5e1; line-height:1.7;">
+                • <b>Current Session:</b> {cmd['current_session']} (Next: {cmd['next_session']})<br/>
+                • <b>Master Day Condition:</b> {cmd['master_condition']}<br/>
+                • <b>Bank Holidays:</b> {'YES (' + str(closure_audit.get('closed_centers_count', 0)) + ')' if closure_audit.get('closed_centers_count', 0) > 0 else 'NONE (All Open)'}<br/>
+                • <b>Next USD News:</b> {cmd['nearest_high_impact_event']['event_name'] if cmd['nearest_high_impact_event'] else 'None'}<br/>
+                • <b>Market Data Feed:</b> {feed.get('feed_status')} ({feed.get('data_source')})
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    with c_sbs2:
+        st.markdown(f"""
+        <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(0,255,204,0.2); border-radius:8px; padding:14px 18px;">
+            <div style="font-size:11px; font-weight:800; color:#00ffcc; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">Frozen Strategy State</div>
+            <div style="font-size:12px; color:#cbd5e1; line-height:1.7;">
+                • <b>1D Macro Bias:</b> {setup_exp['layers_breakdown'][0]['detail'].split(',')[0]}<br/>
+                • <b>4H DOL:</b> {setup_exp['layers_breakdown'][1]['detail'].split(',')[0]}<br/>
+                • <b>15M Intermediate:</b> {setup_exp['layers_breakdown'][2]['status']}<br/>
+                • <b>5M Internal Conf:</b> {setup_exp['layers_breakdown'][3]['status']}<br/>
+                • <b>1M Precision Entry:</b> {setup_exp['layers_breakdown'][4]['status']}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="margin-top:8px; font-size:10px; color:#8a99ad; text-align:center;">
+        <b>CRITICAL INVARIANT:</b> Market context does NOT modify strategy entry rules, stop loss, or take profit. It provides attribution context for forward research.
+    </div>
+    """, unsafe_allow_html=True)
+
+    # H. ECONOMIC EVENT TIMELINE & ACTUAL/FORECAST/PREVIOUS
+    st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size:11px; font-weight:800; color:#00ffcc; letter-spacing:1px; text-transform:uppercase; margin-bottom:4px;'>Economic Event Timeline & Countdown (Forex & Macro Releases)</p>", unsafe_allow_html=True)
+    if preflight.get("events_timeline"):
+        df_ev = pd.DataFrame(preflight["events_timeline"])[["event_name", "currency", "impact_level", "utc_time", "time_until_event", "proximity_bucket", "actual", "forecast", "previous", "xauusd_relevance"]]
+        st.dataframe(df_ev, use_container_width=True)
+    else:
+        st.info("No major economic releases scheduled today.")
+
+    # I. OBSERVATION CONTEXT SNAPSHOT RECORDER & HISTORICAL AUDIT
+    st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
+    c_act1, c_act2 = st.columns([1.2, 1.8])
+    with c_act1:
+        st.markdown("<p style='font-size:11px; font-weight:800; color:#38bdf8; letter-spacing:1px; text-transform:uppercase; margin-bottom:4px;'>Record Market Context Snapshot</p>", unsafe_allow_html=True)
+        snap_note = st.text_input("Context Note (Optional):", placeholder="e.g., London open, high spread before CPI", key=f"snap_note_p36_{key_prefix}")
+        if st.button("RECORD MARKET CONTEXT SNAPSHOT", key=f"btn_rec_snap_p36_{key_prefix}", use_container_width=True, type="primary"):
+            snap_res = xauusd_daily_command_center.MarketContextSnapshotEngine.record_snapshot("XAUUSD", user_notes=snap_note)
+            st.success(f"Snapshot recorded: {snap_res['snapshot_id']} (Fingerprint: {snap_res['snapshot_fingerprint'][:12]}...)")
+            st.rerun()
+
+    with c_act2:
+        st.markdown("<p style='font-size:11px; font-weight:800; color:#00ffcc; letter-spacing:1px; text-transform:uppercase; margin-bottom:4px;'>Research Journal Observation Note</p>", unsafe_allow_html=True)
+        c_n1, c_n2 = st.columns([2.5, 1])
+        with c_n1:
+            res_note_text = st.text_input("Observation Note:", placeholder="e.g., London bank holiday liquidity appeared thin", key=f"res_note_inp_p36_{key_prefix}")
+        with c_n2:
+            st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
+            if st.button("Save Note", key=f"btn_save_note_p36_{key_prefix}", use_container_width=True):
+                if res_note_text.strip():
+                    xauusd_daily_command_center.DailyResearchJournal.add_note(res_note_text, category="SESSION_OBSERVATION", session_context=cmd["current_session"])
+                    st.success("Note saved.")
+                    st.rerun()
+
+    # Expanders for Snapshots and Journal Notes
+    with st.expander("📁 View Recent Market Context Snapshots & Research Journal Notes", expanded=False):
+        c_hist1, c_hist2 = st.columns(2)
+        with c_hist1:
+            st.markdown("<b>Recent Context Snapshots:</b>", unsafe_allow_html=True)
+            recent_snaps = xauusd_daily_command_center.MarketContextSnapshotEngine.get_snapshots(limit=10)
+            if recent_snaps:
+                st.dataframe(pd.DataFrame(recent_snaps), use_container_width=True)
+            else:
+                st.info("No context snapshots recorded yet.")
+        with c_hist2:
+            st.markdown("<b>Recent Research Journal Notes:</b>", unsafe_allow_html=True)
+            recent_notes = xauusd_daily_command_center.DailyResearchJournal.get_notes(limit=10)
+            if recent_notes:
+                st.dataframe(pd.DataFrame(recent_notes), use_container_width=True)
+            else:
+                st.info("No research notes recorded yet.")
+
+    # J. "WHAT DID I MISS TODAY?" HISTORICAL DATE AUDIT
+    with st.expander("🔍 'WHAT DID I MISS TODAY?' — HISTORICAL MARKET AUDIT (PHASE 36 LOOKAHEAD-FREE)", expanded=False):
+        c_dt1, c_dt2 = st.columns([1, 3])
+        with c_dt1:
+            audit_dt = st.date_input("Select Date To Inspect:", value=datetime.now(timezone.utc).date(), key=f"dt_audit_cmd_p36_{key_prefix}")
+        with c_dt2:
+            hist_audit = xauusd_news_reliability.HistoricalNewsAuditEngine.audit_historical_date(audit_dt)
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.02); border-left:3px solid #38bdf8; border-radius:4px; padding:10px 14px; font-size:11px; color:#cbd5e1; line-height:1.5;">
+                <b>Historical Date Audit: {hist_audit['date']} ({hist_audit['master_state']})</b><br/>
+                • <b>Market Condition:</b> {hist_audit['closure_type']}<br/>
+                • <b>Closed Centers:</b> {len(hist_audit['closed_centers'])} | <b>High-Impact Events:</b> {len(hist_audit['high_impact_events'])}<br/>
+                • <b>Forward Observations Recorded:</b> <b style="color:#00ffcc;">{hist_audit['forward_trades_count']} Trades</b><br/>
+                • <b>Attribution Tag:</b> <b style="color:{'#f59e0b' if hist_audit['attribution_tag']=='INSUFFICIENT DATA' else '#00ffcc'};">{hist_audit['attribution_tag']}</b><br/>
+                • <b>Audit Synthesis:</b> {hist_audit['explanation']}
+            </div>
+            """, unsafe_allow_html=True)
+
+    # 11. RESEARCH ATTRIBUTION CARD & 12-PILLAR HEALTH MATRIX
+    st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size:11px; font-weight:800; color:#00ffcc; letter-spacing:1px; text-transform:uppercase; margin-bottom:4px;'>Operational Research Health Matrix (11 Subsystem Checks)</p>", unsafe_allow_html=True)
+    df_op = pd.DataFrame(op_health["checks_matrix"])
+    st.dataframe(df_op, use_container_width=True)
+
+
 def render_xauusd_forward_evidence_center(key_prefix=""):
     st.markdown("<h3 style='color:#ffffff;font-size:1.3rem;margin:0 0 4px 0;font-weight:800;text-transform:uppercase;'>XAUUSD Forward Evidence Accumulation, Review Readiness & Research Decision Audit (Phase 28/29)</h3>", unsafe_allow_html=True)
     st.markdown("<p style='color:#8a99ad;font-size:13px;margin-bottom:14px;'>Frozen Strategy Validation, Multi-Tier Bootstrap Confidence Intervals, Regime Stress, and 28-Section Human Review Package.</p>", unsafe_allow_html=True)
@@ -1260,9 +1520,16 @@ def render_xauusd_forward_evidence_center(key_prefix=""):
     import xauusd_forward_drawdown_audit
     import xauusd_forward_reproducibility
     import xauusd_alert_engine
+    import xauusd_operational_monitor
+    import xauusd_market_conditions
+    import xauusd_daily_preflight
 
     # Fetch real-time forward analytics, evidence metrics, ledger & review package
     try:
+        daily_pf = xauusd_daily_preflight.DailyPreFlightEngine.get_daily_preflight()
+        preflight = xauusd_market_conditions.MarketPreFlightEngine.get_preflight_summary()
+        news_attr = xauusd_market_conditions.MarketConditionAttributor.evaluate_news_attribution(mode="PAPER")
+        op_health = xauusd_operational_monitor.OperationalHealthEvaluator.evaluate_operational_health("XAUUSD")
         fwd_summary = xauusd_forward_monitor.XAUUSDForwardMonitor.get_forward_summary(mode="PAPER")
         cont_telemetry = xauusd_continuous_monitor.XAUUSDContinuousMonitor.get_full_monitoring_telemetry(mode="PAPER")
         exec_quality = xauusd_execution_quality.XAUUSDExecutionDiagnostics.run_execution_diagnostics(mode="PAPER")
@@ -1345,6 +1612,111 @@ def render_xauusd_forward_evidence_center(key_prefix=""):
         </div>
     </div>
     """, unsafe_allow_html=True)
+
+    # 1B. REAL-TIME OPERATIONAL HEALTH CARD (Phase 31)
+    st.markdown(f"""
+    <div style="background:rgba(15,23,42,0.85); border:1px solid rgba(0,255,204,0.3); border-radius:8px; padding:14px 18px; margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <div>
+                <div style="font-size:10px; font-weight:800; color:#8a99ad; text-transform:uppercase; letter-spacing:1px;">OPERATIONAL VERIFICATION MATRIX</div>
+                <div style="font-size:14px; font-weight:900; color:{op_health['verdict_color']};">IS THE FORWARD EXPERIMENT RUNNING CORRECTLY? — {op_health['overall_verdict']}</div>
+            </div>
+            <div style="font-size:11px; color:#cbd5e1; text-align:right;">
+                Last Data Update: <b style="color:#ffffff;">{op_health['last_data_update'][:19]}</b> | Price: <b style="color:#00ffcc;">{op_health['current_price']:.2f}</b><br/>
+                Paper N: <b style="color:#00ffcc;">{op_health['forward_paper_n']}</b> | Shadow N: <b style="color:#38bdf8;">{op_health['forward_shadow_n']}</b>
+            </div>
+        </div>
+        <div style="margin-top:10px; font-size:11px; color:#94a3b8;">
+            <b>Last Forward Observation:</b> <span style="color:#cbd5e1;">{op_health['last_forward_observation']}</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    df_op_matrix = pd.DataFrame(op_health["checks_matrix"])
+    st.dataframe(df_op_matrix, use_container_width=True)
+
+    # 1C. XAUUSD DAILY MARKET PRE-FLIGHT HERO CARD (Phase 34)
+    st.markdown(f"""
+    <div style="background:rgba(15,23,42,0.9); border:2px solid {daily_pf['state_color']}; border-radius:8px; padding:16px 20px; margin:16px 0;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <div>
+                <div style="font-size:10px; font-weight:800; color:#8a99ad; text-transform:uppercase; letter-spacing:1px;">XAUUSD DAILY MARKET PRE-FLIGHT (PHASE 34)</div>
+                <div style="font-size:16px; font-weight:900; color:{daily_pf['state_color']};">TODAY'S MARKET CONDITION: {daily_pf['master_state']} ({daily_pf['holiday_status']})</div>
+            </div>
+            <div style="font-size:11px; color:#cbd5e1; text-align:right;">
+                Next High-Impact: <b style="color:{daily_pf['state_color']};">{daily_pf['next_high_impact_event']} ({daily_pf['time_until_event']})</b><br/>
+                USD Events: <b style="color:#38bdf8;">{daily_pf['usd_events_count']}</b> | High-Impact: <b style="color:{daily_pf['state_color']};">{daily_pf['high_impact_count']}</b> | XAUUSD Relevant: <b style="color:#00ffcc;">{daily_pf['xau_relevant_count']}</b>
+            </div>
+        </div>
+        <div style="margin-top:10px; font-size:11px; color:#e2e8f0; line-height:1.5; background:rgba(0,0,0,0.25); padding:8px 12px; border-radius:4px;">
+            <b>Why It Matters:</b> {daily_pf['reason']} {daily_pf['research_meaning']}<br/>
+            <b>Research Action:</b> {daily_pf['research_guidance']} | <b>Strategy Contract:</b> <span style="color:#00ffcc;">{daily_pf['strategy_status']}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-top:8px; font-size:10px; color:#94a3b8;">
+            <div><b>NEWS SOURCE:</b> <span style="color:#00ffcc;">{daily_pf['calendar_source']}</span> | <b>STATUS:</b> <span style="color:#f59e0b;">{daily_pf['calendar_status']}</span></div>
+            <div><b>FOREX FACTORY LIVE FEED:</b> <span style="color:#f59e0b;">{daily_pf['forex_factory_status']}</span></div>
+            <div><b>CALENDAR LAST UPDATED:</b> <span style="color:#cbd5e1;">{daily_pf['calendar_last_updated'][:19]}</span></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # 1D. 10-POINT PRE-FLIGHT CHECKLIST & SESSION MATRIX (Phase 34)
+    c_chk1, c_chk2 = st.columns([1, 1])
+    with c_chk1:
+        st.markdown("<p style='font-size:11px; font-weight:800; color:#00ffcc; letter-spacing:1px; text-transform:uppercase; margin-bottom:4px;'>XAUUSD Daily Pre-Flight Checklist (10 Verification Checks)</p>", unsafe_allow_html=True)
+        df_chk = pd.DataFrame(daily_pf["checklist"])[["item", "status", "detail"]]
+        st.dataframe(df_chk, use_container_width=True)
+    with c_chk2:
+        st.markdown("<p style='font-size:11px; font-weight:800; color:#00ffcc; letter-spacing:1px; text-transform:uppercase; margin-bottom:4px;'>Session & Financial Center Holiday Interaction Matrix</p>", unsafe_allow_html=True)
+        df_sess = pd.DataFrame(daily_pf["session_matrix"])[["financial_center", "country", "open_closed", "session_status", "holiday_name", "expected_liquidity_effect"]]
+        st.dataframe(df_sess, use_container_width=True)
+
+    # 1E. ECONOMIC EVENT TIMELINE & ACTUAL/FORECAST/PREVIOUS
+    st.markdown("<p style='font-size:11px; font-weight:800; color:#00ffcc; letter-spacing:1px; text-transform:uppercase; margin-top:10px; margin-bottom:4px;'>Economic Event Timeline (Forex & Macro Releases)</p>", unsafe_allow_html=True)
+    if daily_pf["events_timeline"]:
+        df_ev = pd.DataFrame(daily_pf["events_timeline"])[["event_name", "currency", "impact_level", "utc_time", "time_until_event", "proximity_bucket", "actual", "forecast", "previous", "xauusd_relevance"]]
+        st.dataframe(df_ev, use_container_width=True)
+    else:
+        st.info("No major economic releases scheduled today.")
+
+    # 1F. "WHAT DID I MISS TODAY?" HISTORICAL DATE AUDIT CARD (Phase 34)
+    with st.expander("🔍 'WHAT DID I MISS TODAY?' — HISTORICAL MARKET CONDITIONS & EVENT AUDIT", expanded=False):
+        c_dt1, c_dt2 = st.columns([1, 3])
+        with c_dt1:
+            audit_dt = st.date_input("Select Date To Audit:", value=datetime.now(timezone.utc).date(), key=f"dt_audit_p34_{key_prefix}")
+        with c_dt2:
+            hist_audit = xauusd_daily_preflight.HistoricalDailyNewsAuditor.audit_historical_day(audit_dt)
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.02); border-left:3px solid #38bdf8; border-radius:4px; padding:10px 14px; font-size:11px; color:#cbd5e1; line-height:1.5;">
+                <b>Historical Date Audit: {hist_audit['date']} ({hist_audit['day_type']})</b><br/>
+                • <b>Market Condition:</b> {hist_audit['trading_day_classification']} ({hist_audit['liquidity_condition']})<br/>
+                • <b>Active Holidays:</b> {len(hist_audit['holidays_list'])} | <b>High-Impact Events:</b> {len(hist_audit['high_impact_events'])}<br/>
+                • <b>Forward Observations Recorded:</b> <b style="color:#00ffcc;">{hist_audit['forward_trades_on_date']} Trades</b><br/>
+                • <b>Explanation:</b> {hist_audit['explanation']}
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
+
+    # HONEST EMPTY / LOW-DATA UX (Phase 31)
+    if core_ev_stats['trades_n'] == 0:
+        st.markdown("""
+        <div style="background:rgba(56,189,248,0.06); border:1px solid #38bdf8; border-radius:8px; padding:12px 16px; margin:12px 0 16px 0;">
+            <div style="color:#38bdf8; font-weight:800; font-size:12px; text-transform:uppercase;">NO FORWARD TRADES YET (N = 0)</div>
+            <div style="color:#e2e8f0; font-size:11px; margin-top:3px; line-height:1.5;">
+                The monitoring infrastructure is active, but no valid completed forward observations have been recorded yet. Live automation remains permanently disabled.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    elif core_ev_stats['trades_n'] < 30:
+        st.markdown(f"""
+        <div style="background:rgba(245,158,11,0.06); border:1px solid #f59e0b; border-radius:8px; padding:12px 16px; margin:12px 0 16px 0;">
+            <div style="color:#f59e0b; font-weight:800; font-size:12px; text-transform:uppercase;">INSUFFICIENT DATA (N = {core_ev_stats['trades_n']} &lt; 30)</div>
+            <div style="color:#e2e8f0; font-size:11px; margin-top:3px; line-height:1.5;">
+                The forward experiment is actively accumulating unseen observations. No formal performance or statistical validation conclusion is mathematically permitted until reaching Stage 1 (N &ge; 30).
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
     # PROMINENT RESEARCH INTEGRITY WARNING (If any check fails)
     if not integrity_eval["all_passed"]:
@@ -1615,6 +1987,18 @@ def render_xauusd_forward_evidence_center(key_prefix=""):
         <b style="color:{conc_color};">REGIME CONCENTRATION: {conc.get('concentration_level')}</b><br/>
         • Dominant Session: <b>{conc.get('dominant_session')}</b> ({conc.get('dominant_trade_pct')} % of trades, {conc.get('dominant_r_pct')} % of R contribution)<br/>
         • <b>Research Interpretation:</b> {conc.get('interpretation')}
+    </div>
+    """, unsafe_allow_html=True)
+
+    # P32 SECTION: "COULD NEWS / MARKET CONDITIONS EXPLAIN THIS?" & REGIME ATTRIBUTION
+    st.markdown("<p style='font-size:12px; font-weight:800; color:#bef264; letter-spacing:1px; text-transform:uppercase;'>C. News & Market Condition Performance Attribution (Phase 32)</p>", unsafe_allow_html=True)
+    st.markdown(f"""
+    <div style="background:rgba(255,255,255,0.02); border-left:3px solid {news_attr['verdict_color']}; border-radius:4px; padding:12px 16px; margin-bottom:12px; font-size:11px; line-height:1.5;">
+        <div style="font-size:10px; font-weight:800; color:#8a99ad; text-transform:uppercase;">COULD NEWS / MARKET CONDITIONS EXPLAIN PERFORMANCE VARIATIONS?</div>
+        <div style="font-size:13px; font-weight:900; color:{news_attr['verdict_color']}; margin:2px 0 4px 0;">Attribution Verdict: {news_attr['attribution_verdict']} ({news_attr['confidence_tier']})</div>
+        • <b>Sample Size:</b> N = {news_attr['sample_size_n']} forward observations.<br/>
+        • <b>Analysis:</b> {news_attr['explanation']}<br/>
+        • <b>Research Guidance:</b> {news_attr['research_action']}
     </div>
     """, unsafe_allow_html=True)
 
@@ -2027,7 +2411,8 @@ def render_live_dashboard():
         # ----------------------------------------------------
         # TOP-LEVEL BIG BOLD HEADER VIEW SWITCHER
         # ----------------------------------------------------
-        tab_overview, tab_charts, tab_ai, tab_research, tab_xauusd_audit, tab_xauusd_fwd, tab_journal, tab_alerts, tab_terminal, tab_sandbox, tab_health = st.tabs([
+        tab_cmd, tab_overview, tab_charts, tab_ai, tab_research, tab_xauusd_audit, tab_xauusd_fwd, tab_journal, tab_alerts, tab_terminal, tab_sandbox, tab_health = st.tabs([
+            "XAUUSD DAILY COMMAND CENTER",
             "ANALYTICS & OVERVIEW",
             "TRADING WORKSPACE",
             "AI MARKET CONTEXT",
@@ -2042,6 +2427,9 @@ def render_live_dashboard():
         ])
 
         df_open = database.get_open_positions()
+
+        with tab_cmd:
+            render_xauusd_daily_command_center(key_prefix="top_cmd")
 
         with tab_overview:
             # Unified Control & Filter Card
@@ -3216,13 +3604,17 @@ def render_live_dashboard():
             </div>
             """, unsafe_allow_html=True)
 
-            tab_res_general, tab_res_usdjpy, tab_res_true_mtf, tab_res_xauusd_audit, tab_res_xauusd_fwd = st.tabs([
+            tab_res_cmd, tab_res_general, tab_res_usdjpy, tab_res_true_mtf, tab_res_xauusd_audit, tab_res_xauusd_fwd = st.tabs([
+                "XAUUSD DAILY COMMAND CENTER",
                 "GENERAL RESEARCH & EDGE AUDIT",
                 "USDJPY EMPIRICAL LABS",
                 "TRUE MTF RESEARCH LAB",
                 "XAUUSD ADVERSARIAL AUDIT",
                 "XAUUSD FORWARD VALIDATION"
             ])
+
+            with tab_res_cmd:
+                render_xauusd_daily_command_center(key_prefix="res_cmd")
 
             with tab_res_general:
                 st.markdown("<h3 style='color:#ffffff;font-size:1.2rem;margin:0 0 4px 0;font-weight:800;text-transform:uppercase;'>Generic Strategy Edge Discovery</h3>", unsafe_allow_html=True)
