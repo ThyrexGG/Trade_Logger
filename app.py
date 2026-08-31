@@ -1019,7 +1019,14 @@ st.markdown("""
         gap: 12px !important;
         margin: 24px 0 !important;
     }
-    /* Custom Spinner Styling (Removed display:none so user can see it loading) */
+    /* Hide the redundant native small Streamlit spinner icon */
+    .stSpinner > div:first-child:not(:last-child),
+    .stSpinner > svg,
+    .stSpinner [data-testid="stSpinner"] > svg,
+    .stSpinner [data-testid="stSpinner"] > div:first-child {
+        display: none !important;
+    }
+    /* Custom Neon Radar Spinner */
     .stSpinner::before {
         content: '' !important;
         display: inline-block !important;
