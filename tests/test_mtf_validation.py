@@ -78,11 +78,13 @@ def test_htf_fvg_availability():
     the FVG should exist at T-1.
     """
     df = create_synthetic_data("1h", "2023-01-01 00:00:00", "2023-01-02 10:00:00")
-    # Force a Bullish FVG at indices 20, 21, 22
+    # Ensure bar 19 High prevents accidental FVG at bar 21
+    df.iloc[19, df.columns.get_loc('High')] = 200
+    # Force an intentional Bullish FVG spanning indices 20, 21, 22
     df.iloc[20, df.columns.get_loc('High')] = 100
     df.iloc[21, df.columns.get_loc('Low')] = 105
     df.iloc[21, df.columns.get_loc('High')] = 300 # Massive displacement
-    df.iloc[22, df.columns.get_loc('Low')] = 110 # Gap between 20's High and 22's Low is 100 to 110. FVG on 21.
+    df.iloc[22, df.columns.get_loc('Low')] = 110 # Gap between 20's High and 22's Low is 100 to 110.
     df.iloc[22, df.columns.get_loc('Close')] = 115
     df.iloc[21, df.columns.get_loc('Close')] = 108
     df.iloc[20, df.columns.get_loc('Close')] = 90

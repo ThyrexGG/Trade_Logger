@@ -1,6 +1,6 @@
 # PROJECT STATE & ARCHITECTURAL RECORD
 **TradeLogger Terminal — Living System Memory**
-*Last Updated: 31 August 2026, Session 4 (Phase 12A & 12B Verified)*
+*Last Updated: 31 August 2026, Session 5 (Phase 12B & Phase 13 Fully Completed & Verified)*
 
 > **HOW TO USE THIS FILE**
 > Start any new AI session with: *"Read PROJECT_STATE.md and continue where we left off."*
@@ -12,14 +12,15 @@
 
 A professional-grade **trading research, journaling, and execution terminal** built for a liquidity-based, ICT/SMC methodology trader. It is NOT a simple trade log — it is a full research + execution stack:
 
-- **Streamlit Desktop Terminal** (`app.py`) — primary UI, 8 tabs with Execution Operations & System Health Panel
-- **Deterministic AI Market Analysis Engine** (`ai_analysis.py`) — 17-phase pipeline
+- **Streamlit Desktop Terminal** (`app.py`) — primary UI, 8 tabs with Execution Operations & System Health Panel, Pre-Trade Risk Preview, and Live Execution Controls
+- **Structured SMC / ICT Data Models & Context** (`strategies/smc_models.py`, `strategies/smc_utils.py`) — immutable dataclasses for LiquidityPools, FVGs, OrderBlocks, DealingRanges, and Multi-Timeframe SMCContext snapshots
+- **Deterministic AI Market Analysis Engine** (`ai_analysis.py`) — 17-phase pipeline with structured SMC context prompt injection
 - **Modular Strategy Framework** (`strategies/`) — unified engine for live + backtest
 - **Historical Backtester** (`backtester.py`) — OOS-split, SMC-aware, limit order aware
 - **Walk-Forward Optimization** (`wfo.py`) — rolling window parameter optimization
 - **Broker Abstraction Layer** (`broker_adapter.py`) — normalized MT5, Capital.com, PaperAdapter & ShadowAdapter interface
 - **Canonical Execution State Machine** (`execution_pipeline.py`) — 14-state deterministic order gateway with atomic mutex claims and in-flight risk reservations
-- **Central Risk Gateway** (`risk_gateway.py`) — fail-closed, direction-aware correlation, broker floating daily loss, in-flight reservation awareness
+- **Central Risk Gateway** (`risk_gateway.py`) — fail-closed, direction-aware correlation, broker floating daily loss, pre-trade risk calculator, in-flight reservation awareness
 - **Broker Reconciliation Engine** (`reconciliation.py`) — singleton worker, discrepancy classification (MATCHED/LOCAL_ONLY/BROKER_ONLY/MISMATCH), UNKNOWN order resolution, startup crash recovery
 - **Symbol Mapping & Specs** (`symbol_mapping.py`, `instrument_specs.py`) — canonical symbol mapping, lot size/step validator, fail-closed unknown ticker handling
 - **System Health Evaluator** (`system_health.py`) — holistic live automation gating
@@ -34,21 +35,21 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 ### Backend Files
 | File | Purpose |
 |------|---------|
-| `app.py` | Main Streamlit UI (8 tabs) + Live Execution Operations Panel |
+| `app.py` | Main Streamlit UI (8 tabs) + Live Execution Operations Panel + Pre-Trade Risk Card |
 | `server.py` | FastAPI REST + WebSocket server + webhook receiver (Canonical Order Routed) |
-| `database.py` | SQLite + PostgreSQL multi-tenant DB with thread-safe queries |
+| `database.py` | SQLite + PostgreSQL multi-tenant DB with thread-safe queries & test WAL mode |
 | `market_data.py` | Live data fetching, bid/ask ticks, liquidity, FVG, OB, confluence |
 | `symbol_mapping.py` | Master canonical symbol normalization, suffix trimming, broker translation |
 | `instrument_specs.py` | Instrument specs registry (digits, ticks, lot steps, min/max volume validator) |
 | `system_health.py` | Comprehensive live automation health evaluator & safety gate |
-| `ai_analysis.py` | 17-phase AI/deterministic analysis pipeline |
+| `ai_analysis.py` | 17-phase AI/deterministic analysis pipeline with SMCContext summary |
 | `trade_setup_engine.py` | Live deterministic strategy evaluator |
 | `backtester.py` | Historical simulation engine |
 | `wfo.py` | Walk-Forward Optimization engine |
 | `analytics.py` | Win rate, PF, SQN, drawdown, attribution analytics |
 | `broker_adapter.py` | Normalized broker abstraction (MT5, Capital.com, PaperAdapter, ShadowAdapter) |
 | `execution_pipeline.py` | Canonical State Machine (14 states, atomic DB mutex claims, in-flight risk reservations, crash recovery) |
-| `risk_gateway.py` | Central Risk Gateway (Fail-closed, Directional Correlation, Floating Daily Loss, In-Flight Risk Ledger) |
+| `risk_gateway.py` | Central Risk Gateway (Fail-closed, Directional Correlation, Floating Daily Loss, Pre-Trade Risk Calculator, In-Flight Risk Ledger) |
 | `reconciliation.py` | Background reconciliation worker lifecycle, discrepancy detection, UNKNOWN resolver |
 | `account_state.py` | Broker-reconciled account state fetching |
 | `paper_simulator.py` | Continuous paper execution simulator |
@@ -57,16 +58,18 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 | File | Purpose |
 |------|---------|
 | `base.py` | `BaseStrategy` abstract class — unified schema |
+| `smc_models.py` | Structured immutable dataclasses: `LiquidityPool`, `FairValueGap`, `OrderBlock`, `DealingRange`, `MarketStructureEvent`, `SMCContext` |
 | `__init__.py` | Registry: `get_strategy()`, `get_all_strategy_names()` |
-| `smc_utils.py` | Vectorized SMC: swings, FVG, sessions, PDH/PDL, Asian range |
+| `smc_utils.py` | Vectorized SMC: Swings, FVG, Sessions, PDH/PDL, PWH/PWL, Asian range, EQH/EQL, Dealing Range, Structured Extractors |
 | `ict_2022_model.py` | ICT 2022: SSL/BSL Sweep → MSS → FVG retracement |
 | `liquidity_sweep.py` | Liquidity Sweep Reversal (immediate sweep entry) |
 | `trend_continuation.py` | EMA crossover continuation |
 | `mean_reversion.py` | RSI extreme reversal |
 
-### Phase 12 Automated Test Suite (`tests/`)
+### Automated Test Suite (`tests/`) — 83 PASSED, 2 SKIPPED, 0 FAILED
 | File | Purpose | Test Count |
 |------|---------|------------|
+| `test_smc_models.py` | SMC structured models, CE, MT, Premium/Discount, IFVG, Pre-Trade Risk Preview | 5 PASSED |
 | `test_symbol_mapping.py` | Canonical symbol normalization, aliases, suffixes, broker translation | 5 PASSED |
 | `test_instrument_specs.py` | Instrument specifications, lot step alignment, min/max volume limits | 7 PASSED |
 | `test_reconciliation_worker.py` | Worker lifecycle, health states (`HEALTHY`, `STOPPED`), health gate | 3 PASSED |
@@ -78,6 +81,12 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 | `test_broker_reconciliation.py` | Discrepancy matrices (MATCHED, LOCAL_ONLY, BROKER_ONLY, MISMATCH) | 5 PASSED |
 | `test_execution_state_machine.py` | 14-state transitions, persistence, signal_id idempotency | 4 PASSED |
 | `test_execution_failure_injection.py` | Broker timeouts to UNKNOWN, reconciliation to FILLED/NOT_FILLED, kill switch | 7 PASSED |
+| `test_execution_safety.py` | Core execution safety, webhook HMAC, payload validation, future ts rejection | 20 PASSED |
+| `test_paper_execution.py` | End-to-end paper and shadow execution pipelines | 3 PASSED |
+| `test_mtf_validation.py` | MTF lookahead proof, future candle mutation, bias audit | 4 PASSED |
+| `test_monte_carlo.py` | Monte Carlo probability expectancy distributions | 2 PASSED |
+| `test_phase11.py` | Portfolio risk exposure, simulator fills, signal attribution | 3 PASSED |
+| `test_wfo.py` | Walk-forward optimization windows | 1 PASSED |
 | `tests/integration/test_mt5_adapter.py` | MT5 live read-only verification (Truthfully SKIPPED/BLOCKED when terminal closed) | 1 SKIPPED |
 | `tests/integration/test_capitalcom_adapter.py` | Capital.com live read-only verification (Truthfully SKIPPED/BLOCKED when API offline) | 1 SKIPPED |
 

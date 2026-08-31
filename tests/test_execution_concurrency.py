@@ -74,7 +74,7 @@ def test_20_concurrent_threads_same_signal_id():
 
     assert len(results) == 20
 
-    success_claims = [r for r in results if r.get("status") == "success" or r.get("state") == ExecutionState.FILLED]
+    success_claims = [r for r in results if r.get("status") == "success"]
     duplicate_claims = [r for r in results if "DUPLICATE_SIGNAL" in r.get("message", "")]
 
     # Exactly 1 success, exactly 19 duplicates
@@ -91,7 +91,7 @@ def test_concurrent_portfolio_risk_reservation():
     database.set_setting("GLOBAL_KILL_SWITCH", "FALSE")
     database.set_setting("SYSTEM_STATE", "PAPER")
     database.set_setting("MAX_TRADE_RISK_PCT", "25.0")
-    database.set_setting("MAX_TOTAL_RISK_PCT", "12.0")
+    database.set_setting("MAX_TOTAL_RISK_PCT", "6.0")
     database.set_setting("MAX_SYMBOL_EXPOSURE", "100")
 
     # Order 1: Consumes ~4.6% risk ($500 on $10,000)
@@ -102,12 +102,12 @@ def test_concurrent_portfolio_risk_reservation():
     execution_pipeline.reserve_risk(sig1, 4.5)
 
     try:
-        # Order 2 proposes 3.0% risk -> Total would be 4.5% (reserved) + 3.0% = 7.5% > 6.0% Max Total Risk
+        # Order 2 proposes 3.0% risk ($300 on $10,000) -> Total would be 4.5% (reserved) + 3.0% = 7.5% > 6.0% Max Total Risk
         req2 = CanonicalExecutionRequest(
             signal_id=sig2,
             symbol="EURUSD",
             side="BUY",
-            quantity=0.06,  # 50 pips * 0.06 * 100k = $300 = 3.0%
+            quantity=0.60,  # 50 pips * 0.60 * 100k = $300 = 3.0%
             requested_entry=1.0850,
             stop_loss=1.0800,
             take_profit=1.0950,

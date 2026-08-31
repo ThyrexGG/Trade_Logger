@@ -344,14 +344,23 @@ def execute_signal(signal: Dict[str, Any]) -> Dict[str, Any]:
     # 1. ATOMIC SIGNAL CLAIM & PERSISTENCE
     with _EXECUTION_MUTEX:
         # Check if signal_id is already in database (True Concurrency Idempotency)
-        conn = database.get_connection()
-        cursor = conn.cursor()
-        if database.is_postgres():
-            cursor.execute("SELECT state, execution_id FROM execution_orders WHERE signal_id = %s", (sig_id,))
-        else:
-            cursor.execute("SELECT state, execution_id FROM execution_orders WHERE signal_id = ?", (sig_id,))
-        existing = cursor.fetchone()
-        conn.close()
+        try:
+            conn = database.get_connection()
+            cursor = conn.cursor()
+            if database.is_postgres():
+                cursor.execute("SELECT state, execution_id FROM execution_orders WHERE signal_id = %s", (sig_id,))
+            else:
+                cursor.execute("SELECT state, execution_id FROM execution_orders WHERE signal_id = ?", (sig_id,))
+            existing = cursor.fetchone()
+            conn.close()
+        except Exception as e:
+            return {
+                "status": "rejected",
+                "execution_id": execution_id,
+                "signal_id": sig_id,
+                "state": ExecutionState.FAILED_SAFE,
+                "message": f"DATABASE_ERROR: Database unavailable or locked: {str(e)}"
+            }
 
         if existing:
             return {
@@ -438,7 +447,7 @@ def execute_signal(signal: Dict[str, Any]) -> Dict[str, Any]:
         transition_state(state_data, ExecutionState.REJECTED, error_msg=vol_err)
         return {"status": "rejected", "execution_id": execution_id, "state": ExecutionState.REJECTED, "message": vol_err}
 
-    # Stale Signal Timestamp Gate (>300 seconds rejected)
+    # Stale Signal Timestamp Gate (>300 seconds rejected, >5s future rejected)
     sig_time_str = signal.get("timestamp")
     if sig_time_str:
         try:
@@ -446,8 +455,14 @@ def execute_signal(signal: Dict[str, Any]) -> Dict[str, Any]:
                 sig_ts = float(sig_time_str)
             else:
                 sig_ts = datetime.fromisoformat(str(sig_time_str).replace("Z", "+00:00")).timestamp()
-            if (datetime.now(timezone.utc).timestamp() - sig_ts) > 300:
+            now_ts = datetime.now(timezone.utc).timestamp()
+            if (now_ts - sig_ts) > 300:
                 msg = f"STALE_SIGNAL: Signal timestamp is older than 300 seconds."
+                state_data["reject_reason"] = msg
+                transition_state(state_data, ExecutionState.REJECTED, error_msg=msg)
+                return {"status": "rejected", "execution_id": execution_id, "state": ExecutionState.REJECTED, "message": msg}
+            if (sig_ts - now_ts) > 5:
+                msg = f"FUTURE_SIGNAL: Signal timestamp is in the future."
                 state_data["reject_reason"] = msg
                 transition_state(state_data, ExecutionState.REJECTED, error_msg=msg)
                 return {"status": "rejected", "execution_id": execution_id, "state": ExecutionState.REJECTED, "message": msg}

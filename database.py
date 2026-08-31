@@ -10,6 +10,10 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
 
 def get_db_url():
+    # 0. Check for local SQLite / Testing override
+    if os.getenv("USE_LOCAL_SQLITE") == "1" or os.getenv("PYTEST_CURRENT_TEST"):
+        return None
+
     # 1. Check Streamlit Cloud secrets first
     try:
         import streamlit as st
@@ -37,7 +41,13 @@ def get_connection():
         return psycopg2.connect(db_url)
     else:
         db_file = os.path.join(os.path.dirname(__file__), "trades.db")
-        return sqlite3.connect(db_file)
+        conn = sqlite3.connect(db_file, timeout=60.0)
+        try:
+            conn.execute("PRAGMA journal_mode=WAL;")
+            conn.execute("PRAGMA busy_timeout=60000;")
+        except Exception:
+            pass
+        return conn
 
 def init_db():
     """Initializes the database and creates the necessary tables."""
@@ -1049,6 +1059,64 @@ def get_correlations(time_window: int = 20):
     except Exception as e:
         print(f"Error reading correlations: {e}")
         return {}
+
+def log_execution(log_data: dict):
+    """Logs an execution attempt to execution_audit_log."""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        now_str = datetime.now(timezone.utc).isoformat()
+        
+        sig_id = str(log_data.get("signal_id", "UNKNOWN"))
+        ts = str(log_data.get("timestamp", now_str))
+        sym = str(log_data.get("symbol", ""))
+        strat = str(log_data.get("strategy", "Manual"))
+        tf = str(log_data.get("timeframe", "Unknown"))
+        direction = str(log_data.get("direction", log_data.get("side", "")))
+        entry = float(log_data.get("entry_price", log_data.get("requested_entry", 0.0)))
+        sl = float(log_data.get("sl", log_data.get("stop_loss", 0.0))) if log_data.get("sl") or log_data.get("stop_loss") else None
+        tp = float(log_data.get("tp", log_data.get("take_profit", 0.0))) if log_data.get("tp") or log_data.get("take_profit") else None
+        req_risk = float(log_data.get("requested_risk", 0.0))
+        act_risk = float(log_data.get("actual_risk", 0.0))
+        calc_sz = float(log_data.get("calculated_size", log_data.get("requested_quantity", log_data.get("volume", 0.0))))
+        final_sz = float(log_data.get("final_size", calc_sz))
+        broker = str(log_data.get("broker", "CAPITAL"))
+        val_res = str(log_data.get("validation_result", "PASSED"))
+        risk_res = str(log_data.get("risk_result", "APPROVED"))
+        exec_res = str(log_data.get("execution_result", "FILLED"))
+        b_oid = str(log_data.get("broker_order_id", "")) if log_data.get("broker_order_id") else None
+        exec_px = float(log_data.get("execution_price", entry)) if log_data.get("execution_price") else None
+        err = str(log_data.get("error_msg", "")) if log_data.get("error_msg") else None
+        rej = str(log_data.get("reject_reason", "")) if log_data.get("reject_reason") else None
+
+        if is_postgres():
+            cursor.execute("""
+                INSERT INTO execution_audit_log (
+                    signal_id, timestamp, symbol, strategy, timeframe, direction,
+                    entry_price, sl, tp, requested_risk, actual_risk, calculated_size, final_size,
+                    broker, validation_result, risk_result, execution_result, broker_order_id,
+                    execution_price, error_msg, reject_reason
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                )
+            """, (sig_id, ts, sym, strat, tf, direction, entry, sl, tp, req_risk, act_risk, calc_sz, final_sz,
+                  broker, val_res, risk_res, exec_res, b_oid, exec_px, err, rej))
+        else:
+            cursor.execute("""
+                INSERT INTO execution_audit_log (
+                    signal_id, timestamp, symbol, strategy, timeframe, direction,
+                    entry_price, sl, tp, requested_risk, actual_risk, calculated_size, final_size,
+                    broker, validation_result, risk_result, execution_result, broker_order_id,
+                    execution_price, error_msg, reject_reason
+                ) VALUES (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                )
+            """, (sig_id, ts, sym, strat, tf, direction, entry, sl, tp, req_risk, act_risk, calc_sz, final_sz,
+                  broker, val_res, risk_res, exec_res, b_oid, exec_px, err, rej))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error logging execution audit: {e}")
 
 if __name__ == "__main__":
     init_db()

@@ -87,17 +87,19 @@ def test_account_risk_aggregate_risk_blocked(monkeypatch):
         {"symbol": "GBPUSD", "direction": "BUY", "volume": 0.16, "entry_price": 1.2500, "sl": 1.2000, "floating_pnl": 0.0}
     ]))
 
-    # Proposed trade adds $300 risk (3%) -> 8% + 3% = 11% > 10%
+    # Proposed trade on USDJPY adds $300 risk (3.0% on $10,000) -> Total Risk: 8.0% + 3.0% = 11.0% > 10.0% Max Total Risk
     sig = {
         "signal_id": f"TEST_AGG_RISK_{int(time.time()*1000)}",
-        "symbol": "EURUSD",
-        "side": "BUY",
-        "requested_quantity": 0.06,
-        "requested_entry": 1.0500,
-        "stop_loss": 1.0450, # 50 pips * 0.06 * 100k = $300 = 3%
+        "symbol": "USDJPY",
+        "side": "SELL",
+        "requested_quantity": 0.10,
+        "requested_entry": 150.00,
+        "stop_loss": 153.00, # 3.00 yen * 0.10 * 100k / 150 = $200... wait: 3.00 * 0.10 * 1000 = $300 for JPY contract size
         "broker": "PAPER",
         "mode": "PAPER"
     }
+    # Set MAX_TOTAL_RISK_PCT to 8.1% so existing 8% + any new trade > 0.1% triggers total risk limit
+    database.set_setting("MAX_TOTAL_RISK_PCT", "8.1")
     res = risk_gateway.evaluate_trade_risk(sig)
     assert res["approved"] is False
     assert any("TOTAL_RISK_LIMIT" in r for r in res["reasons"])

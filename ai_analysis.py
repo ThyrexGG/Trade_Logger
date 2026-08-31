@@ -231,6 +231,14 @@ def analyze_market_context(symbol="XAUUSD", timeframe="1h", model_name="llama3",
         "ml_training_date": ml_data.get("training_date", "Unknown")
     }
     
+    # Phase 13: Build structured SMC Context snapshot
+    from strategies.smc_utils import build_smc_context
+    df_struct_raw = pd.DataFrame(mtf_data_raw.get("15m", mtf_data_raw.get(timeframe, [])))
+    df_bias_raw = pd.DataFrame(mtf_data_raw.get("1h", mtf_data_raw.get("4h", mtf_data_raw.get(timeframe, []))))
+    smc_ctx = build_smc_context(df_primary, df_struct_raw, df_bias_raw, symbol=sym, exec_tf=timeframe)
+    final_output["smc_context"] = smc_ctx.to_dict()
+    final_output["smc_ai_summary"] = smc_ctx.to_ai_summary()
+
     # Pre-calculate Confluence and Trade Setup BEFORE hitting the LLM
     confluence = market_data.calculate_confluence(final_output)
     final_output["confluence_bias"] = confluence
@@ -269,7 +277,10 @@ FACTUAL DATA:
 2. Liquidity Zones (BSL / SSL):
 {json.dumps(liquidity_zones, indent=2)}
 
-3. Fair Value Gaps (FVG) & Order Blocks (OB):
+3. Institutional SMC / ICT Context (Structured Data Models):
+{smc_ctx.to_ai_summary()}
+
+Fair Value Gaps (FVG) & Order Blocks (OB):
 FVG: {json.dumps(fvg_data, indent=2)}
 OB: {json.dumps(ob_data, indent=2)}
 

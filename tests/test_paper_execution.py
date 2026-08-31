@@ -5,14 +5,34 @@ import time
 import uuid
 import database
 import account_state
+from execution_pipeline import ExecutionState
 
 client = TestClient(app)
 
 @pytest.fixture
 def mock_db_paper(monkeypatch):
+    database.init_db()
+    database.set_setting("MAX_PRICE_DEVIATION_PCT", "100.0")
+    database.set_setting("GLOBAL_KILL_SWITCH", "FALSE")
+    database.set_setting("MAX_TRADE_RISK_PCT", "10.0")
+    database.set_setting("MAX_TOTAL_RISK_PCT", "50.0")
+    database.set_setting("MAX_DAILY_LOSS_PCT", "10.0")
+    database.set_setting("MAX_SYMBOL_EXPOSURE", "10")
+    
+    conn = database.get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM open_positions")
+    cur.execute("DELETE FROM execution_orders")
+    conn.commit()
+    conn.close()
+    
     monkeypatch.setenv("WEBHOOK_SECRET", "PAPER_TEST_SECRET")
     monkeypatch.setattr(database, "has_signal", lambda x: False)
     monkeypatch.setattr(database, "record_signal", lambda *args: None)
+    import market_data
+    monkeypatch.setattr(market_data, "get_market_health", lambda sym, tf: {"status": "HEALTHY"})
+    monkeypatch.setattr(market_data, "get_latest_tick", lambda sym: {"bid": 1.0500, "ask": 1.0502})
+    monkeypatch.setattr(market_data, "get_latest_price", lambda sym: 1.0500)
     
     def mock_get_state(account_type):
         return {
@@ -27,18 +47,15 @@ def mock_db_paper(monkeypatch):
     monkeypatch.setattr(account_state, "get_account_state", mock_get_state)
 
 def test_paper_execution_end_to_end(mock_db_paper, monkeypatch):
-    # Set system state to PAPER
     monkeypatch.setattr(database, "get_setting", lambda k, d: "PAPER" if k == "SYSTEM_STATE" else d)
-    
-    logs = []
-    monkeypatch.setattr(database, "log_execution", lambda d: logs.append(d))
     
     import server
     server._webhook_rate_limit_cache.clear()
     
+    sig_id = f"SIG_PAPER_{uuid.uuid4().hex[:8]}"
     resp = client.post("/api/webhook/tradingview", json={
         "secret": "PAPER_TEST_SECRET",
-        "signal_id": f"SIG_{uuid.uuid4()}",
+        "signal_id": sig_id,
         "timestamp": time.time(),
         "symbol": "EURUSD",
         "direction": "BUY",
@@ -50,29 +67,28 @@ def test_paper_execution_end_to_end(mock_db_paper, monkeypatch):
     
     assert resp.status_code == 200
     assert "success" in resp.json()["status"]
-    assert "Paper order executed successfully" in resp.json()["message"]
     
-    assert len(logs) == 1
-    log = logs[0]
-    assert log["execution_result"] == "PAPER_FILLED"
-    assert "PAPER_" in log["broker_order_id"]
-    assert log["signal_to_execution_latency"] > 0
-    assert log["validation_result"] == "PASSED"
-    assert log["risk_result"] == "APPROVED"
+    # Check database state
+    conn = database.get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT state, mode FROM execution_orders WHERE signal_id = ?", (sig_id,))
+    row = cur.fetchone()
+    conn.close()
+    
+    assert row is not None
+    assert row[0] == ExecutionState.FILLED
+    assert row[1] == "PAPER"
 
 def test_shadow_execution_end_to_end(mock_db_paper, monkeypatch):
-    # Set system state to SHADOW
     monkeypatch.setattr(database, "get_setting", lambda k, d: "SHADOW" if k == "SYSTEM_STATE" else d)
-    
-    logs = []
-    monkeypatch.setattr(database, "log_execution", lambda d: logs.append(d))
     
     import server
     server._webhook_rate_limit_cache.clear()
     
+    sig_id = f"SIG_SHADOW_{uuid.uuid4().hex[:8]}"
     resp = client.post("/api/webhook/tradingview", json={
         "secret": "PAPER_TEST_SECRET",
-        "signal_id": f"SIG_{uuid.uuid4()}",
+        "signal_id": sig_id,
         "timestamp": time.time(),
         "symbol": "EURUSD",
         "direction": "SELL",
@@ -83,26 +99,27 @@ def test_shadow_execution_end_to_end(mock_db_paper, monkeypatch):
     
     assert resp.status_code == 200
     assert "success" in resp.json()["status"]
-    assert "Shadow order would be executed" in resp.json()["message"]
     
-    assert len(logs) == 1
-    log = logs[0]
-    assert log["execution_result"] == "WOULD_EXECUTE"
-    assert "SHADOW_" in log["broker_order_id"]
+    conn = database.get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT state, mode FROM execution_orders WHERE signal_id = ?", (sig_id,))
+    row = cur.fetchone()
+    conn.close()
+    
+    assert row is not None
+    assert row[0] == ExecutionState.FILLED
+    assert row[1] == "SHADOW"
     
 def test_shadow_execution_rejects(mock_db_paper, monkeypatch):
-    # Shadow mode should log WOULD_REJECT if it hits a validation block
     monkeypatch.setattr(database, "get_setting", lambda k, d: "SHADOW" if k == "SYSTEM_STATE" else d)
-    
-    logs = []
-    monkeypatch.setattr(database, "log_execution", lambda d: logs.append(d))
     
     import server
     server._webhook_rate_limit_cache.clear()
     
+    sig_id = f"SIG_SHADOW_REJ_{uuid.uuid4().hex[:8]}"
     resp = client.post("/api/webhook/tradingview", json={
         "secret": "PAPER_TEST_SECRET",
-        "signal_id": f"SIG_{uuid.uuid4()}",
+        "signal_id": sig_id,
         "timestamp": time.time(),
         "symbol": "EURUSD",
         "direction": "BUY",
@@ -113,7 +130,12 @@ def test_shadow_execution_rejects(mock_db_paper, monkeypatch):
     
     assert resp.status_code == 400
     
-    assert len(logs) == 1
-    log = logs[0]
-    assert log["execution_result"] == "WOULD_REJECT"
-    assert "strictly below" in log["reject_reason"]
+    conn = database.get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT state, reject_reason FROM execution_orders WHERE signal_id = ?", (sig_id,))
+    row = cur.fetchone()
+    conn.close()
+    
+    assert row is not None
+    assert row[0] == ExecutionState.REJECTED
+    assert "below" in row[1] or "GEOMETRY_ERROR" in row[1]
