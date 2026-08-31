@@ -39,6 +39,11 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 | File | Purpose |
 |------|---------|
 | `app.py` | Main Streamlit UI (9 tabs) + Research Lab (Reversal, Continuation, Edge Discovery, Conditional Validation, True MTF, XAUUSD Audit, XAUUSD Forward) + Operations Panel |
+| `xauusd_research_governance.py` | Phase 23 Research Governance, Hypothesis Firewall (`FUTURE_RESEARCH_QUEUE`), Decision Center Dynamic Synthesizer |
+| `xauusd_regime_monitor.py` | Phase 23 MTF Regime Diagnostics (1D, 4H, 15M, Session, Volatility, Weekday) & Distribution Shift Detector |
+| `xauusd_execution_quality.py` | Phase 23 1M FVG Limit Execution Quality, Fill/Miss Rates, Slippage Friction, Microstructure Diagnostics |
+| `xauusd_forward_statistics.py` | Phase 23 Forward Effect Size Comparator, Rolling Windows (20/30/50), Cumulative R Curves, Milestones (2R-7R), Durations |
+| `xauusd_forward_integrity.py` | Phase 23 Strategy Freeze Guard (`FrozenStrategyMutationException`), Provenance Ledger, Data Feed Quality Auditor |
 | `xauusd_validation_gate.py` | Phase 22 Predefined 4-Stage Governance Decision Gates (Stage 0 to Stage 3), Eligibility Evaluator |
 | `xauusd_drift_detector.py` | Phase 22 Distribution Drift (MAE/MFE/Duration), Drawdown Tiers (Normal/Elevated/Stress/Severe), Edge Consistency Score (0-100) |
 | `xauusd_forward_monitor.py` | Phase 22 Forward Telemetry Monitor, Sample Reliability Tiers, 1M Limit Execution Quality Health, Regime Diagnostic Matrix |
@@ -83,9 +88,12 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 | `trend_continuation.py` | EMA crossover continuation |
 | `mean_reversion.py` | RSI extreme reversal |
 
-### Automated Test Suite Status (156 PASSED, 2 SKIPPED — 100% REGRESSION PASS RATE)
+### Automated Test Suite Status (169 PASSED, 2 SKIPPED — 100% REGRESSION PASS RATE)
 | File | Purpose | Test Count |
 |------|---------|------------|
+| `test_phase23_integrity.py` | Strategy contract mutation guard, observation provenance ledger, data feed auditor, operational outcomes | 4 PASSED |
+| `test_phase23_statistics.py` | Effect size ratio/diff, rolling trade statistics, cumulative curve separation, milestone progression, duration buckets | 5 PASSED |
+| `test_phase23_governance.py` | Research hypothesis firewall queueing, decision center dynamic synthesis, live trading barrier enforcement, clean language | 4 PASSED |
 | `test_phase22_forward_validation.py` | Forward summary metrics, sample size tiers, bootstrap CI bounds, 1M FVG limit execution quality, regime protection | 4 PASSED |
 | `test_phase22_drift_detection.py` | Drawdown status tiers, excursion distribution drift (MAE/MFE), 5-component edge consistency score | 3 PASSED |
 | `test_phase22_governance.py` | Deterministic decision gate evaluation (Stage 0-3), live automation permanently disabled, zero emojis/certainty | 3 PASSED |
