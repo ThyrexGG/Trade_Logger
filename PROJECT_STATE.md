@@ -1,6 +1,6 @@
 # PROJECT STATE & ARCHITECTURAL RECORD
 **TradeLogger Terminal — Living System Memory**
-*Last Updated: 31 August 2026, Session 17 (Phase 28 XAUUSD Forward Evidence Accumulation, Review Readiness & Research Decision Audit Completed & Verified)*
+*Last Updated: 31 August 2026, Session 18 (Phase 29 XAUUSD Forward Validation Stress, Regime Coverage & Reproducibility Audit Completed & Verified)*
 
 > **HOW TO USE THIS FILE**
 > Start any new AI session with: *"Read PROJECT_STATE.md and continue where we left off."*
@@ -12,12 +12,17 @@
 
 A professional-grade **trading research, journaling, and execution terminal** built for a liquidity-based, ICT/SMC methodology trader. It is NOT a simple trade log — it is a full research + execution stack:
 
-- **Streamlit Desktop Terminal** (`app.py`) — primary UI, 9 tabs including dedicated **RESEARCH LAB** with USDJPY Reversal Lab (Phase 15), USDJPY Continuation Lab (Phase 16), USDJPY Edge Discovery Lab (Phase 17), USDJPY Conditional Validation Lab (Phase 18), True MTF Research Lab (Phase 19), XAUUSD Adversarial Audit Lab (Phase 20), XAUUSD Forward Validation & Decision Center (Phase 21-23), Explainable Research Decision UX (Phase 24), Live Forward Operations Center (Phase 25), Continuous Forward Monitoring (Phase 26), Statistical Evidence Engine (Phase 27), and Forward Evidence Accumulation & Review Readiness Center (Phase 28), Operations Panel, and Live Safety Barriers (Strictly zero emojis across all UI tabs, buttons, metrics, and logs)
+- **Streamlit Desktop Terminal** (`app.py`) — primary UI, 9 tabs including dedicated **RESEARCH LAB** with USDJPY Reversal Lab (Phase 15), USDJPY Continuation Lab (Phase 16), USDJPY Edge Discovery Lab (Phase 17), USDJPY Conditional Validation Lab (Phase 18), True MTF Research Lab (Phase 19), XAUUSD Adversarial Audit Lab (Phase 20), XAUUSD Forward Validation & Decision Center (Phase 21-23), Explainable Research Decision UX (Phase 24), Live Forward Operations Center (Phase 25), Continuous Forward Monitoring (Phase 26), Statistical Evidence Engine (Phase 27), Review Readiness Center (Phase 28), and Forward Validation Stress, Regime Coverage & Reproducibility Audit Center (Phase 29), Operations Panel, and Live Safety Barriers (Strictly zero emojis across all UI tabs, buttons, metrics, and logs)
+- **Forward Regime Coverage & Concentration Engine** (`xauusd_forward_regime_coverage.py`) — Classifies pre-trade environment into Trend, Volatility, Session, Weekday, Structure, enforces strict sample size protections ($N < 10, 10-20, 20-30, N \ge 30$), and audits regime concentration
+- **Rolling & Chronological Stability Engine** (`xauusd_forward_stability.py`) — Evaluates rolling 10, 20, 30, 50 trade windows with baseline retention benchmarking and 3-way chronological time-split stability (Early, Middle, Recent)
+- **Execution Stress & Outcome Attribution Engine** (`xauusd_forward_execution_stress.py`) — Evaluates hypothetical slippage (+1p/+2p/+3p), spread (+1p/+2p/+3p), and fill degradation (-5%/-10%/-20%), strictly separating Strategy Failure from Execution Failure
+- **Drawdown & Consecutive Loss Audit Engine** (`xauusd_forward_drawdown_audit.py`) — Tracks win/loss streaks, current/max/avg drawdowns, recovery factors, and classifies drawdown severity (Normal $\le 4\text{R}$, Elevated $4-7.15\text{R}$, Stress $7.15-12\text{R}$, Severe $>12\text{R}$)
+- **Independent Reproducibility & Fingerprinting Engine** (`xauusd_forward_reproducibility.py`) — Cryptographically fingerprints forward datasets, reconstructs metrics from raw observation ledgers, maintains the 8-point "WHAT WOULD CHANGE OUR CONCLUSION?" Invalidation Matrix and educational Counterfactual Scenarios
+- **Human Review Dossier Exporter** (`xauusd_review_package.py`) — Expanded 28-section research audit dossier with cryptographic hashes (Contract, Holdout, Forward datasets), evidence snapshot linking, and deterministic empirical tags (`KNOWN`, `OBSERVED`, `UNCERTAIN`, `NOT ENOUGH DATA`)
 - **Forward Evidence Ledger** (`xauusd_forward_evidence_ledger.py`) — Immutable append-only SQLite repository (`xauusd_evidence_ledger`) recording 30-field forward metrics snapshots with pairwise snapshot delta comparison engine
 - **Evidence Milestone Engine** (`xauusd_evidence_milestones.py`) — Progressive milestone tracker ($N = 30, 50, 75, 100, 125, 150, 200$) with percent completion, remaining trade counts, reliability tiers, and explicit "What remains unknown" documentation
-- **Review Readiness & Uncertainty Engine** (`xauusd_review_readiness.py`) — Deterministic 18-point checklist across Statistical ($N \ge 100$, CI lower $> 0$, $E[R] \ge 0.35\text{R}$), Execution (fill rate $\ge 85\%$, timeout $\le 15\%$, slippage $\le 2\text{p}$, spread $\le 3\text{p}$), Distribution (MAE $\le 0.45\text{R}$, MFE $\ge 2.50\text{R}$, DD $< 12\text{R}$), and Integrity (Contract hash, locked holdout $N=82$, unpooled isolation, $100\%$ parity, 0 data feed gaps) pillars producing `NOT READY`, `READY FOR HUMAN REVIEW`, or `BLOCKED BY RESEARCH INTEGRITY` alongside universal 3-part uncertainty synthesis (`WHAT WE KNOW`, `WHAT WE DO NOT KNOW`, `WHAT WE NEED NEXT`)
+- **Review Readiness & Uncertainty Engine** (`xauusd_review_readiness.py`) — Deterministic 18-point checklist across Statistical, Execution, Distribution, and Integrity pillars producing `NOT READY`, `READY FOR HUMAN REVIEW`, or `BLOCKED BY RESEARCH INTEGRITY` alongside universal 3-part uncertainty synthesis (`WHAT WE KNOW`, `WHAT WE DO NOT KNOW`, `WHAT WE NEED NEXT`)
 - **Research Decision Audit Engine** (`xauusd_research_decision_audit.py`) — Immutable governance decision record repository (`xauusd_decision_audit_records`) maintaining chronological reasoning beliefs and transparent decision rationales
-- **Human Review Dossier Exporter** (`xauusd_review_package.py`) — Comprehensive 20-section audit dossier with cryptographic hashes (Contract, Holdout, Forward datasets), evidence snapshot linking, and deterministic empirical tags (`KNOWN`, `OBSERVED`, `UNCERTAIN`, `NOT ENOUGH DATA`)
 - **Continuous Forward Monitor & CUSUM Drift Engine** (`xauusd_continuous_monitor.py`) — Real-time telemetry calculator, rolling 20/30/50 expectancy windows, sequential CUSUM drift detector, and "What Changed?" delta tracking vs previous review snapshots
 - **Event-Based Alert Engine** (`xauusd_alert_engine.py`) — Persistent `xauusd_monitor_events` log across INFORMATION, WARNING, CRITICAL severities with 5-part explainable alert contract and non-destructive acknowledgement
 - **Live MTF State Engine** (`xauusd_live_state_engine.py`) — Real-time 5-timeframe pipeline tracker (1D Macro Bias, 4H DOL $\ge 2\text{R}$ check, 15M 9-Point Setup Checklist, 5M Confirmation, 1M Precision Limit Entry) and Master Decision synthesis ("WHAT IS THE STRATEGY DOING RIGHT NOW?")
@@ -44,11 +49,16 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 | File | Purpose |
 |------|---------|
 | `app.py` | Main Streamlit UI (9 tabs) + Research Lab (Reversal, Continuation, Edge Discovery, Conditional Validation, True MTF, XAUUSD Audit, XAUUSD Forward Decision Center) + Operations Panel |
+| `xauusd_forward_regime_coverage.py` | Forward Regime Classifier, Statistical Sample Protections ($N < 10, 10-20, 20-30, N \ge 30$) & Regime Concentration Auditor |
+| `xauusd_forward_stability.py` | Rolling Forward Windows (10/20/30/50 Trades) & Unshuffled Chronological Time-Split Analysis (Early/Middle/Recent) |
+| `xauusd_forward_execution_stress.py` | Hypothetical Execution Stress (Slippage, Spread, Fill Drop) & Outcome Attribution (Strategy Failure vs Execution Miss) |
+| `xauusd_forward_drawdown_audit.py` | Consecutive Win/Loss Streaks, Drawdown Reality Metrics (Normal/Elevated/Stress/Severe) & Recovery Factor |
+| `xauusd_forward_reproducibility.py` | Independent Metric Reconstruction from Raw Ledger, Dataset Fingerprinter, 8 Invalidation Conditions & Counterfactual Scenarios |
+| `xauusd_review_package.py` | 28-Section Research Audit Dossier Generator, Cryptographic Dataset Fingerprints & Markdown Report Exporter |
 | `xauusd_forward_evidence_ledger.py` | Append-Only Forward Evidence Snapshot Ledger (`xauusd_evidence_ledger`) & Historical Snapshot Delta Comparator |
 | `xauusd_evidence_milestones.py` | Progressive Milestone Tracker ($N = 30, 50, 75, 100, 125, 150, 200$), Completion Metrics & Unknowns Documentation |
 | `xauusd_review_readiness.py` | Deterministic 18-Point Review Readiness Checklist & Explicit 3-Part Uncertainty Engine (What We Know / Do Not Know / Need Next) |
 | `xauusd_research_decision_audit.py` | Append-Only Governance Decision Records (`xauusd_decision_audit_records`) & Decision Rationale Synthesizer |
-| `xauusd_review_package.py` | 20-Section Research Audit Dossier Generator, Cryptographic Dataset Fingerprints & Markdown Report Exporter |
 | `xauusd_forward_evidence.py` | Forward Evidence Analyzer, Multi-Tier Bootstrap CIs (90/95/99%), Effect Size Comparator, Sequential CUSUM, Forward-Only Monte Carlo, 0–100 Evidence Scorer |
 | `xauusd_continuous_monitor.py` | Continuous Forward Telemetry, Rolling Expectancy (20/30/50), CUSUM Sequential Drift Detector, "What Changed?" Delta Engine |
 | `xauusd_alert_engine.py` | Persistent Event Logging (`xauusd_monitor_events`), Severity Filtering, 5-Part Explainability Payload, Non-Destructive Acknowledgement |

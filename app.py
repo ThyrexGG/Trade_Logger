@@ -39,6 +39,11 @@ import xauusd_forward_evidence_ledger
 import xauusd_evidence_milestones
 import xauusd_review_readiness
 import xauusd_research_decision_audit
+import xauusd_forward_regime_coverage
+import xauusd_forward_stability
+import xauusd_forward_execution_stress
+import xauusd_forward_drawdown_audit
+import xauusd_forward_reproducibility
 
 def render_html(html_str):
     clean_lines = [line.strip() for line in html_str.splitlines()]
@@ -3363,13 +3368,127 @@ def render_live_dashboard():
                         st.success(f"Immutable evidence snapshot recorded: {new_snap_id}")
                         st.rerun()
 
+                    # Phase 29 Robustness & Reproducibility Engines
+                    regime_cov = xauusd_forward_regime_coverage.RegimeCoverageEngine.evaluate_regime_coverage(mode="PAPER")
+                    rolling_stab = xauusd_forward_stability.RollingStabilityEngine.evaluate_rolling_stability(paper_returns)
+                    time_split = xauusd_forward_stability.RollingStabilityEngine.evaluate_time_split_stability(paper_returns)
+                    exec_stress = xauusd_forward_execution_stress.ExecutionStressAuditor.run_execution_stress_analysis(mode="PAPER")
+                    outcome_attr = xauusd_forward_execution_stress.ForwardOutcomeAttributor.attribute_outcomes(mode="PAPER")
+                    dd_audit = xauusd_forward_drawdown_audit.ForwardDrawdownAuditor.audit_drawdown(paper_returns)
+                    reprod_audit = xauusd_forward_reproducibility.ForwardReproducibilityAuditor.audit_reproducibility(mode="PAPER")
+                    fingerprint = xauusd_forward_reproducibility.ForwardDatasetFingerprinter.generate_fingerprint(mode="PAPER")
+                    inval_matrix = xauusd_forward_reproducibility.EvidenceInvalidationEngine.get_invalidation_matrix()
+                    counterfactuals = xauusd_forward_reproducibility.EvidenceInvalidationEngine.get_counterfactual_scenarios()
+
                     st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
 
-                    # K. 20-SECTION HUMAN REVIEW DOSSIER & EXPORT
-                    st.markdown("<p style='font-size:12px; font-weight:800; color:#bef264; letter-spacing:1px; text-transform:uppercase;'>K. Formal 20-Section Research Audit Dossier</p>", unsafe_allow_html=True)
+                    # P29 SECTION 1: REGIME COVERAGE & STATISTICAL PROTECTION
+                    st.markdown("<p style='font-size:12px; font-weight:800; color:#00ffcc; letter-spacing:1px; text-transform:uppercase;'>1. Forward Regime Coverage & Subgroup Protection</p>", unsafe_allow_html=True)
+                    c_reg1, c_reg2 = st.columns(2)
+                    with c_reg1:
+                        st.markdown("<div style='font-size:11px; font-weight:700; color:#cbd5e1; margin-bottom:4px;'>A. Trading Session Coverage</div>", unsafe_allow_html=True)
+                        if regime_cov["sessions"]:
+                            st.dataframe(pd.DataFrame(regime_cov["sessions"])[["regime_name", "trades_n", "trade_pct", "r_contribution_pct", "expectancy_r", "win_rate_pct", "profit_factor", "statistical_tier"]], use_container_width=True)
+                        else:
+                            st.info("No session trades recorded.")
+                    with c_reg2:
+                        st.markdown("<div style='font-size:11px; font-weight:700; color:#cbd5e1; margin-bottom:4px;'>B. Weekday Distribution</div>", unsafe_allow_html=True)
+                        if regime_cov["weekdays"]:
+                            st.dataframe(pd.DataFrame(regime_cov["weekdays"])[["regime_name", "trades_n", "trade_pct", "r_contribution_pct", "expectancy_r", "win_rate_pct", "profit_factor", "statistical_tier"]], use_container_width=True)
+                        else:
+                            st.info("No weekday trades recorded.")
+
+                    # P29 SECTION 2: REGIME CONCENTRATION AUDIT
+                    conc = regime_cov["concentration_audit"]
+                    conc_color = "#00ffcc" if conc.get("concentration_level") == "BALANCED DISTRIBUTION" else ("#f59e0b" if "MODERATE" in conc.get("concentration_level", "") else "#ef4444")
+                    st.markdown(f"""
+                    <div style="background:rgba(255,255,255,0.02); border-left:3px solid {conc_color}; border-radius:4px; padding:10px 14px; margin-bottom:12px; font-size:11px; line-height:1.5;">
+                        <b style="color:{conc_color};">REGIME CONCENTRATION: {conc.get('concentration_level')}</b><br/>
+                        • Dominant Session: <b>{conc.get('dominant_session')}</b> ({conc.get('dominant_trade_pct')} % of trades, {conc.get('dominant_r_pct')} % of R contribution)<br/>
+                        • <b>Research Interpretation:</b> {conc.get('interpretation')}
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
+
+                    # P29 SECTION 3: ROLLING & CHRONOLOGICAL STABILITY
+                    st.markdown("<p style='font-size:12px; font-weight:800; color:#38bdf8; letter-spacing:1px; text-transform:uppercase;'>2. Rolling Window & Chronological Time-Split Stability</p>", unsafe_allow_html=True)
+                    c_stab1, c_stab2 = st.columns(2)
+                    with c_stab1:
+                        st.markdown("<div style='font-size:11px; font-weight:700; color:#cbd5e1; margin-bottom:4px;'>A. Rolling Windows (10, 20, 30, 50 Trades)</div>", unsafe_allow_html=True)
+                        st.dataframe(pd.DataFrame(rolling_stab["windows"])[["window_size", "latest_expectancy_r", "latest_win_rate_pct", "latest_profit_factor", "latest_max_dd_r", "classification"]], use_container_width=True)
+                    with c_stab2:
+                        st.markdown(f"<div style='font-size:11px; font-weight:700; color:#cbd5e1; margin-bottom:4px;'>B. Time-Split Analysis (Status: <span style='color:{time_split.get('color', '#00ffcc')};'>{time_split.get('overall_stability')}</span>)</div>", unsafe_allow_html=True)
+                        if time_split["periods"]:
+                            st.dataframe(pd.DataFrame(time_split["periods"])[["period", "trades_n", "expectancy_r", "win_rate_pct", "profit_factor", "max_drawdown_r"]], use_container_width=True)
+                        else:
+                            st.info("At least 9 trades required for chronological 3-way partition.")
+
+                    st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
+
+                    # P29 SECTION 4: EXECUTION STRESS & OUTCOME ATTRIBUTION
+                    st.markdown("<p style='font-size:12px; font-weight:800; color:#bef264; letter-spacing:1px; text-transform:uppercase;'>3. Hypothetical Execution Stress & Outcome Attribution</p>", unsafe_allow_html=True)
+                    c_str1, c_str2 = st.columns(2)
+                    with c_str1:
+                        st.markdown("<div style='font-size:11px; font-weight:700; color:#cbd5e1; margin-bottom:4px;'>A. Slippage & Spread Friction Stress</div>", unsafe_allow_html=True)
+                        st.dataframe(pd.DataFrame(exec_stress["slippage_stress"])[["scenario", "additional_friction_pips", "expectancy_loss_r", "stressed_expectancy_r", "survives"]], use_container_width=True)
+                    with c_str2:
+                        st.markdown("<div style='font-size:11px; font-weight:700; color:#cbd5e1; margin-bottom:4px;'>B. Event Attribution (Strategy vs Execution)</div>", unsafe_allow_html=True)
+                        st.dataframe(pd.DataFrame(outcome_attr["items"])[["category", "classification", "count", "pct_of_events", "meaning"]], use_container_width=True)
+
+                    st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
+
+                    # P29 SECTION 5: DRAWDOWN & CONSECUTIVE LOSS AUDIT
+                    st.markdown("<p style='font-size:12px; font-weight:800; color:#f59e0b; letter-spacing:1px; text-transform:uppercase;'>4. Consecutive Losses & Drawdown Reality Audit</p>", unsafe_allow_html=True)
+                    c_dda1, c_dda2, c_dda3, c_dda4 = st.columns(4)
+                    c_dda1.metric("Max Consecutive Losses", dd_audit["max_consecutive_losses"])
+                    c_dda2.metric("Max Consecutive Wins", dd_audit["max_consecutive_wins"])
+                    c_dda3.metric("Current Drawdown", f"{dd_audit['current_drawdown_r']:.2f} R ({dd_audit['drawdown_status']})")
+                    c_dda4.metric("Recovery Factor", f"{dd_audit['recovery_factor']:.2f}")
+
+                    st.markdown(f"""
+                    <div style="background:rgba(255,255,255,0.02); border-left:3px solid {dd_audit['color']}; border-radius:4px; padding:8px 12px; font-size:11px; color:#cbd5e1; margin-top:6px;">
+                        <b>Drawdown Meaning:</b> {dd_audit['human_meaning']} (Historical 95th Percentile Stress: 7.15R | Severe Boundary: 12.0R)
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
+
+                    # P29 SECTION 6: INDEPENDENT REPRODUCIBILITY AUDIT & DATASET FINGERPRINT
+                    st.markdown("<p style='font-size:12px; font-weight:800; color:#00ffcc; letter-spacing:1px; text-transform:uppercase;'>5. Independent Reproducibility Audit & Cryptographic Fingerprinting</p>", unsafe_allow_html=True)
+                    st.markdown(f"""
+                    <div style="background:rgba(15,23,42,0.85); border:2px solid {reprod_audit['status_color']}; border-radius:8px; padding:14px 18px; margin-bottom:10px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div style="font-size:13px; font-weight:900; color:{reprod_audit['status_color']};">REPRODUCIBILITY AUDIT: {reprod_audit['verdict']}</div>
+                            <div style="font-size:10px; color:#8a99ad;">Contract: <code>{fingerprint['contract_sha256'][:16]}...</code></div>
+                        </div>
+                        <div style="font-size:11px; color:#cbd5e1; margin-top:6px; line-height:1.5;">
+                            • <b>Dataset Fingerprint (SHA-256):</b> <code>{fingerprint['dataset_sha256']}</code><br/>
+                            • <b>Observation Provenance:</b> {fingerprint['observation_count']} records logged between {fingerprint['earliest_observation']} and {fingerprint['latest_observation']}.<br/>
+                            • <b>Reconstruction Match:</b> {reprod_audit['explanation']}
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
+
+                    # P29 SECTION 7: WHAT WOULD CHANGE OUR CONCLUSION?
+                    st.markdown("<p style='font-size:12px; font-weight:800; color:#ef4444; letter-spacing:1px; text-transform:uppercase;'>6. What Would Change Our Research Conclusion? (Invalidation Matrix)</p>", unsafe_allow_html=True)
+                    st.dataframe(pd.DataFrame(inval_matrix)[["condition_id", "condition", "nature", "why_it_matters", "governance_action"]], use_container_width=True)
+
+                    st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
+
+                    # P29 SECTION 8: COUNTERFACTUAL SCENARIOS
+                    st.markdown("<p style='font-size:12px; font-weight:800; color:#38bdf8; letter-spacing:1px; text-transform:uppercase;'>7. Counterfactual Research Panel: What If The Edge Is Weaker?</p>", unsafe_allow_html=True)
+                    st.dataframe(pd.DataFrame(counterfactuals)[["hypothetical_exp_r", "baseline_retention", "expected_interpretation", "governance_state"]], use_container_width=True)
+
+                    st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
+
+                    # K. 28-SECTION HUMAN REVIEW DOSSIER & EXPORT
+                    st.markdown("<p style='font-size:12px; font-weight:800; color:#bef264; letter-spacing:1px; text-transform:uppercase;'>K. Formal 28-Section Research Audit Dossier</p>", unsafe_allow_html=True)
                     c_rev_btn1, c_rev_btn2, c_rev_btn3 = st.columns(3)
                     with c_rev_btn1:
-                        show_rev_pkg = st.checkbox("VIEW 20-SECTION REVIEW PACKAGE", key="chk_view_rev_pkg_p28")
+                        show_rev_pkg = st.checkbox("VIEW 28-SECTION REVIEW PACKAGE", key="chk_view_rev_pkg_p29")
                     with c_rev_btn2:
                         md_report = xauusd_review_package.HumanReviewPackageGenerator.export_markdown_report(review_pkg)
                         st.download_button(
@@ -3378,14 +3497,14 @@ def render_live_dashboard():
                             file_name=f"XAUUSD_RESEARCH_DOSSIER_{datetime.now(timezone.utc).strftime('%Y%m%d')}.md",
                             mime="text/markdown",
                             use_container_width=True,
-                            key="btn_export_audit_md_p28"
+                            key="btn_export_audit_md_p29"
                         )
                     with c_rev_btn3:
-                        if st.button("MARK FOR HUMAN REVIEW", key="btn_mark_human_review_p28", use_container_width=True):
+                        if st.button("MARK FOR HUMAN REVIEW", key="btn_mark_human_review_p29", use_container_width=True):
                             st.success("Forward validation dossier recorded and marked for Human Review. Live trading remains permanently disabled.")
 
                     if show_rev_pkg:
-                        with st.expander("INSPECT COMPLETE 20-SECTION RESEARCH AUDIT DOSSIER", expanded=True):
+                        with st.expander("INSPECT COMPLETE 28-SECTION RESEARCH AUDIT DOSSIER", expanded=True):
                             st.markdown(f"""
                             <div style="font-size:10px; color:#8a99ad; margin-bottom:8px;">
                                 Package ID: <code>{review_pkg['package_id']}</code> | Contract Hash: <code>{review_pkg['contract_hash'][:16]}...</code> | Holdout Hash: <code>{review_pkg['holdout_hash'][:16]}...</code> | Forward Hash: <code>{review_pkg['forward_hash'][:16]}...</code>

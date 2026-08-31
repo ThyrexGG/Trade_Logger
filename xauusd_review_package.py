@@ -1,6 +1,6 @@
 """
-Phase 28 — XAUUSD Forward Validation Human Review Package & Research Dossier Engine
-Compiles the comprehensive 20-section research dossier with cryptographic dataset hashes,
+Phase 29 — XAUUSD Forward Validation Human Review Package & Research Dossier Engine
+Compiles the comprehensive 28-section research dossier with cryptographic dataset hashes,
 evidence snapshot linking, and deterministic tagging across KNOWN, OBSERVED, UNCERTAIN, and NOT ENOUGH DATA.
 """
 
@@ -34,10 +34,16 @@ from xauusd_forward_validator import XAUUSDForwardJournal
 from xauusd_review_readiness import ReviewReadinessEngine
 from xauusd_forward_evidence_ledger import ForwardEvidenceLedger
 
+from xauusd_forward_regime_coverage import RegimeCoverageEngine
+from xauusd_forward_stability import RollingStabilityEngine
+from xauusd_forward_execution_stress import ExecutionStressAuditor, ForwardOutcomeAttributor
+from xauusd_forward_drawdown_audit import ForwardDrawdownAuditor
+from xauusd_forward_reproducibility import ForwardReproducibilityAuditor, ForwardDatasetFingerprinter, EvidenceInvalidationEngine
+
 
 class HumanReviewPackageGenerator:
     """
-    Generates structured 20-section research audit dossiers for human inspection.
+    Generates structured 28-section research audit dossiers for human inspection.
     """
 
     @staticmethod
@@ -57,18 +63,25 @@ class HumanReviewPackageGenerator:
         history_snaps = XAUUSDDecisionHistory.get_decision_timeline(limit=10)
         hypotheses = ResearchHypothesisFirewall.get_queued_hypotheses()
 
+        # Phase 29 Robustness Engines
+        regime_cov = RegimeCoverageEngine.evaluate_regime_coverage(mode=mode)
+        df_fwd = XAUUSDForwardJournal.get_forward_trades(mode=mode)
+        fwd_returns = df_fwd["realized_r"].dropna().astype(float).tolist() if not df_fwd.empty and "realized_r" in df_fwd.columns else []
+        
+        rolling_stab = RollingStabilityEngine.evaluate_rolling_stability(fwd_returns)
+        time_split = RollingStabilityEngine.evaluate_time_split_stability(fwd_returns)
+        exec_stress = ExecutionStressAuditor.run_execution_stress_analysis(mode=mode)
+        dd_audit = ForwardDrawdownAuditor.audit_drawdown(fwd_returns)
+        reprod_audit = ForwardReproducibilityAuditor.audit_reproducibility(mode=mode)
+        fingerprint = ForwardDatasetFingerprinter.generate_fingerprint(mode=mode)
+
         # Cryptographic Dataset and Contract Hashes
         contract_hash = StrategyContractIntegrityGuard.compute_contract_hash()
         holdout_hash = hashlib.sha256(b"XAUUSD_HOLDOUT_N82_EXP0.637_CI0.477_0.817_WR58.6_PF2.52").hexdigest()
-        
-        df_fwd = XAUUSDForwardJournal.get_forward_trades(mode=mode)
-        fwd_bytes = df_fwd.to_json().encode() if not df_fwd.empty else b"EMPTY_FORWARD_JOURNAL"
-        forward_hash = hashlib.sha256(fwd_bytes).hexdigest()
+        forward_hash = fingerprint["dataset_sha256"]
 
         pkg_id = f"REV_PKG_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
         gen_ts = datetime.now(timezone.utc).isoformat()
-
-        # Record or link snapshot
         snap_id = f"SNAP_LINK_{pkg_id[-6:]}"
 
         n = fwd.get("trades_N", 0)
@@ -76,7 +89,7 @@ class HumanReviewPackageGenerator:
         ci_lower = fwd.get("ci_lower", 0.0)
         ci_upper = fwd.get("ci_upper", 0.0)
 
-        # 20 Sections Compilation
+        # 28 Sections Compilation
         sections = [
             {
                 "section_num": 1,
@@ -250,6 +263,54 @@ class HumanReviewPackageGenerator:
                     "Continue automated forward data streaming without modifying frozen strategy parameters. "
                     f"Target next milestone: {'N = 30' if n < 30 else ('N = 50' if n < 50 else ('N = 75' if n < 75 else 'N = 100'))}."
                 )
+            },
+            {
+                "section_num": 21,
+                "title": "21. Regime Coverage",
+                "classification": "OBSERVED",
+                "content": f"Observations tracked across Trend, Volatility, Session ({len(regime_cov['sessions'])} buckets), and Weekday ({len(regime_cov['weekdays'])} buckets). Classification version: {regime_cov['classification_version']}."
+            },
+            {
+                "section_num": 22,
+                "title": "22. Regime Concentration",
+                "classification": "OBSERVED",
+                "content": f"Concentration status: {regime_cov['concentration_audit'].get('concentration_level', 'LOW')}. {regime_cov['concentration_audit'].get('interpretation', '')}"
+            },
+            {
+                "section_num": 23,
+                "title": "23. Rolling Stability",
+                "classification": "OBSERVED",
+                "content": f"Evaluated across 10, 20, 30, and 50 trade rolling windows. Total forward sample: N = {rolling_stab['total_trades_n']} trades."
+            },
+            {
+                "section_num": 24,
+                "title": "24. Chronological Stability",
+                "classification": "OBSERVED",
+                "content": f"Time-split stability status: {time_split['overall_stability']}. Evaluated across Early, Middle, and Recent un-shuffled chronological partitions."
+            },
+            {
+                "section_num": 25,
+                "title": "25. Execution Stress",
+                "classification": "UNCERTAIN",
+                "content": f"Hypothetical stress tolerance: Base expectancy {exec_stress['current_expectancy_r']:+.3f}R evaluated against +1p/+2p/+3p slippage, spread expansion, and -5%/-10%/-20% fill degradation."
+            },
+            {
+                "section_num": 26,
+                "title": "26. Drawdown & Recovery",
+                "classification": "OBSERVED",
+                "content": f"Max consecutive losses: {dd_audit['max_consecutive_losses']} | Max consecutive wins: {dd_audit['max_consecutive_wins']} | Drawdown status: {dd_audit['drawdown_status']} (Current: {dd_audit['current_drawdown_r']:.2f}R, Peak: {dd_audit['max_drawdown_r']:.2f}R)."
+            },
+            {
+                "section_num": 27,
+                "title": "27. Reproducibility Audit",
+                "classification": "KNOWN",
+                "content": f"Independent Metric Reconstruction: {reprod_audit['verdict']}. Fingerprint SHA-256: {fingerprint['dataset_sha256'][:16]}... ({reprod_audit['explanation']})"
+            },
+            {
+                "section_num": 28,
+                "title": "28. Evidence Invalidation Conditions",
+                "classification": "KNOWN",
+                "content": "8 formal research invalidation conditions predefined (CI crossing zero, persistent CUSUM degradation, DD > 12R, limit timeouts > 25%, parity breach, dataset mutation)."
             }
         ]
 
