@@ -53,7 +53,8 @@ class StrategyContractIntegrityGuard:
         if not os.path.exists(StrategyContractIntegrityGuard.FROZEN_CONTRACT_PATH):
             return "CONTRACT_FILE_MISSING"
         with open(StrategyContractIntegrityGuard.FROZEN_CONTRACT_PATH, "rb") as f:
-            return hashlib.sha256(f.read()).hexdigest()
+            content = f.read().replace(b"\r\n", b"\n")
+            return hashlib.sha256(content).hexdigest()
 
     @staticmethod
     def verify_contract_immutability(current_params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:

@@ -1679,22 +1679,146 @@ def render_xauusd_forward_evidence_center(key_prefix=""):
     else:
         st.info("No major economic releases scheduled today.")
 
-    # 1F. "WHAT DID I MISS TODAY?" HISTORICAL DATE AUDIT CARD (Phase 34)
-    with st.expander("🔍 'WHAT DID I MISS TODAY?' — HISTORICAL MARKET CONDITIONS & EVENT AUDIT", expanded=False):
-        c_dt1, c_dt2 = st.columns([1, 3])
-        with c_dt1:
-            audit_dt = st.date_input("Select Date To Audit:", value=datetime.now(timezone.utc).date(), key=f"dt_audit_p34_{key_prefix}")
-        with c_dt2:
-            hist_audit = xauusd_daily_preflight.HistoricalDailyNewsAuditor.audit_historical_day(audit_dt)
+    # 1F. "WHAT DID I MISS TODAY?" & DAILY MARKET CONTEXT AUDIT (Phase 38)
+    with st.expander("WHAT DID I MISS TODAY? — HISTORICAL NEWS, MISSED-EVENT & MARKET-CONDITION AUDIT (PHASE 38)", expanded=False):
+        import xauusd_news_history_audit
+        import xauusd_missed_event_detector
+        import xauusd_news_snapshot_store
+        import xauusd_market_condition_correlation
+
+        # Date Selection Controls
+        c_mode, c_dt_sel = st.columns([1.5, 2.5])
+        with c_mode:
+            date_mode = st.radio(
+                "Select Date Preset:",
+                options=["Today", "Yesterday", "Previous Trading Day", "Custom Date"],
+                index=0,
+                key=f"p38_date_mode_{key_prefix}",
+                horizontal=True
+            )
+        
+        now_today = datetime.now(timezone.utc).date()
+        if date_mode == "Today":
+            selected_audit_date = now_today
+        elif date_mode == "Yesterday":
+            selected_audit_date = now_today - timedelta(days=1)
+        elif date_mode == "Previous Trading Day":
+            # If Mon -> Fri (-3), if Sun -> Fri (-2), else -> -1
+            if now_today.weekday() == 0:  # Monday
+                selected_audit_date = now_today - timedelta(days=3)
+            elif now_today.weekday() == 6:  # Sunday
+                selected_audit_date = now_today - timedelta(days=2)
+            else:
+                selected_audit_date = now_today - timedelta(days=1)
+        else:
+            with c_dt_sel:
+                selected_audit_date = st.date_input("Choose Custom Date:", value=now_today, key=f"p38_custom_dt_{key_prefix}")
+
+        # Compute Phase 38 Audit Telemetry for Selected Date
+        p38_recon = xauusd_news_history_audit.HistoricalContextReconstructor.reconstruct_date_context(selected_audit_date, symbol="XAUUSD")
+        p38_missed = xauusd_missed_event_detector.MissedEventAuditor.audit_captured_events_for_date(selected_audit_date, symbol="XAUUSD")
+        p38_prov = xauusd_news_snapshot_store.MultiProviderComparator.compare_providers_for_date(selected_audit_date)
+        p38_corr = xauusd_market_condition_correlation.SubgroupCorrelationEngine.audit_subgroup_correlations(mode="PAPER")
+        p38_qual = xauusd_market_condition_correlation.MarketContextDataQualityScorer.calculate_quality_score(selected_audit_date, symbol="XAUUSD")
+        p38_close = xauusd_market_condition_correlation.DailyContextCloseAuditor.audit_daily_close(selected_audit_date, symbol="XAUUSD")
+
+        # Top Hero Card: Daily Close Audit Verdict & Data Quality Score
+        st.markdown(f"""
+        <div style="background:rgba(15,23,42,0.9); border:2px solid {p38_close['verdict_color']}; border-radius:8px; padding:14px 18px; margin:10px 0;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <div>
+                    <div style="font-size:10px; font-weight:800; color:#8a99ad; text-transform:uppercase; letter-spacing:1px;">DAILY MARKET CONTEXT CLOSE AUDIT — {selected_audit_date.isoformat()}</div>
+                    <div style="font-size:16px; font-weight:900; color:{p38_close['verdict_color']};">{p38_close['verdict']}</div>
+                </div>
+                <div style="font-size:11px; color:#cbd5e1; text-align:right;">
+                    Data Quality Score: <b style="color:{p38_qual['verdict_color']}; font-size:14px;">{p38_qual['total_score']} / 100 ({p38_qual['quality_rating']})</b><br/>
+                    Events Expected: <b style="color:#ffffff;">{p38_close['events_expected']}</b> | Captured: <b style="color:#00ffcc;">{p38_close['events_captured']}</b> | Missed: <b style="color:#ff5555;">{p38_close['events_missed']}</b>
+                </div>
+            </div>
+            <div style="margin-top:8px; font-size:11px; color:#cbd5e1; background:rgba(0,0,0,0.2); padding:6px 10px; border-radius:4px;">
+                <b>Required Action:</b> {p38_close['action_required']} | <b>Proximity:</b> <span style="color:{p38_missed['proximity_report']['proximity_color']};">{p38_missed['proximity_report']['proximity_status']}</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # 3-Column Diagnostic: What System Knew, What Happened, What May Have Been Missed
+        st.markdown("<p style='font-size:11px; font-weight:800; color:#00ffcc; letter-spacing:1px; text-transform:uppercase; margin-top:12px; margin-bottom:6px;'>Three-Column Context Reconstruction</p>", unsafe_allow_html=True)
+        col_knew, col_happened, col_missed = st.columns(3)
+
+        with col_knew:
             st.markdown(f"""
-            <div style="background:rgba(255,255,255,0.02); border-left:3px solid #38bdf8; border-radius:4px; padding:10px 14px; font-size:11px; color:#cbd5e1; line-height:1.5;">
-                <b>Historical Date Audit: {hist_audit['date']} ({hist_audit['day_type']})</b><br/>
-                • <b>Market Condition:</b> {hist_audit['trading_day_classification']} ({hist_audit['liquidity_condition']})<br/>
-                • <b>Active Holidays:</b> {len(hist_audit['holidays_list'])} | <b>High-Impact Events:</b> {len(hist_audit['high_impact_events'])}<br/>
-                • <b>Forward Observations Recorded:</b> <b style="color:#00ffcc;">{hist_audit['forward_trades_on_date']} Trades</b><br/>
-                • <b>Explanation:</b> {hist_audit['explanation']}
+            <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); border-top:3px solid #38bdf8; border-radius:6px; padding:12px; height:100%;">
+                <div style="font-size:11px; font-weight:800; color:#38bdf8; text-transform:uppercase; margin-bottom:8px;">1. WHAT SYSTEM KNEW PRIOR</div>
+                <div style="font-size:11px; color:#cbd5e1; line-height:1.5;">
+                    • <b>Market Session Plan:</b> 5 operational blocks mapped.<br/>
+                    • <b>Holidays Identified:</b> {p38_recon['holiday_audit']['active_holidays_count']} active bank holidays.<br/>
+                    • <b>Scheduled Events:</b> {p38_recon['events_total']} scheduled macroeconomic releases.<br/>
+                    • <b>High-Impact Releases:</b> {p38_recon['high_impact_events_count']} USD / Gold drivers.<br/>
+                    • <b>Tag:</b> <span style="color:#38bdf8; font-weight:700;">[KNOWN PRIOR]</span>
+                </div>
             </div>
             """, unsafe_allow_html=True)
+
+        with col_happened:
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); border-top:3px solid #00ffcc; border-radius:6px; padding:12px; height:100%;">
+                <div style="font-size:11px; font-weight:800; color:#00ffcc; text-transform:uppercase; margin-bottom:8px;">2. WHAT ACTUALLY HAPPENED</div>
+                <div style="font-size:11px; color:#cbd5e1; line-height:1.5;">
+                    • <b>Market Data Feed:</b> {p38_recon['market_data_breadth']['feed_status']}.<br/>
+                    • <b>Price Envelope:</b> ${p38_recon['market_data_breadth']['first_price']:.2f} to ${p38_recon['market_data_breadth']['last_price']:.2f}.<br/>
+                    • <b>Events Released:</b> {sum(1 for e in p38_recon['events'] if e['is_released_at_query_time'])} actual figures logged.<br/>
+                    • <b>Feed Continuity:</b> {p38_recon['market_data_breadth']['integrity']}.<br/>
+                    • <b>Tag:</b> <span style="color:#00ffcc; font-weight:700;">[OBSERVED ACTUAL]</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col_missed:
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); border-top:3px solid {p38_missed['classification_color']}; border-radius:6px; padding:12px; height:100%;">
+                <div style="font-size:11px; font-weight:800; color:{p38_missed['classification_color']}; text-transform:uppercase; margin-bottom:8px;">3. WHAT MAY HAVE BEEN MISSED</div>
+                <div style="font-size:11px; color:#cbd5e1; line-height:1.5;">
+                    • <b>Audit Status:</b> {p38_missed['classification']}.<br/>
+                    • <b>Missed High-Impact:</b> {p38_missed['missing_high_impact_count']} events.<br/>
+                    • <b>Timestamp Discrepancies:</b> {p38_missed['timestamp_mismatches_count']} timing shifts.<br/>
+                    • <b>Duplicates:</b> {p38_missed['duplicates_count']} duplicate records.<br/>
+                    • <b>Tag:</b> <span style="color:{p38_missed['classification_color']}; font-weight:700;">[{'DATA GAP' if p38_missed['total_issues_count'] > 0 else 'NO GAP'}]</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Tabbed Sub-Audits: Event Integrity, Provider Agreement, Subgroup Correlations, Data Quality Score
+        tab_p38_ev, tab_p38_prov, tab_p38_corr, tab_p38_score = st.tabs([
+            "EVENT INTEGRITY TABLE",
+            "MULTI-PROVIDER COMPARISON",
+            "SUBGROUP PERFORMANCE CORRELATIONS",
+            "DATA QUALITY SCORE BREAKDOWN"
+        ])
+
+        with tab_p38_ev:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Reconstructed Economic Events & SHA-256 Fingerprints</p>", unsafe_allow_html=True)
+            if p38_recon["events"]:
+                df_p38_ev = pd.DataFrame(p38_recon["events"])[["event_id", "event_name", "currency", "impact", "scheduled_timestamp", "forecast", "previous", "actual", "source", "data_fingerprint"]]
+                st.dataframe(df_p38_ev, use_container_width=True)
+            else:
+                st.info("No economic events recorded for this date.")
+
+        with tab_p38_prov:
+            st.markdown(f"<p style='font-size:11px; font-weight:700; color:#bef264;'>Provider Comparison & Live API Status — Verdict: {p38_prov['agreement_verdict']}</p>", unsafe_allow_html=True)
+            df_p38_prov = pd.DataFrame(p38_prov["providers"])[["provider_label", "source_name", "status", "events_count", "is_available"]]
+            st.dataframe(df_p38_prov, use_container_width=True)
+            st.markdown(f"<div style='font-size:11px; color:#8a99ad; margin-top:4px;'>Note: {p38_prov['truthfulness_note']}</div>", unsafe_allow_html=True)
+
+        with tab_p38_corr:
+            st.markdown(f"<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Subgroup Performance Matrix with Statistical Sample-Size Protection</p>", unsafe_allow_html=True)
+            df_p38_corr = pd.DataFrame(p38_corr["subgroups"])[["subgroup_name", "sample_n", "statistical_tier", "win_rate_pct", "avg_r", "median_r", "total_r", "max_drawdown_r", "sample_meaning"]]
+            st.dataframe(df_p38_corr, use_container_width=True)
+            st.markdown(f"<div style='font-size:11px; color:#f59e0b; margin-top:4px; font-style:italic;'>Disclaimer: {p38_corr['disclaimer']}</div>", unsafe_allow_html=True)
+
+        with tab_p38_score:
+            st.markdown(f"<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Market Context Data Quality Score: {p38_qual['total_score']} / 100</p>", unsafe_allow_html=True)
+            df_p38_qual = pd.DataFrame(p38_qual["breakdown"])[["dimension", "score", "max_score", "meaning"]]
+            st.dataframe(df_p38_qual, use_container_width=True)
 
     st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
 

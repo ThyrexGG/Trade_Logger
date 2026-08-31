@@ -508,6 +508,23 @@ class DailyTradingCommandEngine:
             f"Continue observing the frozen strategy without introducing manual overrides or news directional filters."
         )
 
+        # Phase 38 News History & Missed Event Audit additions
+        from xauusd_news_history_audit import HistoricalContextReconstructor
+        from xauusd_missed_event_detector import MissedEventAuditor
+        from xauusd_news_snapshot_store import MultiProviderComparator
+        from xauusd_market_condition_correlation import (
+            SubgroupCorrelationEngine,
+            MarketContextDataQualityScorer,
+            DailyContextCloseAuditor,
+        )
+
+        news_history_audit = HistoricalContextReconstructor.reconstruct_date_context(target_date, query_timestamp=now_dt, symbol=symbol)
+        missed_events_audit = MissedEventAuditor.audit_captured_events_for_date(target_date, symbol=symbol)
+        provider_comp = MultiProviderComparator.compare_providers_for_date(target_date)
+        market_corr = SubgroupCorrelationEngine.audit_subgroup_correlations(mode="PAPER")
+        data_qual = MarketContextDataQualityScorer.calculate_quality_score(target_date, symbol=symbol)
+        daily_close = DailyContextCloseAuditor.audit_daily_close(target_date, symbol=symbol)
+
         return {
             "symbol": symbol,
             "evaluated_at": now_dt.isoformat(),
@@ -539,4 +556,10 @@ class DailyTradingCommandEngine:
             "source_classification": source_class,
             "freshness_audit": freshness_audit,
             "closure_audit": closure_audit,
+            "news_history_audit": news_history_audit,
+            "missed_events_audit": missed_events_audit,
+            "provider_comparison": provider_comp,
+            "market_condition_correlation": market_corr,
+            "data_quality_score": data_qual,
+            "daily_close_audit": daily_close,
         }

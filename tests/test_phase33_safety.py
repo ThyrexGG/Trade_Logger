@@ -19,7 +19,7 @@ def test_strategy_contract_hash_exact_match():
     assert os.path.exists(contract_path)
 
     with open(contract_path, "rb") as f:
-        computed_hash = hashlib.sha256(f.read()).hexdigest()
+        computed_hash = hashlib.sha256(f.read().replace(b"\r\n", b"\n")).hexdigest()
 
     assert computed_hash == FROZEN_CONTRACT_HASH
     assert computed_hash == "7f135a1269626a21dba769b7f0173c8a5428dcb7b47a88976045ea8aff376b76"
