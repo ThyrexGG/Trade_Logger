@@ -3686,11 +3686,13 @@ def render_live_dashboard():
                             2. <b>Interpretation:</b> The true MTF architecture improved USDJPY substantially compared with earlier 15M-only experiments, but historical evidence is weaker than XAUUSD.<br/>
                             3. <b>Governance Decision:</b> Keep USDJPY available for research and paper validation; do not prioritize it for live automation.
                         </div>
-                        """, unsafe_allow_ht                with tab_res_dim10:
+                        """, unsafe_allow_html=True)
+
+                with tab_res_dim10:
                     render_xauusd_adversarial_audit(key_prefix="sub_adv")
 
                 with tab_res_dim11:
-                    render_xauusd_forward_evidence_center(key_prefix="sub_fwd")cess(f"PARITY CHECK RESULT: {p_res['verdict']} (Paper State: {p_res['paper_state']} | Shadow State: {p_res['shadow_state']})")
+                    render_xauusd_forward_evidence_center(key_prefix="sub_fwd")
 
                 with tab_res_dim12:
                     st.markdown("<p style='font-size:12px; font-weight:700; color:#00ffcc;'>Grounded AI Research Synthesis</p>", unsafe_allow_html=True)
@@ -3707,6 +3709,8 @@ def render_live_dashboard():
             elif res_cached and "backtest_result" in res_cached and "error" in res_cached["backtest_result"]:
                 st.error(res_cached["backtest_result"]["error"])
             else:
+                st.info("Configure the strategy and asset parameters above, then click **RUN STATISTICAL EDGE AUDIT** to execute the research lab analysis.")
+
         with tab_xauusd_audit:
             render_xauusd_adversarial_audit(key_prefix="top_adv")
 
