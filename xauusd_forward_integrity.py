@@ -184,8 +184,9 @@ class ForwardObservationProvenance:
         conn = database.get_connection()
         query = "SELECT * FROM xauusd_forward_provenance"
         params = []
+        placeholder = "%s" if database.is_postgres() else "?"
         if mode:
-            query += " WHERE execution_mode = ?"
+            query += f" WHERE execution_mode = {placeholder}"
             params.append(mode)
         query += " ORDER BY signal_timestamp DESC"
         df = pd.read_sql_query(query, conn, params=params)
