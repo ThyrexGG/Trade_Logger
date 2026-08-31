@@ -38,7 +38,8 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 ### Backend Files
 | File | Purpose |
 |------|---------|
-| `app.py` | Main Streamlit UI (9 tabs) + Research Lab (Reversal, Continuation, Edge Discovery, Conditional Validation, True MTF, XAUUSD Audit) + Operations Panel |
+| `app.py` | Main Streamlit UI (9 tabs) + Research Lab (Reversal, Continuation, Edge Discovery, Conditional Validation, True MTF, XAUUSD Audit, XAUUSD Forward) + Operations Panel |
+| `xauusd_forward_validator.py` | Phase 21 XAUUSD True MTF Frozen Strategy Engine, Forward Journal Persistence, Target Milestone (2R-7R) Analytics, Regime Monitor, Paper/Shadow Parity Checker |
 | `research_explanations.py` | Centralized Explainable Research Module (Tooltips, Context-Aware Expectancy Overrides, Sample Tier Warnings, MTF Visual Flow, Drawdown Conversions) |
 | `xauusd_audit_engine.py` | Dedicated XAUUSD True MTF Adversarial Audit Engine (6-Model Execution Benchmark, Structural SL Sensitivity, Parameter Perturbation Surface, 10k Monte Carlo, Canonical Pipeline Replayer) |
 | `true_mtf_engine.py` | Dedicated True Multi-Timeframe (1D->4H->15M->5M->1M) Engine, 18-State Machine, Execution Timeframe Comparer, 16-Asset Discovery Universe |
@@ -79,9 +80,10 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 | `trend_continuation.py` | EMA crossover continuation |
 | `mean_reversion.py` | RSI extreme reversal |
 
-### Automated Test Suite Status (140 PASSED, 2 SKIPPED — 100% REGRESSION PASS RATE)
+### Automated Test Suite Status (146 PASSED, 2 SKIPPED — 100% REGRESSION PASS RATE)
 | File | Purpose | Test Count |
 |------|---------|------------|
+| `test_xauusd_forward_validation.py` | Forward journal persistent logging, R milestone hit rates (2R-7R), dataset isolation, pipeline parity, regime non-interference | 6 PASSED |
 | `test_research_explanations.py` | Metric catalog completeness, tooltips, sample tier rules, CI interpretation, context overrides, drawdown, Monte Carlo, zero emojis/certainty | 9 PASSED |
 | `test_phase20_mtf_integrity.py` | Adversarial future mutation lookahead proof, timestamp strictness, SL/TP models, perturbation plateau, paper/shadow replay parity | 11 PASSED |
 | `test_true_mtf_research.py` | 18-state lifecycle, zero-lookahead assertions, 1M vs 5M vs 15M benchmark, cross-asset ranking | 5 PASSED |
