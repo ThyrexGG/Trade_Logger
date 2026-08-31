@@ -34,6 +34,17 @@ def get_db_url():
 def is_postgres():
     return bool(get_db_url())
 
+def get_sql_placeholder(conn=None):
+    """
+    Returns '%s' for PostgreSQL connections and '?' for SQLite connections.
+    Foolproof across connection types and execution contexts.
+    """
+    if conn is not None:
+        if isinstance(conn, sqlite3.Connection) or type(conn).__module__.startswith("sqlite3"):
+            return "?"
+        return "%s"
+    return "%s" if is_postgres() else "?"
+
 def get_connection():
     db_url = get_db_url()
     if db_url:
