@@ -19,6 +19,7 @@ import market_data
 @pytest.fixture(autouse=True)
 def setup_env(monkeypatch):
     """Ensure clean test environment."""
+    database.init_db()
     database.set_setting("GLOBAL_KILL_SWITCH", "FALSE")
     database.set_setting("SYSTEM_STATE", "PAPER")
     database.set_setting("MAX_TRADE_RISK_PCT", "25.0")

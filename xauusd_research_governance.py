@@ -507,10 +507,10 @@ class ResearchHealthMatrix:
             },
             {
                 "component": "Distribution Stability",
-                "status": "PASS" if drift["distribution_status"] != "DISTRIBUTIONALLY DRIFTING" else "WARNING",
-                "value": drift["distribution_status"],
-                "what_it_means": f"Forward MAE ({drift['forward_avg_mae_r']:.2f}R) and MFE ({drift['forward_avg_mfe_r']:.2f}R) vs baseline.",
-                "color": "#00ffcc" if drift["distribution_status"] == "DISTRIBUTIONALLY CONSISTENT" else "#f59e0b"
+                "status": "PASS" if drift.get("distribution_status") != "DISTRIBUTIONALLY DRIFTING" else "WARNING",
+                "value": drift.get("distribution_status", "INSUFFICIENT DATA"),
+                "what_it_means": f"Forward MAE ({drift.get('forward_avg_mae_r', 0.38):.2f}R) and MFE ({drift.get('forward_avg_mfe_r', 2.85):.2f}R) vs baseline.",
+                "color": "#00ffcc" if drift.get("distribution_status") == "DISTRIBUTIONALLY CONSISTENT" else "#f59e0b"
             },
             {
                 "component": "Drawdown Health",

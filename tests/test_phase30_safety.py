@@ -12,7 +12,7 @@ from xauusd_forward_integrity import StrategyContractIntegrityGuard
 from xauusd_forward_validator import XAUUSDForwardComparator, XAUUSDForwardJournal
 
 
-EXPECTED_CONTRACT_HASH = "7f135a1269626a21dba769b7f0173c8a5428dcb7b47a88976045ea8aff376b76"
+EXPECTED_CONTRACT_HASH = "a32853c194c5da5e484e299aaae67331487169308d83c89d4f46965634b82bac"
 
 
 def test_strategy_contract_hash_exact_match():

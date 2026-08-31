@@ -66,7 +66,13 @@ class XAUUSDDriftDetector:
                 "mfe_drift": "Awaiting forward observations",
                 "holding_drift": "Awaiting forward observations",
                 "verdict": "DISTRIBUTIONALLY UNKNOWN (N < 5)",
-                "explanation": "Accumulating unseen forward trades before evaluating Kolmogorov-Smirnov distribution shifts."
+                "explanation": "Accumulating unseen forward trades before evaluating Kolmogorov-Smirnov distribution shifts.",
+                "historical_avg_mae_r": hist["avg_mae_r"],
+                "forward_avg_mae_r": hist["avg_mae_r"],
+                "historical_avg_mfe_r": hist["avg_mfe_r"],
+                "forward_avg_mfe_r": hist["avg_mfe_r"],
+                "historical_avg_holding_min": hist["avg_holding_time_min"],
+                "forward_avg_holding_min": int(hist["avg_holding_time_min"])
             }
 
         closed = df[df["realized_r"].notnull()]

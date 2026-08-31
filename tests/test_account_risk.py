@@ -18,6 +18,7 @@ from execution_pipeline import CanonicalExecutionRequest, ExecutionState
 
 @pytest.fixture(autouse=True)
 def mock_db_risk(monkeypatch):
+    database.init_db()
     database.set_setting("SYSTEM_STATE", "PAPER")
     database.set_setting("GLOBAL_KILL_SWITCH", "FALSE")
     database.set_setting("MAX_DAILY_LOSS_PCT", "10.0")
