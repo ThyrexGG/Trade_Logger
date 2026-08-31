@@ -1,6 +1,6 @@
 # PROJECT STATE & ARCHITECTURAL RECORD
 **TradeLogger Terminal — Living System Memory**
-*Last Updated: 31 August 2026, Session 15 (Phase 26 XAUUSD Forward Validation Continuous Monitoring, Alerts & Audit Trail Completed & Verified)*
+*Last Updated: 31 August 2026, Session 16 (Phase 27 XAUUSD Forward Validation Evidence Engine & Statistical Review Center Completed & Verified)*
 
 > **HOW TO USE THIS FILE**
 > Start any new AI session with: *"Read PROJECT_STATE.md and continue where we left off."*
@@ -12,7 +12,9 @@
 
 A professional-grade **trading research, journaling, and execution terminal** built for a liquidity-based, ICT/SMC methodology trader. It is NOT a simple trade log — it is a full research + execution stack:
 
-- **Streamlit Desktop Terminal** (`app.py`) — primary UI, 9 tabs including dedicated **RESEARCH LAB** with USDJPY Reversal Lab (Phase 15), USDJPY Continuation Lab (Phase 16), USDJPY Edge Discovery Lab (Phase 17), USDJPY Conditional Validation Lab (Phase 18), True MTF Research Lab (Phase 19), XAUUSD Adversarial Audit Lab (Phase 20), XAUUSD Forward Validation & Decision Center (Phase 21-23), Explainable Research Decision UX (Phase 24), Live Forward Operations Center (Phase 25), and Continuous Forward Monitoring & Audit Trail (Phase 26), Operations Panel, and Live Safety Barriers (Strictly zero emojis across all UI tabs, buttons, metrics, and logs)
+- **Streamlit Desktop Terminal** (`app.py`) — primary UI, 9 tabs including dedicated **RESEARCH LAB** with USDJPY Reversal Lab (Phase 15), USDJPY Continuation Lab (Phase 16), USDJPY Edge Discovery Lab (Phase 17), USDJPY Conditional Validation Lab (Phase 18), True MTF Research Lab (Phase 19), XAUUSD Adversarial Audit Lab (Phase 20), XAUUSD Forward Validation & Decision Center (Phase 21-23), Explainable Research Decision UX (Phase 24), Live Forward Operations Center (Phase 25), Continuous Forward Monitoring (Phase 26), and Forward Validation Evidence Engine & Statistical Review Center (Phase 27), Operations Panel, and Live Safety Barriers (Strictly zero emojis across all UI tabs, buttons, metrics, and logs)
+- **Forward Evidence Engine & Transparent 100-Point Scorer** (`xauusd_forward_evidence.py`) — Core statistics ($N$, $E[R]$, median R, win rate, PF, max DD, recovery factor), multi-tier bootstrap confidence intervals (90%, 95%, 99% CI with reproducible seeds), historical effect size comparator, sequential evidence analyzer, bootstrap stability analyzer, forward-only Monte Carlo (1,000 resamplings), regime-conditional evidence with $N < 30$ sample protections, strategy vs execution decomposition, and 0–100 inspectable evidence score
+- **Human Review Package Generator & Dossier Exporter** (`xauusd_review_package.py`) — Formal 18-section research audit dossier distinguishing `KNOWN`, `OBSERVED`, `UNCERTAIN`, and `NOT ENOUGH DATA` with clean markdown export and `MARK FOR HUMAN REVIEW` gate (strictly zero live trading enablement controls)
 - **Continuous Forward Monitor & CUSUM Drift Engine** (`xauusd_continuous_monitor.py`) — Real-time telemetry calculator, rolling 20/30/50 expectancy windows, sequential CUSUM drift detector, and "What Changed?" delta tracking vs previous review snapshots
 - **Event-Based Alert Engine** (`xauusd_alert_engine.py`) — Persistent `xauusd_monitor_events` log across INFORMATION, WARNING, CRITICAL severities with 5-part explainable alert contract and non-destructive acknowledgement
 - **Append-Only Decision History & Audit Trail** (`xauusd_decision_history.py`) — Persistent `xauusd_decision_history` repository maintaining immutable chronological research belief timeline
@@ -40,6 +42,8 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 | File | Purpose |
 |------|---------|
 | `app.py` | Main Streamlit UI (9 tabs) + Research Lab (Reversal, Continuation, Edge Discovery, Conditional Validation, True MTF, XAUUSD Audit, XAUUSD Forward Decision Center) + Operations Panel |
+| `xauusd_forward_evidence.py` | Forward Evidence Analyzer, Multi-Tier Bootstrap CIs (90/95/99%), Effect Size Comparator, Sequential CUSUM, Forward-Only Monte Carlo, 0–100 Evidence Scorer |
+| `xauusd_review_package.py` | 18-Section Research Review Package Generator, Markdown Report Exporter, Empirical State Classifier |
 | `xauusd_continuous_monitor.py` | Continuous Forward Telemetry, Rolling Expectancy (20/30/50), CUSUM Sequential Drift Detector, "What Changed?" Delta Engine |
 | `xauusd_alert_engine.py` | Persistent Event Logging (`xauusd_monitor_events`), Severity Filtering, 5-Part Explainability Payload, Non-Destructive Acknowledgement |
 | `xauusd_decision_history.py` | Append-Only Decision Repository (`xauusd_decision_history`), Chronological Audit Timeline Reconstruction |
