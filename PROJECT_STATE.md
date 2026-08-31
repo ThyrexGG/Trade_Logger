@@ -1,6 +1,6 @@
 # PROJECT STATE & ARCHITECTURAL RECORD
 **TradeLogger Terminal — Living System Memory**
-*Last Updated: 31 August 2026, Session 14 (Phase 25 XAUUSD Forward Validation Operations, Live Market State & Research Decision Engine Completed & Verified)*
+*Last Updated: 31 August 2026, Session 15 (Phase 26 XAUUSD Forward Validation Continuous Monitoring, Alerts & Audit Trail Completed & Verified)*
 
 > **HOW TO USE THIS FILE**
 > Start any new AI session with: *"Read PROJECT_STATE.md and continue where we left off."*
@@ -12,10 +12,13 @@
 
 A professional-grade **trading research, journaling, and execution terminal** built for a liquidity-based, ICT/SMC methodology trader. It is NOT a simple trade log — it is a full research + execution stack:
 
-- **Streamlit Desktop Terminal** (`app.py`) — primary UI, 9 tabs including dedicated **RESEARCH LAB** with USDJPY Reversal Lab (Phase 15), USDJPY Continuation Lab (Phase 16), USDJPY Edge Discovery Lab (Phase 17), USDJPY Conditional Validation Lab (Phase 18), True MTF Research Lab (Phase 19), XAUUSD Adversarial Audit Lab (Phase 20), XAUUSD Forward Validation & Decision Center (Phase 21-23), Explainable Research Decision UX (Phase 24), and Live Forward Operations Center (Phase 25), Operations Panel, and Live Safety Barriers (Strictly zero emojis across all UI tabs, buttons, metrics, and logs)
+- **Streamlit Desktop Terminal** (`app.py`) — primary UI, 9 tabs including dedicated **RESEARCH LAB** with USDJPY Reversal Lab (Phase 15), USDJPY Continuation Lab (Phase 16), USDJPY Edge Discovery Lab (Phase 17), USDJPY Conditional Validation Lab (Phase 18), True MTF Research Lab (Phase 19), XAUUSD Adversarial Audit Lab (Phase 20), XAUUSD Forward Validation & Decision Center (Phase 21-23), Explainable Research Decision UX (Phase 24), Live Forward Operations Center (Phase 25), and Continuous Forward Monitoring & Audit Trail (Phase 26), Operations Panel, and Live Safety Barriers (Strictly zero emojis across all UI tabs, buttons, metrics, and logs)
+- **Continuous Forward Monitor & CUSUM Drift Engine** (`xauusd_continuous_monitor.py`) — Real-time telemetry calculator, rolling 20/30/50 expectancy windows, sequential CUSUM drift detector, and "What Changed?" delta tracking vs previous review snapshots
+- **Event-Based Alert Engine** (`xauusd_alert_engine.py`) — Persistent `xauusd_monitor_events` log across INFORMATION, WARNING, CRITICAL severities with 5-part explainable alert contract and non-destructive acknowledgement
+- **Append-Only Decision History & Audit Trail** (`xauusd_decision_history.py`) — Persistent `xauusd_decision_history` repository maintaining immutable chronological research belief timeline
 - **Live MTF State Engine** (`xauusd_live_state_engine.py`) — Real-time 5-timeframe pipeline tracker (1D Macro Bias, 4H DOL $\ge 2\text{R}$ check, 15M 9-Point Setup Checklist, 5M Confirmation, 1M Precision Limit Entry) and Master Decision synthesis ("WHAT IS THE STRATEGY DOING RIGHT NOW?")
 - **Explainable Research Decision UX & Failure Classifier** (`research_explanations.py`) — Universal 4-question metric interpretation contract, 34+ technical metric catalog, 15-code rejection hierarchy ("Why Didn't We Trade?"), inspectable 8-point approval decision trails ("Why Did We Enter?"), and explicit separation of **Strategy Failure** (market loss / normal variance) vs **Execution Failure** (limit order timeout / missed fill)
-- **XAUUSD Research Governance & Decision Center** (`xauusd_research_governance.py`) — `ForwardDecisionCenter` dynamic synthesis generator, `WatchNextAdvisor` answering "WHAT SHOULD I DO NEXT?" across sample sizes and market stress, `ResearchIntegrityAuditor` 8-point research integrity panel (`PASS`/`WARNING`), `ResearchHypothesisFirewall` (`future_research_queue`), `LiveTradingSafetyBarrier` permanent execution lock
+- **XAUUSD Research Governance & Decision Center** (`xauusd_research_governance.py`) — `ForwardDecisionCenter` dynamic synthesis generator, `WatchNextAdvisor` prioritized governance advice, `ResearchIntegrityAuditor` 8-point panel, `ResearchHealthMatrix` 8-pillar health card, `XAUUSDParityWatchdog`, `XAUUSDDataIntegrityWatchdog`, `ResearchHypothesisFirewall`, `LiveTradingSafetyBarrier`
 - **XAUUSD Forward Statistics & Excursion Analytics** (`xauusd_forward_statistics.py`) — Effect size retention vs holdout baseline (+0.637R), rolling forward windows (20/30/50), isolated cumulative equity curves, 2R-7R target milestone progression, holding time temporal buckets
 - **XAUUSD Execution Quality & Microstructure Diagnostics** (`xauusd_execution_quality.py`) — 1M FVG limit fill rates, timeout expirations, slippage friction, average structural SL bounds
 - **XAUUSD Forward Integrity & Provenance** (`xauusd_forward_integrity.py`) — Frozen strategy immutability guard (`FrozenStrategyMutationException`), forward provenance ledger, feed data quality auditor, outcome classifier
@@ -37,8 +40,12 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 | File | Purpose |
 |------|---------|
 | `app.py` | Main Streamlit UI (9 tabs) + Research Lab (Reversal, Continuation, Edge Discovery, Conditional Validation, True MTF, XAUUSD Audit, XAUUSD Forward Decision Center) + Operations Panel |
-| `research_explanations.py` | Centralized Explainable Research Module: Universal 4-Question Metric Component (`MetricExplanation`), 34+ Metric Catalog, Context-Aware Classification Overrides ($N < 30$, CI crossing zero), MTF Stage Explainer, Rejection/Approval Explainers, Risk Architecture Concept Explanations |
-| `xauusd_research_governance.py` | Research Governance, Hypothesis Firewall (`future_research_queue`), `ForwardDecisionCenter` Dynamic Synthesis, `WatchNextAdvisor` Checkpoint Engine, `ResearchIntegrityAuditor` 8-Point Panel |
+| `xauusd_continuous_monitor.py` | Continuous Forward Telemetry, Rolling Expectancy (20/30/50), CUSUM Sequential Drift Detector, "What Changed?" Delta Engine |
+| `xauusd_alert_engine.py` | Persistent Event Logging (`xauusd_monitor_events`), Severity Filtering, 5-Part Explainability Payload, Non-Destructive Acknowledgement |
+| `xauusd_decision_history.py` | Append-Only Decision Repository (`xauusd_decision_history`), Chronological Audit Timeline Reconstruction |
+| `xauusd_live_state_engine.py` | Real-Time 5-Layer MTF Pipeline Engine (1D, 4H, 15M, 5M, 1M) & Master Decision Hero Card |
+| `research_explanations.py` | Centralized Explainable Research Module: Universal 4-Question Metric Component, 34+ Metric Catalog, 15-Code Rejection Hierarchy, 8-Point Approval Trail, Strategy vs Execution Failure Classifier |
+| `xauusd_research_governance.py` | Research Governance, Hypothesis Firewall (`future_research_queue`), `ForwardDecisionCenter`, `WatchNextAdvisor`, `ResearchIntegrityAuditor`, `ResearchHealthMatrix`, `XAUUSDParityWatchdog`, `XAUUSDDataIntegrityWatchdog`, `LiveTradingSafetyBarrier` |
 | `xauusd_forward_statistics.py` | Forward Effect Size Comparator, Rolling Windows (20/30/50), Cumulative R Curves, Milestones (2R-7R), Durations |
 | `xauusd_execution_quality.py` | 1M FVG Limit Execution Quality, Fill/Miss Rates, Slippage Friction, Microstructure Diagnostics |
 | `xauusd_forward_integrity.py` | Strategy Freeze Guard (`FrozenStrategyMutationException`), Provenance Ledger, Data Feed Quality Auditor |
