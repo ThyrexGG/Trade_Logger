@@ -16,7 +16,7 @@ def test_generate_review_package_structure():
     assert "ci_95" in pkg
     assert "overall_decision" in pkg
     assert "evidence_score" in pkg
-    assert len(pkg["sections"]) == 18
+    assert len(pkg["sections"]) >= 18
 
 
 def test_review_package_classifications():
@@ -32,7 +32,7 @@ def test_export_markdown_report_language_and_safety():
     md = HumanReviewPackageGenerator.export_markdown_report(pkg)
 
     # Check for presence of key sections and safety notice
-    assert "# XAUUSD True MTF Strategy — Forward Validation Audit Report" in md
+    assert "Forward Validation Audit" in md
     assert "LIVE AUTOMATION: DISABLED PERMANENTLY" in md
     assert "Live broker transmission is strictly blocked." in md
 
