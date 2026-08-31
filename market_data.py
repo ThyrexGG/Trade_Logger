@@ -141,6 +141,60 @@ def get_realtime_candles(symbol="XAUUSD", timeframe="15m", count=250):
     # 4. Fallback: Return empty array instead of fake synthetic data
     return []
 
+
+def get_latest_price(symbol: str = "EURUSD") -> Optional[float]:
+    """
+    Returns latest real-time market price for symbol.
+    Fetches real-time candles and extracts the most recent close.
+    """
+    sym = symbol.upper().replace("/", "").replace(":", "").strip()
+    try:
+        candles = get_realtime_candles(sym, timeframe="1m", count=1)
+        if candles and len(candles) > 0:
+            return float(candles[-1]["close"])
+    except Exception:
+        pass
+    return None
+
+
+def get_latest_tick(symbol: str = "EURUSD") -> Optional[Dict[str, Any]]:
+    """
+    Returns latest executable bid/ask tick for a symbol.
+    Priority 1: MT5 terminal live tick.
+    Priority 2: Latest real-time price with realistic spread modeling.
+    """
+    sym = symbol.upper().replace("/", "").replace(":", "").strip()
+    try:
+        import mt5_sync
+        if mt5_sync.MT5_AVAILABLE:
+            import MetaTrader5 as mt5
+            if mt5.initialize():
+                tick = mt5.symbol_info_tick(sym)
+                mt5.shutdown()
+                if tick:
+                    return {
+                        "symbol": sym,
+                        "bid": float(tick.bid),
+                        "ask": float(tick.ask),
+                        "time": int(tick.time),
+                        "source": "MT5"
+                    }
+    except Exception:
+        pass
+        
+    p = get_latest_price(sym)
+    if p and p > 0:
+        spread = 0.00015 if ("EUR" in sym or "GBP" in sym) else (0.25 if "XAU" in sym else 0.01)
+        return {
+            "symbol": sym,
+            "bid": round(p - (spread / 2), 5),
+            "ask": round(p + (spread / 2), 5),
+            "time": int(time.time()),
+            "source": "ESTIMATED"
+        }
+    return None
+
+
 def get_market_health(symbol="XAUUSD", timeframe="1m"):
     """
     Checks the health and freshness of the market data.

@@ -415,29 +415,34 @@ class WebhookPayload(BaseModel):
 import execution_pipeline
 import uuid
 
+import execution_pipeline
+import uuid
+
 @app.post("/api/order/execute")
 def execute_trade_order(payload: OrderExecutionRequest):
     """Executes a trade on Capital.com or MT5 based on account selection via the Canonical Pipeline."""
     account_type = "CAPITAL" if "Capital.com" in payload.account_id or payload.account_id == "CAPITAL_REAL" else "MT5"
     
-    res = execution_pipeline.submit_order(
+    req = execution_pipeline.CanonicalExecutionRequest(
         signal_id=f"UI_{uuid.uuid4().hex[:8]}",
         symbol=payload.symbol,
-        direction=payload.direction,
-        volume=payload.volume,
-        account_type=account_type,
+        side=payload.direction,
+        quantity=payload.volume,
+        broker=account_type,
+        mode=database.get_setting("SYSTEM_STATE", "PAPER"),
         stop_loss=payload.stop_loss,
         take_profit=payload.take_profit,
-        strategy=payload.strategy,
-        timeframe=payload.timeframe,
-        timestamp=time.time(),
-        current_price=payload.price
+        strategy=payload.strategy or "Manual",
+        timeframe=payload.timeframe or "Unknown",
+        requested_entry=payload.price or 0.0,
+        source="API"
     )
+    res = execution_pipeline.submit_order(req)
     
-    if res["status"] == "success":
-        return {"status": "executed", "message": res["message"]}
+    if res.get("status") in ["success", "FILLED"]:
+        return {"status": "executed", "message": res.get("message", "Order executed")}
     else:
-        raise HTTPException(status_code=400, detail=res["message"])
+        raise HTTPException(status_code=400, detail=res.get("message", "Execution rejected"))
 
 from fastapi import Request, HTTPException
 import collections
@@ -466,24 +471,27 @@ def tradingview_webhook(payload: WebhookPayload, request: Request):
     if payload.secret != EXPECTED_SECRET:
         raise HTTPException(status_code=401, detail="Unauthorized Webhook Secret")
         
-    res = execution_pipeline.submit_order(
+    req = execution_pipeline.CanonicalExecutionRequest(
         signal_id=payload.signal_id,
         symbol=payload.symbol,
-        direction=payload.direction,
-        volume=payload.volume,
-        account_type=payload.account_type,
+        side=payload.direction,
+        quantity=payload.volume,
+        broker=payload.account_type,
+        mode=database.get_setting("SYSTEM_STATE", "PAPER"),
         stop_loss=payload.stop_loss,
         take_profit=payload.take_profit,
-        strategy=payload.strategy,
-        timeframe=payload.timeframe,
+        strategy=payload.strategy or "Webhook",
+        timeframe=payload.timeframe or "Unknown",
+        requested_entry=payload.current_price or 0.0,
         timestamp=payload.timestamp,
-        current_price=payload.current_price
+        source="WEBHOOK"
     )
+    res = execution_pipeline.submit_order(req)
         
-    if res["status"] == "success":
-        return {"status": "success", "message": f"Webhook triggered trade: {res['message']}"}
+    if res.get("status") in ["success", "FILLED"]:
+        return {"status": "success", "message": f"Webhook triggered trade: {res.get('message', 'Filled')}"}
     else:
-        raise HTTPException(status_code=400, detail=f"Webhook execution failed: {res['message']}")
+        raise HTTPException(status_code=400, detail=f"Webhook execution failed: {res.get('message')}")
 
 
 # Mount Flutter Web App as static build

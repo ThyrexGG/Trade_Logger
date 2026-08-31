@@ -173,9 +173,16 @@ def init_db():
                 broker_order_id TEXT,
                 broker_position_id TEXT,
                 created_at TEXT NOT NULL,
+                updated_at TEXT,
                 submitted_at TEXT,
+                filled_at TEXT,
+                unknown_at TEXT,
                 resolved_at TEXT,
-                last_error TEXT
+                last_error TEXT,
+                reject_reason TEXT,
+                reconciliation_status TEXT,
+                signal_payload TEXT,
+                execution_latency_ms DOUBLE PRECISION
             );
         """)
         
@@ -191,6 +198,18 @@ def init_db():
             );
         """)
         
+        # Add migration columns for execution_orders in Postgres safely
+        try:
+            cursor.execute("ALTER TABLE execution_orders ADD COLUMN IF NOT EXISTS updated_at TEXT;")
+            cursor.execute("ALTER TABLE execution_orders ADD COLUMN IF NOT EXISTS filled_at TEXT;")
+            cursor.execute("ALTER TABLE execution_orders ADD COLUMN IF NOT EXISTS unknown_at TEXT;")
+            cursor.execute("ALTER TABLE execution_orders ADD COLUMN IF NOT EXISTS reject_reason TEXT;")
+            cursor.execute("ALTER TABLE execution_orders ADD COLUMN IF NOT EXISTS reconciliation_status TEXT;")
+            cursor.execute("ALTER TABLE execution_orders ADD COLUMN IF NOT EXISTS signal_payload TEXT;")
+            cursor.execute("ALTER TABLE execution_orders ADD COLUMN IF NOT EXISTS execution_latency_ms DOUBLE PRECISION;")
+        except Exception:
+            pass
+
         # Add migration columns for closed_trades in Postgres safely
         try:
             cursor.execute("ALTER TABLE closed_trades ADD COLUMN IF NOT EXISTS chart_snapshot_url TEXT;")
@@ -327,9 +346,16 @@ def init_db():
                 broker_order_id TEXT,
                 broker_position_id TEXT,
                 created_at TEXT NOT NULL,
+                updated_at TEXT,
                 submitted_at TEXT,
+                filled_at TEXT,
+                unknown_at TEXT,
                 resolved_at TEXT,
-                last_error TEXT
+                last_error TEXT,
+                reject_reason TEXT,
+                reconciliation_status TEXT,
+                signal_payload TEXT,
+                execution_latency_ms REAL
             )
         """)
         
@@ -372,19 +398,23 @@ def init_db():
             )
         """)
 
-        # Add migration columns for existing closed_trades SQLite table safely
-        try:
-            cursor.execute("ALTER TABLE closed_trades ADD COLUMN chart_snapshot_url TEXT DEFAULT NULL;")
-        except Exception:
-            pass
-        try:
-            cursor.execute("ALTER TABLE closed_trades ADD COLUMN notes TEXT DEFAULT NULL;")
-        except Exception:
-            pass
-        try:
-            cursor.execute("ALTER TABLE closed_trades ADD COLUMN rating INTEGER DEFAULT 0;")
-        except Exception:
-            pass
+        # Add migration columns for execution_orders and closed_trades safely
+        for col_def in [
+            ("execution_orders", "updated_at TEXT"),
+            ("execution_orders", "filled_at TEXT"),
+            ("execution_orders", "unknown_at TEXT"),
+            ("execution_orders", "reject_reason TEXT"),
+            ("execution_orders", "reconciliation_status TEXT"),
+            ("execution_orders", "signal_payload TEXT"),
+            ("execution_orders", "execution_latency_ms REAL"),
+            ("closed_trades", "chart_snapshot_url TEXT DEFAULT NULL"),
+            ("closed_trades", "notes TEXT DEFAULT NULL"),
+            ("closed_trades", "rating INTEGER DEFAULT 0")
+        ]:
+            try:
+                cursor.execute(f"ALTER TABLE {col_def[0]} ADD COLUMN {col_def[1]};")
+            except Exception:
+                pass
     
     conn.commit()
     conn.close()

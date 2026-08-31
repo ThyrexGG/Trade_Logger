@@ -2,14 +2,18 @@
 .env
 *.db
 
-# Temporary test and migration scripts
-test_*.py
-debug_*.py
-check_*.py
-find_*.py
-reset_*.py
-migrate_*.py
-generate_*.py
+# Temporary test and migration scripts in root
+/test_*.py
+/debug_*.py
+/check_*.py
+/find_*.py
+/reset_*.py
+/migrate_*.py
+/generate_*.py
+
+# Keep test suite
+!tests/
+!tests/**
 
 # Python caches
 __pycache__/

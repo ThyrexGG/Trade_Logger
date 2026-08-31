@@ -3124,28 +3124,64 @@ def render_live_dashboard():
             col_btn_buy, col_btn_sell = st.columns(2)
             with col_btn_buy:
                 if st.button("SUBMIT BUY ORDER", type="primary", key="btn_exec_buy", use_container_width=True, disabled=disable_exec):
-                    with st.spinner("Submitting BUY order..."):
-                        if trade_acc == "CAPITAL_REAL":
-                            ok, msg = order_execution.execute_capital_trade(epic=term_symbol, direction="BUY", size=term_size, stop_loss=term_sl if term_sl > 0 else None, take_profit=term_tp if term_tp > 0 else None)
-                        else:
-                            ok, msg = order_execution.execute_mt5_trade(symbol=term_symbol, direction="BUY", volume=term_size, stop_loss=term_sl if term_sl > 0 else None, take_profit=term_tp if term_tp > 0 else None)
-                        if ok:
-                            st.success(msg)
+                    with st.spinner("Submitting BUY order via Canonical Pipeline..."):
+                        import execution_pipeline
+                        import uuid
+                        import market_data
+                        
+                        curr_p = market_data.get_latest_price(term_symbol) or 0.0
+                        b_name = "CAPITAL" if trade_acc == "CAPITAL_REAL" else "MT5"
+                        m_name = database.get_setting("SYSTEM_STATE", "PAPER")
+                        
+                        req = execution_pipeline.CanonicalExecutionRequest(
+                            signal_id=f"UI_{uuid.uuid4().hex[:8]}",
+                            symbol=term_symbol,
+                            side="BUY",
+                            quantity=float(term_size),
+                            requested_entry=float(curr_p),
+                            stop_loss=float(term_sl) if term_sl > 0 else None,
+                            take_profit=float(term_tp) if term_tp > 0 else None,
+                            broker=b_name,
+                            mode=m_name,
+                            source="MANUAL_UI",
+                            strategy="Quick Terminal"
+                        )
+                        res = execution_pipeline.submit_order(req)
+                        if res.get("status") in ["success", "FILLED"]:
+                            st.success(f"Order Executed: {res.get('message', 'Filled successfully')}")
                             st.rerun()
                         else:
-                            st.error(msg)
+                            st.error(f"Execution Blocked ({res.get('state')}): {res.get('message')}")
             with col_btn_sell:
                 if st.button("SUBMIT SELL ORDER", key="btn_exec_sell", use_container_width=True, disabled=disable_exec):
-                    with st.spinner("Submitting SELL order..."):
-                        if trade_acc == "CAPITAL_REAL":
-                            ok, msg = order_execution.execute_capital_trade(epic=term_symbol, direction="SELL", size=term_size, stop_loss=term_sl if term_sl > 0 else None, take_profit=term_tp if term_tp > 0 else None)
-                        else:
-                            ok, msg = order_execution.execute_mt5_trade(symbol=term_symbol, direction="SELL", volume=term_size, stop_loss=term_sl if term_sl > 0 else None, take_profit=term_tp if term_tp > 0 else None)
-                        if ok:
-                            st.success(msg)
+                    with st.spinner("Submitting SELL order via Canonical Pipeline..."):
+                        import execution_pipeline
+                        import uuid
+                        import market_data
+                        
+                        curr_p = market_data.get_latest_price(term_symbol) or 0.0
+                        b_name = "CAPITAL" if trade_acc == "CAPITAL_REAL" else "MT5"
+                        m_name = database.get_setting("SYSTEM_STATE", "PAPER")
+                        
+                        req = execution_pipeline.CanonicalExecutionRequest(
+                            signal_id=f"UI_{uuid.uuid4().hex[:8]}",
+                            symbol=term_symbol,
+                            side="SELL",
+                            quantity=float(term_size),
+                            requested_entry=float(curr_p),
+                            stop_loss=float(term_sl) if term_sl > 0 else None,
+                            take_profit=float(term_tp) if term_tp > 0 else None,
+                            broker=b_name,
+                            mode=m_name,
+                            source="MANUAL_UI",
+                            strategy="Quick Terminal"
+                        )
+                        res = execution_pipeline.submit_order(req)
+                        if res.get("status") in ["success", "FILLED"]:
+                            st.success(f"Order Executed: {res.get('message', 'Filled successfully')}")
                             st.rerun()
                         else:
-                            st.error(msg)
+                            st.error(f"Execution Blocked ({res.get('state')}): {res.get('message')}")
 
         # Open positions with Close button
         if not df_open.empty:
@@ -3182,16 +3218,22 @@ def render_live_dashboard():
                 with col_pos_act:
                     st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
                     if st.button("Close Position", key=f"close_pos_{pos_id}", use_container_width=True):
+                        from broker_adapter import get_broker_adapter
                         if pos_id.startswith("MT5_"):
-                            st.info("To close MT5 positions, manage them directly in your MetaTrader terminal.")
+                            ad = get_broker_adapter("MT5")
+                            r = ad.close_position(pos_id.replace("MT5_", ""))
+                        elif pos_id.startswith("CAP_"):
+                            ad = get_broker_adapter("CAPITAL")
+                            r = ad.close_position(pos_id.replace("CAP_", ""))
                         else:
-                            clean_id = pos_id.replace("CAP_", "")
-                            ok, msg = order_execution.close_capital_position(clean_id)
-                            if ok:
-                                st.success(msg)
-                                st.rerun()
-                            else:
-                                st.error(msg)
+                            ad = get_broker_adapter("PAPER")
+                            r = ad.close_position(pos_id)
+                            
+                        if r.status == "SUCCESS":
+                            st.success("Position closed successfully!")
+                            st.rerun()
+                        else:
+                            st.error(r.message)
                                 
     with tab_sandbox:
         st.markdown("<h3 style='color:#ffffff;font-size:1.3rem;margin-bottom:6px;font-weight:800;text-transform:uppercase;'>Multi-Timeframe Strategy Sandbox</h3>", unsafe_allow_html=True)
@@ -3311,18 +3353,80 @@ def render_live_dashboard():
                         st.dataframe(pd.DataFrame(res["trades"]), use_container_width=True)
                         
     with tab_health:
-        st.markdown("<h3 style='color:#ffffff;font-size:1.3rem;margin-bottom:6px;font-weight:800;text-transform:uppercase;'>System Health & Paper Execution Status</h3>", unsafe_allow_html=True)
+        st.markdown("<h3 style='color:#ffffff;font-size:1.3rem;margin-bottom:6px;font-weight:800;text-transform:uppercase;'>Execution Operations & System Health Gate</h3>", unsafe_allow_html=True)
+        st.markdown("<p style='color:#8a99ad;font-size:13px;margin-bottom:16px;'>Authoritative diagnostics across Broker Reconciliation, Execution Pipelines, and Safety Invariants.</p>", unsafe_allow_html=True)
         
-        # Fake logic or real check depending on available data
-        st.markdown("<div style='font-size:0.75rem;font-weight:800;color:#00ffcc;letter-spacing:1px;margin-bottom:12px;'>SYSTEM COMPONENT STATUS</div>", unsafe_allow_html=True)
+        import system_health
+        import reconciliation
+        
+        cur_mode = database.get_setting("SYSTEM_STATE", "PAPER")
+        health_data = system_health.evaluate_system_health(broker="MT5", mode=cur_mode)
+        recon_h = reconciliation.get_reconciliation_health()
+        
+        # Operational Top Cards
+        st.markdown("<div style='font-size:0.75rem;font-weight:800;color:#00ffcc;letter-spacing:1px;margin-bottom:12px;'>REAL-TIME SUBSYSTEM STATUS</div>", unsafe_allow_html=True)
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("MT5 Engine", "HEALTHY", "Connected")
-        c2.metric("Capital.com", "HEALTHY", "Syncing")
-        c3.metric("Ollama AI", "ACTIVE", "Responding")
-        c4.metric("Paper Simulator", "RUNNING", "1.5 Pip Spread")
         
-        st.markdown("<div style='margin-top:24px;font-size:0.75rem;font-weight:800;color:#f59e0b;letter-spacing:1px;margin-bottom:12px;'>PAPER EXECUTION VS EXPECTED FILL</div>", unsafe_allow_html=True)
-        st.info("Paper simulator is applying continuous slippage and spread to simulate live execution.")
+        auto_badge = "ALLOWED" if health_data["automation_allowed"] else "BLOCKED"
+        auto_color = "normal" if health_data["automation_allowed"] else "off"
+        c1.metric("Live Automation", auto_badge, f"Mode: {cur_mode}")
+        c2.metric("Reconciliation Worker", recon_h.get("status", "UNKNOWN"), f"Failures: {recon_h.get('consecutive_failures', 0)}")
+        
+        # UNKNOWN order count
+        conn = database.get_connection()
+        try:
+            df_exec = pd.read_sql_query("SELECT * FROM execution_orders ORDER BY created_at DESC LIMIT 50", conn)
+            unknown_cnt = int((df_exec["state"] == "UNKNOWN").sum()) if not df_exec.empty and "state" in df_exec.columns else 0
+        except Exception:
+            df_exec = pd.DataFrame()
+            unknown_cnt = 0
+        conn.close()
+        
+        c3.metric("UNKNOWN Orders", f"{unknown_cnt}", "0 expected" if unknown_cnt == 0 else "Action Req")
+        c4.metric("Risk Gateway", "ACTIVE", "Fail-Closed")
+        
+        # Reason warnings if blocked
+        if not health_data["automation_allowed"]:
+            st.markdown("""
+            <div style="background:rgba(255,85,85,0.1); border:1px solid #ff5555; border-radius:8px; padding:12px; margin-top:14px; margin-bottom:14px;">
+                <div style="color:#ff5555; font-weight:800; font-size:13px; margin-bottom:6px;">⚠️ AUTOMATION GATE BLOCKED</div>
+                <div style="color:#cbd5e1; font-size:12px; margin-bottom:6px;">The following safety conditions are currently blocking automated trade execution:</div>
+                <ul style="color:#ff5555; font-size:12px; margin:0 0 0 16px;">
+            """ + "".join([f"<li>{r}</li>" for r in health_data["reasons"]]) + """
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        # Action Toolbar
+        col_act1, col_act2, col_act3 = st.columns([1.2, 1.2, 2.0])
+        with col_act1:
+            if st.button("Trigger Immediate Reconciliation", key="btn_trigger_recon", use_container_width=True):
+                with st.spinner("Running position & order reconciliation..."):
+                    res_rec = reconciliation.reconcile_unknown_orders()
+                    st.success(f"Reconciliation cycle complete ({len(res_rec)} resolved).")
+                    st.rerun()
+        with col_act2:
+            if recon_h.get("status") == "RECONCILIATION_STOPPED":
+                if st.button("Start Recon Daemon", key="btn_start_recon", use_container_width=True):
+                    reconciliation.start_background_reconciliation()
+                    st.success("Reconciliation daemon started.")
+                    st.rerun()
+            else:
+                if st.button("Stop Recon Daemon", key="btn_stop_recon", use_container_width=True):
+                    reconciliation.stop_background_reconciliation()
+                    st.warning("Reconciliation daemon stopped.")
+                    st.rerun()
+                    
+        # Execution State Machine Audit Log Table
+        st.markdown("<div style='margin-top:24px;font-size:0.75rem;font-weight:800;color:#00ffcc;letter-spacing:1px;margin-bottom:12px;'>CANONICAL EXECUTION PIPELINE AUDIT LOG</div>", unsafe_allow_html=True)
+        if not df_exec.empty:
+            st.dataframe(
+                df_exec[["execution_id", "signal_id", "symbol", "side", "requested_quantity", "requested_entry", "broker", "mode", "state", "execution_latency_ms", "reject_reason", "created_at"]],
+                use_container_width=True,
+                height=300
+            )
+        else:
+            st.info("No canonical execution records found.")
 
 render_live_dashboard()
 

@@ -1,6 +1,6 @@
 # PROJECT STATE & ARCHITECTURAL RECORD
 **TradeLogger Terminal — Living System Memory**
-*Last Updated: 30 August 2026, Session 2*
+*Last Updated: 31 August 2026, Session 4 (Phase 12A & 12B Verified)*
 
 > **HOW TO USE THIS FILE**
 > Start any new AI session with: *"Read PROJECT_STATE.md and continue where we left off."*
@@ -12,16 +12,18 @@
 
 A professional-grade **trading research, journaling, and execution terminal** built for a liquidity-based, ICT/SMC methodology trader. It is NOT a simple trade log — it is a full research + execution stack:
 
-- **Streamlit Desktop Terminal** (`app.py`) — primary UI, 8 tabs
+- **Streamlit Desktop Terminal** (`app.py`) — primary UI, 8 tabs with Execution Operations & System Health Panel
 - **Deterministic AI Market Analysis Engine** (`ai_analysis.py`) — 17-phase pipeline
 - **Modular Strategy Framework** (`strategies/`) — unified engine for live + backtest
 - **Historical Backtester** (`backtester.py`) — OOS-split, SMC-aware, limit order aware
 - **Walk-Forward Optimization** (`wfo.py`) — rolling window parameter optimization
-- **MT5 + Capital.com broker sync** — live position tracking + execution
-- **Canonical Execution Pipeline** (`execution_pipeline.py`) — fail-closed order routing
-- **Risk Engine** (`portfolio_risk.py`) — portfolio-level risk controls
-- **Account State Layer** (`account_state.py`) — broker-reconciled balances
-- **FastAPI WebSocket server** (`server.py`) — live tick streaming + webhook receiver
+- **Broker Abstraction Layer** (`broker_adapter.py`) — normalized MT5, Capital.com, PaperAdapter & ShadowAdapter interface
+- **Canonical Execution State Machine** (`execution_pipeline.py`) — 14-state deterministic order gateway with atomic mutex claims and in-flight risk reservations
+- **Central Risk Gateway** (`risk_gateway.py`) — fail-closed, direction-aware correlation, broker floating daily loss, in-flight reservation awareness
+- **Broker Reconciliation Engine** (`reconciliation.py`) — singleton worker, discrepancy classification (MATCHED/LOCAL_ONLY/BROKER_ONLY/MISMATCH), UNKNOWN order resolution, startup crash recovery
+- **Symbol Mapping & Specs** (`symbol_mapping.py`, `instrument_specs.py`) — canonical symbol mapping, lot size/step validator, fail-closed unknown ticker handling
+- **System Health Evaluator** (`system_health.py`) — holistic live automation gating
+- **FastAPI WebSocket server** (`server.py`) — live tick streaming + webhook receiver routed through canonical pipeline
 - **Flutter mobile app** (`trade_logger_app/`) — companion mobile UI
 - **Trade Journal** with screenshots, setup tags, ratings
 
@@ -32,24 +34,24 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 ### Backend Files
 | File | Purpose |
 |------|---------|
-| `app.py` | Main Streamlit UI (8 tabs) |
-| `server.py` | FastAPI REST + WebSocket server + webhook receiver |
-| `database.py` | SQLite + PostgreSQL multi-tenant DB |
-| `market_data.py` | Live data fetching, liquidity, FVG, OB, confluence |
+| `app.py` | Main Streamlit UI (8 tabs) + Live Execution Operations Panel |
+| `server.py` | FastAPI REST + WebSocket server + webhook receiver (Canonical Order Routed) |
+| `database.py` | SQLite + PostgreSQL multi-tenant DB with thread-safe queries |
+| `market_data.py` | Live data fetching, bid/ask ticks, liquidity, FVG, OB, confluence |
+| `symbol_mapping.py` | Master canonical symbol normalization, suffix trimming, broker translation |
+| `instrument_specs.py` | Instrument specs registry (digits, ticks, lot steps, min/max volume validator) |
+| `system_health.py` | Comprehensive live automation health evaluator & safety gate |
 | `ai_analysis.py` | 17-phase AI/deterministic analysis pipeline |
 | `trade_setup_engine.py` | Live deterministic strategy evaluator |
 | `backtester.py` | Historical simulation engine |
 | `wfo.py` | Walk-Forward Optimization engine |
 | `analytics.py` | Win rate, PF, SQN, drawdown, attribution analytics |
-| `mt5_sync.py` | MetaTrader 5 local bridge |
-| `capital_sync.py` | Capital.com REST API bridge |
-| `alerts.py` | Price alert daemon |
-| `execution_pipeline.py` | Canonical order routing (WEBHOOK → RISK → BROKER) |
-| `order_execution.py` | Broker order submission (MT5 + Capital.com) |
-| `portfolio_risk.py` | Portfolio-level risk controls (correlation, exposure) |
+| `broker_adapter.py` | Normalized broker abstraction (MT5, Capital.com, PaperAdapter, ShadowAdapter) |
+| `execution_pipeline.py` | Canonical State Machine (14 states, atomic DB mutex claims, in-flight risk reservations, crash recovery) |
+| `risk_gateway.py` | Central Risk Gateway (Fail-closed, Directional Correlation, Floating Daily Loss, In-Flight Risk Ledger) |
+| `reconciliation.py` | Background reconciliation worker lifecycle, discrepancy detection, UNKNOWN resolver |
 | `account_state.py` | Broker-reconciled account state fetching |
 | `paper_simulator.py` | Continuous paper execution simulator |
-| `reconciliation.py` | Paper-to-live divergence reconciliation |
 
 ### Strategy Framework (`strategies/`)
 | File | Purpose |
@@ -62,17 +64,22 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 | `trend_continuation.py` | EMA crossover continuation |
 | `mean_reversion.py` | RSI extreme reversal |
 
-### Test Suite (`tests/`)
-| File | Purpose |
-|------|---------|
-| `test_execution_safety.py` | 28 execution safety branches |
-| `test_phase11.py` | Portfolio risk & paper fill pricing |
-| `test_paper_execution.py` | Paper execution simulation |
-| `test_broker_reconciliation.py` | Broker reconciliation |
-| `test_mtf_validation.py` | Multi-timeframe validation |
-| `test_wfo.py` | Walk-forward optimization |
-| `test_account_risk.py` | Account risk controls |
-| `test_failure_injection.py` | Failure injection testing |
+### Phase 12 Automated Test Suite (`tests/`)
+| File | Purpose | Test Count |
+|------|---------|------------|
+| `test_symbol_mapping.py` | Canonical symbol normalization, aliases, suffixes, broker translation | 5 PASSED |
+| `test_instrument_specs.py` | Instrument specifications, lot step alignment, min/max volume limits | 7 PASSED |
+| `test_reconciliation_worker.py` | Worker lifecycle, health states (`HEALTHY`, `STOPPED`), health gate | 3 PASSED |
+| `test_price_side_execution.py` | Bid/Ask side correctness, price deviation threshold gating | 1 PASSED |
+| `test_paper_shadow_parity.py` | Paper vs Shadow decision parity, zero database pollution in Shadow | 2 PASSED |
+| `test_execution_recovery.py` | Crash/restart recovery of unsubmitted orders to `FAILED_SAFE` | 1 PASSED |
+| `test_execution_concurrency.py` | 20 simultaneous threads atomic claim, in-flight portfolio risk ledger | 2 PASSED |
+| `test_account_risk.py` | Risk limits, floating daily loss breach, portfolio aggregate risk | 4 PASSED |
+| `test_broker_reconciliation.py` | Discrepancy matrices (MATCHED, LOCAL_ONLY, BROKER_ONLY, MISMATCH) | 5 PASSED |
+| `test_execution_state_machine.py` | 14-state transitions, persistence, signal_id idempotency | 4 PASSED |
+| `test_execution_failure_injection.py` | Broker timeouts to UNKNOWN, reconciliation to FILLED/NOT_FILLED, kill switch | 7 PASSED |
+| `tests/integration/test_mt5_adapter.py` | MT5 live read-only verification (Truthfully SKIPPED/BLOCKED when terminal closed) | 1 SKIPPED |
+| `tests/integration/test_capitalcom_adapter.py` | Capital.com live read-only verification (Truthfully SKIPPED/BLOCKED when API offline) | 1 SKIPPED |
 
 ---
 
@@ -223,7 +230,8 @@ Both `trade_setup_engine.py` (live) and `backtester.py` (historical) call `strat
 | Phase 10 | Broker-Reconciled Risk & Paper-to-Live | ✅ COMPLETE |
 | Phase 11 | Live Paper Validation & Portfolio Research | ✅ COMPLETE |
 | Phase 11.5 | Code Integrity Audit & UX Fixes | ✅ COMPLETE |
-| Phase 12 | Live Automation & Institutional Rollout | 🔲 NOT STARTED |
+| Phase 12A | Execution State Machine, Risk Gateway & Reconciliation | ✅ COMPLETE |
+| Phase 12B | Broker Integration, Concurrency, Parity & Shadow Validation | ✅ COMPLETE (41 Passed / 2 Blocked) |
 
 ---
 
