@@ -2157,9 +2157,29 @@ def render_live_dashboard():
 
             ai_data = st.session_state.get(AI_CACHE_KEY, None)
             if ai_data is None:
-                st.info("Select your asset and strategy above, then press **RUN ENGINE** to run the live analysis.")
+                st.info(f"Selected Strategy: **{ai_selected_strat}** ({ai_selected_sym} • {ai_selected_tf}). Press **RUN ENGINE** to load and confirm analysis.")
 
             elif ai_data.get("status") != "unavailable" and ai_data.get("status") != "error":
+                loaded_strat = ai_data.get("active_strategy", ai_selected_strat)
+                loaded_sym = ai_data.get("symbol", ai_selected_sym)
+                loaded_tf = ai_data.get("timeframe", ai_selected_tf)
+                loaded_ts = ai_data.get("timestamp", "")
+
+                # Strategy Confirmation Banner / Badge
+                st.markdown(f"""
+                <div style="background:rgba(15,23,42,0.85); border:1px solid #38bdf8; border-left:4px solid #00ffcc; border-radius:6px; padding:10px 16px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; box-shadow:0 2px 10px rgba(0,0,0,0.3);">
+                    <div style="display:flex; align-items:center; flex-wrap:wrap; gap:8px;">
+                        <span style="color:#8a99ad; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:1px;">CURRENT ACTIVE STRATEGY:</span>
+                        <span style="color:#00ffcc; font-size:14px; font-weight:900; background:rgba(0,255,204,0.08); padding:3px 10px; border-radius:4px; border:1px solid rgba(0,255,204,0.25);">{loaded_strat}</span>
+                        <span style="color:#94a3b8; font-size:12px; font-weight:700;">({loaded_sym} • {loaded_tf})</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="background:rgba(0,255,204,0.15); border:1px solid rgba(0,255,204,0.4); color:#00ffcc; font-size:10px; font-weight:800; padding:4px 10px; border-radius:4px; letter-spacing:0.5px; text-transform:uppercase;">STRATEGY CONFIRMED & LOADED</span>
+                        {"<span style='color:#64748b; font-size:10px;'>(" + str(loaded_ts) + ")</span>" if loaded_ts else ""}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
                 factual = ai_data.get("factual_data", {})
                 bias = ai_data.get("confluence_bias", {}).get("bias", "Unknown")
                 st_trend = ai_data.get("market_structure", {}).get("trend", "Unknown")
