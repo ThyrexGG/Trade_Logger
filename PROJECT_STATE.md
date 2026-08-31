@@ -1,6 +1,6 @@
 # PROJECT STATE & ARCHITECTURAL RECORD
 **TradeLogger Terminal — Living System Memory**
-*Last Updated: 31 August 2026, Session 12 (Phase 20 XAUUSD True MTF Adversarial Verification & Paper/Shadow Audit Completed & Verified)*
+*Last Updated: 31 August 2026, Session 13 (Phase 24 XAUUSD Explainable Forward Validation & Research Decision UX Completed & Verified)*
 
 > **HOW TO USE THIS FILE**
 > Start any new AI session with: *"Read PROJECT_STATE.md and continue where we left off."*
@@ -12,23 +12,20 @@
 
 A professional-grade **trading research, journaling, and execution terminal** built for a liquidity-based, ICT/SMC methodology trader. It is NOT a simple trade log — it is a full research + execution stack:
 
-- **Streamlit Desktop Terminal** (`app.py`) — primary UI, 9 tabs including dedicated **RESEARCH LAB** with USDJPY Reversal Lab (Phase 15), USDJPY Continuation Lab (Phase 16), USDJPY Edge Discovery Lab (Phase 17), USDJPY Conditional Validation Lab (Phase 18), True MTF Research Lab (Phase 19), and XAUUSD Adversarial Audit Lab (Phase 20), Execution Operations & System Health Panel, Pre-Trade Risk Preview, and Live Execution Controls (Strictly zero emojis across all UI tabs, buttons, metrics, and logs)
-- **XAUUSD True MTF Adversarial Engine & Paper/Shadow Replayer** (`xauusd_audit_engine.py`) — 6 Execution Model Benchmark (15M vs 5M vs 1M FVG Limit), Structural SL Models (SL-A to SL-E) + 0.90x–1.10x Perturbation Sensitivity, Target Models A to F, 2D Parameter Perturbation Plateau (-20% to +20%), 10,000-Simulation Monte Carlo, and Canonical Execution Pipeline Replay (Paper & Shadow)
-- **True Multi-Timeframe Strategy Engine & Best-Asset Discovery** (`true_mtf_engine.py`) — 1D Macro Bias $\to$ 4H Draw on Liquidity $\to$ 15M Setup $\to$ 5M Confirmation $\to$ 1M Precision Execution, 18-State Execution State Machine, Zero Lookahead Assertions, Standardized 16-Asset Discovery Universe
-- **Strategy Edge Discovery & Research Engine** (`research_engine.py`, `research_analytics.py`, `usdjpy_research.py`, `usdjpy_continuation_research.py`, `usdjpy_edge_discovery.py`, `usdjpy_conditional_validation.py`) — Three-layer data partition (60% Train / 20% Validation / 20% Untouched Holdout), 95% Bootstrap Confidence Intervals, Cumulative Multiple Testing Tracker (108 hypotheses), 5,000-Iteration Permutation Test Engine, Rolling Walk-Forward Optimization, and Cost Sensitivity Stress Tester
-- **Structured SMC / ICT Data Models & Context** (`strategies/smc_models.py`, `strategies/smc_utils.py`) — immutable dataclasses for LiquidityPools, FVGs, OrderBlocks, DealingRanges, and Multi-Timeframe SMCContext snapshots
-- **Deterministic AI Market Analysis Engine** (`ai_analysis.py`) — 17-phase pipeline with structured SMC context prompt injection
-- **Modular Strategy Framework** (`strategies/`) — unified engine for live + backtest with strict semver versioning (`strategy_version = "1.0.0"` / `"1.1.0"` / `"2.0.0"`)
-- **Historical Backtester** (`backtester.py`) — OOS-split, SMC-aware, limit order aware, exact SL/TP/liquidity metadata tracking
-- **Walk-Forward Optimization** (`wfo.py`) — rolling window parameter optimization
-- **Broker Abstraction Layer** (`broker_adapter.py`) — normalized MT5, Capital.com, PaperAdapter & ShadowAdapter interface
-- **Canonical Execution State Machine** (`execution_pipeline.py`) — 14-state deterministic order gateway with atomic mutex claims and in-flight risk reservations
-- **Central Risk Gateway** (`risk_gateway.py`) — fail-closed, direction-aware correlation, broker floating daily loss, pre-trade risk calculator, in-flight reservation awareness
-- **Broker Reconciliation Engine** (`reconciliation.py`) — singleton worker, discrepancy classification (MATCHED/LOCAL_ONLY/BROKER_ONLY/MISMATCH), UNKNOWN order resolution, startup crash recovery
-- **Symbol Mapping & Specs** (`symbol_mapping.py`, `instrument_specs.py`) — canonical symbol mapping, lot size/step validator, fail-closed unknown ticker handling
+- **Streamlit Desktop Terminal** (`app.py`) — primary UI, 9 tabs including dedicated **RESEARCH LAB** with USDJPY Reversal Lab (Phase 15), USDJPY Continuation Lab (Phase 16), USDJPY Edge Discovery Lab (Phase 17), USDJPY Conditional Validation Lab (Phase 18), True MTF Research Lab (Phase 19), XAUUSD Adversarial Audit Lab (Phase 20), XAUUSD Forward Validation & Decision Center (Phase 21-23), and Explainable Research Decision UX (Phase 24), Operations Panel, and Live Safety Barriers (Strictly zero emojis across all UI tabs, buttons, metrics, and logs)
+- **Explainable Research Decision UX Engine** (`research_explanations.py`) — Universal 4-question metric interpretation contract, 34+ technical metric catalog with plain-language definitions, context-aware classification overrides (Sample size $N < 30$ and CI crossing zero protection), interactive MTF pipeline explainer, entry rejection/approval explainers, risk architecture cards, and dynamic "WHAT SHOULD I WATCH NEXT?" advisory engine
+- **XAUUSD Research Governance & Decision Center** (`xauusd_research_governance.py`) — `ForwardDecisionCenter` dynamic synthesis generator, `WatchNextAdvisor` prioritized governance checkpoint advisor, `ResearchIntegrityAuditor` 8-point research integrity panel, `ResearchHypothesisFirewall` (`future_research_queue`), `LiveTradingSafetyBarrier` permanent execution lock
+- **XAUUSD Forward Statistics & Excursion Analytics** (`xauusd_forward_statistics.py`) — Effect size retention vs holdout baseline (+0.637R), rolling forward windows (20/30/50), isolated cumulative equity curves, 2R-7R target milestone progression, holding time temporal buckets
+- **XAUUSD Execution Quality & Microstructure Diagnostics** (`xauusd_execution_quality.py`) — 1M FVG limit fill rates, timeout expirations, slippage friction, average structural SL bounds
+- **XAUUSD Forward Integrity & Provenance** (`xauusd_forward_integrity.py`) — Frozen strategy immutability guard (`FrozenStrategyMutationException`), forward provenance ledger, feed data quality auditor, outcome classifier
+- **XAUUSD Forward Telemetry, Drift & Validation Gates** (`xauusd_forward_monitor.py`, `xauusd_drift_detector.py`, `xauusd_validation_gate.py`, `xauusd_forward_validator.py`) — Forward telemetry, sample reliability tiers, 4-stage governance decision gates, distribution drift detector, 100-point edge consistency score
+- **XAUUSD True MTF Adversarial Engine & Paper/Shadow Replayer** (`xauusd_audit_engine.py`) — 6 Execution Model Benchmark (15M vs 5M vs 1M FVG Limit), Structural SL Models (SL-A to SL-E), Parameter Perturbation Surface, 10,000 Monte Carlo simulations
+- **True Multi-Timeframe Strategy Engine** (`true_mtf_engine.py`) — 1D Macro Bias $\to$ 4H Draw on Liquidity $\to$ 15M Setup $\to$ 5M Confirmation $\to$ 1M Precision Execution, 18-State Execution State Machine, Zero Lookahead Assertions, Standardized 16-Asset Discovery Universe
+- **Strategy Edge Discovery & Research Engine** (`research_engine.py`, `research_analytics.py`, `usdjpy_research.py`, `usdjpy_continuation_research.py`, `usdjpy_edge_discovery.py`, `usdjpy_conditional_validation.py`) — Three-layer data partition (60% Train / 20% Validation / 20% Untouched Holdout), 95% Bootstrap Confidence Intervals, Cumulative Multiple Testing Tracker, 5,000-Iteration Permutation Test Engine, Rolling Walk-Forward Optimization
+- **Modular Strategy Framework** (`strategies/`) — unified engine for live + backtest with strict semver versioning
+- **Central Risk Gateway** (`risk_gateway.py`) — fail-closed, direction-aware correlation, broker floating daily loss, pre-trade risk calculator
+- **Broker Reconciliation Engine** (`reconciliation.py`) — singleton worker, discrepancy classification, startup crash recovery
 - **System Health Evaluator** (`system_health.py`) — holistic live automation gating
-- **FastAPI WebSocket server** (`server.py`) — live tick streaming + webhook receiver routed through canonical pipeline
-- **Flutter mobile app** (`trade_logger_app/`) — companion mobile UI
 - **Trade Journal** with screenshots, setup tags, ratings
 
 ---
@@ -38,17 +35,17 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 ### Backend Files
 | File | Purpose |
 |------|---------|
-| `app.py` | Main Streamlit UI (9 tabs) + Research Lab (Reversal, Continuation, Edge Discovery, Conditional Validation, True MTF, XAUUSD Audit, XAUUSD Forward) + Operations Panel |
-| `xauusd_research_governance.py` | Phase 23 Research Governance, Hypothesis Firewall (`FUTURE_RESEARCH_QUEUE`), Decision Center Dynamic Synthesizer |
-| `xauusd_regime_monitor.py` | Phase 23 MTF Regime Diagnostics (1D, 4H, 15M, Session, Volatility, Weekday) & Distribution Shift Detector |
-| `xauusd_execution_quality.py` | Phase 23 1M FVG Limit Execution Quality, Fill/Miss Rates, Slippage Friction, Microstructure Diagnostics |
-| `xauusd_forward_statistics.py` | Phase 23 Forward Effect Size Comparator, Rolling Windows (20/30/50), Cumulative R Curves, Milestones (2R-7R), Durations |
-| `xauusd_forward_integrity.py` | Phase 23 Strategy Freeze Guard (`FrozenStrategyMutationException`), Provenance Ledger, Data Feed Quality Auditor |
-| `xauusd_validation_gate.py` | Phase 22 Predefined 4-Stage Governance Decision Gates (Stage 0 to Stage 3), Eligibility Evaluator |
-| `xauusd_drift_detector.py` | Phase 22 Distribution Drift (MAE/MFE/Duration), Drawdown Tiers (Normal/Elevated/Stress/Severe), Edge Consistency Score (0-100) |
-| `xauusd_forward_monitor.py` | Phase 22 Forward Telemetry Monitor, Sample Reliability Tiers, 1M Limit Execution Quality Health, Regime Diagnostic Matrix |
-| `xauusd_forward_validator.py` | Phase 21 XAUUSD True MTF Frozen Strategy Engine, Forward Journal Persistence, Target Milestone (2R-7R) Analytics, Regime Monitor, Paper/Shadow Parity Checker |
-| `research_explanations.py` | Centralized Explainable Research Module (Tooltips, Context-Aware Expectancy Overrides, Sample Tier Warnings, MTF Visual Flow, Drawdown Conversions) |
+| `app.py` | Main Streamlit UI (9 tabs) + Research Lab (Reversal, Continuation, Edge Discovery, Conditional Validation, True MTF, XAUUSD Audit, XAUUSD Forward Decision Center) + Operations Panel |
+| `research_explanations.py` | Centralized Explainable Research Module: Universal 4-Question Metric Component (`MetricExplanation`), 34+ Metric Catalog, Context-Aware Classification Overrides ($N < 30$, CI crossing zero), MTF Stage Explainer, Rejection/Approval Explainers, Risk Architecture Concept Explanations |
+| `xauusd_research_governance.py` | Research Governance, Hypothesis Firewall (`future_research_queue`), `ForwardDecisionCenter` Dynamic Synthesis, `WatchNextAdvisor` Checkpoint Engine, `ResearchIntegrityAuditor` 8-Point Panel |
+| `xauusd_forward_statistics.py` | Forward Effect Size Comparator, Rolling Windows (20/30/50), Cumulative R Curves, Milestones (2R-7R), Durations |
+| `xauusd_execution_quality.py` | 1M FVG Limit Execution Quality, Fill/Miss Rates, Slippage Friction, Microstructure Diagnostics |
+| `xauusd_forward_integrity.py` | Strategy Freeze Guard (`FrozenStrategyMutationException`), Provenance Ledger, Data Feed Quality Auditor |
+| `xauusd_regime_monitor.py` | MTF Regime Diagnostics (1D, 4H, 15M, Session, Volatility, Weekday) & Distribution Shift Detector |
+| `xauusd_validation_gate.py` | Predefined 4-Stage Governance Decision Gates (Stage 0 to Stage 3), Eligibility Evaluator |
+| `xauusd_drift_detector.py` | Distribution Drift (MAE/MFE/Duration), Drawdown Tiers (Normal/Elevated/Stress/Severe), Edge Consistency Score (0-100) |
+| `xauusd_forward_monitor.py` | Forward Telemetry Monitor, Sample Reliability Tiers, 1M Limit Execution Quality Health, Regime Diagnostic Matrix |
+| `xauusd_forward_validator.py` | XAUUSD True MTF Frozen Strategy Engine, Forward Journal Persistence, Target Milestone (2R-7R) Analytics, Regime Monitor, Paper/Shadow Parity Checker |
 | `xauusd_audit_engine.py` | Dedicated XAUUSD True MTF Adversarial Audit Engine (6-Model Execution Benchmark, Structural SL Sensitivity, Parameter Perturbation Surface, 10k Monte Carlo, Canonical Pipeline Replayer) |
 | `true_mtf_engine.py` | Dedicated True Multi-Timeframe (1D->4H->15M->5M->1M) Engine, 18-State Machine, Execution Timeframe Comparer, 16-Asset Discovery Universe |
 | `usdjpy_conditional_validation.py` | Dedicated USDJPY Regime-Conditional Validation Engine (5,000-Run Permutation Tester, 5,000-Run Monte Carlo, Rolling WFO, Multi-Testing Ledger) |
