@@ -55,13 +55,7 @@ class XAUUSDDecisionHistory:
         now_str = datetime.now(timezone.utc).isoformat()
         ts = snapshot.get("timestamp", now_str)
 
-        cur.execute("""
-            INSERT OR REPLACE INTO xauusd_decision_history (
-                decision_id, timestamp, stage, forward_n, expectancy_r,
-                ci_lower, ci_upper, drawdown_r, execution_health, drift_status,
-                integrity_status, overall_decision, next_action, notes, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
+        vals = (
             dec_id,
             ts,
             snapshot.get("stage", "Stage 0 (Data Accumulation)"),
@@ -77,7 +71,41 @@ class XAUUSDDecisionHistory:
             snapshot.get("next_action", "Continue forward observations."),
             snapshot.get("notes", ""),
             now_str
-        ))
+        )
+
+        is_sq = isinstance(conn, sqlite3.Connection) or type(conn).__module__.startswith("sqlite3")
+        if is_sq:
+            cur.execute("""
+                INSERT OR REPLACE INTO xauusd_decision_history (
+                    decision_id, timestamp, stage, forward_n, expectancy_r,
+                    ci_lower, ci_upper, drawdown_r, execution_health, drift_status,
+                    integrity_status, overall_decision, next_action, notes, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, vals)
+        else:
+            cur.execute("""
+                INSERT INTO xauusd_decision_history (
+                    decision_id, timestamp, stage, forward_n, expectancy_r,
+                    ci_lower, ci_upper, drawdown_r, execution_health, drift_status,
+                    integrity_status, overall_decision, next_action, notes, created_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (decision_id) DO UPDATE SET
+                    timestamp = EXCLUDED.timestamp,
+                    stage = EXCLUDED.stage,
+                    forward_n = EXCLUDED.forward_n,
+                    expectancy_r = EXCLUDED.expectancy_r,
+                    ci_lower = EXCLUDED.ci_lower,
+                    ci_upper = EXCLUDED.ci_upper,
+                    drawdown_r = EXCLUDED.drawdown_r,
+                    execution_health = EXCLUDED.execution_health,
+                    drift_status = EXCLUDED.drift_status,
+                    integrity_status = EXCLUDED.integrity_status,
+                    overall_decision = EXCLUDED.overall_decision,
+                    next_action = EXCLUDED.next_action,
+                    notes = EXCLUDED.notes,
+                    created_at = EXCLUDED.created_at
+            """, vals)
+
         conn.commit()
         conn.close()
         return dec_id
@@ -91,10 +119,13 @@ class XAUUSDDecisionHistory:
         conn = database.get_connection()
         cur = conn.cursor()
 
-        cur.execute("""
+        is_sq = isinstance(conn, sqlite3.Connection) or type(conn).__module__.startswith("sqlite3")
+        placeholder = "?" if is_sq else "%s"
+
+        cur.execute(f"""
             SELECT * FROM xauusd_decision_history
             ORDER BY timestamp DESC
-            LIMIT ?
+            LIMIT {placeholder}
         """, (limit,))
         cols = [c[0] for c in cur.description]
         rows = cur.fetchall()

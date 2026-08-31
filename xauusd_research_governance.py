@@ -77,12 +77,7 @@ class ResearchHypothesisFirewall:
         hypo_id = f"HYPO_{uuid.uuid4().hex[:8]}"
         
         conn = database.get_connection()
-        cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO future_research_queue (
-                hypothesis_id, observation, proposed_change, rationale, logged_timestamp, source_phase, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (
+        vals = (
             hypo_id,
             observation,
             proposed_change,
@@ -90,7 +85,22 @@ class ResearchHypothesisFirewall:
             datetime.now(timezone.utc).isoformat(),
             source_phase,
             "QUEUED_FOR_FUTURE_RESEARCH"
-        ))
+        )
+        is_sq = isinstance(conn, sqlite3.Connection) or type(conn).__module__.startswith("sqlite3")
+        cur = conn.cursor()
+        if is_sq:
+            cur.execute("""
+                INSERT INTO future_research_queue (
+                    hypothesis_id, observation, proposed_change, rationale, logged_timestamp, source_phase, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, vals)
+        else:
+            cur.execute("""
+                INSERT INTO future_research_queue (
+                    hypothesis_id, observation, proposed_change, rationale, logged_timestamp, source_phase, status
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (hypothesis_id) DO NOTHING
+            """, vals)
         conn.commit()
         conn.close()
         return hypo_id

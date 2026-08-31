@@ -131,20 +131,14 @@ class ForwardObservationProvenance:
         cur = conn.cursor()
         
         # Prevent duplicates
-        cur.execute("SELECT observation_id FROM xauusd_forward_provenance WHERE observation_id = ?", (obs_id,))
+        is_sq = isinstance(conn, sqlite3.Connection) or type(conn).__module__.startswith("sqlite3")
+        placeholder = "?" if is_sq else "%s"
+        cur.execute(f"SELECT observation_id FROM xauusd_forward_provenance WHERE observation_id = {placeholder}", (obs_id,))
         if cur.fetchone():
             conn.close()
             return obs_id
 
-        cur.execute("""
-            INSERT INTO xauusd_forward_provenance (
-                observation_id, contract_version, signal_timestamp, data_timestamp, symbol,
-                source_tf, bid, ask, spread_pips, atr_1m, detected_regime, setup_state,
-                entry_decision, limit_price, stop_loss, take_profit_1, take_profit_2,
-                risk_pct, order_state, fill_timestamp, expiration_timestamp, exit_timestamp,
-                exit_reason, outcome_category, realized_r, mae_r, mfe_r, execution_mode
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
+        vals = (
             obs_id,
             record.get("contract_version", "PHASE_21_FROZEN_1.0"),
             record.get("signal_timestamp", datetime.now(timezone.utc).isoformat()),
@@ -173,7 +167,30 @@ class ForwardObservationProvenance:
             record.get("mae_r"),
             record.get("mfe_r"),
             record.get("execution_mode", "PAPER")
-        ))
+        )
+
+        if is_sq:
+            cur.execute("""
+                INSERT INTO xauusd_forward_provenance (
+                    observation_id, contract_version, signal_timestamp, data_timestamp, symbol,
+                    source_tf, bid, ask, spread_pips, atr_1m, detected_regime, setup_state,
+                    entry_decision, limit_price, stop_loss, take_profit_1, take_profit_2,
+                    risk_pct, order_state, fill_timestamp, expiration_timestamp, exit_timestamp,
+                    exit_reason, outcome_category, realized_r, mae_r, mfe_r, execution_mode
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, vals)
+        else:
+            cur.execute("""
+                INSERT INTO xauusd_forward_provenance (
+                    observation_id, contract_version, signal_timestamp, data_timestamp, symbol,
+                    source_tf, bid, ask, spread_pips, atr_1m, detected_regime, setup_state,
+                    entry_decision, limit_price, stop_loss, take_profit_1, take_profit_2,
+                    risk_pct, order_state, fill_timestamp, expiration_timestamp, exit_timestamp,
+                    exit_reason, outcome_category, realized_r, mae_r, mfe_r, execution_mode
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (observation_id) DO NOTHING
+            """, vals)
+
         conn.commit()
         conn.close()
         return obs_id
@@ -182,14 +199,15 @@ class ForwardObservationProvenance:
     def get_all_provenance(mode: Optional[str] = None) -> pd.DataFrame:
         ForwardObservationProvenance.init_provenance_table()
         conn = database.get_connection()
+        is_sq = isinstance(conn, sqlite3.Connection) or type(conn).__module__.startswith("sqlite3")
+        placeholder = "?" if is_sq else "%s"
         query = "SELECT * FROM xauusd_forward_provenance"
         params = []
-        placeholder = "%s" if database.is_postgres() else "?"
         if mode:
             query += f" WHERE execution_mode = {placeholder}"
             params.append(mode)
         query += " ORDER BY signal_timestamp DESC"
-        df = pd.read_sql_query(query, conn, params=params)
+        df = pd.read_sql_query(query, conn, params=params if params else None)
         conn.close()
         return df
 

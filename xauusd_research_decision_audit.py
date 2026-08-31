@@ -59,17 +59,8 @@ class ResearchDecisionAuditEngine:
         ResearchDecisionAuditEngine.init_table()
         audit_id = f"AUDIT_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
         ts = datetime.now(timezone.utc).isoformat()
-
         conn = database.get_connection()
-        cur = conn.cursor()
-        cur.execute(f"""
-            INSERT INTO {ResearchDecisionAuditEngine.TABLE_NAME} (
-                audit_id, timestamp, current_stage, trades_n, evidence_score,
-                expectancy_r, ci_95_str, drawdown_r, drift_state, execution_state,
-                integrity_state, decision_state, reasons_json, uncertainties_json,
-                recommended_next_action
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
+        vals = (
             audit_id,
             ts,
             str(record_data.get("current_stage", "Stage 0")),
@@ -85,7 +76,30 @@ class ResearchDecisionAuditEngine:
             json.dumps(record_data.get("reasons", [])),
             json.dumps(record_data.get("unresolved_uncertainties", [])),
             str(record_data.get("recommended_next_action", "Continue forward data streaming."))
-        ))
+        )
+
+        is_sq = isinstance(conn, sqlite3.Connection) or type(conn).__module__.startswith("sqlite3")
+        cur = conn.cursor()
+        if is_sq:
+            cur.execute(f"""
+                INSERT OR REPLACE INTO {ResearchDecisionAuditEngine.TABLE_NAME} (
+                    audit_id, timestamp, current_stage, trades_n, evidence_score,
+                    expectancy_r, ci_95_str, drawdown_r, drift_state, execution_state,
+                    integrity_state, decision_state, reasons_json, uncertainties_json,
+                    recommended_next_action
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, vals)
+        else:
+            cur.execute(f"""
+                INSERT INTO {ResearchDecisionAuditEngine.TABLE_NAME} (
+                    audit_id, timestamp, current_stage, trades_n, evidence_score,
+                    expectancy_r, ci_95_str, drawdown_r, drift_state, execution_state,
+                    integrity_state, decision_state, reasons_json, uncertainties_json,
+                    recommended_next_action
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (audit_id) DO NOTHING
+            """, vals)
+
         conn.commit()
         conn.close()
         return audit_id
@@ -97,17 +111,19 @@ class ResearchDecisionAuditEngine:
         """
         ResearchDecisionAuditEngine.init_table()
         conn = database.get_connection()
-        conn.row_factory = sqlite3.Row
         cur = conn.cursor()
-        cur.execute(f"SELECT * FROM {ResearchDecisionAuditEngine.TABLE_NAME} ORDER BY timestamp DESC LIMIT ?", (limit,))
+        is_sq = isinstance(conn, sqlite3.Connection) or type(conn).__module__.startswith("sqlite3")
+        placeholder = "?" if is_sq else "%s"
+        cur.execute(f"SELECT * FROM {ResearchDecisionAuditEngine.TABLE_NAME} ORDER BY timestamp DESC LIMIT {placeholder}", (limit,))
+        cols = [c[0] for c in cur.description]
         rows = cur.fetchall()
         conn.close()
 
         records = []
         for r in rows:
-            d = dict(r)
-            d["reasons"] = json.loads(d["reasons_json"]) if "reasons_json" in d else []
-            d["unresolved_uncertainties"] = json.loads(d["uncertainties_json"]) if "uncertainties_json" in d else []
+            d = dict(zip(cols, r))
+            d["reasons"] = json.loads(d["reasons_json"]) if "reasons_json" in d and d["reasons_json"] else []
+            d["unresolved_uncertainties"] = json.loads(d["uncertainties_json"]) if "uncertainties_json" in d and d["uncertainties_json"] else []
             records.append(d)
         return records
 

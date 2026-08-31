@@ -54,13 +54,7 @@ class XAUUSDAlertEngine:
         ts = event_data.get("timestamp", now_str)
         severity = event_data.get("severity", "INFORMATION").upper()
         
-        cur.execute("""
-            INSERT OR REPLACE INTO xauusd_monitor_events (
-                event_id, timestamp, event_type, severity, metric, observed_value,
-                baseline_value, threshold, explanation, recommended_action,
-                source_observation_id, acknowledged, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
+        vals = (
             event_id,
             ts,
             event_data.get("event_type", "GENERAL_OBSERVATION"),
@@ -74,7 +68,39 @@ class XAUUSDAlertEngine:
             event_data.get("source_observation_id"),
             1 if event_data.get("acknowledged") else 0,
             now_str
-        ))
+        )
+
+        is_sq = isinstance(conn, sqlite3.Connection) or type(conn).__module__.startswith("sqlite3")
+        if is_sq:
+            cur.execute("""
+                INSERT OR REPLACE INTO xauusd_monitor_events (
+                    event_id, timestamp, event_type, severity, metric, observed_value,
+                    baseline_value, threshold, explanation, recommended_action,
+                    source_observation_id, acknowledged, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, vals)
+        else:
+            cur.execute("""
+                INSERT INTO xauusd_monitor_events (
+                    event_id, timestamp, event_type, severity, metric, observed_value,
+                    baseline_value, threshold, explanation, recommended_action,
+                    source_observation_id, acknowledged, created_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (event_id) DO UPDATE SET
+                    timestamp = EXCLUDED.timestamp,
+                    event_type = EXCLUDED.event_type,
+                    severity = EXCLUDED.severity,
+                    metric = EXCLUDED.metric,
+                    observed_value = EXCLUDED.observed_value,
+                    baseline_value = EXCLUDED.baseline_value,
+                    threshold = EXCLUDED.threshold,
+                    explanation = EXCLUDED.explanation,
+                    recommended_action = EXCLUDED.recommended_action,
+                    source_observation_id = EXCLUDED.source_observation_id,
+                    acknowledged = EXCLUDED.acknowledged,
+                    created_at = EXCLUDED.created_at
+            """, vals)
+
         conn.commit()
         conn.close()
         return event_id
@@ -92,11 +118,14 @@ class XAUUSDAlertEngine:
         conn = database.get_connection()
         cur = conn.cursor()
 
+        is_sq = isinstance(conn, sqlite3.Connection) or type(conn).__module__.startswith("sqlite3")
+        placeholder = "?" if is_sq else "%s"
+
         query = "SELECT * FROM xauusd_monitor_events WHERE 1=1"
         params: List[Any] = []
 
         if severity_filter.upper() != "ALL":
-            query += " AND severity = ?"
+            query += f" AND severity = {placeholder}"
             params.append(severity_filter.upper())
 
         if acknowledged_filter.upper() == "ACKNOWLEDGED":
@@ -104,7 +133,7 @@ class XAUUSDAlertEngine:
         elif acknowledged_filter.upper() == "UNACKNOWLEDGED":
             query += " AND acknowledged = 0"
 
-        query += " ORDER BY timestamp DESC LIMIT ?"
+        query += f" ORDER BY timestamp DESC LIMIT {placeholder}"
         params.append(limit)
 
         cur.execute(query, tuple(params))
@@ -125,7 +154,9 @@ class XAUUSDAlertEngine:
         XAUUSDAlertEngine.init_events_table()
         conn = database.get_connection()
         cur = conn.cursor()
-        cur.execute("UPDATE xauusd_monitor_events SET acknowledged = 1 WHERE event_id = ?", (event_id,))
+        is_sq = isinstance(conn, sqlite3.Connection) or type(conn).__module__.startswith("sqlite3")
+        placeholder = "?" if is_sq else "%s"
+        cur.execute(f"UPDATE xauusd_monitor_events SET acknowledged = 1 WHERE event_id = {placeholder}", (event_id,))
         modified = cur.rowcount > 0
         conn.commit()
         conn.close()

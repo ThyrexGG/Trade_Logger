@@ -72,15 +72,7 @@ class XAUUSDForwardJournal:
         cur = conn.cursor()
         
         sig_id = signal_data.get("signal_id", f"FWD_{uuid.uuid4().hex[:8]}")
-        cur.execute("""
-            INSERT OR REPLACE INTO xauusd_forward_signals (
-                signal_id, timestamp, symbol, bias_1d, target_4h, sweep_15m, mss_15m,
-                conf_5m, entry_type_1m, requested_entry, stop_loss, take_profit, planned_rr,
-                spread_pips, slippage_pips, simulated_fill_price, mae_r, mfe_r, exit_price,
-                exit_reason, realized_r, holding_time_minutes, session, day_of_week,
-                execution_mode, status, rejection_reason
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
+        vals = (
             sig_id,
             signal_data.get("timestamp", datetime.now(timezone.utc).isoformat()),
             signal_data.get("symbol", "XAUUSD"),
@@ -108,7 +100,57 @@ class XAUUSDForwardJournal:
             signal_data.get("execution_mode", "PAPER"),
             signal_data.get("status", "FILLED"),
             signal_data.get("rejection_reason")
-        ))
+        )
+
+        is_sq = isinstance(conn, sqlite3.Connection) or type(conn).__module__.startswith("sqlite3")
+        if is_sq:
+            cur.execute("""
+                INSERT OR REPLACE INTO xauusd_forward_signals (
+                    signal_id, timestamp, symbol, bias_1d, target_4h, sweep_15m, mss_15m,
+                    conf_5m, entry_type_1m, requested_entry, stop_loss, take_profit, planned_rr,
+                    spread_pips, slippage_pips, simulated_fill_price, mae_r, mfe_r, exit_price,
+                    exit_reason, realized_r, holding_time_minutes, session, day_of_week,
+                    execution_mode, status, rejection_reason
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, vals)
+        else:
+            cur.execute("""
+                INSERT INTO xauusd_forward_signals (
+                    signal_id, timestamp, symbol, bias_1d, target_4h, sweep_15m, mss_15m,
+                    conf_5m, entry_type_1m, requested_entry, stop_loss, take_profit, planned_rr,
+                    spread_pips, slippage_pips, simulated_fill_price, mae_r, mfe_r, exit_price,
+                    exit_reason, realized_r, holding_time_minutes, session, day_of_week,
+                    execution_mode, status, rejection_reason
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (signal_id) DO UPDATE SET
+                    timestamp = EXCLUDED.timestamp,
+                    symbol = EXCLUDED.symbol,
+                    bias_1d = EXCLUDED.bias_1d,
+                    target_4h = EXCLUDED.target_4h,
+                    sweep_15m = EXCLUDED.sweep_15m,
+                    mss_15m = EXCLUDED.mss_15m,
+                    conf_5m = EXCLUDED.conf_5m,
+                    entry_type_1m = EXCLUDED.entry_type_1m,
+                    requested_entry = EXCLUDED.requested_entry,
+                    stop_loss = EXCLUDED.stop_loss,
+                    take_profit = EXCLUDED.take_profit,
+                    planned_rr = EXCLUDED.planned_rr,
+                    spread_pips = EXCLUDED.spread_pips,
+                    slippage_pips = EXCLUDED.slippage_pips,
+                    simulated_fill_price = EXCLUDED.simulated_fill_price,
+                    mae_r = EXCLUDED.mae_r,
+                    mfe_r = EXCLUDED.mfe_r,
+                    exit_price = EXCLUDED.exit_price,
+                    exit_reason = EXCLUDED.exit_reason,
+                    realized_r = EXCLUDED.realized_r,
+                    holding_time_minutes = EXCLUDED.holding_time_minutes,
+                    session = EXCLUDED.session,
+                    day_of_week = EXCLUDED.day_of_week,
+                    execution_mode = EXCLUDED.execution_mode,
+                    status = EXCLUDED.status,
+                    rejection_reason = EXCLUDED.rejection_reason
+            """, vals)
+
         conn.commit()
         conn.close()
         return sig_id
@@ -117,14 +159,15 @@ class XAUUSDForwardJournal:
     def get_forward_trades(mode: Optional[str] = None) -> pd.DataFrame:
         XAUUSDForwardJournal.init_forward_table()
         conn = database.get_connection()
+        is_sq = isinstance(conn, sqlite3.Connection) or type(conn).__module__.startswith("sqlite3")
+        placeholder = "?" if is_sq else "%s"
         query = "SELECT * FROM xauusd_forward_signals"
         params = []
-        placeholder = "%s" if database.is_postgres() else "?"
         if mode:
             query += f" WHERE execution_mode = {placeholder}"
             params.append(mode)
         query += " ORDER BY timestamp DESC"
-        df = pd.read_sql_query(query, conn, params=params)
+        df = pd.read_sql_query(query, conn, params=params if params else None)
         conn.close()
         return df
 

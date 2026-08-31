@@ -71,18 +71,7 @@ class ForwardEvidenceLedger:
         ts = datetime.now(timezone.utc).isoformat()
 
         conn = database.get_connection()
-        cur = conn.cursor()
-        cur.execute(f"""
-            INSERT INTO {ForwardEvidenceLedger.TABLE_NAME} (
-                snapshot_id, timestamp, trades_n, expectancy_r, median_r, win_rate_pct,
-                profit_factor, max_drawdown_r, recovery_factor, ci_90_lower, ci_90_upper,
-                ci_95_lower, ci_95_upper, ci_99_lower, ci_99_upper, hist_expectancy_diff,
-                hist_expectancy_ratio, baseline_consistency, avg_mae_r, avg_mfe_r,
-                limit_fill_rate_pct, timeout_rate_pct, avg_slippage_pips, avg_spread_pips,
-                paper_shadow_parity, data_integrity_status, contract_hash, governance_stage,
-                evidence_score, research_decision_state, next_milestone, raw_payload
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
+        vals = (
             snapshot_id,
             ts,
             int(data.get("trades_n", 0)),
@@ -115,7 +104,36 @@ class ForwardEvidenceLedger:
             str(data.get("research_decision_state", "COLLECTING")),
             str(data.get("next_milestone", "N = 30")),
             json.dumps(data)
-        ))
+        )
+
+        is_sq = isinstance(conn, sqlite3.Connection) or type(conn).__module__.startswith("sqlite3")
+        cur = conn.cursor()
+        if is_sq:
+            cur.execute(f"""
+                INSERT OR REPLACE INTO {ForwardEvidenceLedger.TABLE_NAME} (
+                    snapshot_id, timestamp, trades_n, expectancy_r, median_r, win_rate_pct,
+                    profit_factor, max_drawdown_r, recovery_factor, ci_90_lower, ci_90_upper,
+                    ci_95_lower, ci_95_upper, ci_99_lower, ci_99_upper, hist_expectancy_diff,
+                    hist_expectancy_ratio, baseline_consistency, avg_mae_r, avg_mfe_r,
+                    limit_fill_rate_pct, timeout_rate_pct, avg_slippage_pips, avg_spread_pips,
+                    paper_shadow_parity, data_integrity_status, contract_hash, governance_stage,
+                    evidence_score, research_decision_state, next_milestone, raw_payload
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, vals)
+        else:
+            cur.execute(f"""
+                INSERT INTO {ForwardEvidenceLedger.TABLE_NAME} (
+                    snapshot_id, timestamp, trades_n, expectancy_r, median_r, win_rate_pct,
+                    profit_factor, max_drawdown_r, recovery_factor, ci_90_lower, ci_90_upper,
+                    ci_95_lower, ci_95_upper, ci_99_lower, ci_99_upper, hist_expectancy_diff,
+                    hist_expectancy_ratio, baseline_consistency, avg_mae_r, avg_mfe_r,
+                    limit_fill_rate_pct, timeout_rate_pct, avg_slippage_pips, avg_spread_pips,
+                    paper_shadow_parity, data_integrity_status, contract_hash, governance_stage,
+                    evidence_score, research_decision_state, next_milestone, raw_payload
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (snapshot_id) DO NOTHING
+            """, vals)
+
         conn.commit()
         conn.close()
         return snapshot_id
@@ -127,12 +145,14 @@ class ForwardEvidenceLedger:
         """
         ForwardEvidenceLedger.init_table()
         conn = database.get_connection()
-        conn.row_factory = sqlite3.Row
         cur = conn.cursor()
-        cur.execute(f"SELECT * FROM {ForwardEvidenceLedger.TABLE_NAME} ORDER BY timestamp DESC LIMIT ?", (limit,))
+        is_sq = isinstance(conn, sqlite3.Connection) or type(conn).__module__.startswith("sqlite3")
+        placeholder = "?" if is_sq else "%s"
+        cur.execute(f"SELECT * FROM {ForwardEvidenceLedger.TABLE_NAME} ORDER BY timestamp DESC LIMIT {placeholder}", (limit,))
+        cols = [c[0] for c in cur.description]
         rows = cur.fetchall()
         conn.close()
-        return [dict(r) for r in rows]
+        return [dict(zip(cols, r)) for r in rows]
 
     @staticmethod
     def get_snapshot_by_id(snapshot_id: str) -> Optional[Dict[str, Any]]:
@@ -141,12 +161,14 @@ class ForwardEvidenceLedger:
         """
         ForwardEvidenceLedger.init_table()
         conn = database.get_connection()
-        conn.row_factory = sqlite3.Row
         cur = conn.cursor()
-        cur.execute(f"SELECT * FROM {ForwardEvidenceLedger.TABLE_NAME} WHERE snapshot_id = ?", (snapshot_id,))
+        is_sq = isinstance(conn, sqlite3.Connection) or type(conn).__module__.startswith("sqlite3")
+        placeholder = "?" if is_sq else "%s"
+        cur.execute(f"SELECT * FROM {ForwardEvidenceLedger.TABLE_NAME} WHERE snapshot_id = {placeholder}", (snapshot_id,))
+        cols = [c[0] for c in cur.description]
         row = cur.fetchone()
         conn.close()
-        return dict(row) if row else None
+        return dict(zip(cols, row)) if row else None
 
     @staticmethod
     def compare_snapshots(id_earlier: str, id_later: str) -> Dict[str, Any]:
