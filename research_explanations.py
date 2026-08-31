@@ -166,6 +166,56 @@ METRIC_CATALOG: Dict[str, Dict[str, Any]] = {
         "short_desc": "1M limit order entry placed at the boundary of a 1M Fair Value Gap.",
         "detailed_desc": "Provides the precision execution trigger. The strategy does not wait for a 15M candle to close before entering, compressing stop loss distance from 42.5 pips to 14.5 pips.",
         "why_it_matters": "Tightens initial risk, dramatically expands realized R-multiples, and avoids entry lag."
+    },
+    "forward_expectancy": {
+        "display_name": "Forward Expectancy (R)",
+        "short_desc": "Average realized return per trade on unseen forward Paper/Shadow validation data.",
+        "detailed_desc": "The empirical average return in units of initial risk (R) on trades generated strictly after the Phase 21 strategy freeze.",
+        "good_threshold": 0.30,
+        "strong_threshold": 0.50,
+        "bad_threshold": 0.00,
+        "caveat": "Forward expectancy on small sample sizes (N < 30) is susceptible to high variance and market regime luck.",
+        "why_it_matters": "Determines whether the frozen strategy continues to extract an edge in live unseen market feeds."
+    },
+    "forward_sample_size": {
+        "display_name": "Forward Sample Size (N)",
+        "short_desc": "Total number of completed forward Paper or Shadow validation trades.",
+        "detailed_desc": "Tracks forward evidence accumulation against the predefined validation target of N >= 100 observations.",
+        "good_threshold": 50,
+        "strong_threshold": 100,
+        "bad_threshold": 30,
+        "caveat": "No forward strategy can be declared validated without an adequate sample size spanning diverse market regimes.",
+        "why_it_matters": "Dictates statistical confidence and guards against premature conclusions."
+    },
+    "drift_status": {
+        "display_name": "Distribution Drift Status",
+        "short_desc": "Comparison of forward excursion profile (MAE/MFE) and holding time against historical baseline.",
+        "detailed_desc": "Identifies whether forward trades exhibit similar adverse and favorable excursion distributions as the historical holdout.",
+        "why_it_matters": "Early warning system for market regime shifts or structural edge decay."
+    },
+    "execution_quality": {
+        "display_name": "Execution Quality Health",
+        "short_desc": "Monitoring of 1M FVG limit fill rate, order lifetime, slippage, and spread friction.",
+        "detailed_desc": "Separates strategy failure (setups failing to move in expected direction) from execution degradation (limit orders timing out without fills).",
+        "why_it_matters": "Ensures that performance challenges are correctly attributed to execution mechanics versus core strategy invalidation."
+    },
+    "drawdown_status": {
+        "display_name": "Forward Drawdown Status",
+        "short_desc": "Evaluation of current forward drawdown against historical Monte Carlo stress distribution.",
+        "detailed_desc": "Classifies current forward peak-to-trough decline as Normal (<= 4R), Elevated (4R-7.15R), Stress (7.15R-12R), or Severe (> 12R).",
+        "why_it_matters": "Prevents premature strategy abandonment during mathematically normal historical drawdown streaks."
+    },
+    "edge_consistency_score": {
+        "display_name": "Edge Consistency Score",
+        "short_desc": "Transparent multi-component score (0-100) assessing forward agreement with the frozen contract.",
+        "detailed_desc": "Evaluates expectancy direction, confidence intervals, win rate alignment, drawdown health, and execution quality.",
+        "why_it_matters": "Provides an inspectable composite index of forward strategy health."
+    },
+    "validation_stage": {
+        "display_name": "Validation Governance Gate",
+        "short_desc": "Predefined stage-based evaluation: Stage 0 (Monitoring) to Stage 3 (Strong Forward Evidence).",
+        "detailed_desc": "Enforces strict scientific thresholds before any strategy can be deemed eligible for human review.",
+        "why_it_matters": "Prevents discretionary or emotional transitions to live trading."
     }
 }
 

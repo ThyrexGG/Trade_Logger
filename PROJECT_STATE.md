@@ -39,6 +39,9 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 | File | Purpose |
 |------|---------|
 | `app.py` | Main Streamlit UI (9 tabs) + Research Lab (Reversal, Continuation, Edge Discovery, Conditional Validation, True MTF, XAUUSD Audit, XAUUSD Forward) + Operations Panel |
+| `xauusd_validation_gate.py` | Phase 22 Predefined 4-Stage Governance Decision Gates (Stage 0 to Stage 3), Eligibility Evaluator |
+| `xauusd_drift_detector.py` | Phase 22 Distribution Drift (MAE/MFE/Duration), Drawdown Tiers (Normal/Elevated/Stress/Severe), Edge Consistency Score (0-100) |
+| `xauusd_forward_monitor.py` | Phase 22 Forward Telemetry Monitor, Sample Reliability Tiers, 1M Limit Execution Quality Health, Regime Diagnostic Matrix |
 | `xauusd_forward_validator.py` | Phase 21 XAUUSD True MTF Frozen Strategy Engine, Forward Journal Persistence, Target Milestone (2R-7R) Analytics, Regime Monitor, Paper/Shadow Parity Checker |
 | `research_explanations.py` | Centralized Explainable Research Module (Tooltips, Context-Aware Expectancy Overrides, Sample Tier Warnings, MTF Visual Flow, Drawdown Conversions) |
 | `xauusd_audit_engine.py` | Dedicated XAUUSD True MTF Adversarial Audit Engine (6-Model Execution Benchmark, Structural SL Sensitivity, Parameter Perturbation Surface, 10k Monte Carlo, Canonical Pipeline Replayer) |
@@ -80,9 +83,12 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 | `trend_continuation.py` | EMA crossover continuation |
 | `mean_reversion.py` | RSI extreme reversal |
 
-### Automated Test Suite Status (146 PASSED, 2 SKIPPED — 100% REGRESSION PASS RATE)
+### Automated Test Suite Status (156 PASSED, 2 SKIPPED — 100% REGRESSION PASS RATE)
 | File | Purpose | Test Count |
 |------|---------|------------|
+| `test_phase22_forward_validation.py` | Forward summary metrics, sample size tiers, bootstrap CI bounds, 1M FVG limit execution quality, regime protection | 4 PASSED |
+| `test_phase22_drift_detection.py` | Drawdown status tiers, excursion distribution drift (MAE/MFE), 5-component edge consistency score | 3 PASSED |
+| `test_phase22_governance.py` | Deterministic decision gate evaluation (Stage 0-3), live automation permanently disabled, zero emojis/certainty | 3 PASSED |
 | `test_xauusd_forward_validation.py` | Forward journal persistent logging, R milestone hit rates (2R-7R), dataset isolation, pipeline parity, regime non-interference | 6 PASSED |
 | `test_research_explanations.py` | Metric catalog completeness, tooltips, sample tier rules, CI interpretation, context overrides, drawdown, Monte Carlo, zero emojis/certainty | 9 PASSED |
 | `test_phase20_mtf_integrity.py` | Adversarial future mutation lookahead proof, timestamp strictness, SL/TP models, perturbation plateau, paper/shadow replay parity | 11 PASSED |
