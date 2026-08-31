@@ -39,6 +39,7 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 | File | Purpose |
 |------|---------|
 | `app.py` | Main Streamlit UI (9 tabs) + Research Lab (Reversal, Continuation, Edge Discovery, Conditional Validation, True MTF, XAUUSD Audit) + Operations Panel |
+| `research_explanations.py` | Centralized Explainable Research Module (Tooltips, Context-Aware Expectancy Overrides, Sample Tier Warnings, MTF Visual Flow, Drawdown Conversions) |
 | `xauusd_audit_engine.py` | Dedicated XAUUSD True MTF Adversarial Audit Engine (6-Model Execution Benchmark, Structural SL Sensitivity, Parameter Perturbation Surface, 10k Monte Carlo, Canonical Pipeline Replayer) |
 | `true_mtf_engine.py` | Dedicated True Multi-Timeframe (1D->4H->15M->5M->1M) Engine, 18-State Machine, Execution Timeframe Comparer, 16-Asset Discovery Universe |
 | `usdjpy_conditional_validation.py` | Dedicated USDJPY Regime-Conditional Validation Engine (5,000-Run Permutation Tester, 5,000-Run Monte Carlo, Rolling WFO, Multi-Testing Ledger) |
@@ -78,9 +79,10 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 | `trend_continuation.py` | EMA crossover continuation |
 | `mean_reversion.py` | RSI extreme reversal |
 
-### Automated Test Suite Status (131 PASSED, 2 SKIPPED — 100% REGRESSION PASS RATE)
+### Automated Test Suite Status (140 PASSED, 2 SKIPPED — 100% REGRESSION PASS RATE)
 | File | Purpose | Test Count |
 |------|---------|------------|
+| `test_research_explanations.py` | Metric catalog completeness, tooltips, sample tier rules, CI interpretation, context overrides, drawdown, Monte Carlo, zero emojis/certainty | 9 PASSED |
 | `test_phase20_mtf_integrity.py` | Adversarial future mutation lookahead proof, timestamp strictness, SL/TP models, perturbation plateau, paper/shadow replay parity | 11 PASSED |
 | `test_true_mtf_research.py` | 18-state lifecycle, zero-lookahead assertions, 1M vs 5M vs 15M benchmark, cross-asset ranking | 5 PASSED |
 | `test_usdjpy_conditional_validation.py` | Mathematical auditor, subgroup metrics, permutation reproducibility, WFO, Monte Carlo, cost stress | 9 PASSED |
