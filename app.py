@@ -2435,7 +2435,9 @@ def render_live_dashboard():
             # ----------------------------------------------------
             # UNIFIED TRADING WORKSPACE COCKPIT (PHASE 53)
             # ----------------------------------------------------
+            import importlib
             import trading_workspace_cockpit
+            importlib.reload(trading_workspace_cockpit)
             trading_workspace_cockpit.render_trading_workspace_cockpit()
 
         # ----------------------------------------------------

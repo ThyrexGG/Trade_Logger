@@ -599,4 +599,14 @@ def render_safety_banner():
         </div>
     </div>
     """
-    st.markdown(html, unsafe_allow_html=True)
+    render_html(html)
+
+
+def render_html(html_content: str):
+    """
+    Renders raw HTML via st.markdown with strict unindentation / dedent
+    so that indented python multiline strings are never parsed as markdown code blocks.
+    """
+    import textwrap
+    st.markdown(textwrap.dedent(html_content).strip(), unsafe_allow_html=True)
+

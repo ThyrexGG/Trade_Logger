@@ -116,12 +116,12 @@ class AssetEdgeScorecardUI:
             pass
 
         # 3. Top Contextual Intelligence Banner
-        st.markdown(f"""
+        ui_components.render_html(f"""
         <div style="background: rgba(15, 23, 42, 0.75); border-left: 3px solid #00ffcc; border-radius: 4px; padding: 6px 12px; margin-bottom: 10px; font-size: 10.5px; color: #8a99ad; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
             <span><b>CONTEXTUAL INTELLIGENCE ONLY:</b> Synthesizes macro drivers, surprises, and structure. Strategy setup execution remains strictly independent.</span>
             <span style="color: #00ffcc; font-family: monospace; font-weight: 700;">EDGE v{EDGE_MODEL_VERSION} | MACRO v{MACRO_MODEL_VERSION}</span>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
         # 4. Top 3-Second Summary Hero
         cls.render_hero_summary_bar(edge_snapshot, macro_snapshot)
@@ -181,7 +181,7 @@ class AssetEdgeScorecardUI:
             c1, c2, c3, c4, c5 = st.columns([1.3, 1.2, 1.2, 1.1, 1.2])
 
             with c1:
-                st.markdown(f"""
+                ui_components.render_html(f"""
                 <div style="font-size: 10px; color: #8a99ad; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px;">OVERALL EDGE SCORE</div>
                 <div style="display: flex; align-items: baseline; gap: 6px; margin: 2px 0;">
                     <span style="font-size: 26px; font-weight: 900; font-family: monospace; color: {e_badge_col};">{e_score:+.0f}</span>
@@ -190,10 +190,10 @@ class AssetEdgeScorecardUI:
                 <div style="font-size: 10.5px; font-weight: 800; color: {e_badge_col}; text-transform: uppercase;">
                     {edge_snap['directional_bias']}
                 </div>
-                """, unsafe_allow_html=True)
+                """)
 
             with c2:
-                st.markdown(f"""
+                ui_components.render_html(f"""
                 <div style="font-size: 10px; color: #8a99ad; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px;">MACRO CONTEXT SCORE</div>
                 <div style="display: flex; align-items: baseline; gap: 6px; margin: 2px 0;">
                     <span style="font-size: 26px; font-weight: 900; font-family: monospace; color: {m_badge_col};">{m_score:+.0f}</span>
@@ -202,12 +202,12 @@ class AssetEdgeScorecardUI:
                 <div style="font-size: 10.5px; font-weight: 800; color: {m_badge_col}; text-transform: uppercase;">
                     {macro_snap['macro_direction']}
                 </div>
-                """, unsafe_allow_html=True)
+                """)
 
             with c3:
                 tech_score = next((f["score"] for f in edge_snap["factor_breakdown"] if "Technical" in f["factor_name"]), 0.0)
                 t_col = "#00ffcc" if tech_score >= 20 else ("#ef4444" if tech_score <= -20 else "#8a99ad")
-                st.markdown(f"""
+                ui_components.render_html(f"""
                 <div style="font-size: 10px; color: #8a99ad; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px;">TECHNICAL STRUCTURE</div>
                 <div style="display: flex; align-items: baseline; gap: 6px; margin: 2px 0;">
                     <span style="font-size: 26px; font-weight: 900; font-family: monospace; color: {t_col};">{tech_score:+.0f}</span>
@@ -216,26 +216,26 @@ class AssetEdgeScorecardUI:
                 <div style="font-size: 10.5px; font-weight: 700; color: {t_col};">
                     {'BULLISH 1D/4H' if tech_score > 0 else ('BEARISH' if tech_score < 0 else 'NEUTRAL')}
                 </div>
-                """, unsafe_allow_html=True)
+                """)
 
             with c4:
-                st.markdown(f"""
+                ui_components.render_html(f"""
                 <div style="font-size: 10px; color: #8a99ad; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px;">FACTOR ALIGNMENT</div>
                 <div style="font-size: 24px; font-weight: 900; font-family: monospace; color: {'#00ffcc' if agr >= 70 else ('#f59e0b' if agr >= 50 else '#ef4444')}; margin: 2px 0;">
                     {agr:.0f}%
                 </div>
                 <div style="font-size: 10.5px; color: #cbd5e1; font-weight: 700;">Confidence: <b style="color:#ffffff;">{conf}</b></div>
-                """, unsafe_allow_html=True)
+                """)
 
             with c5:
-                st.markdown(f"""
+                ui_components.render_html(f"""
                 <div style="font-size: 10px; color: #8a99ad; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px;">DATA QUALITY</div>
                 <div style="display: flex; align-items: baseline; gap: 6px; margin: 2px 0;">
                     <span style="font-size: 24px; font-weight: 900; font-family: monospace; color: {dq['color']};">{dq['score']}</span>
                     <span style="font-size: 11px; color: #8a99ad;">/ 100</span>
                 </div>
                 <div style="font-size: 10.5px; color: {dq['color']}; font-weight: 700;">{dq['rating']}</div>
-                """, unsafe_allow_html=True)
+                """)
 
     @classmethod
     def render_overview_tab(cls, edge_snap: Dict[str, Any], macro_snap: Dict[str, Any]):
@@ -248,11 +248,11 @@ class AssetEdgeScorecardUI:
         col_fb, col_why = st.columns([1.3, 1.2])
 
         with col_fb:
-            st.markdown("""
+            ui_components.render_html("""
             <div style="font-size: 11px; font-weight: 800; color: #8a99ad; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px;">
                 MULTI-FACTOR PILLAR BREAKDOWN
             </div>
-            """, unsafe_allow_html=True)
+            """)
 
             with st.container(border=True):
                 for f in factors:
@@ -270,7 +270,7 @@ class AssetEdgeScorecardUI:
                         bar_w = int(abs(f_score))
                         score_str = f"{f_score:+.0f}"
 
-                    st.markdown(f"""
+                    ui_components.render_html(f"""
                     <div style="margin-bottom: 7px; font-size: 11px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
                             <span style="color: #ffffff; font-weight: 700;">{f_name}</span>
@@ -280,14 +280,14 @@ class AssetEdgeScorecardUI:
                             <div style="background: {b_color}; height: 100%; width: {bar_w}%;"></div>
                         </div>
                     </div>
-                    """, unsafe_allow_html=True)
+                    """)
 
         with col_why:
-            st.markdown("""
+            ui_components.render_html("""
             <div style="font-size: 11px; font-weight: 800; color: #8a99ad; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px;">
                 SIGNED FACTOR EVIDENCE ("WHY THIS SCORE?")
             </div>
-            """, unsafe_allow_html=True)
+            """)
 
             with st.container(border=True):
                 if why_items:
@@ -297,7 +297,7 @@ class AssetEdgeScorecardUI:
                         p_color = "#00ffcc" if pts > 0 else ("#ef4444" if pts < 0 else "#8a99ad")
                         bg_tint = "rgba(0,255,204,0.05)" if pts > 0 else ("rgba(239,68,68,0.05)" if pts < 0 else "rgba(255,255,255,0.02)")
 
-                        st.markdown(f"""
+                        ui_components.render_html(f"""
                         <div style="background: {bg_tint}; border-left: 2px solid {p_color}; border-radius: 3px; padding: 5px 8px; margin-bottom: 6px; font-size: 10.5px; line-height: 1.3;">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <span style="font-weight: 800; color: {p_color}; font-family: monospace;">{sign} PTS</span>
@@ -305,17 +305,17 @@ class AssetEdgeScorecardUI:
                             </div>
                             <div style="color: #cbd5e1; margin-top: 2px;">{ev['reason']}</div>
                         </div>
-                        """, unsafe_allow_html=True)
+                        """)
 
         # Factor Contribution Matrix & Conflict Alert
         col_mat, col_conf = st.columns([1.3, 1.2])
 
         with col_mat:
-            st.markdown("""
+            ui_components.render_html("""
             <div style="font-size: 11px; font-weight: 800; color: #8a99ad; text-transform: uppercase; letter-spacing: 0.8px; margin-top: 8px; margin-bottom: 6px;">
                 FACTOR CONTRIBUTION MATRIX
             </div>
-            """, unsafe_allow_html=True)
+            """)
             matrix = macro_snap.get("contribution_matrix", [])
             if matrix:
                 df_mat = pd.DataFrame(matrix)
@@ -330,30 +330,30 @@ class AssetEdgeScorecardUI:
                 )
 
         with col_conf:
-            st.markdown("""
+            ui_components.render_html("""
             <div style="font-size: 11px; font-weight: 800; color: #8a99ad; text-transform: uppercase; letter-spacing: 0.8px; margin-top: 8px; margin-bottom: 6px;">
                 FACTOR CONFLICT DETECTOR
             </div>
-            """, unsafe_allow_html=True)
+            """)
             with st.container(border=True):
                 if conflict.get("has_conflict"):
-                    st.markdown("""
+                    ui_components.render_html("""
                     <div style="background: rgba(245, 158, 11, 0.1); border-left: 3px solid #f59e0b; border-radius: 4px; padding: 6px 10px; font-size: 11px; color: #f59e0b; font-weight: 700; margin-bottom: 6px;">
                         ⚠ FACTOR CONFLICT DETECTED
                     </div>
-                    """, unsafe_allow_html=True)
+                    """)
                     for c in conflict.get("conflicts", []):
-                        st.markdown(f"""
+                        ui_components.render_html(f"""
                         <div style="font-size: 10.5px; color: #cbd5e1; margin-bottom: 4px;">
                             <b style="color: #ffffff;">{c['headline']}:</b> {c['explanation']}
                         </div>
-                        """, unsafe_allow_html=True)
+                        """)
                 else:
-                    st.markdown("""
+                    ui_components.render_html("""
                     <div style="background: rgba(0, 255, 204, 0.08); border-left: 3px solid #00ffcc; border-radius: 4px; padding: 6px 10px; font-size: 11px; color: #00ffcc; font-weight: 700;">
                         ✓ UNIFIED FACTORS: Technical structure and macroeconomic conditions are directional allies.
                     </div>
-                    """, unsafe_allow_html=True)
+                    """)
 
     @classmethod
     def render_economic_surprise_tab(cls, symbol: str, macro_snap: Dict[str, Any]):
@@ -431,15 +431,15 @@ class AssetEdgeScorecardUI:
     @classmethod
     def render_positioning_tab(cls, symbol: str, edge_snap: Dict[str, Any], macro_snap: Dict[str, Any]):
         """Renders Institutional COT Positioning & Sentiment analysis."""
-        st.markdown(f"""
+        ui_components.render_html(f"""
         <div style="font-size: 11px; font-weight: 800; color: #8a99ad; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px;">
             CFTC COMMITMENTS OF TRADERS (COT) & INSTITUTIONAL POSITIONING ({symbol})
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
         with st.container(border=True):
             if symbol == "XAUUSD":
-                st.markdown("""
+                ui_components.render_html("""
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                     <span style="font-size: 14px; font-weight: 800; color: #ffffff;">COMEX Gold Non-Commercial Net Positioning</span>
                     <span style="background: rgba(0,255,204,0.15); color: #00ffcc; font-weight: 800; font-size: 11px; padding: 3px 8px; border-radius: 3px; font-family: monospace;">+238,500 CONTRACTS (NET LONG)</span>
@@ -449,29 +449,29 @@ class AssetEdgeScorecardUI:
                     • <b>Commercial Hedging:</b> Producers actively hedging into high nominal gold prices without aggressive speculative liquidation.<br>
                     • <b>Implication:</b> Structural institutional bid remains supportive, though positioning is approaching elevated levels requiring technical confirmation.
                 </div>
-                """, unsafe_allow_html=True)
+                """)
             else:
-                st.markdown(f"""
+                ui_components.render_html(f"""
                 <div style="font-size: 11.5px; color: #cbd5e1;">
                     Institutional positioning for <b>{symbol}</b> is derived from CFTC aggregate futures & options positioning reports.
                 </div>
-                """, unsafe_allow_html=True)
+                """)
 
     @classmethod
     def render_seasonality_tab(cls, symbol: str, edge_snap: Dict[str, Any]):
         """Renders Monthly and Session Seasonal Tendencies with strict sample size disclaimers."""
-        st.markdown(f"""
+        ui_components.render_html(f"""
         <div style="font-size: 11px; font-weight: 800; color: #8a99ad; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px;">
             HISTORICAL SEASONALITY TENDENCIES ({symbol})
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
         with st.container(border=True):
-            st.markdown(f"""
+            ui_components.render_html(f"""
             <div style="background: rgba(245, 158, 11, 0.08); border-left: 3px solid #f59e0b; border-radius: 4px; padding: 6px 10px; margin-bottom: 10px; font-size: 10.5px; color: #f59e0b;">
                 ⚠ <b>SAMPLE SIZE & LOOKBACK DISCLAIMER:</b> Seasonality represents historical averages over a 15-year lookback. It is a secondary contextual factor (2% model weight) and must never override live market structure.
             </div>
-            """, unsafe_allow_html=True)
+            """)
 
             months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
             returns = [+2.4, -0.8, +0.5, +1.2, -0.4, +0.8, +1.9, +1.4, -1.8, +0.9, +2.1, +1.6] if symbol == "XAUUSD" else [0.0]*12
@@ -486,11 +486,11 @@ class AssetEdgeScorecardUI:
     @classmethod
     def render_what_changed_tab(cls, symbol: str, macro_snap: Dict[str, Any]):
         """Renders What Changed Engine: Delta comparison vs previous snapshot."""
-        st.markdown("""
+        ui_components.render_html("""
         <div style="font-size: 11px; font-weight: 800; color: #8a99ad; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px;">
             WHAT CHANGED SINCE PREVIOUS SNAPSHOT?
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
         changes = MacroChangeDetector.evaluate_changes(current_snapshot=macro_snap)
 
@@ -508,11 +508,11 @@ class AssetEdgeScorecardUI:
     @classmethod
     def render_data_quality_tab(cls, symbol: str, edge_snap: Dict[str, Any], macro_snap: Dict[str, Any]):
         """Renders Data Quality, Freshness Audit, Source Provenance, and Revision History."""
-        st.markdown("""
+        ui_components.render_html("""
         <div style="font-size: 11px; font-weight: 800; color: #8a99ad; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px;">
             DATA QUALITY, FRESHNESS & REVISION AUDIT
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
         fresh = macro_snap.get("freshness_audit", {})
         c1, c2, c3, c4 = st.columns(4)
@@ -533,11 +533,11 @@ class AssetEdgeScorecardUI:
     @classmethod
     def render_market_ranking_tab(cls):
         """Renders 10-Asset Institutional Comparative Leaderboard."""
-        st.markdown("""
+        ui_components.render_html("""
         <div style="font-size: 11px; font-weight: 800; color: #8a99ad; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px;">
             10-INSTRUMENT INSTITUTIONAL EDGE & MACRO LEADERBOARD
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
         rankings = AssetEdgeIntelligenceEngine.evaluate_all_assets()
         # Supplement rankings with macro score

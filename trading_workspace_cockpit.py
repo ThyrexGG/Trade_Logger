@@ -141,12 +141,12 @@ class TradingWorkspaceCockpit:
         """
         Renders the professional scanable watchlist sidebar panel.
         """
-        st.markdown("""
+        ui_components.render_html("""
         <div style="font-size: 11px; font-weight: 800; color: #8a99ad; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
             <span>INSTRUMENT WATCHLIST</span>
             <span style="color: #00ffcc; font-size: 10px;">LIVE STREAM</span>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
         w_data = cls.get_watchlist_data()
         
@@ -182,24 +182,10 @@ class TradingWorkspaceCockpit:
 
             px_str = f"${item['price']:,.2f}" if item['price'] >= 100 else f"{item['price']:.5f}" if item['price'] > 0 else "OFFLINE"
 
-            html_cards += f"""
-            <div style="background:{bg_col}; border:1px solid {border_col}; border-radius:6px; padding:7px 9px; transition:all 0.15s ease;">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-weight:800; font-size:12px; color:{'#00ffcc' if is_active else '#ffffff'}; font-family:monospace;">{item['display']}</span>
-                    <span style="font-weight:800; font-size:12px; color:#ffffff; font-family:monospace;">{px_str}</span>
-                </div>
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
-                    <div style="display:flex; gap:4px; font-size:9.5px; font-family:monospace;">
-                        <span style="color:{b4_col};">4H {item['bias_4h']}</span>
-                        <span style="color:#475569;">|</span>
-                        <span style="color:{b15_col};">15M {item['bias_15m']}</span>
-                    </div>
-                    <div>{setup_badge}</div>
-                </div>
-            </div>
-            """
+            html_cards += f'<div style="background:{bg_col}; border:1px solid {border_col}; border-radius:6px; padding:7px 9px; transition:all 0.15s ease;"><div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:800; font-size:12px; color:{"#00ffcc" if is_active else "#ffffff"}; font-family:monospace;">{item["display"]}</span><span style="font-weight:800; font-size:12px; color:#ffffff; font-family:monospace;">{px_str}</span></div><div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;"><div style="display:flex; gap:4px; font-size:9.5px; font-family:monospace;"><span style="color:{b4_col};">4H {item["bias_4h"]}</span><span style="color:#475569;">|</span><span style="color:{b15_col};">15M {item["bias_15m"]}</span></div><div>{setup_badge}</div></div></div>'
+        
         html_cards += "</div>"
-        st.markdown(html_cards, unsafe_allow_html=True)
+        ui_components.render_html(html_cards)
         return new_sym
 
     @classmethod
@@ -225,36 +211,22 @@ class TradingWorkspaceCockpit:
                 bg = "rgba(148, 163, 184, 0.08)"
                 icon = "●"
 
-            items_html += f"""
-            <div style="background:{bg}; border:1px solid rgba(255,255,255,0.06); border-radius:4px; padding:4px 8px; display:flex; align-items:center; gap:5px; font-family:monospace;">
-                <span style="color:#64748b; font-size:10px; font-weight:800;">{tf}</span>
-                <span style="color:{col}; font-size:11px; font-weight:800;">{icon} {bias}</span>
-            </div>
-            """
+            items_html += f'<div style="background:{bg}; border:1px solid rgba(255,255,255,0.06); border-radius:4px; padding:4px 8px; display:flex; align-items:center; gap:5px; font-family:monospace;"><span style="color:#64748b; font-size:10px; font-weight:800;">{tf}</span><span style="color:{col}; font-size:11px; font-weight:800;">{icon} {bias}</span></div>'
 
-        html = f"""
-        <div style="background:rgba(15,23,42,0.6); border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:6px 10px; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px;">
-            <div style="font-size:10.5px; font-weight:800; color:#8a99ad; text-transform:uppercase; letter-spacing:0.5px;">
-                MTF STRUCTURE CONTEXT:
-            </div>
-            <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                {items_html}
-            </div>
-        </div>
-        """
-        st.markdown(html, unsafe_allow_html=True)
+        html = f'<div style="background:rgba(15,23,42,0.6); border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:6px 10px; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px;"><div style="font-size:10.5px; font-weight:800; color:#8a99ad; text-transform:uppercase; letter-spacing:0.5px;">MTF STRUCTURE CONTEXT:</div><div style="display:flex; gap:6px; flex-wrap:wrap;">{items_html}</div></div>'
+        ui_components.render_html(html)
 
     @classmethod
     def render_execution_panel(cls, symbol: str, active_tf: str):
         """
         Renders the docked canonical execution & pre-trade risk panel on the right.
         """
-        st.markdown("""
+        ui_components.render_html("""
         <div style="font-size: 11px; font-weight: 800; color: #8a99ad; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
             <span>EXECUTION & RISK PANEL</span>
             <span style="color: #ef4444; font-size: 10px; font-weight: 800;">🔒 LIVE BLOCKED</span>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
         with st.container(border=True):
             # 1. Header with Symbol & Live Quote
@@ -263,7 +235,7 @@ class TradingWorkspaceCockpit:
             bid = float(latest_tick.get("bid", live_price))
             ask = float(latest_tick.get("ask", live_price))
 
-            st.markdown(f"""
+            ui_components.render_html(f"""
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.08);">
                 <div>
                     <span style="font-size: 14px; font-weight: 800; color: #ffffff; font-family: monospace;">{symbol}</span>
@@ -273,7 +245,7 @@ class TradingWorkspaceCockpit:
                     ${live_price:,.2f}
                 </div>
             </div>
-            """, unsafe_allow_html=True)
+            """)
 
             # 2. Direction Selection (BUY / SELL)
             c_dir1, c_dir2 = st.columns(2)
@@ -290,11 +262,11 @@ class TradingWorkspaceCockpit:
             selected_side = st.session_state.get(f"exec_side_{symbol}", "BUY")
             side_col = "#10b981" if selected_side == "BUY" else "#ef4444"
 
-            st.markdown(f"""
+            ui_components.render_html(f"""
             <div style="background: rgba(255,255,255,0.02); border-left: 3px solid {side_col}; padding: 4px 8px; border-radius: 3px; font-size: 11px; margin-bottom: 8px;">
                 SELECTED DIRECTION: <b style="color: {side_col};">{selected_side}</b>
             </div>
-            """, unsafe_allow_html=True)
+            """)
 
             # 3. Order Inputs: Entry, Stop Loss, Take Profit
             default_entry = ask if selected_side == "BUY" else bid
@@ -334,7 +306,7 @@ class TradingWorkspaceCockpit:
             )
 
             # 6. Risk / Reward Display Matrix
-            st.markdown(f"""
+            ui_components.render_html(f"""
             <div style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 6px; padding: 8px 10px; margin: 8px 0; font-size: 11px; font-family: monospace;">
                 <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
                     <span style="color:#8a99ad;">Calculated Lot Size:</span>
@@ -353,7 +325,7 @@ class TradingWorkspaceCockpit:
                     <b style="color:#00ffcc;">{risk_prev['risk_reward_ratio']}</b>
                 </div>
             </div>
-            """, unsafe_allow_html=True)
+            """)
 
             if risk_prev["warnings"]:
                 for w in risk_prev["warnings"]:
@@ -446,19 +418,19 @@ class TradingWorkspaceCockpit:
             with st.container(border=True):
                 c_p1, c_p2, c_p3, c_p4, c_p5, c_p6, c_p7 = st.columns([1.2, 1.0, 1.2, 1.2, 1.4, 1.6, 1.0])
                 with c_p1:
-                    st.markdown(f"<b style='color:#ffffff; font-size:13px; font-family:monospace;'>{sym}</b><br/><span style='font-size:10px; color:#8a99ad;'>{acc}</span>", unsafe_allow_html=True)
+                    ui_components.render_html(f"<b style='color:#ffffff; font-size:13px; font-family:monospace;'>{sym}</b><br/><span style='font-size:10px; color:#8a99ad;'>{acc}</span>")
                 with c_p2:
-                    st.markdown(f"<span style='color:{dir_col}; font-weight:800; font-size:12px;'>{direction}</span><br/><span style='font-size:11px; font-family:monospace; color:#ffffff;'>{vol:.2f} Lots</span>", unsafe_allow_html=True)
+                    ui_components.render_html(f"<span style='color:{dir_col}; font-weight:800; font-size:12px;'>{direction}</span><br/><span style='font-size:11px; font-family:monospace; color:#ffffff;'>{vol:.2f} Lots</span>")
                 with c_p3:
-                    st.markdown(f"<span style='font-size:10px; color:#8a99ad;'>ENTRY / CURR</span><br/><span style='font-family:monospace; font-size:11px; color:#cbd5e1;'>{entry_px:,.2f} &rarr; {curr_px:,.2f}</span>", unsafe_allow_html=True)
+                    ui_components.render_html(f"<span style='font-size:10px; color:#8a99ad;'>ENTRY / CURR</span><br/><span style='font-family:monospace; font-size:11px; color:#cbd5e1;'>{entry_px:,.2f} &rarr; {curr_px:,.2f}</span>")
                 with c_p4:
-                    st.markdown(f"<span style='font-size:10px; color:#8a99ad;'>SL / TP</span><br/><span style='font-family:monospace; font-size:11px; color:#cbd5e1;'>{sl:,.2f} / {tp:,.2f}</span>", unsafe_allow_html=True)
+                    ui_components.render_html(f"<span style='font-size:10px; color:#8a99ad;'>SL / TP</span><br/><span style='font-family:monospace; font-size:11px; color:#cbd5e1;'>{sl:,.2f} / {tp:,.2f}</span>")
                 with c_p5:
-                    st.markdown(f"<span style='font-size:10px; color:#8a99ad;'>PNL / RETURN</span><br/><b style='color:{pnl_col}; font-size:12px; font-family:monospace;'>{'+' if pnl>=0 else ''}${pnl:,.2f} ({r_disp})</b>", unsafe_allow_html=True)
+                    ui_components.render_html(f"<span style='font-size:10px; color:#8a99ad;'>PNL / RETURN</span><br/><b style='color:{pnl_col}; font-size:12px; font-family:monospace;'>{'+' if pnl>=0 else ''}${pnl:,.2f} ({r_disp})</b>")
                 with c_p6:
-                    st.markdown(f"<span style='font-size:10px; color:#8a99ad;'>EXCURSION (MAE / MFE)</span><br/><span style='font-size:11px; font-family:monospace; color:#cbd5e1;'>MAE: <span style='color:#ef4444;'>{mae_str}</span> | MFE: <span style='color:#10b981;'>{mfe_str}</span></span>", unsafe_allow_html=True)
+                    ui_components.render_html(f"<span style='font-size:10px; color:#8a99ad;'>EXCURSION (MAE / MFE)</span><br/><span style='font-size:11px; font-family:monospace; color:#cbd5e1;'>MAE: <span style='color:#ef4444;'>{mae_str}</span> | MFE: <span style='color:#10b981;'>{mfe_str}</span></span>")
                 with c_p7:
-                    st.markdown("<div style='height:4px;'></div>", unsafe_allow_html=True)
+                    ui_components.render_html("<div style='height:4px;'></div>")
                     if st.button("Close", key=f"btn_close_pos_{pos_id}", use_container_width=True):
                         import order_execution
                         if "CAP_" in pos_id:
@@ -476,20 +448,25 @@ class TradingWorkspaceCockpit:
         """
         Renders the real-time strategy signal checklist using the Phase 52 state system.
         """
-        st.markdown("""
+        ui_components.render_html("""
         <div style="font-size: 11px; font-weight: 800; color: #8a99ad; text-transform: uppercase; letter-spacing: 0.8px; margin-top: 14px; margin-bottom: 8px;">
             REAL-TIME STRATEGY SIGNAL STATE
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
         if symbol == "XAUUSD":
             status_badge = ui_components.render_state_badge("SUCCESS", "SETUP ELIGIBLE")
             c1, c2, c3, c4, c5 = st.columns(5)
-            c1.markdown("<div style='background:rgba(255,255,255,0.02); padding:6px; border-radius:4px; font-size:11px; font-family:monospace;'><span style='color:#10b981;'>✓</span> 1D Bias Aligned</div>", unsafe_allow_html=True)
-            c2.markdown("<div style='background:rgba(255,255,255,0.02); padding:6px; border-radius:4px; font-size:11px; font-family:monospace;'><span style='color:#10b981;'>✓</span> 4H DOL &ge; 2.0R</div>", unsafe_allow_html=True)
-            c3.markdown("<div style='background:rgba(255,255,255,0.02); padding:6px; border-radius:4px; font-size:11px; font-family:monospace;'><span style='color:#10b981;'>✓</span> 15M Liquidity Swept</div>", unsafe_allow_html=True)
-            c4.markdown("<div style='background:rgba(255,255,255,0.02); padding:6px; border-radius:4px; font-size:11px; font-family:monospace;'><span style='color:#10b981;'>✓</span> 15M MSS Confirmed</div>", unsafe_allow_html=True)
-            c5.markdown("<div style='background:rgba(255,255,255,0.02); padding:6px; border-radius:4px; font-size:11px; font-family:monospace;'><span style='color:#00ffcc;'>↻</span> 1M Limit Waiting</div>", unsafe_allow_html=True)
+            with c1:
+                ui_components.render_html("<div style='background:rgba(255,255,255,0.02); padding:6px; border-radius:4px; font-size:11px; font-family:monospace;'><span style='color:#10b981;'>✓</span> 1D Bias Aligned</div>")
+            with c2:
+                ui_components.render_html("<div style='background:rgba(255,255,255,0.02); padding:6px; border-radius:4px; font-size:11px; font-family:monospace;'><span style='color:#10b981;'>✓</span> 4H DOL &ge; 2.0R</div>")
+            with c3:
+                ui_components.render_html("<div style='background:rgba(255,255,255,0.02); padding:6px; border-radius:4px; font-size:11px; font-family:monospace;'><span style='color:#10b981;'>✓</span> 15M Liquidity Swept</div>")
+            with c4:
+                ui_components.render_html("<div style='background:rgba(255,255,255,0.02); padding:6px; border-radius:4px; font-size:11px; font-family:monospace;'><span style='color:#10b981;'>✓</span> 15M MSS Confirmed</div>")
+            with c5:
+                ui_components.render_html("<div style='background:rgba(255,255,255,0.02); padding:6px; border-radius:4px; font-size:11px; font-family:monospace;'><span style='color:#00ffcc;'>↻</span> 1M Limit Waiting</div>")
         else:
             ui_components.render_empty_state(
                 title="NO ACTIVE SETUP",
@@ -502,12 +479,12 @@ class TradingWorkspaceCockpit:
         """
         Renders the Multi-Factor Asset Edge Scorecard & Market Intelligence Region (Phase 55).
         """
-        st.markdown("""
+        ui_components.render_html("""
         <div style="font-size: 11px; font-weight: 800; color: #8a99ad; text-transform: uppercase; letter-spacing: 0.8px; margin-top: 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
             <span>ASSET EDGE INTELLIGENCE & MULTI-FACTOR SCORECARD</span>
-            <span style="font-size: 10px; color: #00ffcc; font-family: monospace;">PHASE 55 ENGINE</span>
+            <span style="font-size: 10px; color: #00ffcc; font-family: monospace;">PHASE 55/56 ENGINE</span>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
         import asset_edge_scorecard
         asset_edge_scorecard.render_asset_edge_scorecard(symbol)
@@ -562,13 +539,13 @@ def render_trading_workspace_cockpit():
                     st.rerun()
 
         with c_tf2:
-            st.markdown(f"""
+            ui_components.render_html(f"""
             <div style="text-align: right;">
                 <a href="https://www.tradingview.com/chart/?symbol={st.session_state.active_ws_symbol}" target="_blank" style="display: inline-block; background: rgba(0, 255, 204, 0.1); color: #00ffcc; border: 1px solid rgba(0, 255, 204, 0.3); padding: 4px 10px; border-radius: 4px; font-size: 10.5px; font-weight: 700; text-decoration: none; font-family: monospace;">
                     EXTERNAL
                 </a>
             </div>
-            """, unsafe_allow_html=True)
+            """)
 
         # MTF Context Bar directly above Chart
         TradingWorkspaceCockpit.render_mtf_context_bar(st.session_state.active_ws_symbol)
