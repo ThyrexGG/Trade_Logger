@@ -7,17 +7,12 @@ from datetime import datetime, timezone, timedelta
 import calendar
 import os
 import time
-import importlib
 import ai_analysis
-importlib.reload(ai_analysis)
 import market_data
-importlib.reload(market_data)
-
 import database
 import mt5_sync
 import capital_sync
 import tradingview_widget
-importlib.reload(tradingview_widget)
 import order_execution
 import research_explanations
 import xauusd_forward_validator
@@ -52,6 +47,7 @@ def render_html(html_str):
 
 import base64
 
+@st.cache_data
 def get_app_icon_b64():
     icon_path = os.path.join(os.path.dirname(__file__), "app_icon.png")
     if os.path.exists(icon_path):
@@ -3519,54 +3515,7 @@ def render_live_dashboard():
 
     df_trades = database.get_closed_trades()
 
-    if df_trades.empty:
-        # Header
-        st.markdown("""
-        <div style="display: flex; align-items: center; gap: 14px; margin-top: 8px; margin-bottom: 20px;">
-            <div style="width: 44px; height: 44px; border-radius: 10px; background: linear-gradient(135deg, rgba(0, 255, 204, 0.15), rgba(0, 119, 255, 0.2)); border: 1px solid rgba(0, 255, 204, 0.3); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00ffcc" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
-                    <polyline points="16 7 22 7 22 13"></polyline>
-                </svg>
-            </div>
-            <div>
-                <h1 style="margin: 0; font-size: 1.85rem; font-weight: 800; color: #ffffff; letter-spacing: -0.5px; text-transform: uppercase;">TradeLogger Terminal</h1>
-                <p style="margin: 3px 0 0 0; color: #8a99ad; font-size: 13px; letter-spacing: 0.2px;">Automated journal, technical charting, price alerts, and analytics</p>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Unified Control Card (Empty DB state)
-        with st.container(border=True):
-            col_msg, col_actions = st.columns([2, 1.2])
-            with col_msg:
-                st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
-                st.info("No trades found in the database. Use the sync buttons on the right to sync your accounts or verify your connections.")
-            with col_actions:
-                col_mt5, col_cap, col_bal = st.columns([1.1, 1.1, 1])
-                with col_bal:
-                    initial_balance = st.number_input("Balance ($)", min_value=10.0, value=1000.0, step=100.0, key="empty_bal")
-                with col_mt5:
-                    st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
-                    if st.button("Sync MT5", key="empty_sync_mt5", use_container_width=True):
-                        with st.spinner("Syncing MT5..."):
-                            success = mt5_sync.sync_mt5()
-                            if success:
-                                st.success("MT5 sync completed!")
-                                st.rerun()
-                            else:
-                                st.error("MT5 sync failed.")
-                with col_cap:
-                    st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
-                    if st.button("Sync Capital", key="empty_sync_cap", use_container_width=True):
-                        with st.spinner("Syncing Capital.com..."):
-                            success = capital_sync.sync_capital()
-                            if success:
-                                st.success("Capital.com sync completed!")
-                                st.rerun()
-                            else:
-                                st.error("Capital.com sync failed.")
-    else:
+    if not df_trades.empty:
         # Convert dates to pandas datetime objects
         df_trades["entry_time"] = pd.to_datetime(df_trades["entry_time"], format="mixed", utc=True).dt.tz_localize(None)
         df_trades["exit_time"] = pd.to_datetime(df_trades["exit_time"], format="mixed", utc=True).dt.tz_localize(None)
@@ -3608,13 +3557,30 @@ def render_live_dashboard():
             color: #00ffcc !important;
             box-shadow: 0 0 10px rgba(0, 255, 204, 0.3) !important;
         }
+        /* High-Performance Top Terminal Nav Pills */
+        div[data-testid="stPills"] {
+            gap: 6px !important;
+            padding: 4px 0 14px 0 !important;
+            flex-wrap: wrap !important;
+        }
+        div[data-testid="stPill"] {
+            font-size: 11.5px !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.5px !important;
+            border-radius: 6px !important;
+            text-transform: uppercase !important;
+            transition: all 0.15s ease !important;
+        }
         </style>
         """, unsafe_allow_html=True)
 
         if "account_balances" not in st.session_state:
             st.session_state.account_balances = {"ALL": 10000.0}
 
-        unique_accounts = ["ALL"] + sorted(list(df_trades["account_id"].dropna().unique()))
+        if not df_trades.empty and "account_id" in df_trades:
+            unique_accounts = ["ALL"] + sorted(list(df_trades["account_id"].dropna().unique()))
+        else:
+            unique_accounts = ["ALL", "CAPITAL_REAL", "MT5_FUNDED"]
         account_options = unique_accounts
 
         def format_account_name(acc_id):
@@ -3656,9 +3622,9 @@ def render_live_dashboard():
         """, unsafe_allow_html=True)
 
         # ----------------------------------------------------
-        # TOP-LEVEL BIG BOLD HEADER VIEW SWITCHER
+        # TOP-LEVEL HIGH-PERFORMANCE LAZY TAB VIEW SWITCHER
         # ----------------------------------------------------
-        tab_cmd, tab_overview, tab_charts, tab_ai, tab_research, tab_xauusd_audit, tab_xauusd_fwd, tab_journal, tab_alerts, tab_terminal, tab_sandbox, tab_health = st.tabs([
+        TAB_OPTIONS = [
             "XAUUSD DAILY COMMAND CENTER",
             "ANALYTICS & OVERVIEW",
             "TRADING WORKSPACE",
@@ -3671,14 +3637,48 @@ def render_live_dashboard():
             "QUICK TERMINAL",
             "SANDBOX",
             "SYSTEM HEALTH & PAPER"
-        ])
+        ]
+
+        if "main_active_tab" not in st.session_state or st.session_state.main_active_tab not in TAB_OPTIONS:
+            st.session_state.main_active_tab = "XAUUSD DAILY COMMAND CENTER"
+
+        # Direct URL linking support (e.g. ?tab=trading)
+        if "tab" in st.query_params:
+            url_tab = str(st.query_params["tab"]).upper()
+            for opt in TAB_OPTIONS:
+                if url_tab in opt or opt in url_tab:
+                    st.session_state.main_active_tab = opt
+                    break
+
+        if hasattr(st, "pills"):
+            selected_main_tab = st.pills(
+                "Active Terminal View",
+                options=TAB_OPTIONS,
+                default=st.session_state.main_active_tab,
+                key="main_active_tab_nav",
+                label_visibility="collapsed"
+            )
+            if selected_main_tab:
+                st.session_state.main_active_tab = selected_main_tab
+            else:
+                selected_main_tab = st.session_state.main_active_tab
+        else:
+            selected_main_tab = st.radio(
+                "Active Terminal View",
+                options=TAB_OPTIONS,
+                index=TAB_OPTIONS.index(st.session_state.main_active_tab),
+                horizontal=True,
+                key="main_active_tab_nav",
+                label_visibility="collapsed"
+            )
+            st.session_state.main_active_tab = selected_main_tab
 
         df_open = database.get_open_positions()
 
-        with tab_cmd:
+        if selected_main_tab == "XAUUSD DAILY COMMAND CENTER":
             render_xauusd_daily_command_center(key_prefix="top_cmd")
 
-        with tab_overview:
+        elif selected_main_tab == "ANALYTICS & OVERVIEW":
             # Unified Control & Filter Card
             with st.container(border=True):
                 col_acc_sel, col_sync_btns = st.columns([1.8, 1.2])
@@ -3724,40 +3724,44 @@ def render_live_dashboard():
                 else:
                     acc_filtered_df = df_trades
 
-                # Sub-filters: Symbols, Date Range, Starting Balance
-                col_sym, col_date, col_bal = st.columns([1, 1.2, 1])
+                if acc_filtered_df.empty:
+                    st.info("No closed trades found in the database for the selected account. Click 'Sync MT5' or 'Sync Capital' above to sync trades.")
+                else:
+                    # Sub-filters: Symbols, Date Range, Starting Balance
+                    col_sym, col_date, col_bal = st.columns([1, 1.2, 1])
 
-                with col_sym:
-                    symbols = acc_filtered_df["symbol"].unique()
-                    selected_symbols = st.multiselect("Symbols", options=symbols, default=list(symbols))
+                    with col_sym:
+                        symbols = acc_filtered_df["symbol"].unique()
+                        selected_symbols = st.multiselect("Symbols", options=symbols, default=list(symbols))
 
-                with col_date:
-                    min_date = acc_filtered_df["exit_time"].min().date()
-                    max_date = acc_filtered_df["exit_time"].max().date()
-                    date_range = st.date_input("Date Range", value=(min_date, max_date), min_value=min_date, max_value=max_date)
+                    with col_date:
+                        min_date = acc_filtered_df["exit_time"].min().date()
+                        max_date = acc_filtered_df["exit_time"].max().date()
+                        date_range = st.date_input("Date Range", value=(min_date, max_date), min_value=min_date, max_value=max_date)
 
-                with col_bal:
-                    current_default_bal = st.session_state.account_balances.get(selected_account, 300.0)
-                    initial_balance = st.number_input(
-                        "Starting Balance ($)",
-                        min_value=10.0,
-                        value=float(current_default_bal),
-                        step=50.0,
-                        key=f"bal_{selected_account}"
-                    )
-                    st.session_state.account_balances[selected_account] = initial_balance
+                    with col_bal:
+                        current_default_bal = st.session_state.account_balances.get(selected_account, 300.0)
+                        initial_balance = st.number_input(
+                            "Starting Balance ($)",
+                            min_value=10.0,
+                            value=float(current_default_bal),
+                            step=50.0,
+                            key=f"bal_{selected_account}"
+                        )
+                        st.session_state.account_balances[selected_account] = initial_balance
 
-            # Apply symbol & date filters
-            filtered_df = acc_filtered_df[acc_filtered_df["symbol"].isin(selected_symbols)]
-            if len(date_range) == 2:
-                start_dt = pd.to_datetime(date_range[0])
-                end_dt = pd.to_datetime(date_range[1]) + pd.Timedelta(days=1)
-                filtered_df = filtered_df[(filtered_df["exit_time"] >= start_dt) & (filtered_df["exit_time"] < end_dt)]
+            if not acc_filtered_df.empty:
+                # Apply symbol & date filters
+                filtered_df = acc_filtered_df[acc_filtered_df["symbol"].isin(selected_symbols)]
+                if len(date_range) == 2:
+                    start_dt = pd.to_datetime(date_range[0])
+                    end_dt = pd.to_datetime(date_range[1]) + pd.Timedelta(days=1)
+                    filtered_df = filtered_df[(filtered_df["exit_time"] >= start_dt) & (filtered_df["exit_time"] < end_dt)]
 
-            if filtered_df.empty:
-                st.warning("No trades match the selected filters.")
-            else:
-                filtered_df = filtered_df.sort_values(by="exit_time", ascending=True).reset_index(drop=True)
+                if filtered_df.empty:
+                    st.warning("No trades match the selected filters.")
+                else:
+                    filtered_df = filtered_df.sort_values(by="exit_time", ascending=True).reset_index(drop=True)
 
                 detected_balances = database.get_account_balances()
                 official_broker_bal = None
@@ -4264,7 +4268,7 @@ def render_live_dashboard():
                     fig_tag.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                     st.plotly_chart(fig_tag, use_container_width=True)
 
-        with tab_charts:
+        elif selected_main_tab == "TRADING WORKSPACE":
             # ----------------------------------------------------
             # UNIFIED MULTI-PANE TRADING WORKSPACE (PHASE 13)
             # ----------------------------------------------------
@@ -4495,7 +4499,7 @@ def render_live_dashboard():
         # ----------------------------------------------------
         # AI MARKET CONTEXT & TECHNICAL ANALYSIS PIPELINE
         # ----------------------------------------------------
-        with tab_ai:
+        elif selected_main_tab == "AI MARKET CONTEXT":
             st.markdown("<h3 style='color:#ffffff;font-size:1.3rem;margin:0 0 4px 0;font-weight:800;text-transform:uppercase;'>AI Technical & Market Context Analysis</h3>", unsafe_allow_html=True)
             st.markdown("<p style='color:#8a99ad;font-size:13px;margin-bottom:14px;'>Deterministic technical indicator synthesis & structured market scenarios. Never hallucinates prices.</p>", unsafe_allow_html=True)
 
@@ -4829,7 +4833,7 @@ def render_live_dashboard():
         # ----------------------------------------------------
         # RESEARCH LAB — STRATEGY EDGE DISCOVERY (PHASE 14-30)
         # ----------------------------------------------------
-        with tab_research:
+        elif selected_main_tab == "RESEARCH LAB":
             # High-Visibility XAUUSD Forward Validation Entry Card (Section 9 Requirement)
             st.markdown("""
             <div style="background:rgba(15,23,42,0.95); border:2px solid rgba(0,255,204,0.4); border-radius:10px; padding:16px 20px; margin-bottom:16px; box-shadow:0 4px 20px rgba(0,0,0,0.4);">
@@ -5264,13 +5268,13 @@ def render_live_dashboard():
             with tab_res_xauusd_fwd:
                 render_xauusd_forward_evidence_center(key_prefix="sub_fwd")
 
-        with tab_xauusd_audit:
+        elif selected_main_tab == "XAUUSD ADVERSARIAL AUDIT":
             render_xauusd_adversarial_audit(key_prefix="top_adv")
 
-        with tab_xauusd_fwd:
+        elif selected_main_tab == "XAUUSD FORWARD EVIDENCE":
             render_xauusd_forward_evidence_center(key_prefix="top_fwd")
 
-        with tab_journal:
+        elif selected_main_tab == "TRADE JOURNAL":
             # Account Separation Filter
             col_j_head1, col_j_head2 = st.columns([2.2, 1.2])
             with col_j_head1:
@@ -5623,7 +5627,7 @@ def render_live_dashboard():
                 </div>
                 """)
 
-    with tab_alerts:
+    elif selected_main_tab == "PRICE ALERTS":
         st.markdown("<h3 style='color:#ffffff;font-size:1.3rem;margin-bottom:6px;font-weight:800;text-transform:uppercase;'>Price Alerts & Risk Studio</h3>", unsafe_allow_html=True)
         st.markdown("<p style='color:#8a99ad;font-size:13px;margin-bottom:16px;'>Set target price cross alerts and configure custom profit targets or risk limits.</p>", unsafe_allow_html=True)
         
@@ -6061,7 +6065,7 @@ def render_live_dashboard():
                     st.success("Custom alert rules updated successfully!")
                     st.rerun()
 
-    with tab_terminal:
+    elif selected_main_tab == "QUICK TERMINAL":
         st.markdown("<h3 style='color:#ffffff;font-size:1.3rem;margin-bottom:6px;font-weight:800;text-transform:uppercase;'>Quick Trading Terminal</h3>", unsafe_allow_html=True)
         st.markdown("<p style='color:#8a99ad;font-size:13px;margin-bottom:16px;'>Place live market orders directly from your dashboard with built-in risk calculator.</p>", unsafe_allow_html=True)
         
@@ -6237,7 +6241,7 @@ def render_live_dashboard():
                         else:
                             st.error(r.message)
                                 
-    with tab_sandbox:
+    elif selected_main_tab == "SANDBOX":
         st.markdown("<h3 style='color:#ffffff;font-size:1.3rem;margin-bottom:6px;font-weight:800;text-transform:uppercase;'>Multi-Timeframe Strategy Sandbox</h3>", unsafe_allow_html=True)
         st.markdown("<p style='color:#94a3b8;font-size:0.9rem;margin-bottom:24px;'>Simulate mechanical edge models on historical data without risking live capital.</p>", unsafe_allow_html=True)
         
@@ -6354,7 +6358,7 @@ def render_live_dashboard():
                     with st.expander("View Trade Log"):
                         st.dataframe(pd.DataFrame(res["trades"]), use_container_width=True)
                         
-    with tab_health:
+    elif selected_main_tab == "SYSTEM HEALTH & PAPER":
         st.markdown("<h3 style='color:#ffffff;font-size:1.3rem;margin-bottom:6px;font-weight:800;text-transform:uppercase;'>Execution Operations & System Health Gate</h3>", unsafe_allow_html=True)
         st.markdown("<p style='color:#8a99ad;font-size:13px;margin-bottom:16px;'>Authoritative diagnostics across Broker Reconciliation, Execution Pipelines, and Safety Invariants.</p>", unsafe_allow_html=True)
         

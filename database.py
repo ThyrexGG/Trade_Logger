@@ -1,4 +1,5 @@
 import os
+import time
 import sqlite3
 from datetime import datetime, timezone
 import pandas as pd
@@ -6,6 +7,16 @@ from dotenv import load_dotenv
 
 # MetaTrader 5 / Capital.com Database Handler
 # Supports PostgreSQL (Supabase / Cloud) with graceful SQLite fallback
+
+_DB_CACHE = {}
+
+def invalidate_db_cache(prefix=None):
+    if prefix is None:
+        _DB_CACHE.clear()
+    else:
+        keys_to_del = [k for k in _DB_CACHE if k.startswith(prefix)]
+        for k in keys_to_del:
+            _DB_CACHE.pop(k, None)
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
 
@@ -534,6 +545,7 @@ def save_closed_trades(trades):
         
     conn.commit()
     conn.close()
+    invalidate_db_cache("closed_trades")
 
 def get_last_deal_timestamp(account_id):
     """Returns the timestamp of the latest logged deal for a given account to fetch incrementally."""
@@ -550,12 +562,22 @@ def get_last_deal_timestamp(account_id):
     conn.close()
     return result if result else 0
 
-def get_closed_trades():
+def get_closed_trades(ttl_sec: float = 0.0):
     """Returns all closed trades as a pandas DataFrame."""
+    if ttl_sec > 0:
+        cache_key = "closed_trades"
+        now_t = time.time()
+        if cache_key in _DB_CACHE:
+            cached_df, cached_time = _DB_CACHE[cache_key]
+            if now_t - cached_time < ttl_sec and isinstance(cached_df, pd.DataFrame):
+                return cached_df.copy()
+
     conn = get_connection()
     df = pd.read_sql_query("SELECT * FROM closed_trades ORDER BY exit_time DESC", conn)
     conn.close()
-    return df
+    if ttl_sec > 0:
+        _DB_CACHE["closed_trades"] = (df, time.time())
+    return df.copy()
 
 def update_setup_tag(trade_id, setup_tag):
     """Updates the subjective setup tag for a specific trade."""
@@ -569,6 +591,7 @@ def update_setup_tag(trade_id, setup_tag):
         
     conn.commit()
     conn.close()
+    invalidate_db_cache("closed_trades")
 
 def save_open_positions(account_id, positions):
     """Replaces current open positions for an account with the latest snapshot."""
@@ -606,9 +629,18 @@ def save_open_positions(account_id, positions):
             
     conn.commit()
     conn.close()
+    invalidate_db_cache("open_positions")
 
-def get_open_positions(account_id=None):
+def get_open_positions(account_id=None, ttl_sec: float = 0.0):
     """Returns currently open positions as a pandas DataFrame."""
+    if ttl_sec > 0:
+        cache_key = f"open_positions_{account_id}"
+        now_t = time.time()
+        if cache_key in _DB_CACHE:
+            cached_df, cached_time = _DB_CACHE[cache_key]
+            if now_t - cached_time < ttl_sec and isinstance(cached_df, pd.DataFrame):
+                return cached_df.copy()
+
     conn = get_connection()
     if account_id and account_id != "ALL":
         if is_postgres():
@@ -618,7 +650,9 @@ def get_open_positions(account_id=None):
     else:
         df = pd.read_sql_query("SELECT * FROM open_positions ORDER BY open_time DESC", conn)
     conn.close()
-    return df
+    if ttl_sec > 0:
+        _DB_CACHE[f"open_positions_{account_id}"] = (df, time.time())
+    return df.copy()
 
 def save_account_balance(account_id, balance, equity, currency="USD"):
     """Saves official live broker balance and equity for an account."""

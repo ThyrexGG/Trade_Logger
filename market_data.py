@@ -4,15 +4,30 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timezone
 import requests
+from typing import Optional, Dict, Any, List
 
-def get_realtime_candles(symbol="XAUUSD", timeframe="15m", count=250):
+_CANDLE_CACHE: Dict[str, Any] = {}
+_TICK_CACHE: Dict[str, Any] = {}
+
+def get_realtime_candles(symbol="XAUUSD", timeframe="15m", count=250, ttl_sec=4):
     """
-    Fetches real-time OHLC candlestick data.
+    Fetches real-time OHLC candlestick data with in-memory TTL caching.
     Priority 1: Local MetaTrader 5 terminal.
     Priority 2: Capital.com API.
     Priority 3: High-speed public financial feed (Binance / Yahoo Finance / Polygon).
     """
     sym = symbol.upper().replace("/", "").replace(":", "").strip()
+    cache_key = f"{sym}_{timeframe}_{count}"
+    now_t = time.time()
+    if cache_key in _CANDLE_CACHE:
+        cached_data, cached_time = _CANDLE_CACHE[cache_key]
+        if now_t - cached_time < ttl_sec and cached_data:
+            return cached_data
+
+    def _save_and_return(data):
+        if data:
+            _CANDLE_CACHE[cache_key] = (data, time.time())
+        return data
     
     # 1. Try MetaTrader 5
     try:
@@ -51,7 +66,7 @@ def get_realtime_candles(symbol="XAUUSD", timeframe="15m", count=250):
                             "close": round(float(r['close']), 5),
                             "volume": float(r['tick_volume'])
                         })
-                    return candles
+                    return _save_and_return(candles)
     except Exception as e:
         pass
 
@@ -75,7 +90,7 @@ def get_realtime_candles(symbol="XAUUSD", timeframe="15m", count=250):
                         "volume": round(float(k[5]), 2)
                     })
                 if candles:
-                    return candles
+                    return _save_and_return(candles)
         except Exception:
             pass
 
@@ -134,7 +149,7 @@ def get_realtime_candles(symbol="XAUUSD", timeframe="15m", count=250):
                         "volume": float(v)
                     })
             if candles:
-                return candles[-count:]
+                return _save_and_return(candles[-count:])
     except Exception as e:
         pass
 
@@ -157,13 +172,24 @@ def get_latest_price(symbol: str = "EURUSD") -> Optional[float]:
     return None
 
 
-def get_latest_tick(symbol: str = "EURUSD") -> Optional[Dict[str, Any]]:
+def get_latest_tick(symbol: str = "EURUSD", ttl_sec: float = 2.0) -> Optional[Dict[str, Any]]:
     """
-    Returns latest executable bid/ask tick for a symbol.
+    Returns latest executable bid/ask tick for a symbol with TTL cache.
     Priority 1: MT5 terminal live tick.
     Priority 2: Latest real-time price with realistic spread modeling.
     """
     sym = symbol.upper().replace("/", "").replace(":", "").strip()
+    now_t = time.time()
+    if sym in _TICK_CACHE:
+        cached_tick, cached_time = _TICK_CACHE[sym]
+        if now_t - cached_time < ttl_sec and cached_tick:
+            return cached_tick
+
+    def _save_tick_and_return(tick_obj):
+        if tick_obj:
+            _TICK_CACHE[sym] = (tick_obj, time.time())
+        return tick_obj
+
     try:
         import mt5_sync
         if mt5_sync.MT5_AVAILABLE:
@@ -172,26 +198,26 @@ def get_latest_tick(symbol: str = "EURUSD") -> Optional[Dict[str, Any]]:
                 tick = mt5.symbol_info_tick(sym)
                 mt5.shutdown()
                 if tick:
-                    return {
+                    return _save_tick_and_return({
                         "symbol": sym,
                         "bid": float(tick.bid),
                         "ask": float(tick.ask),
                         "time": int(tick.time),
                         "source": "MT5"
-                    }
+                    })
     except Exception:
         pass
         
     p = get_latest_price(sym)
     if p and p > 0:
         spread = 0.00015 if ("EUR" in sym or "GBP" in sym) else (0.25 if "XAU" in sym else 0.01)
-        return {
+        return _save_tick_and_return({
             "symbol": sym,
             "bid": round(p - (spread / 2), 5),
             "ask": round(p + (spread / 2), 5),
             "time": int(time.time()),
             "source": "ESTIMATED"
-        }
+        })
     return None
 
 
