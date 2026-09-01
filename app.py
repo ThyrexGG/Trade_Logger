@@ -13,6 +13,7 @@ import database
 import mt5_sync
 import capital_sync
 import tradingview_widget
+import ui_components
 import order_execution
 import research_explanations
 import xauusd_forward_validator
@@ -3601,6 +3602,9 @@ def render_live_dashboard():
         if "in_app_alerts" not in st.session_state:
             st.session_state.in_app_alerts = []
 
+        # Inject Centralized Design System & Global Styles
+        ui_components.inject_global_design_system()
+
         # Header Logo & Title
         icon_b64 = get_app_icon_b64()
         logo_html = f'<img src="data:image/png;base64,{icon_b64}" style="width: 44px; height: 44px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0, 255, 204, 0.25);">' if icon_b64 else """
@@ -3612,66 +3616,207 @@ def render_live_dashboard():
             </div>
         """
         st.markdown(f"""
-        <div style="display: flex; align-items: center; gap: 14px; margin-top: 8px; margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 14px; margin-top: 8px; margin-bottom: 10px;">
             {logo_html}
             <div>
                 <h1 style="margin: 0; font-size: 1.85rem; font-weight: 800; color: #ffffff; letter-spacing: -0.5px; text-transform: uppercase;">TradeLogger Terminal</h1>
-                <p style="margin: 3px 0 0 0; color: #8a99ad; font-size: 13px; letter-spacing: 0.2px;">Automated journal, technical charting, price alerts, and analytics</p>
+                <p style="margin: 2px 0 0 0; color: #8a99ad; font-size: 13px; letter-spacing: 0.2px;">Quantitative Strategy Research, Live Paper Execution & Forward Evidence Engine</p>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
         # ----------------------------------------------------
-        # TOP-LEVEL HIGH-PERFORMANCE LAZY TAB VIEW SWITCHER
+        # PERSISTENT GLOBAL TELEMETRY RIBBON (PHASE 52)
         # ----------------------------------------------------
-        TAB_OPTIONS = [
-            "XAUUSD DAILY COMMAND CENTER",
-            "ANALYTICS & OVERVIEW",
+        active_sym = st.session_state.get("active_ws_symbol", "XAUUSD")
+        latest_p = market_data.get_latest_price(active_sym)
+        active_tf = st.session_state.get("active_ws_timeframe", "15m")
+        
+        now_utc_hr = datetime.now(timezone.utc).hour
+        if 12 <= now_utc_hr < 17:
+            curr_session = "LONDON / NY OVERLAP"
+        elif 7 <= now_utc_hr < 16:
+            curr_session = "LONDON SESSION"
+        elif 13 <= now_utc_hr < 21:
+            curr_session = "NEW YORK SESSION"
+        elif 0 <= now_utc_hr < 9:
+            curr_session = "ASIAN / TOKYO"
+        else:
+            curr_session = "GLOBAL OFF-PEAK"
+
+        mkt_health_info = market_data.get_market_health(active_sym, active_tf)
+        mkt_health_status = mkt_health_info.get("status", "HEALTHY")
+        exec_mode_val = database.get_setting("SYSTEM_STATE", "PAPER")
+        sys_health_val = database.get_setting("SYSTEM_HEALTH", "HEALTHY")
+
+        ui_components.render_global_telemetry_ribbon(
+            symbol=active_sym,
+            price=latest_p,
+            timeframe=active_tf,
+            session_name=curr_session,
+            data_health=mkt_health_status,
+            exec_mode=exec_mode_val,
+            system_health=sys_health_val,
+            live_blocked=True
+        )
+
+        # ----------------------------------------------------
+        # FOUR PRIMARY OPERATIONAL ZONES NAVIGATION (PHASE 52)
+        # ----------------------------------------------------
+        PRIMARY_ZONES = [
             "TRADING WORKSPACE",
-            "AI MARKET CONTEXT",
-            "RESEARCH LAB",
-            "XAUUSD ADVERSARIAL AUDIT",
-            "XAUUSD FORWARD EVIDENCE",
-            "TRADE JOURNAL",
-            "PRICE ALERTS",
-            "QUICK TERMINAL",
-            "SANDBOX",
-            "SYSTEM HEALTH & PAPER"
+            "RESEARCH & STRATEGY LAB",
+            "FORWARD EVIDENCE & GOVERNANCE",
+            "OPERATIONS, JOURNAL & AUDIT"
         ]
 
-        if "main_active_tab" not in st.session_state or st.session_state.main_active_tab not in TAB_OPTIONS:
-            st.session_state.main_active_tab = "XAUUSD DAILY COMMAND CENTER"
+        ZONE_SUBVIEWS = {
+            "TRADING WORKSPACE": [
+                "CHARTS & WORKSPACE",
+                "QUICK TERMINAL",
+                "AI MARKET CONTEXT",
+                "PRICE ALERTS"
+            ],
+            "RESEARCH & STRATEGY LAB": [
+                "RESEARCH LAB OVERVIEW",
+                "XAUUSD ADVERSARIAL AUDIT",
+                "STRATEGY SANDBOX"
+            ],
+            "FORWARD EVIDENCE & GOVERNANCE": [
+                "FORWARD EVIDENCE CENTER",
+                "ADVERSARIAL STRESS AUDIT"
+            ],
+            "OPERATIONS, JOURNAL & AUDIT": [
+                "DAILY COMMAND CENTER",
+                "ANALYTICS & OVERVIEW",
+                "TRADE JOURNAL",
+                "SYSTEM HEALTH & PAPER OPS"
+            ]
+        }
 
-        # Direct URL linking support (e.g. ?tab=trading)
-        if "tab" in st.query_params:
-            url_tab = str(st.query_params["tab"]).upper()
-            for opt in TAB_OPTIONS:
-                if url_tab in opt or opt in url_tab:
-                    st.session_state.main_active_tab = opt
+        if "active_zone" not in st.session_state or st.session_state.active_zone not in PRIMARY_ZONES:
+            st.session_state.active_zone = "OPERATIONS, JOURNAL & AUDIT"
+
+        # URL Parameter Routing Support (?zone=, ?view=, ?tab=)
+        if "zone" in st.query_params:
+            q_z = str(st.query_params["zone"]).upper()
+            for z in PRIMARY_ZONES:
+                if q_z in z or z in q_z:
+                    st.session_state.active_zone = z
+                    break
+        elif "tab" in st.query_params:
+            q_tab = str(st.query_params["tab"]).upper()
+            if "CMD" in q_tab or "COMMAND" in q_tab:
+                st.session_state.active_zone = "OPERATIONS, JOURNAL & AUDIT"
+                st.session_state["subview_OPERATIONS, JOURNAL & AUDIT"] = "DAILY COMMAND CENTER"
+            elif "ANALYTIC" in q_tab or "OVERVIEW" in q_tab:
+                st.session_state.active_zone = "OPERATIONS, JOURNAL & AUDIT"
+                st.session_state["subview_OPERATIONS, JOURNAL & AUDIT"] = "ANALYTICS & OVERVIEW"
+            elif "CHART" in q_tab or "WORKSPACE" in q_tab or "TRADING" in q_tab:
+                st.session_state.active_zone = "TRADING WORKSPACE"
+                st.session_state["subview_TRADING WORKSPACE"] = "CHARTS & WORKSPACE"
+            elif "TERMINAL" in q_tab:
+                st.session_state.active_zone = "TRADING WORKSPACE"
+                st.session_state["subview_TRADING WORKSPACE"] = "QUICK TERMINAL"
+            elif "AI" in q_tab or "CONTEXT" in q_tab:
+                st.session_state.active_zone = "TRADING WORKSPACE"
+                st.session_state["subview_TRADING WORKSPACE"] = "AI MARKET CONTEXT"
+            elif "ALERT" in q_tab:
+                st.session_state.active_zone = "TRADING WORKSPACE"
+                st.session_state["subview_TRADING WORKSPACE"] = "PRICE ALERTS"
+            elif "FORWARD" in q_tab or "EVIDENCE" in q_tab:
+                st.session_state.active_zone = "FORWARD EVIDENCE & GOVERNANCE"
+                st.session_state["subview_FORWARD EVIDENCE & GOVERNANCE"] = "FORWARD EVIDENCE CENTER"
+            elif "JOURNAL" in q_tab:
+                st.session_state.active_zone = "OPERATIONS, JOURNAL & AUDIT"
+                st.session_state["subview_OPERATIONS, JOURNAL & AUDIT"] = "TRADE JOURNAL"
+            elif "SANDBOX" in q_tab:
+                st.session_state.active_zone = "RESEARCH & STRATEGY LAB"
+                st.session_state["subview_RESEARCH & STRATEGY LAB"] = "STRATEGY SANDBOX"
+            elif "HEALTH" in q_tab:
+                st.session_state.active_zone = "OPERATIONS, JOURNAL & AUDIT"
+                st.session_state["subview_OPERATIONS, JOURNAL & AUDIT"] = "SYSTEM HEALTH & PAPER OPS"
+            elif "AUDIT" in q_tab or "RESEARCH" in q_tab:
+                st.session_state.active_zone = "RESEARCH & STRATEGY LAB"
+                st.session_state["subview_RESEARCH & STRATEGY LAB"] = "RESEARCH LAB OVERVIEW"
+
+        # 1. Primary Operational Zone Switcher
+        if hasattr(st, "pills"):
+            selected_zone = st.pills(
+                "Primary Operational Zone",
+                options=PRIMARY_ZONES,
+                default=st.session_state.active_zone,
+                key="primary_zone_nav",
+                label_visibility="collapsed"
+            )
+            if selected_zone:
+                st.session_state.active_zone = selected_zone
+            else:
+                selected_zone = st.session_state.active_zone
+        else:
+            selected_zone = st.radio(
+                "Primary Operational Zone",
+                options=PRIMARY_ZONES,
+                index=PRIMARY_ZONES.index(st.session_state.active_zone),
+                horizontal=True,
+                key="primary_zone_nav",
+                label_visibility="collapsed"
+            )
+            st.session_state.active_zone = selected_zone
+
+        # 2. Secondary Sub-view Switcher within Selected Zone
+        current_subviews = ZONE_SUBVIEWS[selected_zone]
+        subview_state_key = f"subview_{selected_zone}"
+        if subview_state_key not in st.session_state or st.session_state[subview_state_key] not in current_subviews:
+            st.session_state[subview_state_key] = current_subviews[0]
+
+        if "view" in st.query_params:
+            q_v = str(st.query_params["view"]).upper()
+            for sv in current_subviews:
+                if q_v in sv or sv in q_v:
+                    st.session_state[subview_state_key] = sv
                     break
 
         if hasattr(st, "pills"):
-            selected_main_tab = st.pills(
-                "Active Terminal View",
-                options=TAB_OPTIONS,
-                default=st.session_state.main_active_tab,
-                key="main_active_tab_nav",
+            selected_subview = st.pills(
+                "Zone Sub-view",
+                options=current_subviews,
+                default=st.session_state[subview_state_key],
+                key=f"subview_nav_{selected_zone}",
                 label_visibility="collapsed"
             )
-            if selected_main_tab:
-                st.session_state.main_active_tab = selected_main_tab
+            if selected_subview:
+                st.session_state[subview_state_key] = selected_subview
             else:
-                selected_main_tab = st.session_state.main_active_tab
+                selected_subview = st.session_state[subview_state_key]
         else:
-            selected_main_tab = st.radio(
-                "Active Terminal View",
-                options=TAB_OPTIONS,
-                index=TAB_OPTIONS.index(st.session_state.main_active_tab),
+            selected_subview = st.radio(
+                "Zone Sub-view",
+                options=current_subviews,
+                index=current_subviews.index(st.session_state[subview_state_key]),
                 horizontal=True,
-                key="main_active_tab_nav",
+                key=f"subview_nav_{selected_zone}",
                 label_visibility="collapsed"
             )
-            st.session_state.main_active_tab = selected_main_tab
+            st.session_state[subview_state_key] = selected_subview
+
+        # Reverse map (Zone, Subview) to existing view identifier
+        VIEW_MAP = {
+            ("OPERATIONS, JOURNAL & AUDIT", "DAILY COMMAND CENTER"): "XAUUSD DAILY COMMAND CENTER",
+            ("OPERATIONS, JOURNAL & AUDIT", "ANALYTICS & OVERVIEW"): "ANALYTICS & OVERVIEW",
+            ("OPERATIONS, JOURNAL & AUDIT", "TRADE JOURNAL"): "TRADE JOURNAL",
+            ("OPERATIONS, JOURNAL & AUDIT", "SYSTEM HEALTH & PAPER OPS"): "SYSTEM HEALTH & PAPER",
+            ("TRADING WORKSPACE", "CHARTS & WORKSPACE"): "TRADING WORKSPACE",
+            ("TRADING WORKSPACE", "QUICK TERMINAL"): "QUICK TERMINAL",
+            ("TRADING WORKSPACE", "AI MARKET CONTEXT"): "AI MARKET CONTEXT",
+            ("TRADING WORKSPACE", "PRICE ALERTS"): "PRICE ALERTS",
+            ("RESEARCH & STRATEGY LAB", "RESEARCH LAB OVERVIEW"): "RESEARCH LAB",
+            ("RESEARCH & STRATEGY LAB", "XAUUSD ADVERSARIAL AUDIT"): "XAUUSD ADVERSARIAL AUDIT",
+            ("RESEARCH & STRATEGY LAB", "STRATEGY SANDBOX"): "SANDBOX",
+            ("FORWARD EVIDENCE & GOVERNANCE", "FORWARD EVIDENCE CENTER"): "XAUUSD FORWARD EVIDENCE",
+            ("FORWARD EVIDENCE & GOVERNANCE", "ADVERSARIAL STRESS AUDIT"): "XAUUSD ADVERSARIAL AUDIT",
+        }
+        selected_main_tab = VIEW_MAP.get((selected_zone, selected_subview), "XAUUSD DAILY COMMAND CENTER")
 
         df_open = database.get_open_positions()
 
@@ -4347,7 +4492,6 @@ def render_live_dashboard():
                     )
 
                     # Live / estimated entry price
-                    import market_data
                     latest_tick = market_data.get_latest_tick(st.session_state.active_ws_symbol)
                     default_px = float(latest_tick.get("ask" if order_side == "BUY" else "bid", 1.0850)) if latest_tick else 1.0850
 
@@ -6133,7 +6277,6 @@ def render_live_dashboard():
                     with st.spinner("Submitting BUY order via Canonical Pipeline..."):
                         import execution_pipeline
                         import uuid
-                        import market_data
                         
                         curr_p = market_data.get_latest_price(term_symbol) or 0.0
                         b_name = "CAPITAL" if trade_acc == "CAPITAL_REAL" else "MT5"
@@ -6163,7 +6306,6 @@ def render_live_dashboard():
                     with st.spinner("Submitting SELL order via Canonical Pipeline..."):
                         import execution_pipeline
                         import uuid
-                        import market_data
                         
                         curr_p = market_data.get_latest_price(term_symbol) or 0.0
                         b_name = "CAPITAL" if trade_acc == "CAPITAL_REAL" else "MT5"

@@ -1,6 +1,6 @@
 # PROJECT STATE & ARCHITECTURAL RECORD
 **TradeLogger Terminal — Living System Memory**
-*Last Updated: 1 September 2026, Session 30 (Phase 51 UX/UI, Product Experience & Trading Terminal Design Audit Completed & Verified)*
+*Last Updated: 1 September 2026, Session 31 (Phase 52 Global Information Architecture & Professional Design System Completed & Verified)*
 
 > **HOW TO USE THIS FILE**
 > Start any new AI session with: *"Read PROJECT_STATE.md and continue where we left off."*
@@ -12,26 +12,14 @@
 
 A professional-grade **trading research, journaling, and execution terminal** built for a liquidity-based, ICT/SMC methodology trader. It is NOT a simple trade log — it is a full research + execution stack:
 
-- **Streamlit Desktop Terminal** (`app.py`) — primary UI with dedicated **RESEARCH LAB** including:
-  - USDJPY Reversal Lab (Phase 15), Continuation Lab (Phase 16), Edge Discovery Lab (Phase 17), Conditional Validation Lab (Phase 18)
-  - True MTF Research Lab (Phase 19), XAUUSD Adversarial Audit Lab (Phase 20)
-  - XAUUSD Forward Validation & Decision Center (Phases 21–23), Explainable Decision UX (Phase 24), Live Forward Operations (Phase 25)
-  - Continuous Forward Monitoring (Phase 26), Statistical Evidence Engine (Phase 27), Review Readiness Center (Phase 28)
-  - Stress, Regime Coverage & Reproducibility (Phase 29), Database Compatibility (Phase 30), Operational Verification (Phase 31)
-  - Market Conditions & Pre-Flight (Phase 32), Live Web E2E (Phase 33), Economic Calendar (Phase 34)
-  - XAUUSD Daily Command Center (Phase 35), News Reliability (Phase 36), Forward Operational Lifecycle (Phase 37)
-  - News Reconstruction & Correlation (Phase 38), Observation Quality & Quarantine (Phase 39), Event Traceability (Phase 40)
-  - Evidence Governance & Reproducibility (Phase 41), Master Research Command Center (Phase 42)
-  - Overnight Experiment Live Collection & Morning Audit (Phase 43), Long-Term Accumulation & Alpha Decay Monitor (Phase 44)
-  - Continuous Forward Research Operations, Weekly Audits & Regime Transition Drift (Phase 45)
-  - Forward Evidence Accumulation, 14-Stage Sample Milestones & Research Decision Gate (Phase 46)
-  - Forward Evidence Collection, Real-Time Observation Capture & First-Evidence Readiness (Phase 47)
-  - Forward Signal Lifecycle & Evidence Integrity Validation (Phase 48)
-  - Forward Evidence Accumulation & Statistical Monitoring (Phase 49)
-  - Genuine Forward Observation Validation & End-to-End Operational Proof (Phase 50)
-  - UX/UI, Product Experience & Trading Terminal Design Audit (Phase 51)
-  - Strictly zero emojis across all UI tabs, buttons, metrics, and logs.
+- **Streamlit Desktop Terminal** (`app.py`) — primary UI with dedicated **4-ZONE OPERATIONAL ARCHITECTURE** and **PERSISTENT TELEMETRY RIBBON**:
+  - **Zone 1: TRADING WORKSPACE** (Charts & Multi-pane Workspace, Quick Terminal, AI Market Context, Price Alerts)
+  - **Zone 2: RESEARCH & STRATEGY LAB** (Generic Strategy Research, True MTF Lab, USDJPY Empirical Labs, XAUUSD Adversarial Stress Audit, Strategy Sandbox)
+  - **Zone 3: FORWARD EVIDENCE & GOVERNANCE** (4-Tier Progressive Forward Evidence Center, Adversarial Stress Audit, Research Decision Gates)
+  - **Zone 4: OPERATIONS, JOURNAL & AUDIT** (Daily Command Center, Analytics & Overview, Trade Journal, System Health & Paper Operations)
+- **Centralized Design System & 15-State Language** (`ui_components.py`) — Standardized CSS design tokens, persistent telemetry ribbon, 15-state badge generator (`STATES_SPEC`), metric KPI cards, section headers, intentional $N=0$ empty states, and fail-closed safety banners.
 - **UX/UI Product Experience & Design Audit Specification** (`PHASE_51_UX_UI_PRODUCT_AUDIT.md`) — Comprehensive audit of 12-tab layout, 4-zone information architecture consolidation, 3-pane trading cockpit, 4-tier forward evidence hierarchy, 15-state design system, prioritized issue matrix (P0-P4), canonical vocabulary dictionary, and Phases 52–54 implementation roadmap.
+- **Global IA & Design System Audit** (`PHASE_52_GLOBAL_IA_DESIGN_SYSTEM_AUDIT.md`) — Phase 52 architectural verification, persistent telemetry ribbon, 15-state canonical token mapping, 4-zone routing, and browser QA validation.
 - **Genuine Forward Observation Validation & End-to-End Operational Proof** (`xauusd_forward_end_to_end_proof.py`) — 9-stage end-to-end forward pipeline coordinator, first genuine observation supervisor ($N = 0 \to 1$ state machine with `THIS IS NOT STRATEGY VALIDATION` disclaimer), 8-link forensic evidence chain tracer, 8-subsystem operational heartbeat evaluator, 5-state root cause diagnostics, and fail-closed live execution safety barrier.
 - **Forward Evidence Accumulation & Statistical Monitoring** (`xauusd_forward_statistical_monitoring.py`) — Canonical forward dataset extraction, 18-point metadata verification, metric maturity classification (`OBSERVED_METRIC`, `STATISTICALLY_INFORMATIVE_METRIC`, `DECISION_ELIGIBLE_METRIC`), Wilson score & bootstrap confidence intervals, side-by-side locked baseline ($N = 82$) comparison, non-invasive alpha decay monitoring, 14-stage milestone progression ($N = 0 \to 500$), and immutable milestone snapshot ledger (`xauusd_phase49_statistical_snapshots`).
 - **Forward Signal Lifecycle & Integrity Validation** (`xauusd_forward_lifecycle.py`) — Genuine forward signal detection, provenance validation, 9-stage lifecycle state machine, paper/shadow execution bridge, automated reconciliation, and strict dataset isolation.
