@@ -582,6 +582,9 @@ class ForwardLifecycleReconciliationAudit:
 
         return audit_result
 
+    run_full_reconciliation = audit_database_integrity
+
+
 
 class ForwardDatasetIsolationGuard:
     r"""

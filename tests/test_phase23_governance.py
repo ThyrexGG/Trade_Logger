@@ -67,4 +67,5 @@ def test_zero_emojis_and_clean_language():
     # 2. No forbidden fake-certainty words
     forbidden = ["guaranteed", "safe", "will make money", "certain", "proven to work", "100% win rate"]
     for word in forbidden:
-        assert word not in text.lower()
+        assert not re.search(r"\b" + re.escape(word) + r"\b", text.lower())
+

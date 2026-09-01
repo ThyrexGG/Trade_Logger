@@ -718,12 +718,26 @@ def calculate_market_structure(df, lookback=5):
         "last_swing_low": round(last_sl, 5)
     }
 
+def _get_tz_eastern_and_utc():
+    """Returns (eastern_tz, utc_tz) safely with pytz -> zoneinfo -> fixed offset fallbacks."""
+    try:
+        import pytz
+        return pytz.timezone('US/Eastern'), pytz.utc
+    except Exception:
+        pass
+    try:
+        from zoneinfo import ZoneInfo
+        return ZoneInfo('US/Eastern'), timezone.utc
+    except Exception:
+        pass
+    from datetime import timedelta
+    return timezone(timedelta(hours=-5)), timezone.utc
+
 def detect_active_killzone():
     """
     Detects the current active ICT Killzone based on EST (New York) time.
     """
-    import pytz
-    est = pytz.timezone('US/Eastern')
+    est, _ = _get_tz_eastern_and_utc()
     now_est = datetime.now(timezone.utc).astimezone(est)
     
     hour = now_est.hour
@@ -753,12 +767,11 @@ def calculate_asian_range(df):
     Phase 11: Session Engine (Asian Range).
     Finds the High and Low of the most recent Asian Session (20:00 - 00:00 EST).
     """
-    if df.empty:
+    if df is None or (isinstance(df, pd.DataFrame) and df.empty):
         return None
         
-    import pytz
+    est, utc_tz = _get_tz_eastern_and_utc()
     from datetime import datetime
-    est = pytz.timezone('US/Eastern')
     
     asian_high = -float('inf')
     asian_low = float('inf')
@@ -770,7 +783,13 @@ def calculate_asian_range(df):
         
         # Time in df is seconds since epoch
         try:
-            dt_utc = datetime.fromtimestamp(row['time'], tz=pytz.utc)
+            raw_t = row['time']
+            if isinstance(raw_t, (int, float)):
+                dt_utc = datetime.fromtimestamp(raw_t, tz=utc_tz)
+            else:
+                dt_utc = pd.to_datetime(raw_t).to_pydatetime()
+                if dt_utc.tzinfo is None:
+                    dt_utc = dt_utc.replace(tzinfo=utc_tz)
         except Exception:
             continue
             
