@@ -1691,6 +1691,7 @@ def render_live_dashboard():
         ZONE_SUBVIEWS = {
             "TRADING WORKSPACE": [
                 "CHARTS & WORKSPACE",
+                "MARKET SCANNER & REGIME",
                 "QUICK TERMINAL",
                 "AI MARKET CONTEXT",
                 "PRICE ALERTS"
@@ -1730,6 +1731,9 @@ def render_live_dashboard():
             elif "ANALYTIC" in q_tab or "OVERVIEW" in q_tab:
                 st.session_state.active_zone = "OPERATIONS, JOURNAL & AUDIT"
                 st.session_state["subview_OPERATIONS, JOURNAL & AUDIT"] = "ANALYTICS & OVERVIEW"
+            elif "SCANNER" in q_tab or "REGIME" in q_tab or "HEATMAP" in q_tab:
+                st.session_state.active_zone = "TRADING WORKSPACE"
+                st.session_state["subview_TRADING WORKSPACE"] = "MARKET SCANNER & REGIME"
             elif "CHART" in q_tab or "WORKSPACE" in q_tab or "TRADING" in q_tab:
                 st.session_state.active_zone = "TRADING WORKSPACE"
                 st.session_state["subview_TRADING WORKSPACE"] = "CHARTS & WORKSPACE"
@@ -1825,6 +1829,7 @@ def render_live_dashboard():
             ("OPERATIONS, JOURNAL & AUDIT", "TRADE JOURNAL"): "TRADE JOURNAL",
             ("OPERATIONS, JOURNAL & AUDIT", "SYSTEM HEALTH & PAPER OPS"): "SYSTEM HEALTH & PAPER",
             ("TRADING WORKSPACE", "CHARTS & WORKSPACE"): "TRADING WORKSPACE",
+            ("TRADING WORKSPACE", "MARKET SCANNER & REGIME"): "MARKET SCANNER & REGIME",
             ("TRADING WORKSPACE", "QUICK TERMINAL"): "QUICK TERMINAL",
             ("TRADING WORKSPACE", "AI MARKET CONTEXT"): "AI MARKET CONTEXT",
             ("TRADING WORKSPACE", "PRICE ALERTS"): "PRICE ALERTS",
@@ -2439,6 +2444,15 @@ def render_live_dashboard():
             import trading_workspace_cockpit
             importlib.reload(trading_workspace_cockpit)
             trading_workspace_cockpit.render_trading_workspace_cockpit()
+
+        elif selected_main_tab == "MARKET SCANNER & REGIME":
+            # ----------------------------------------------------
+            # MARKET INTELLIGENCE SCANNER & REGIME (PHASE 57)
+            # ----------------------------------------------------
+            import importlib
+            import market_intelligence_ui
+            importlib.reload(market_intelligence_ui)
+            market_intelligence_ui.render_market_intelligence_suite()
 
         # ----------------------------------------------------
         # AI MARKET CONTEXT & TECHNICAL ANALYSIS PIPELINE

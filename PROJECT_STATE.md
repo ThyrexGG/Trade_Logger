@@ -1,6 +1,6 @@
 # PROJECT STATE & ARCHITECTURAL RECORD
 **TradeLogger Terminal — Living System Memory**
-*Last Updated: 1 September 2026, Session 34 (Phase 56 Macro Intelligence, Economic Surprise & Deep Asset Research Engine Completed & Verified)*
+*Last Updated: 1 September 2026, Session 35 (Phase 57 Market Intelligence Scanner, Economic Heatmap & Cross-Asset Regime Engine Completed & Verified)*
 
 > **HOW TO USE THIS FILE**
 > Start any new AI session with: *"Read PROJECT_STATE.md and continue where we left off."*
@@ -13,10 +13,11 @@
 A professional-grade **trading research, journaling, and execution terminal** built for a liquidity-based, ICT/SMC methodology trader. It is NOT a simple trade log — it is a full research + execution stack:
 
 - **Streamlit Desktop Terminal** (`app.py`) — primary UI with dedicated **4-ZONE OPERATIONAL ARCHITECTURE** and **PERSISTENT TELEMETRY RIBBON**:
-  - **Zone 1: TRADING WORKSPACE** (Phase 53 Unified Trading Cockpit with 10-asset Watchlist, MTF Context Hierarchy, Dominant Chart Canvas, Docked Risk Gateway Panel, Active Positions Excursion Strip, Real-Time Signal State, Phase 55 Asset Edge Intelligence Scorecard, and Phase 56 Deep Macro Intelligence & Economic Surprise Engine)
+  - **Zone 1: TRADING WORKSPACE** (Phase 53 Unified Trading Cockpit with 10-asset Watchlist, MTF Context Hierarchy, Dominant Chart Canvas, Docked Risk Gateway Panel, Active Positions Excursion Strip, Real-Time Signal State, Phase 55 Asset Edge Intelligence Scorecard, Phase 56 Deep Macro Intelligence & Economic Surprise Engine, and Phase 57 Market Intelligence Scanner, Economic Heatmap & Cross-Asset Regime Engine)
   - **Zone 2: RESEARCH & STRATEGY LAB** (Generic Strategy Research, True MTF Lab, USDJPY Empirical Labs, XAUUSD Adversarial Stress Audit, Strategy Sandbox)
   - **Zone 3: FORWARD EVIDENCE & GOVERNANCE** (Phase 54 Unified Forward Evidence & Governance Cockpit with 4-Tier Cognitive Hierarchy, 7 modular tab views, 14-stage milestone progression, Wilson & Bootstrap CIs, unpooled historical baseline comparison, 8-stage pipeline, 8-link forensic chain, and immutable governance snapshots)
   - **Zone 4: OPERATIONS, JOURNAL & AUDIT** (Daily Command Center, Analytics & Overview, Trade Journal, System Health & Paper Operations)
+- **Market Intelligence Scanner, Economic Heatmap & Cross-Asset Regime Engine** (`market_intelligence_scanner.py`, `economic_heatmap.py`, `cross_asset_regime_engine.py`, `market_intelligence_ui.py`) — Phase 57 comprehensive multi-asset scanning & contextual regime architecture: canonical 23-asset normalized universe across 6 asset classes (`MarketUniverseRegistry`), multi-factor scanner synthesizing 11 quantitative factor families with macro fundamentals (`MarketScannerEngine`), directional consensus vs conflict analysis (`FactorAlignmentEngine`), deterministic sortable leaderboard ranking with ranking withholding on low data quality (`MarketRankingEngine`), contextual market breadth engine (`MarketBreadthEngine`), dense 9-economy $\times$ 5-category macroeconomic matrix (`EconomicHeatmapEngine`), economic surprise grid & momentum tracking (`SurpriseHeatmapEngine`), 12-state contextual cross-asset regime classifier (`CrossAssetRegimeEngine`), 20/60/120-day rolling correlation matrices with $N \ge 15$ sample size gates and causation disclaimers (`CrossAssetMatrixEngine`), temporal shift detector (`MarketWideChangeDetector`), immutable snapshot ledgers (`market_scanner_snapshots`, `market_regime_snapshots`), and high-density UI suite with top 3-second summary Hero bar and 8-tab navigation layout.
 - **Macro Intelligence, Economic Surprise & Deep Asset Research Engine** (`macro_intelligence_engine.py`, `macro_change_detector.py`, `asset_edge_scorecard.py`) — Phase 56 macroeconomic intelligence architecture answering 12 core fundamental questions: canonical `EconomicDataRegistry` (20+ indicators, lookahead protection, revision tracking), `EconomicSurpriseEngine` (expectation vs actual, unit-normalized z-scores, qualitative direction, aggregate surprise momentum), `MacroFactorGroupingEngine` (Growth, Inflation, Labor, Monetary Policy, Sentiment/Positioning), `EconomicStrengthEngine` (-100 to +100 economy score for USD, EUR, GBP, JPY), `ForexRelativeStrengthEngine` (currency pair relative macro strength), `XAUUSDMacroContextModel` (dedicated gold macro model synthesizing Real Rates, USD Pressure, Yield Trajectory, Central Bank Demand, COMEX COT), `FactorContributionMatrix` & `FactorConflictDetector`, `DataFreshnessAuditor` (LIVE, FRESH, AGING, STALE, REVISED), "What Changed?" Engine (`MacroChangeDetector`), and 8-tab Market Intelligence layout in Trading Workspace (`OVERVIEW`, `ECONOMIC SURPRISE`, `MACRO FUNDAMENTALS`, `POSITIONING & COT`, `SEASONALITY`, `WHAT CHANGED?`, `DATA QUALITY & AUDIT`, `MARKET RANKING`).
 - **Asset Edge Intelligence & Multi-Factor Market Scorecard** (`asset_edge_intelligence.py`, `asset_edge_scorecard.py`) — Phase 55 deterministic multi-factor market intelligence engine (`EDGE_MODEL_VERSION = "1.0.0"`) synthesizing 11 quantitative factor families (Technicals, SMC, Session/Liquidity, Macro, Dollar/Yields, Positioning, Seasonality, Regime, Growth, Inflation, Labor) into a normalized $[-100, +100]$ directional score, data quality scoring, factor conflict analysis, signed "Why?" evidence breakdown, 10-instrument market ranking, and immutable snapshot ledger (`asset_edge_snapshots`).
 - **Forward Evidence & Governance Cockpit** (`forward_evidence_cockpit.py`) — Phase 54 quantitative research terminal cockpit replacing ~2,080 lines of legacy monolithic UI with 7 high-density tab views (Overview & Immediate State, Statistics & Uncertainty, Milestone Progression, Stability & Alpha Decay, Observation Pipeline, Forensics & Reconciliation, Governance Ledger), 4-tier cognitive hierarchy (Level 1–4), conservative Wilson score & bootstrap confidence intervals, and fail-closed live safety barrier.
@@ -50,7 +51,18 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 
 | File | Phase | Purpose |
 | :--- | :--- | :--- |
-| `app.py` | 1–50 | Master Streamlit terminal (9 tabs) + Research Lab, Command Center, Morning Audit, Alpha Decay Monitor, Continuous Operations, Decision Gate, First Observation Readiness, Phase 49 Statistical Monitoring, Phase 50 End-to-End Validation |
+| `market_intelligence_scanner.py` | 57 | 23-asset normalized universe registry, factor alignment, market scanner, leaderboard ranking, breadth, change detector, snapshot ledger |
+| `economic_heatmap.py` | 57 | 9-Economy x 5-Category dense macroeconomic matrix, surprise grid, momentum z-scores, accessible badges and tooltips |
+| `cross_asset_regime_engine.py` | 57 | 12-state multi-input contextual regime classifier, 20/60/120 rolling correlation matrices with N>=15 sample size gates, regime snapshot ledger |
+| `market_intelligence_ui.py` | 57 | High-density institutional UI suite: Top 3-second summary Hero bar + 8-tab navigation suite |
+| `macro_intelligence_engine.py` | 56 | Canonical economic data registry, surprise engine, factor grouping, economy strength scoring, gold macro model, freshness audit |
+| `macro_change_detector.py` | 56 | Macroeconomic temporal shift detector, surprise shifts, indicator revisions, transition audit |
+| `asset_edge_intelligence.py` | 55 | 11-Factor family multi-factor scoring engine, data quality scoring, factor conflict detector, signed evidence bullets, ranking |
+| `asset_edge_scorecard.py` | 55, 56 | Phase 55 multi-factor scorecard UI + Phase 56 8-tab deep macro intelligence layout in Trading Workspace |
+| `forward_evidence_cockpit.py` | 54 | Phase 54 quantitative research terminal cockpit (7 modular tab views, 4-tier cognitive hierarchy) |
+| `trading_workspace_cockpit.py` | 53 | Phase 53 institutional terminal layout (10-asset watchlist, MTF bias hierarchy, dominant chart, docked risk gateway) |
+| `ui_components.py` | 52 | Centralized design tokens, 15-state badge generator, telemetry ribbon, metric cards, section headers, render_html sanitization |
+| `app.py` | 1–57 | Master Streamlit terminal (4-Zone Operational Architecture, 15 subviews, persistent telemetry ribbon) |
 | `xauusd_forward_end_to_end_proof.py` | 50 | 9-stage pipeline coordinator, N=0->1 supervisor, 8-link forensic chain verifier, operational heartbeat distributor, fail-closed safety barrier |
 | `xauusd_forward_statistical_monitoring.py` | 49 | Canonical forward dataset, metric maturity spectrum, conservative CIs, locked baseline comparison, alpha decay monitor, milestone governance |
 | `xauusd_forward_lifecycle.py` | 48 | Forward signal detection, provenance validation, 9-stage lifecycle state machine, paper/shadow execution bridge, automated reconciliation |
@@ -98,44 +110,30 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 | `usdjpy_continuation_research.py` | 16 | USDJPY 12-condition trend-continuation ablation suite |
 | `usdjpy_research.py` | 15 | USDJPY 12-condition reversal ablation suite |
 | `research_engine.py` | 14 | 3-Layer splitter (Train/Val/Holdout), multiple testing tracker, bootstrap 95% CI estimator |
-| `database.py` | 1–44 | Multi-tenant SQLite + PostgreSQL database abstraction with dialect-safe placeholders |
+| `database.py` | 1–57 | Multi-tenant SQLite + PostgreSQL database abstraction with dialect-safe placeholders |
 | `risk_gateway.py` | 9, 12A | Central risk gateway (fail-closed, directional correlation, floating daily loss) |
 | `execution_pipeline.py` | 9, 12A | Canonical execution state machine (atomic DB mutex claims, risk reservations) |
 
 ---
 
-## 3. Database Schema Summary (Phase 1 to Phase 50)
+## 3. Database Schema Summary (Phase 1 to Phase 57)
 
 | Table | Key Columns |
 | :--- | :--- |
-| `xauusd_phase50_operational_audits` | `audit_id`, `timestamp`, `actual_n`, `milestone_state`, `pipeline_status`, `reconciliation_verdict`, `dataset_fingerprint`, `contract_hash`, `traceability_score`, `safety_barrier_status`, `audit_summary`, `audit_fingerprint` |
-| `xauusd_phase50_forensic_traces` | `trace_id`, `signal_id`, `observation_id`, `timestamp`, `links_verified`, `total_links`, `chain_intact`, `trace_details_json`, `chain_fingerprint` |
-| `xauusd_phase49_statistical_snapshots` | `snapshot_id`, `milestone_n`, `actual_n`, `timestamp`, `dataset_fingerprint`, `contract_hash`, `expectancy_r`, `win_rate_pct`, `profit_factor`, `max_drawdown_r`, `ci_95_lower`, `ci_95_upper`, `metric_tier`, `decision_state`, `alpha_decay_state`, `snapshot_fingerprint` |
-| `xauusd_forward_lifecycle_events` | `lifecycle_event_id`, `signal_id`, `observation_id`, `stage`, `from_status`, `to_status`, `event_timestamp`, `execution_mode`, `r_multiple`, `payload_fingerprint` |
-| `xauusd_reconciliation_audits` | `audit_id`, `audit_timestamp`, `total_signals`, `total_observations`, `eligible_count`, `quarantined_count`, `rejected_count`, `completed_count`, `orphan_count`, `audit_verdict` |
-| `xauusd_forward_observation_events` | `event_id`, `observation_id`, `event_type`, `event_timestamp`, `source`, `severity`, `status`, `reason_code`, `payload_fingerprint` |
-| `xauusd_forward_milestone_snapshots` | `snapshot_id`, `milestone`, `actual_n`, `timestamp`, `forward_dataset_fingerprint`, `contract_hash`, `expectancy`, `win_rate`, `profit_factor`, `decision_state` |
-| `xauusd_forward_accumulation_checkpoints` | `checkpoint_id`, `timestamp`, `forward_n`, `paper_n`, `shadow_n`, `total_r`, `expectancy_r`, `win_rate_pct`, `profit_factor`, `max_drawdown_r`, `dataset_fingerprint`, `contract_hash` |
-| `xauusd_milestone_events` | `milestone_id`, `target_n`, `reached_timestamp`, `is_reached`, `expectancy_r`, `win_rate_pct`, `profit_factor`, `total_r`, `max_drawdown_r`, `ci_95_lower`, `ci_95_upper` |
-| `xauusd_rolling_stability_snapshots` | `snapshot_id`, `timestamp`, `window_size`, `trades_count`, `expectancy_r`, `median_r`, `win_rate_pct`, `profit_factor`, `total_r`, `max_drawdown_r`, `win_streak`, `loss_streak` |
-| `xauusd_alpha_decay_snapshots` | `snapshot_id`, `timestamp`, `forward_n`, `decay_state`, `decay_color`, `expectancy_delta`, `win_rate_delta`, `profit_factor_delta`, `drawdown_expansion_r`, `fingerprint` |
-| `xauusd_overnight_sessions` | `session_id`, `start_time`, `end_time`, `status`, `restart_count`, `initial_health`, `final_health`, `valid_observations`, `quarantined_observations`, `session_fingerprint`, `final_verdict` |
-| `xauusd_heartbeats` | `heartbeat_id`, `subsystem`, `timestamp`, `status`, `latency_ms`, `details` |
-| `xauusd_operational_outages` | `outage_id`, `subsystem`, `start_time`, `end_time`, `duration_seconds`, `severity`, `reason`, `recovery_status`, `affected_observations_count` |
-| `xauusd_setup_lifecycle_events` | `event_id`, `setup_id`, `timestamp`, `transition`, `from_state`, `to_state`, `reason`, `is_terminal` |
-| `xauusd_daily_audit_snapshots` | `snapshot_id`, `snapshot_date`, `dataset_type`, `trades_count`, `expectancy_r`, `win_rate_pct`, `profit_factor`, `max_drawdown_r`, `data_quality_score`, `dataset_fingerprint` |
-| `xauusd_observation_quarantine` | `quarantine_id`, `observation_id`, `quarantined_at`, `reason_code`, `reason_details`, `severity`, `raw_payload`, `statistical_status` |
-| `xauusd_historical_news_cache` | `cache_id`, `event_id`, `event_name`, `currency`, `impact`, `scheduled_timestamp`, `actual`, `forecast`, `previous`, `source`, `data_fingerprint` |
-| `xauusd_daily_research_journal` | `journal_id`, `entry_date`, `created_at`, `author`, `notes`, `classification`, `market_bias_observation`, `contract_hash` |
-| `xauusd_evidence_ledger` | `snapshot_id`, `timestamp`, `trades_n`, `expectancy_r`, `median_r`, `win_rate_pct`, `profit_factor`, `max_drawdown_r`, `ci_95_lower`, `ci_95_upper`, `evidence_score` |
-| `xauusd_decision_audit_records` | `decision_id`, `timestamp`, `current_stage`, `trades_n`, `evidence_score`, `research_decision_state`, `reasoning_beliefs` |
-| `xauusd_forward_trades` | `signal_id`, `symbol`, `direction`, `execution_mode`, `entry_time`, `entry_price`, `exit_time`, `exit_price`, `r_multiple`, `status`, `strategy_contract_hash` |
-| `xauusd_monitor_events` | `event_id`, `timestamp`, `event_type`, `severity`, `metric`, `observed_value`, `baseline_value`, `threshold`, `explanation`, `is_acknowledged` |
-| `closed_trades` | `trade_id`, `account_id`, `symbol`, `direction`, `volume`, `entry_price`, `exit_price`, `commission`, `swap`, `net_profit`, `entry_time`, `exit_time`, `rating` |
+| `market_scanner_snapshots` | `snapshot_id`, `timestamp`, `universe_count`, `breadth_json`, `rankings_json`, `changes_json`, `model_version`, `data_fingerprint`, `created_at` |
+| `market_regime_snapshots` | `snapshot_id`, `timestamp`, `primary_regime`, `secondary_regime`, `confidence_pct`, `confirming_json`, `conflicting_json`, `driver_weights_json`, `data_quality_score`, `data_quality_rating`, `model_version`, `data_fingerprint`, `created_at` |
+| `asset_edge_snapshots` | `snapshot_id`, `symbol`, `timestamp`, `overall_score`, `bias_direction`, `quality_score`, `factor_scores_json`, `model_version`, `data_fingerprint` |
+| `xauusd_phase49_statistical_snapshots` | `snapshot_id`, `timestamp`, `completed_count`, `wilson_lower`, `wilson_upper`, `bootstrap_mean`, `baseline_delta_er`, `data_fingerprint` |
+| `xauusd_phase47_observations` | `observation_id`, `signal_id`, `timestamp`, `direction`, `entry_price`, `sl_price`, `tp_price`, `context_json`, `eligibility_status`, `data_fingerprint` |
+| `xauusd_evidence_ledger` | `snapshot_id`, `timestamp`, `total_observations`, `completed_trades`, `expectancy_r`, `win_rate`, `profit_factor`, `data_fingerprint` |
+| `xauusd_decision_audit_records` | `record_id`, `timestamp`, `decision_type`, `decision_action`, `rationale`, `actor`, `evidence_snapshot_id` |
+| `xauusd_quarantined_observations` | `observation_id`, `timestamp`, `quarantine_reason`, `severity`, `status` |
+| `xauusd_news_snapshots` | `snapshot_id`, `target_date`, `provider_name`, `provider_status`, `events_count`, `fingerprint`, `events_payload` |
+| `closed_trades` | `trade_id`, `account_id`, `symbol`, `type`, `volume`, `entry_time`, `exit_time`, `profit`, `risk_r` |
 
 ---
 
-## 4. Phase Completion Status Matrix
+## 4. Phase Milestones & Execution Summary
 
 | Phase | Description | Status | Test Result |
 | :--- | :--- | :--- | :--- |
@@ -165,7 +163,12 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 | **Phase 49** | Forward Evidence Accumulation & Statistical Monitoring | ✅ COMPLETE | 22 Passed |
 | **Phase 50** | Genuine Forward Observation Validation & End-to-End Operational Proof | ✅ COMPLETE | 18 Passed |
 | **Phase 51** | UX/UI, Product Experience & Trading Terminal Design Audit | ✅ COMPLETE | Comprehensive Audit & Spec |
-
+| **Phase 52** | Global IA & Centralized Design System Implementation (15-State Language) | ✅ COMPLETE | 14 Passed |
+| **Phase 53** | Unified Trading Workspace Cockpit (10-Asset Watchlist & Pre-Trade Gateway) | ✅ COMPLETE | 16 Passed |
+| **Phase 54** | Unified Forward Evidence & Governance Cockpit (4-Tier Cognitive Hierarchy) | ✅ COMPLETE | 18 Passed |
+| **Phase 55** | Multi-Factor Asset Edge Intelligence & Scorecard Engine (11 Factor Families) | ✅ COMPLETE | 21 Passed |
+| **Phase 56** | Macro Intelligence, Economic Surprise & Deep Asset Research Engine | ✅ COMPLETE | 21 Passed |
+| **Phase 57** | Market Intelligence Scanner, Economic Heatmap & Cross-Asset Regime Engine | ✅ COMPLETE | 45 Passed |
 
 ---
 
@@ -195,19 +198,21 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 platform win32 -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0
 rootdir: C:\Users\Asus\Desktop\Trade_Logger
 
-tests/test_phase11_*.py through test_phase56_*.py
-=========== 651 passed, 2 skipped, 28 warnings in 62.10s (0:01:02) ============
+tests/test_phase11_*.py through test_phase57_*.py
+=========== 696 passed, 2 skipped, 28 warnings in 184.16s (0:03:04) ===========
 ```
-*(Total test cases across root backtester and test directory: **651 passed, 2 skipped, 0 failed**).*
+*(Total test cases across root backtester and test directory: **696 passed, 2 skipped, 0 failed**).*
 
 ---
 
-## 7. Performance & Latency Engineering (Phase 51 Optimization)
+## 7. Performance & Latency Engineering (Phase 51-57 Optimization)
 
-- **Lazy Tab Rendering (`st.pills` / `st.session_state`)**: Eliminated monolithic evaluation of all 12 tabs on every rerun pass. Only the active view executes rendering and queries, reducing Python render CPU time by >85%.
+- **Lazy Tab Rendering (`st.pills` / `st.session_state`)**: Eliminated monolithic evaluation of all tabs on every rerun pass. Only the active view executes rendering and queries, reducing Python render CPU time by >85%.
 - **High-Speed In-Memory TTL Caching**:
   - `market_data.get_realtime_candles`: 4s TTL thread-safe in-memory cache eliminating redundant Yahoo / Binance HTTP overhead.
   - `market_data.get_latest_tick`: 2s TTL thread-safe in-memory cache for ultra-fast price lookups.
   - `@st.cache_data` asset memoization for Base64 icons and static components.
+- **Dialect-Safe Database Queries**: Cross-compatible SQLite (`?`) and PostgreSQL (`%s`) placeholders with fail-closed transaction error handling.
 - **Transactional Consistency Preserved**: `database.get_open_positions()` and `database.get_closed_trades()` default to fresh DB reads to prevent stale state anomalies during order submission and risk gateway checks.
+
 
