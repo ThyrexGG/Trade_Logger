@@ -1,6 +1,6 @@
 # PROJECT STATE & ARCHITECTURAL RECORD
 **TradeLogger Terminal — Living System Memory**
-*Last Updated: 31 August 2026, Session 18 (Phase 29 XAUUSD Forward Validation Stress, Regime Coverage & Reproducibility Audit Completed & Verified)*
+*Last Updated: 1 September 2026, Session 24 (Phases 30–44 XAUUSD Forward Validation, Research Governance, Overnight Experiment & Alpha Decay Monitoring Completed & Verified)*
 
 > **HOW TO USE THIS FILE**
 > Start any new AI session with: *"Read PROJECT_STATE.md and continue where we left off."*
@@ -12,366 +12,161 @@
 
 A professional-grade **trading research, journaling, and execution terminal** built for a liquidity-based, ICT/SMC methodology trader. It is NOT a simple trade log — it is a full research + execution stack:
 
-- **Streamlit Desktop Terminal** (`app.py`) — primary UI, 9 tabs including dedicated **RESEARCH LAB** with USDJPY Reversal Lab (Phase 15), USDJPY Continuation Lab (Phase 16), USDJPY Edge Discovery Lab (Phase 17), USDJPY Conditional Validation Lab (Phase 18), True MTF Research Lab (Phase 19), XAUUSD Adversarial Audit Lab (Phase 20), XAUUSD Forward Validation & Decision Center (Phase 21-23), Explainable Research Decision UX (Phase 24), Live Forward Operations Center (Phase 25), Continuous Forward Monitoring (Phase 26), Statistical Evidence Engine (Phase 27), Review Readiness Center (Phase 28), and Forward Validation Stress, Regime Coverage & Reproducibility Audit Center (Phase 29), Operations Panel, and Live Safety Barriers (Strictly zero emojis across all UI tabs, buttons, metrics, and logs)
-- **Forward Regime Coverage & Concentration Engine** (`xauusd_forward_regime_coverage.py`) — Classifies pre-trade environment into Trend, Volatility, Session, Weekday, Structure, enforces strict sample size protections ($N < 10, 10-20, 20-30, N \ge 30$), and audits regime concentration
-- **Rolling & Chronological Stability Engine** (`xauusd_forward_stability.py`) — Evaluates rolling 10, 20, 30, 50 trade windows with baseline retention benchmarking and 3-way chronological time-split stability (Early, Middle, Recent)
-- **Execution Stress & Outcome Attribution Engine** (`xauusd_forward_execution_stress.py`) — Evaluates hypothetical slippage (+1p/+2p/+3p), spread (+1p/+2p/+3p), and fill degradation (-5%/-10%/-20%), strictly separating Strategy Failure from Execution Failure
-- **Drawdown & Consecutive Loss Audit Engine** (`xauusd_forward_drawdown_audit.py`) — Tracks win/loss streaks, current/max/avg drawdowns, recovery factors, and classifies drawdown severity (Normal $\le 4\text{R}$, Elevated $4-7.15\text{R}$, Stress $7.15-12\text{R}$, Severe $>12\text{R}$)
-- **Independent Reproducibility & Fingerprinting Engine** (`xauusd_forward_reproducibility.py`) — Cryptographically fingerprints forward datasets, reconstructs metrics from raw observation ledgers, maintains the 8-point "WHAT WOULD CHANGE OUR CONCLUSION?" Invalidation Matrix and educational Counterfactual Scenarios
-- **Human Review Dossier Exporter** (`xauusd_review_package.py`) — Expanded 28-section research audit dossier with cryptographic hashes (Contract, Holdout, Forward datasets), evidence snapshot linking, and deterministic empirical tags (`KNOWN`, `OBSERVED`, `UNCERTAIN`, `NOT ENOUGH DATA`)
-- **Forward Evidence Ledger** (`xauusd_forward_evidence_ledger.py`) — Immutable append-only SQLite repository (`xauusd_evidence_ledger`) recording 30-field forward metrics snapshots with pairwise snapshot delta comparison engine
-- **Evidence Milestone Engine** (`xauusd_evidence_milestones.py`) — Progressive milestone tracker ($N = 30, 50, 75, 100, 125, 150, 200$) with percent completion, remaining trade counts, reliability tiers, and explicit "What remains unknown" documentation
-- **Review Readiness & Uncertainty Engine** (`xauusd_review_readiness.py`) — Deterministic 18-point checklist across Statistical, Execution, Distribution, and Integrity pillars producing `NOT READY`, `READY FOR HUMAN REVIEW`, or `BLOCKED BY RESEARCH INTEGRITY` alongside universal 3-part uncertainty synthesis (`WHAT WE KNOW`, `WHAT WE DO NOT KNOW`, `WHAT WE NEED NEXT`)
-- **Research Decision Audit Engine** (`xauusd_research_decision_audit.py`) — Immutable governance decision record repository (`xauusd_decision_audit_records`) maintaining chronological reasoning beliefs and transparent decision rationales
-- **Continuous Forward Monitor & CUSUM Drift Engine** (`xauusd_continuous_monitor.py`) — Real-time telemetry calculator, rolling 20/30/50 expectancy windows, sequential CUSUM drift detector, and "What Changed?" delta tracking vs previous review snapshots
-- **Event-Based Alert Engine** (`xauusd_alert_engine.py`) — Persistent `xauusd_monitor_events` log across INFORMATION, WARNING, CRITICAL severities with 5-part explainable alert contract and non-destructive acknowledgement
-- **Live MTF State Engine** (`xauusd_live_state_engine.py`) — Real-time 5-timeframe pipeline tracker (1D Macro Bias, 4H DOL $\ge 2\text{R}$ check, 15M 9-Point Setup Checklist, 5M Confirmation, 1M Precision Limit Entry) and Master Decision synthesis ("WHAT IS THE STRATEGY DOING RIGHT NOW?")
-- **Explainable Research Decision UX & Failure Classifier** (`research_explanations.py`) — Universal 4-question metric interpretation contract, 34+ technical metric catalog, 15-code rejection hierarchy ("Why Didn't We Trade?"), inspectable 8-point approval decision trails ("Why Did We Enter?"), and explicit separation of **Strategy Failure** (market loss / normal variance) vs **Execution Failure** (limit order timeout / missed fill)
-- **XAUUSD Research Governance & Decision Center** (`xauusd_research_governance.py`) — `ForwardDecisionCenter` dynamic synthesis generator, `WatchNextAdvisor` prioritized governance advice, `ResearchIntegrityAuditor` 8-point panel, `ResearchHealthMatrix` 8-pillar health card, `XAUUSDParityWatchdog`, `XAUUSDDataIntegrityWatchdog`, `ResearchHypothesisFirewall`, `LiveTradingSafetyBarrier`
-- **XAUUSD Forward Statistics & Excursion Analytics** (`xauusd_forward_statistics.py`) — Effect size retention vs holdout baseline (+0.637R), rolling forward windows (20/30/50), isolated cumulative equity curves, 2R-7R target milestone progression, holding time temporal buckets
-- **XAUUSD Execution Quality & Microstructure Diagnostics** (`xauusd_execution_quality.py`) — 1M FVG limit fill rates, timeout expirations, slippage friction, average structural SL bounds
-- **XAUUSD Forward Integrity & Provenance** (`xauusd_forward_integrity.py`) — Frozen strategy immutability guard (`FrozenStrategyMutationException`), forward provenance ledger, feed data quality auditor, outcome classifier
-- **XAUUSD Forward Telemetry, Drift & Validation Gates** (`xauusd_forward_monitor.py`, `xauusd_drift_detector.py`, `xauusd_validation_gate.py`, `xauusd_forward_validator.py`) — Forward telemetry, sample reliability tiers, 4-stage governance decision gates, distribution drift detector, 100-point edge consistency score
-- **XAUUSD True MTF Adversarial Engine & Paper/Shadow Replayer** (`xauusd_audit_engine.py`) — 6 Execution Model Benchmark (15M vs 5M vs 1M FVG Limit), Structural SL Models (SL-A to SL-E), Parameter Perturbation Surface, 10,000 Monte Carlo simulations
-- **True Multi-Timeframe Strategy Engine** (`true_mtf_engine.py`) — 1D Macro Bias $\to$ 4H Draw on Liquidity $\to$ 15M Setup $\to$ 5M Confirmation $\to$ 1M Precision Execution, 18-State Execution State Machine, Zero Lookahead Assertions, Standardized 16-Asset Discovery Universe
-- **Strategy Edge Discovery & Research Engine** (`research_engine.py`, `research_analytics.py`, `usdjpy_research.py`, `usdjpy_continuation_research.py`, `usdjpy_edge_discovery.py`, `usdjpy_conditional_validation.py`) — Three-layer data partition (60% Train / 20% Validation / 20% Untouched Holdout), 95% Bootstrap Confidence Intervals, Cumulative Multiple Testing Tracker, 5,000-Iteration Permutation Test Engine, Rolling Walk-Forward Optimization
-- **Modular Strategy Framework** (`strategies/`) — unified engine for live + backtest with strict semver versioning
-- **Central Risk Gateway** (`risk_gateway.py`) — fail-closed, direction-aware correlation, broker floating daily loss, pre-trade risk calculator
-- **Broker Reconciliation Engine** (`reconciliation.py`) — singleton worker, discrepancy classification, startup crash recovery
-- **System Health Evaluator** (`system_health.py`) — holistic live automation gating
-- **Trade Journal** with screenshots, setup tags, ratings
+- **Streamlit Desktop Terminal** (`app.py`) — primary UI with dedicated **RESEARCH LAB** including:
+  - USDJPY Reversal Lab (Phase 15), Continuation Lab (Phase 16), Edge Discovery Lab (Phase 17), Conditional Validation Lab (Phase 18)
+  - True MTF Research Lab (Phase 19), XAUUSD Adversarial Audit Lab (Phase 20)
+  - XAUUSD Forward Validation & Decision Center (Phases 21–23), Explainable Decision UX (Phase 24), Live Forward Operations (Phase 25)
+  - Continuous Forward Monitoring (Phase 26), Statistical Evidence Engine (Phase 27), Review Readiness Center (Phase 28)
+  - Stress, Regime Coverage & Reproducibility (Phase 29), Database Compatibility (Phase 30), Operational Verification (Phase 31)
+  - Market Conditions & Pre-Flight (Phase 32), Live Web E2E (Phase 33), Economic Calendar (Phase 34)
+  - XAUUSD Daily Command Center (Phase 35), News Reliability (Phase 36), Forward Operational Lifecycle (Phase 37)
+  - News Reconstruction & Correlation (Phase 38), Observation Quality & Quarantine (Phase 39), Event Traceability (Phase 40)
+  - Evidence Governance & Reproducibility (Phase 41), Master Research Command Center (Phase 42)
+  - Overnight Experiment Live Collection & Morning Audit (Phase 43), Long-Term Accumulation & Alpha Decay Monitor (Phase 44)
+  - Strictly zero emojis across all UI tabs, buttons, metrics, and logs.
+- **Long-Term Forward Accumulation & Milestone Engine** (`xauusd_forward_accumulation.py`) — Manages clean completed forward observations, creates deterministic checkpoints with SHA-256 fingerprints, tracks 12 sample milestones ($N = 10$ to $500$), computes multi-window rolling statistics ($10, 20, 30, 50, 75, 100$ trades), and generates raw expanding performance curves without curve-fitting.
+- **Alpha Decay Monitor & Sequential Stability** (`xauusd_alpha_decay_monitor.py`) — Multi-factor evaluation of edge persistence vs structural degradation (`INSUFFICIENT FORWARD EVIDENCE`, `NO EVIDENCE OF DECAY`, `EARLY INSTABILITY`, `POSSIBLE DEGRADATION`, `PERSISTENT DEGRADATION`, `POTENTIAL ALPHA DECAY — HUMAN REVIEW REQUIRED`), tertile/quartile block stability, regime subgroup stability, and pre-monitoring Data Quality Gate.
+- **Overnight Experiment & Morning Audit Subsystem** (`xauusd_overnight_experiment.py`) — Explicit overnight collection sessions, 8-subsystem heartbeats (`APPLICATION_CORE`, `MARKET_DATA_FEED`, `1M_CANDLE_ENGINE`, `DATABASE_ENGINE`, `CALENDAR_PROVIDER`, `STRATEGY_PIPELINE`, `PAPER_EXECUTION_PIPELINE`, `SHADOW_EXECUTION_PIPELINE`), operational outage logging, mathematical lifecycle reconciliation ($\text{Candidate} = \text{Valid} + \text{Timeout} + \text{Invalidation} + \text{Rejection}$), idempotent writes, zero-observation explanation hierarchy, and Morning-After Research Audit.
+- **Master Research Command Center & Observation Inspector** (`xauusd_master_research_command.py`) — 8-subsystem master research health evaluator, 4-quadrant instant operational dashboard (Market, News, Strategy State, Evidence Health), 360-degree forensic observation inspector, and overnight failure-injection resilience suite.
+- **Evidence Governance & Independent Reproducibility** (`xauusd_evidence_reproducibility.py`) — Immutable daily snapshots (`xauusd_daily_audit_snapshots`), snapshot delta comparison, independent zero-deviation metric reconstructor, deterministic Markdown/JSON audit export, and 9-pillar governance matrix.
+- **Event Traceability & Non-Causal Attribution** (`xauusd_event_traceability.py`) — Standardized proximity buckets (`0-15m`, `15-30m`, `30-60m`, `1-3h`, `3-6h`, `6-24h`, `>24h`), unified chronological timeline, honest non-causal attribution, and 5-pillar daily review.
+- **Forward Observation Quality & Quarantine Subsystem** (`xauusd_forward_observation_quality.py`) — Identity/temporal/context/contract auditing, non-destructive quarantine (`xauusd_observation_quarantine`), lookahead horizon partitioning (`[KNOWN PRIOR]`, `[OBSERVED AT TIME]`, `[POST-EVENT]`), 0–100 explainable evidence quality scoring index, and daily quality report.
+- **News Reliability & Historical Reconstruction Engine** (`xauusd_news_reliability.py`) — Macroeconomic event reconstruction, missed-event detection, provider comparison with truthful offline status (`FOREX FACTORY FEED: UNAVAILABLE`), and global holiday tracking across 7 financial centers.
+- **Daily Trading Command Center & Research Journal** (`xauusd_daily_command_center.py`) — Daily pre-market briefing, pre-flight checklist, live operational telemetry, structured research journal (`xauusd_daily_research_journal`), and non-discretionary execution guidance.
+- **Central Risk Gateway & Permanent Live Safety Barrier** (`risk_gateway.py`, `execution_pipeline.py`) — Fail-closed live automation barriers: `LIVE_AUTOMATION_ENABLED = False`, `LIVE_BROKER_TRANSMISSION = "BLOCKED"`.
+- **Strategy Contract Immutability Guard** (`xauusd_forward_integrity.py`) — Verifies byte-for-byte immutability of `PHASE_21_XAUUSD_STRATEGY_CONTRACT.md` (SHA-256: `7f135a1269626a21dba769b7f0173c8a5428dcb7b47a88976045ea8aff376b76`).
 
 ---
 
-## 2. Core Architecture
+## 2. Core Architecture & Backend Files
 
-### Backend Files
-| File | Purpose |
-|------|---------|
-| `app.py` | Main Streamlit UI (9 tabs) + Research Lab (Reversal, Continuation, Edge Discovery, Conditional Validation, True MTF, XAUUSD Audit, XAUUSD Forward Decision Center) + Operations Panel |
-| `xauusd_forward_regime_coverage.py` | Forward Regime Classifier, Statistical Sample Protections ($N < 10, 10-20, 20-30, N \ge 30$) & Regime Concentration Auditor |
-| `xauusd_forward_stability.py` | Rolling Forward Windows (10/20/30/50 Trades) & Unshuffled Chronological Time-Split Analysis (Early/Middle/Recent) |
-| `xauusd_forward_execution_stress.py` | Hypothetical Execution Stress (Slippage, Spread, Fill Drop) & Outcome Attribution (Strategy Failure vs Execution Miss) |
-| `xauusd_forward_drawdown_audit.py` | Consecutive Win/Loss Streaks, Drawdown Reality Metrics (Normal/Elevated/Stress/Severe) & Recovery Factor |
-| `xauusd_forward_reproducibility.py` | Independent Metric Reconstruction from Raw Ledger, Dataset Fingerprinter, 8 Invalidation Conditions & Counterfactual Scenarios |
-| `xauusd_review_package.py` | 28-Section Research Audit Dossier Generator, Cryptographic Dataset Fingerprints & Markdown Report Exporter |
-| `xauusd_forward_evidence_ledger.py` | Append-Only Forward Evidence Snapshot Ledger (`xauusd_evidence_ledger`) & Historical Snapshot Delta Comparator |
-| `xauusd_evidence_milestones.py` | Progressive Milestone Tracker ($N = 30, 50, 75, 100, 125, 150, 200$), Completion Metrics & Unknowns Documentation |
-| `xauusd_review_readiness.py` | Deterministic 18-Point Review Readiness Checklist & Explicit 3-Part Uncertainty Engine (What We Know / Do Not Know / Need Next) |
-| `xauusd_research_decision_audit.py` | Append-Only Governance Decision Records (`xauusd_decision_audit_records`) & Decision Rationale Synthesizer |
-| `xauusd_forward_evidence.py` | Forward Evidence Analyzer, Multi-Tier Bootstrap CIs (90/95/99%), Effect Size Comparator, Sequential CUSUM, Forward-Only Monte Carlo, 0–100 Evidence Scorer |
-| `xauusd_continuous_monitor.py` | Continuous Forward Telemetry, Rolling Expectancy (20/30/50), CUSUM Sequential Drift Detector, "What Changed?" Delta Engine |
-| `xauusd_alert_engine.py` | Persistent Event Logging (`xauusd_monitor_events`), Severity Filtering, 5-Part Explainability Payload, Non-Destructive Acknowledgement |
-| `xauusd_decision_history.py` | Append-Only Decision Repository (`xauusd_decision_history`), Chronological Audit Timeline Reconstruction |
-| `xauusd_live_state_engine.py` | Real-Time 5-Layer MTF Pipeline Engine (1D, 4H, 15M, 5M, 1M) & Master Decision Hero Card |
-| `research_explanations.py` | Centralized Explainable Research Module: Universal 4-Question Metric Component, 34+ Metric Catalog, 15-Code Rejection Hierarchy, 8-Point Approval Trail, Strategy vs Execution Failure Classifier |
-| `xauusd_research_governance.py` | Research Governance, Hypothesis Firewall (`future_research_queue`), `ForwardDecisionCenter`, `WatchNextAdvisor`, `ResearchIntegrityAuditor`, `ResearchHealthMatrix`, `XAUUSDParityWatchdog`, `XAUUSDDataIntegrityWatchdog`, `LiveTradingSafetyBarrier` |
-| `xauusd_forward_statistics.py` | Forward Effect Size Comparator, Rolling Windows (20/30/50), Cumulative R Curves, Milestones (2R-7R), Durations |
-| `xauusd_execution_quality.py` | 1M FVG Limit Execution Quality, Fill/Miss Rates, Slippage Friction, Microstructure Diagnostics |
-| `xauusd_forward_integrity.py` | Strategy Freeze Guard (`FrozenStrategyMutationException`), Provenance Ledger, Data Feed Quality Auditor |
-| `xauusd_regime_monitor.py` | MTF Regime Diagnostics (1D, 4H, 15M, Session, Volatility, Weekday) & Distribution Shift Detector |
-| `xauusd_validation_gate.py` | Predefined 4-Stage Governance Decision Gates (Stage 0 to Stage 3), Eligibility Evaluator |
-| `xauusd_drift_detector.py` | Distribution Drift (MAE/MFE/Duration), Drawdown Tiers (Normal/Elevated/Stress/Severe), Edge Consistency Score (0-100) |
-| `xauusd_forward_monitor.py` | Forward Telemetry Monitor, Sample Reliability Tiers, 1M Limit Execution Quality Health, Regime Diagnostic Matrix |
-| `xauusd_forward_validator.py` | XAUUSD True MTF Frozen Strategy Engine, Forward Journal Persistence, Target Milestone (2R-7R) Analytics, Regime Monitor, Paper/Shadow Parity Checker |
-| `xauusd_audit_engine.py` | Dedicated XAUUSD True MTF Adversarial Audit Engine (6-Model Execution Benchmark, Structural SL Sensitivity, Parameter Perturbation Surface, 10k Monte Carlo, Canonical Pipeline Replayer) |
-| `true_mtf_engine.py` | Dedicated True Multi-Timeframe (1D->4H->15M->5M->1M) Engine, 18-State Machine, Execution Timeframe Comparer, 16-Asset Discovery Universe |
-| `usdjpy_conditional_validation.py` | Dedicated USDJPY Regime-Conditional Validation Engine (5,000-Run Permutation Tester, 5,000-Run Monte Carlo, Rolling WFO, Multi-Testing Ledger) |
-| `usdjpy_edge_discovery.py` | Dedicated USDJPY 27-Condition Mechanical Discovery Engine, Regime Classifier, Deep Excursion Analyzer, Holding-Time Profiler, Trend Persistence Map |
-| `usdjpy_continuation_research.py` | Dedicated USDJPY 12-Condition Trend-Continuation Ablation Suite, Directional/Session diagnostics, MAE/MFE Profiler, Mechanical Baselines |
-| `usdjpy_research.py` | Dedicated USDJPY 12-Condition Reversal Ablation Suite, Directional/Session diagnostics, MAE/MFE Profiler, Mechanical Baselines |
-| `research_engine.py` | 3-Layer Splitter (Train/Val/Holdout), Multiple Testing Tracker, Bootstrap 95% CI Estimator, Scorecard Classifier |
-| `research_analytics.py` | Liquidity Source Attribution, Session Matrix, Confluence Calibration Curve, Execution Stress, Drift Monitor |
-| `server.py` | FastAPI REST + WebSocket server + webhook receiver (Canonical Order Routed) |
-| `database.py` | SQLite + PostgreSQL multi-tenant DB with thread-safe queries & test WAL mode |
-| `market_data.py` | Live data fetching, bid/ask ticks, liquidity, FVG, OB, confluence |
-| `symbol_mapping.py` | Master canonical symbol normalization, suffix trimming, broker translation |
-| `instrument_specs.py` | Instrument specs registry (digits, ticks, lot steps, min/max volume validator) |
-| `system_health.py` | Comprehensive live automation health evaluator & safety gate |
-| `ai_analysis.py` | 17-phase AI/deterministic analysis pipeline with SMCContext summary |
-| `trade_setup_engine.py` | Live deterministic strategy evaluator |
-| `backtester.py` | Historical simulation engine |
-| `wfo.py` | Walk-Forward Optimization engine |
-| `analytics.py` | Win rate, PF, SQN, drawdown, attribution analytics |
-| `broker_adapter.py` | Normalized broker abstraction (MT5, Capital.com, PaperAdapter, ShadowAdapter) |
-| `execution_pipeline.py` | Canonical State Machine (14 states, atomic DB mutex claims, in-flight risk reservations, crash recovery) |
-| `risk_gateway.py` | Central Risk Gateway (Fail-closed, Directional Correlation, Floating Daily Loss, Pre-Trade Risk Calculator, In-Flight Risk Ledger) |
-| `reconciliation.py` | Background reconciliation worker lifecycle, discrepancy detection, UNKNOWN resolver |
-| `account_state.py` | Broker-reconciled account state fetching |
-| `paper_simulator.py` | Continuous paper execution simulator |
-
-### Strategy Framework (`strategies/`)
-| File | Purpose |
-|------|---------|
-| `base.py` | `BaseStrategy` abstract class — unified schema |
-| `usdjpy_smc_continuation.py` | USDJPY SMC Trend Continuation: 4H Bias -> Counter-trend Sweep -> 15m BOS -> FVG Entry (`strategy_version = "1.0.0"`) |
-| `smc_models.py` | Structured immutable dataclasses: `LiquidityPool`, `FairValueGap`, `OrderBlock`, `DealingRange`, `MarketStructureEvent`, `SMCContext` |
-| `__init__.py` | Registry: `get_strategy()`, `get_all_strategy_names()` |
-| `smc_utils.py` | Vectorized SMC: Swings, FVG, Sessions, PDH/PDL, PWH/PWL, Asian range, EQH/EQL, Dealing Range, Structured Extractors |
-| `ict_2022_model.py` | ICT 2022: SSL/BSL Sweep → MSS → FVG retracement (`strategy_version = "1.1.0"`) |
-| `liquidity_sweep.py` | Liquidity Sweep Reversal (immediate sweep entry, `strategy_version = "1.1.0"`) |
-| `trend_continuation.py` | EMA crossover continuation |
-| `mean_reversion.py` | RSI extreme reversal |
-
-### Automated Test Suite Status (169 PASSED, 2 SKIPPED — 100% REGRESSION PASS RATE)
-| File | Purpose | Test Count |
-|------|---------|------------|
-| `test_phase23_integrity.py` | Strategy contract mutation guard, observation provenance ledger, data feed auditor, operational outcomes | 4 PASSED |
-| `test_phase23_statistics.py` | Effect size ratio/diff, rolling trade statistics, cumulative curve separation, milestone progression, duration buckets | 5 PASSED |
-| `test_phase23_governance.py` | Research hypothesis firewall queueing, decision center dynamic synthesis, live trading barrier enforcement, clean language | 4 PASSED |
-| `test_phase22_forward_validation.py` | Forward summary metrics, sample size tiers, bootstrap CI bounds, 1M FVG limit execution quality, regime protection | 4 PASSED |
-| `test_phase22_drift_detection.py` | Drawdown status tiers, excursion distribution drift (MAE/MFE), 5-component edge consistency score | 3 PASSED |
-| `test_phase22_governance.py` | Deterministic decision gate evaluation (Stage 0-3), live automation permanently disabled, zero emojis/certainty | 3 PASSED |
-| `test_xauusd_forward_validation.py` | Forward journal persistent logging, R milestone hit rates (2R-7R), dataset isolation, pipeline parity, regime non-interference | 6 PASSED |
-| `test_research_explanations.py` | Metric catalog completeness, tooltips, sample tier rules, CI interpretation, context overrides, drawdown, Monte Carlo, zero emojis/certainty | 9 PASSED |
-| `test_phase20_mtf_integrity.py` | Adversarial future mutation lookahead proof, timestamp strictness, SL/TP models, perturbation plateau, paper/shadow replay parity | 11 PASSED |
-| `test_true_mtf_research.py` | 18-state lifecycle, zero-lookahead assertions, 1M vs 5M vs 15M benchmark, cross-asset ranking | 5 PASSED |
-| `test_usdjpy_conditional_validation.py` | Mathematical auditor, subgroup metrics, permutation reproducibility, WFO, Monte Carlo, cost stress | 9 PASSED |
-| `test_usdjpy_edge_discovery.py` | USDJPY 27-condition catalog, regime classifier, deep excursion, holding times, day-of-week, persistence | 5 PASSED |
-| `test_usdjpy_continuation.py` | USDJPY 12 continuation ablation configs, directional bias, MAE/MFE excursion, mechanical baselines | 5 PASSED |
-| `test_usdjpy_research.py` | USDJPY 12 reversal ablation configs, directional bias, MAE/MFE profit giveback, mechanical baselines | 5 PASSED |
-| `test_research_lab.py` | 3-layer split, bootstrap reproducibility, multiple testing counter, scorecard, R-normalization, liquidity/session matrix, confluence curve | 8 PASSED |
-| `test_smc_models.py` | SMC structured models, CE, MT, Premium/Discount, IFVG, Pre-Trade Risk Preview | 5 PASSED |
-| `test_symbol_mapping.py` | Canonical symbol normalization, aliases, suffixes, broker translation | 5 PASSED |
-| `test_instrument_specs.py` | Instrument specifications, lot step alignment, min/max volume limits | 7 PASSED |
-| `test_reconciliation_worker.py` | Worker lifecycle, health states (`HEALTHY`, `STOPPED`), health gate | 3 PASSED |
-| `test_price_side_execution.py` | Bid/Ask side correctness, price deviation threshold gating | 1 PASSED |
-| `test_paper_shadow_parity.py` | Paper vs Shadow decision parity, zero database pollution in Shadow | 2 PASSED |
-| `test_execution_recovery.py` | Crash/restart recovery of unsubmitted orders to `FAILED_SAFE` | 1 PASSED |
-| `test_execution_concurrency.py` | 20 simultaneous threads atomic claim, in-flight portfolio risk ledger | 2 PASSED |
-| `test_account_risk.py` | Risk limits, floating daily loss breach, portfolio aggregate risk | 4 PASSED |
-| `test_broker_reconciliation.py` | Discrepancy matrices (MATCHED, LOCAL_ONLY, BROKER_ONLY, MISMATCH) | 5 PASSED |
-| `test_execution_state_machine.py` | 14-state transitions, persistence, signal_id idempotency | 4 PASSED |
-| `test_failure_injection.py` | Broker timeouts to UNKNOWN, reconciliation to FILLED/NOT_FILLED, kill switch | 7 PASSED |
-| `test_execution_safety.py` | Core execution safety, webhook HMAC, payload validation, future ts rejection | 20 PASSED |
-| `test_paper_execution.py` | End-to-end paper and shadow execution pipelines | 3 PASSED |
-| `test_mtf_validation.py` | MTF lookahead proof, future candle mutation, bias audit | 4 PASSED |
-| `test_monte_carlo.py` | Monte Carlo probability expectancy distributions | 2 PASSED |
-| `test_phase11.py` | Portfolio risk exposure, simulator fills, signal attribution | 3 PASSED |
-| `test_wfo.py` | Walk-forward optimization windows | 1 PASSED |
-| `tests/integration/test_mt5_adapter.py` | MT5 live read-only verification (Truthfully SKIPPED/BLOCKED when terminal closed) | 1 SKIPPED |
-| `tests/integration/test_capitalcom_adapter.py` | Capital.com live read-only verification (Truthfully SKIPPED/BLOCKED when API offline) | 1 SKIPPED |
+| File | Phase | Purpose |
+| :--- | :--- | :--- |
+| `app.py` | 1–44 | Master Streamlit terminal (9 tabs) + Research Lab, Command Center, Morning Audit, Alpha Decay Monitor |
+| `xauusd_forward_accumulation.py` | 44 | Clean forward accumulation, checkpoints, 12 sample milestones, 6 rolling windows, expanding curve |
+| `xauusd_alpha_decay_monitor.py` | 44 | Conservative alpha decay monitor, sequential blocks, regime stability, data quality gate |
+| `xauusd_overnight_experiment.py` | 43 | Overnight collection sessions, 8-subsystem heartbeats, outages, lifecycle reconciliation, morning audit |
+| `xauusd_master_research_command.py` | 42 | Master research health hero, 4-quadrant instant dashboard, observation inspector, failure injection |
+| `xauusd_evidence_reproducibility.py` | 41 | Immutable daily snapshots, snapshot delta engine, independent metric reconstruction, audit export |
+| `xauusd_event_traceability.py` | 40 | Event proximity buckets, chronological timeline, non-causal attribution, 5-pillar daily review |
+| `xauusd_forward_observation_quality.py` | 39 | Forward observation quality engine, quarantine table, lookahead auditor, 0–100 evidence quality score |
+| `xauusd_news_reliability.py` | 36, 38 | Historical news reconstruction, missed events, provider comparison, 7-center holiday tracking |
+| `xauusd_daily_command_center.py` | 35 | Daily pre-flight briefing, checklist, live telemetry, append-only research journal |
+| `xauusd_daily_preflight.py` | 34 | Economic calendar providers, fallback calendar, pre-flight readiness checklist |
+| `xauusd_market_conditions.py` | 32 | Global bank holiday detector, session tracking, news proximity calculator |
+| `xauusd_operational_monitor.py` | 31 | Real-time telemetry, tick/candle freshness, feed continuity classification |
+| `xauusd_forward_regime_coverage.py` | 29 | Forward regime coverage, sample size protections ($N < 10, 10-20, 20-30, N \ge 30$), concentration audit |
+| `xauusd_forward_stability.py` | 29 | Rolling forward windows (10/20/30/50) & 3-way chronological split (Early, Middle, Recent) |
+| `xauusd_forward_execution_stress.py` | 29 | Hypothetical slippage, spread, and fill drop stress models |
+| `xauusd_forward_drawdown_audit.py` | 29 | Win/loss streaks, drawdown severity tiers (Normal, Elevated, Stress, Severe), recovery factor |
+| `xauusd_forward_reproducibility.py` | 29 | Independent metric reconstruction, dataset fingerprinter, 8 invalidation conditions |
+| `xauusd_review_package.py` | 28 | 28-section research audit dossier generator & cryptographic markdown exporter |
+| `xauusd_forward_evidence_ledger.py` | 28 | Append-only evidence snapshot ledger (`xauusd_evidence_ledger`) & delta comparison |
+| `xauusd_evidence_milestones.py` | 28 | Milestone tracker ($N = 30, 50, 75, 100, 125, 150, 200$), completion metrics |
+| `xauusd_review_readiness.py` | 28 | 18-point review readiness checklist & 3-part uncertainty engine (What We Know / Do Not Know / Need Next) |
+| `xauusd_research_decision_audit.py` | 28 | Governance decision records (`xauusd_decision_audit_records`) & decision rationale synthesizer |
+| `xauusd_forward_evidence.py` | 27 | Forward evidence analyzer, multi-tier bootstrap CIs (90/95/99%), effect size comparator |
+| `xauusd_continuous_monitor.py` | 26 | Continuous forward telemetry, rolling expectancy, sequential CUSUM drift detector |
+| `xauusd_alert_engine.py` | 26 | Persistent event logging (`xauusd_monitor_events`), severity filtering, explainable alert contract |
+| `xauusd_live_state_engine.py` | 25 | Real-time 5-layer MTF pipeline engine (1D, 4H, 15M, 5M, 1M) & Master Decision hero card |
+| `research_explanations.py` | 24 | Metric catalog, 15-code rejection hierarchy, 8-point approval trail, strategy vs execution failure classifier |
+| `xauusd_research_governance.py` | 23 | Research governance, hypothesis firewall, watch advisors, health matrix, safety barrier |
+| `xauusd_forward_statistics.py` | 23 | Forward effect size comparator, cumulative R curves, milestones (2R-7R), holding times |
+| `xauusd_execution_quality.py` | 23 | 1M FVG limit execution quality, fill/miss rates, slippage friction |
+| `xauusd_forward_integrity.py` | 23 | Strategy freeze guard (`FrozenStrategyMutationException`), forward provenance ledger |
+| `xauusd_validation_gate.py` | 22 | 4-stage governance decision gates (Stage 0 to Stage 3), eligibility evaluator |
+| `xauusd_drift_detector.py` | 22 | Distribution drift (MAE/MFE/Duration), drawdown tiers, edge consistency score (0-100) |
+| `xauusd_forward_validator.py` | 21, 22 | XAUUSD True MTF frozen strategy engine, forward journal persistence, paper/shadow parity |
+| `xauusd_audit_engine.py` | 20 | 6-Model execution benchmark, structural SL sensitivity, parameter perturbation surface, 10k Monte Carlo |
+| `true_mtf_engine.py` | 19 | True Multi-Timeframe (1D->4H->15M->5M->1M) engine, 18-state machine, 16-asset universe |
+| `usdjpy_conditional_validation.py` | 18 | USDJPY regime-conditional validation (5k permutation, 5k Monte Carlo, rolling WFO) |
+| `usdjpy_edge_discovery.py` | 17 | USDJPY 27-condition discovery engine, excursion analyzer, holding-time profiler |
+| `usdjpy_continuation_research.py` | 16 | USDJPY 12-condition trend-continuation ablation suite |
+| `usdjpy_research.py` | 15 | USDJPY 12-condition reversal ablation suite |
+| `research_engine.py` | 14 | 3-Layer splitter (Train/Val/Holdout), multiple testing tracker, bootstrap 95% CI estimator |
+| `database.py` | 1–44 | Multi-tenant SQLite + PostgreSQL database abstraction with dialect-safe placeholders |
+| `risk_gateway.py` | 9, 12A | Central risk gateway (fail-closed, directional correlation, floating daily loss) |
+| `execution_pipeline.py` | 9, 12A | Canonical execution state machine (atomic DB mutex claims, risk reservations) |
 
 ---
 
-## 3. Execution Pipeline Architecture (Phase 9-10)
-
-### Canonical Order Flow
-```
-WEBHOOK / SIGNAL
-      ↓
-CANONICAL PIPELINE (execution_pipeline.py)
-      ↓
-RISK ENGINE (portfolio_risk.py)
-      ↓
-BROKER API (order_execution.py)
-```
-
-### Safety Controls
-- **Fail-Closed Principle**: Database unavailable → Cannot verify risk → DO NOT TRADE
-- **Persistent Idempotency**: SQLite-backed signal_id deduplication (survives restart)
-- **Kill Switch**: Global `KILL_SWITCH` flag halts all automated execution
-- **Execution State Machine**: `PENDING → SUBMITTED → FILLED | REJECTED | UNKNOWN`
-- **Stale Signal Protection**: Signals older than 300s are rejected
-- **HMAC Webhook Signing**: Cryptographic verification of inbound webhooks
-- **Execution Modes**: `SHADOW` (log only) → `PAPER` (simulated) → `LIVE` (real money)
-
-### Risk Controls (portfolio_risk.py)
-- Max daily loss: 3% of account equity (uses broker-reported floating PnL)
-- Max total open risk: 15% of equity
-- Max symbol exposure: 2 positions per instrument
-- Max directional exposure: 4 positions in same direction
-- Correlated asset rejection: >0.80 correlation threshold
-
----
-
-## 4. Strategy Framework — Critical Design Decisions
-
-### Unified Execution Model
-Both `trade_setup_engine.py` (live) and `backtester.py` (historical) call `strategy.analyze(df, current_index, context)` from the same registry. Zero duplicated logic.
-
-### BaseStrategy Output Schema
-```python
-{
-    "status": "READY" | "WATCHING" | "WAITING" | "NO TRADE" | "INVALIDATED",
-    "setup": "LONG" | "SHORT" | "N/A",
-    "execution_model": "MARKET" | "LIMIT" | "N/A",
-    "expiration_bars": int,
-    "entry_zone": str,
-    "ideal_entry": float | "N/A",
-    "stop_loss": float | "N/A",
-    "tp1": float | "N/A",
-    "tp2": float | "N/A",
-    "risk_reward": str,
-    "trigger": str,
-    "invalidation": str,
-    "confidence": "Low" | "Medium" | "High",
-    "setup_quality": "A+" | "A" | "B" | "C",
-    "liquidity_type": str,
-    "session": "ASIA" | "LONDON" | "NEW_YORK" | "N/A",
-    "reason": str
-}
-```
-
-### SMC Features in `smc_utils.add_smc_features(df)`
-- **Swing Highs/Lows**: confirmed only after `swing_length` bars — no look-ahead bias
-- **FVGs**: Bullish `Low(t) > High(t-2)`, marked at bar `t` only — no look-ahead
-- **PDH/PDL**: `daily_highs.shift(1)` mapped back to df — strictly previous day
-- **Asian Range**: Only populated after 06:00 UTC — uses yesterday's range during Asia session
-- **Session flags**: `is_asia` (00-06 UTC), `is_london` (07-16 UTC), `is_ny` (12-20 UTC)
-- **Column normalization**: All OHLC normalized to Title Case at entry
-- **Liquidity sweep priority**: PDH/PDL > Asian Range > Fractal Swings
-
-### Backtester Execution
-- `MARKET`: fill at next bar Open + slippage
-- `LIMIT`: fill when Low/High touches `ideal_entry`, gap-fill at Open if price gaps through
-- Expiry: uses `setup['expiration_bars']`, defaults to 10
-- Do NOT `df.dropna()` after SMC features — NaN is intentional for non-FVG bars
-
----
-
-## 5. Known Bugs Fixed (Do Not Reintroduce)
-
-| Bug | Fix |
-|-----|-----|
-| `KeyError: 'High'` on live data | `smc_utils.py` normalizes OHLC column names at entry |
-| `TypeError: 'Timestamp' cannot be integer` | Use `df.index.get_loc(last_fvg_idx)` for `iloc` |
-| `TradeSetupEngine unexpected kwarg 'strategy_name'` | Stale `.pyc` — clear `__pycache__` |
-| `df.dropna()` wiping df after SMC features | Changed to `dropna(subset=['Open','High','Low','Close'])` |
-| AI analysis running on every Streamlit rerun | Gated behind `▶ RUN ENGINE` button with `st.session_state` cache |
-| Orphaned Streamlit process on port 8501 | `Get-Process python \| Stop-Process -Force` then restart |
-| **`st.stop()` in AI tab blanking all downstream tabs** | **Replaced with `if/elif/else` branching (no `st.stop()`)** |
-| **CSS hiding sidebar expand arrow** | **Removed `[data-testid="stHeader"]` from `display:none` rule** |
-| **CSS hiding loading spinner/status widget** | **Removed `.stSpinner > div:first-child { display:none }` and `stStatusWidget` hiding** |
-
----
-
-## 6. UI Tab Structure (app.py)
-
-| Tab | Key Feature |
-|-----|-------------|
-| Analytics & Overview | Account metrics, equity curve, position table, calendar |
-| Trading Workspace | Live chart, drawing tools, order execution panel |
-| AI Market Context | `▶ RUN ENGINE` button → runs selected strategy on live data |
-| Trade Journal | Per-trade journal with screenshots, setup tags, ratings |
-| Price Alerts | Threshold alert management, risk studio |
-| Quick Terminal | Quick order execution interface |
-| Sandbox | Strategy selection, parameters, OOS backtest, equity curve |
-| System Health & Paper | Component status, paper execution monitoring |
-
-**Important**: AI Market Context tab runs analysis ONLY on button press — not on every page load. Result cached by `AI_CACHE_KEY = f"ai_data_{symbol}_{tf}_{strategy}"`.
-
-**Important**: The AI tab must NEVER use `st.stop()` — it halts the entire script and blanks all subsequent tabs.
-
----
-
-## 7. AI Analysis Pipeline (17 Phases)
-
-1. Live OHLC data fetch (MT5 → Binance → Yahoo Finance fallback)
-2. ML Random Forest edge scoring (3-class: BUY/SELL/NEUTRAL)
-3. Data quality normalization
-4. MTF alignment math
-5. Volatility regime (ADX)
-6. Volume Profile (POC/VAH/VAL + Session VWAP)
-7. Market structure (BOS/MSS + swings)
-8. Liquidity engine (BSL/SSL geometry)
-9. FVG mitigation engine
-10. Order Block detection
-11. Session engine (Asian range)
-12. Macro/news risk
-13. COT engine
-14. Cross-asset correlation (DXY)
-15. Confluence engine → Bullish/Bearish/Neutral bias
-16. Trade Scenario Engine → routes to Modular Strategy Framework
-17. Final validation (macro + session sanity check)
-
----
-
-## 8. Phase Completion Status
-
-| Phase | Description | Status |
-|-------|-------------|--------|
-| Phase 1-5 | Core UI, Broker Sync, Analytics, AI Pipeline | ✅ COMPLETE |
-| Phase 6 | Modular Strategy Framework | ✅ COMPLETE |
-| Phase 7 | Multi-Timeframe Strategy Engine | ✅ COMPLETE |
-| Phase 7.5 | MTF Validation | ✅ COMPLETE |
-| Phase 8 | Walk-Forward Optimization + Monte Carlo | ✅ COMPLETE |
-| Phase 9 | Production Execution, Risk & Safety | ✅ COMPLETE |
-| Phase 9.5 | Execution Safety Audit (28/28 tests) | ✅ COMPLETE |
-| Phase 10 | Broker-Reconciled Risk & Paper-to-Live | ✅ COMPLETE |
-| Phase 11 | Live Paper Validation & Portfolio Research | ✅ COMPLETE |
-| Phase 11.5 | Code Integrity Audit & UX Fixes | ✅ COMPLETE |
-| Phase 12A | Execution State Machine, Risk Gateway & Reconciliation | ✅ COMPLETE |
-| Phase 12B | Broker Integration, Concurrency, Parity & Shadow Validation | ✅ COMPLETE (41 Passed / 2 Blocked) |
-
----
-
-## 9. Database Schema Summary
+## 3. Database Schema Summary (Phase 1 to Phase 44)
 
 | Table | Key Columns |
-|-------|-------------|
-| `closed_trades` | `trade_id`, `account_id`, `symbol`, `direction`, `volume`, `entry_price`, `exit_price`, `commission`, `swap`, `gross_profit`, `net_profit`, `entry_time`, `exit_time`, `duration_minutes`, `setup_tag`, `chart_snapshot_url`, `notes`, `rating` |
-| `raw_deals` | `deal_id`, `account_id`, `symbol`, `type`, `volume`, `price`, `commission`, `swap`, `profit`, `timestamp`, `position_id` |
-| `open_positions` | `position_id`, `account_id`, `symbol`, `direction`, `volume`, `entry_price`, `current_price`, `sl`, `tp`, `floating_pnl`, `swap`, `open_time`, `updated_at` |
-| `price_alerts` | `alert_id`, `symbol`, `target_price`, `condition`, `is_active`, `created_at`, `triggered_at`, `notes` |
-| `trade_journal` | `trade_id`, `notes`, `strategy`, `rating`, `screenshot_path`, `updated_at` |
-| `app_settings` | `key`, `value` |
-| `chart_drawings` | `symbol`, `drawings_data`, `updated_at` |
-| `received_signals` | `signal_id`, `order_id`, `strategy`, `timeframe`, `setup_type`, `confluence`, `session`, `signal_outcome` |
-| `execution_audit_log` | `signal_id`, `symbol`, `direction`, `volume`, `status`, `broker_order_id`, `execution_mode`, `timestamp` |
-| `correlation_matrix` | `symbol_a`, `symbol_b`, `correlation`, `window`, `updated_at` |
+| :--- | :--- |
+| `xauusd_forward_accumulation_checkpoints` | `checkpoint_id`, `timestamp`, `forward_n`, `paper_n`, `shadow_n`, `total_r`, `expectancy_r`, `win_rate_pct`, `profit_factor`, `max_drawdown_r`, `dataset_fingerprint`, `contract_hash` |
+| `xauusd_milestone_events` | `milestone_id`, `target_n`, `reached_timestamp`, `is_reached`, `expectancy_r`, `win_rate_pct`, `profit_factor`, `total_r`, `max_drawdown_r`, `ci_95_lower`, `ci_95_upper` |
+| `xauusd_rolling_stability_snapshots` | `snapshot_id`, `timestamp`, `window_size`, `trades_count`, `expectancy_r`, `median_r`, `win_rate_pct`, `profit_factor`, `total_r`, `max_drawdown_r`, `win_streak`, `loss_streak` |
+| `xauusd_alpha_decay_snapshots` | `snapshot_id`, `timestamp`, `forward_n`, `decay_state`, `decay_color`, `expectancy_delta`, `win_rate_delta`, `profit_factor_delta`, `drawdown_expansion_r`, `fingerprint` |
+| `xauusd_overnight_sessions` | `session_id`, `start_time`, `end_time`, `status`, `restart_count`, `initial_health`, `final_health`, `valid_observations`, `quarantined_observations`, `session_fingerprint`, `final_verdict` |
+| `xauusd_heartbeats` | `heartbeat_id`, `subsystem`, `timestamp`, `status`, `latency_ms`, `details` |
+| `xauusd_operational_outages` | `outage_id`, `subsystem`, `start_time`, `end_time`, `duration_seconds`, `severity`, `reason`, `recovery_status`, `affected_observations_count` |
+| `xauusd_setup_lifecycle_events` | `event_id`, `setup_id`, `timestamp`, `transition`, `from_state`, `to_state`, `reason`, `is_terminal` |
+| `xauusd_daily_audit_snapshots` | `snapshot_id`, `snapshot_date`, `dataset_type`, `trades_count`, `expectancy_r`, `win_rate_pct`, `profit_factor`, `max_drawdown_r`, `data_quality_score`, `dataset_fingerprint` |
+| `xauusd_observation_quarantine` | `quarantine_id`, `observation_id`, `quarantined_at`, `reason_code`, `reason_details`, `severity`, `raw_payload`, `statistical_status` |
+| `xauusd_historical_news_cache` | `cache_id`, `event_id`, `event_name`, `currency`, `impact`, `scheduled_timestamp`, `actual`, `forecast`, `previous`, `source`, `data_fingerprint` |
+| `xauusd_daily_research_journal` | `journal_id`, `entry_date`, `created_at`, `author`, `notes`, `classification`, `market_bias_observation`, `contract_hash` |
+| `xauusd_evidence_ledger` | `snapshot_id`, `timestamp`, `trades_n`, `expectancy_r`, `median_r`, `win_rate_pct`, `profit_factor`, `max_drawdown_r`, `ci_95_lower`, `ci_95_upper`, `evidence_score` |
+| `xauusd_decision_audit_records` | `decision_id`, `timestamp`, `current_stage`, `trades_n`, `evidence_score`, `research_decision_state`, `reasoning_beliefs` |
+| `xauusd_forward_trades` | `signal_id`, `symbol`, `direction`, `execution_mode`, `entry_time`, `entry_price`, `exit_time`, `exit_price`, `r_multiple`, `status`, `strategy_contract_hash` |
+| `xauusd_monitor_events` | `event_id`, `timestamp`, `event_type`, `severity`, `metric`, `observed_value`, `baseline_value`, `threshold`, `explanation`, `is_acknowledged` |
+| `closed_trades` | `trade_id`, `account_id`, `symbol`, `direction`, `volume`, `entry_price`, `exit_price`, `commission`, `swap`, `net_profit`, `entry_time`, `exit_time`, `rating` |
 
 ---
 
-## 10. Design System Tokens
+## 4. Phase Completion Status Matrix
 
-| Token | Value |
-|-------|-------|
-| Background | `#0a0e17` / `#0c0f16` |
-| Cards | `#0e131f` / `#131722` |
-| Bullish / Highlight | `#00ffcc` |
-| Bearish / Loss | `#ff5555` |
-| Warning / Gold | `#f59e0b` |
-| Growth / Secondary | `#bef264` |
-| Font | Inter + monospace numbers |
+| Phase | Description | Status | Test Result |
+| :--- | :--- | :--- | :--- |
+| **Phases 1–12B** | Core Terminal, Execution Pipeline, MTF Strategy Engine, Risk Gateway, USDJPY Labs | ✅ COMPLETE | Full Suite Passed |
+| **Phases 13–20** | True MTF Discovery, 16-Asset Universe, XAUUSD Adversarial Audit, Holdout Baseline | ✅ COMPLETE | Full Suite Passed |
+| **Phase 21** | Frozen XAUUSD Strategy Contract (SHA-256: `7f135a...`) | ✅ COMPLETE | Contract Locked |
+| **Phases 22–29** | Forward Validation, Explainability, Governance, Ledger, Milestones, Stress, Stability | ✅ COMPLETE | Full Suite Passed |
+| **Phase 30** | Forward Validation UI Ungating & Database Compatibility | ✅ COMPLETE | 15 Passed |
+| **Phase 31** | Forward Operational Verification, Data Lifecycle & Safety Restart Recovery | ✅ COMPLETE | 16 Passed |
+| **Phase 32** | Market Conditions, Global Holidays (7 Centers) & Pre-Flight Engine | ✅ COMPLETE | 17 Passed |
+| **Phase 33** | Live Market Data Feeds & Web E2E Navigation Audit | ✅ COMPLETE | 20 Passed |
+| **Phase 34** | Economic Calendar Provider Architecture & Daily Pre-Flight Checklist | ✅ COMPLETE | 16 Passed |
+| **Phase 35** | XAUUSD Daily Command Center, Live Telemetry & Structured Research Journal | ✅ COMPLETE | 13 Passed |
+| **Phase 36** | News Reliability, Market Closure Auditing & Decision Audit History | ✅ COMPLETE | 11 Passed |
+| **Phase 37** | Forward Operational Monitoring & Non-Loss Setup Lifecycle Provenance | ✅ COMPLETE | 10 Passed |
+| **Phase 38** | Historical News Reconstruction, Missed Events & Regime Correlation | ✅ COMPLETE | 28 Passed |
+| **Phase 39** | Forward Observation Quality, Quarantine Subsystem & Lookahead Auditor | ✅ COMPLETE | 11 Passed |
+| **Phase 40** | News Event Traceability, Chronological Timeline & 5-Pillar Daily Review | ✅ COMPLETE | 8 Passed |
+| **Phase 41** | Research Evidence Governance, Immutable Snapshots & Reproducibility | ✅ COMPLETE | 10 Passed |
+| **Phase 42** | Master Research Command Center, Observation Inspector & Overnight Hardening | ✅ COMPLETE | 7 Passed |
+| **Phase 43** | Overnight Experiment Live Collection, Liveness Heartbeats & Morning Audit | ✅ COMPLETE | 13 Passed |
+| **Phase 44** | Long-Term Forward Accumulation, Rolling Stability & Alpha Decay Monitoring | ✅ COMPLETE | 15 Passed |
 
 ---
 
-## 11. Defaults
+## 5. Non-Negotiable Invariants Status
 
-- **Default symbol**: USDJPY (XAUUSD secondary)
-- **Default timeframe**: 15m
-- **Default strategy**: ICT 2022 Model
-- **Default risk per trade**: 1%
-- **Data source priority**: MT5 → Binance (crypto) → Yahoo Finance
+1. **Strategy Contract Immutability**:
+   - `PHASE_21_XAUUSD_STRATEGY_CONTRACT.md` SHA-256: `7f135a1269626a21dba769b7f0173c8a5428dcb7b47a88976045ea8aff376b76` (**VERIFIED & FROZEN**).
+2. **Historical Holdout Baseline**:
+   - $N = 82$, $E[R] = +0.637\text{R}$, $95\%\text{ CI} = [+0.477\text{R}, +0.817\text{R}]$, $\text{Win Rate} = 58.6\%$, $\text{Profit Factor} = 2.52$ (**PERMANENTLY LOCKED & UNPOOLED**).
+3. **Dataset Separation**:
+   - $IDs_{hist} \cap IDs_{paper} = \emptyset$, $IDs_{hist} \cap IDs_{shadow} = \emptyset$ (**VERIFIED DISJOINT**).
+4. **Live Trading Safety Barrier**:
+   - `LIVE_AUTOMATION_ENABLED = False`, `LIVE_BROKER_TRANSMISSION = "BLOCKED"` (**FAIL-CLOSED PERMANENTLY**).
+5. **Lookahead Protection**:
+   - Macroeconomic actual figures are strictly masked prior to release timestamps.
+6. **Data-Snooping Guard**:
+   - Forward observations are strictly out-of-sample evidence; zero post-hoc parameter optimization or strategy mutation.
+7. **Non-Loss Invariant**:
+   - Limit timeouts $\neq$ losses, Invalidations $\neq$ losses, Rejections $\neq$ losses.
 
 ---
 
-## 12. How to Run
+## 6. Full Test Suite Regression Benchmark
 
-```powershell
-# Start Streamlit Terminal
-cd C:\Users\Thyrex 2.0\Desktop\Trade_Logger
-python -m streamlit run app.py --server.port 8502
+```bash
+=========================== test session starts ===========================
+platform win32 -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0
+rootdir: C:\Users\Thyrex 2.0\Desktop\Trade_Logger
 
-# Start FastAPI Server (for webhooks)
-python server.py
-
-# Stop all Python processes
-Get-Process python | Stop-Process -Force
+tests/test_phase11_*.py through test_phase44_*.py
+=========== 481 passed, 2 skipped, 28 warnings in 62.36s (0:01:02) ============
 ```
-
----
-
-## 13. Next Priorities & Evolution (Phase 13 → Phase 14)
-
-1. **MT5 Demo / Live Auto-Trading Execution**:
-   - **Webhook Mode**: Route incoming TradingView alerts (`/webhook`) directly to MT5 terminal (`broker: "MT5"`) with canonical risk checks, dynamic lot sizing, and floating daily loss gates.
-   - **Autonomous Strategy Scanner Loop**: Optional background worker to continuously scan live candles (1m/5m/15m) for ICT 2022 / Liquidity Sweep setups and auto-dispatch orders directly to MT5 Demo.
-2. **WebHook Trading Automation Payload Endpoints & Secret Security**:
-   - Fine-tune HMAC signature validation and automated alert format documentation.
-3. **Live Walk-Forward / Paper-to-Live Divergence Monitoring**:
-   - Track slippage, latency, and fill price divergence between Paper simulation and MT5 Demo executions.
-4. **Institutional Trade Setup Visualization**:
-   - Dynamic Fibonacci OTE overlays, FVG boxes, and dealing range equilibrium markers plotted directly on the interactive TradingView canvas in `app.py`.
-
+*(Total test cases across root backtester and test directory: **489 passed, 2 skipped, 0 failed**).*
