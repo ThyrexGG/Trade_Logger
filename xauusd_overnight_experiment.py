@@ -272,13 +272,13 @@ class OvernightExperimentSessionEngine:
         init_phase43_database()
         conn = database.get_connection()
         cur = conn.cursor()
-        cur.execute("""
+        cur.execute(f"""
         SELECT session_id, start_time, end_time, status, initial_health,
                final_health, valid_observations, quarantined_observations,
                setups_detected, final_verdict, session_fingerprint
         FROM xauusd_overnight_sessions
-        ORDER BY start_time DESC LIMIT ?
-        """, (limit,))
+        ORDER BY start_time DESC LIMIT {int(limit)}
+        """)
         rows = cur.fetchall()
         conn.close()
 
@@ -516,12 +516,12 @@ class OperationalOutageTracker:
         init_phase43_database()
         conn = database.get_connection()
         cur = conn.cursor()
-        cur.execute("""
+        cur.execute(f"""
         SELECT outage_id, subsystem, start_time, end_time, duration_seconds,
                severity, reason, recovery_status, affected_observations_count
         FROM xauusd_operational_outages
-        ORDER BY start_time DESC LIMIT ?
-        """, (limit,))
+        ORDER BY start_time DESC LIMIT {int(limit)}
+        """)
         rows = cur.fetchall()
         conn.close()
 

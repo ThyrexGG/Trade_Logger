@@ -2185,6 +2185,108 @@ def render_xauusd_forward_evidence_center(key_prefix=""):
 
     st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
 
+    # 1J. CONTINUOUS FORWARD RESEARCH OPERATIONS & WEEKLY AUDIT (Phase 45)
+    with st.expander("CONTINUOUS FORWARD RESEARCH OPERATIONS & WEEKLY AUDIT (PHASE 45)", expanded=True):
+        import xauusd_continuous_forward_ops
+
+        sup_res = xauusd_continuous_forward_ops.ContinuousForwardSupervisor.run_supervisor_cycle("XAUUSD")
+        sywa = sup_res.get("since_you_were_away", {})
+        weekly_audit = xauusd_continuous_forward_ops.WeeklyResearchAuditEngine.generate_weekly_audit(symbol="XAUUSD")
+        regime_drift = xauusd_continuous_forward_ops.RegimeTransitionDriftDetector.evaluate_regime_transition()
+
+        # Continuous Operations Hero Card
+        st.markdown(f"""
+        <div style="background:rgba(15,23,42,0.95); border:2px solid {sywa.get('verdict_color', '#00ffcc')}; border-radius:8px; padding:14px 18px; margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <div>
+                    <div style="font-size:10px; font-weight:800; color:#8a99ad; text-transform:uppercase; letter-spacing:1px;">DID ANYTHING GO WRONG WHILE I WAS AWAY? (PHASE 45)</div>
+                    <div style="font-size:16px; font-weight:900; color:{sywa.get('verdict_color', '#00ffcc')};">{sywa.get('verdict', 'NO OPERATIONAL ISSUES DETECTED')}</div>
+                </div>
+                <div style="font-size:11px; color:#cbd5e1; text-align:right;">
+                    Supervisor: <b style="color:{sup_res['status_color']};">{sup_res['supervisor_status']}</b><br/>
+                    Active Incidents: <b style="color:{'#ef4444' if sywa.get('active_incidents_count', 0) > 0 else '#00ffcc'};">{sywa.get('active_incidents_count', 0)}</b> | Quarantined: <b style="color:#ffffff;">{sywa.get('quarantined_count', 0)}</b>
+                </div>
+            </div>
+            <div style="margin-top:8px; font-size:11px; color:#e2e8f0; line-height:1.5; background:rgba(0,0,0,0.25); padding:8px 12px; border-radius:4px;">
+                <b>Operational Summary:</b> {sywa.get('summary_text', 'All systems operational.')}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Tabs for Since You Were Away, Weekly Audit, What Changed, Regime Drift, Alert Incidents, Export
+        tab_p45_away, tab_p45_week, tab_p45_chg, tab_p45_reg, tab_p45_inc, tab_p45_exp = st.tabs([
+            "SINCE YOU WERE AWAY",
+            "WEEKLY RESEARCH AUDIT",
+            "WHAT CHANGED THIS WEEK?",
+            "REGIME TRANSITION DRIFT",
+            "ALERT INCIDENT TRACKER",
+            "WEEKLY AUDIT EXPORT"
+        ])
+
+        with tab_p45_away:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Since You Were Away — Forensic Downtime & Recovery Audit</p>", unsafe_allow_html=True)
+            c_sy1, c_sy2, c_sy3, c_sy4 = st.columns(4)
+            c_sy1.metric("Forward Paper N", sywa.get("forward_paper_n", 0))
+            c_sy2.metric("Quarantined Records", sywa.get("quarantined_count", 0))
+            c_sy3.metric("Active Incidents", sywa.get("active_incidents_count", 0))
+            c_sy4.metric("Alpha State", sywa.get("alpha_decay_state", "N/A"))
+            st.markdown(f"<div style='font-size:11px; color:#cbd5e1; margin-top:6px;'><b>Forensic Meaning:</b> {sywa.get('meaning')}</div>", unsafe_allow_html=True)
+
+        with tab_p45_week:
+            st.markdown(f"<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Weekly Research Evidence Audit — {weekly_audit['week_identifier']}</p>", unsafe_allow_html=True)
+            c_wk1, c_wk2, c_wk3, c_wk4, c_wk5 = st.columns(5)
+            c_wk1.metric("Cumulative N", f"N = {weekly_audit['forward_n']}")
+            c_wk2.metric("This Week N", f"N = {weekly_audit['weekly_n']}")
+            c_wk3.metric("Cumulative Exp", f"{weekly_audit['expectancy_r']:+.3f} R")
+            c_wk4.metric("This Week Exp", f"{weekly_audit['weekly_expectancy_r']:+.3f} R")
+            c_wk5.metric("Data Quality", f"{weekly_audit['data_quality_score']} / 100")
+
+        with tab_p45_chg:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>What Changed This Week? (Weekly Delta Report)</p>", unsafe_allow_html=True)
+            wchg = weekly_audit["what_changed_this_week"]
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.02); border-left:3px solid #00ffcc; border-radius:4px; padding:10px; font-size:11px; color:#cbd5e1;">
+                • New Valid Observations Added: <b>+{wchg['new_trades_count']} Trades</b><br/>
+                • Weekly Expectancy: <b>{wchg['weekly_expectancy_r']:+.3f} R</b><br/>
+                • Current Alpha Decay State: <b style="color:#00ffcc;">{wchg['alpha_state']}</b><br/>
+                • Current Regime State: <b style="color:#bef264;">{wchg['regime_state']}</b>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with tab_p45_reg:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Regime Transition Drift Detector (Environmental Shifts)</p>", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.02); border-left:3px solid {regime_drift['drift_color']}; border-radius:4px; padding:10px; font-size:11px; color:#cbd5e1;">
+                <b>Regime Status:</b> <b style="color:{regime_drift['drift_color']};">{regime_drift['drift_state']}</b><br/>
+                • Dominant Session: <b>{regime_drift['dominant_session']}</b><br/>
+                • High-Impact News Proximity: <b>{regime_drift['high_impact_news_exposure_pct']}%</b><br/>
+                • Bank Holiday Exposure: <b>{regime_drift['holiday_exposure_pct']}%</b><br/>
+                • Diagnosis: <span style="color:#8a99ad;">{regime_drift['explanation']}</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with tab_p45_inc:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#bef264;'>Deduplicated Operational Incident Tracker</p>", unsafe_allow_html=True)
+            incidents_list = xauusd_continuous_forward_ops.AlertDeduplicationAndIncidentTracker.get_recent_incidents(limit=10)
+            if incidents_list:
+                df_inc_ui = pd.DataFrame(incidents_list)[["incident_id", "incident_type", "subsystem", "start_time", "duration_seconds", "severity", "status", "details"]]
+                st.dataframe(df_inc_ui, use_container_width=True)
+            else:
+                st.info("No operational incidents logged.")
+
+        with tab_p45_exp:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#bef264;'>Deterministic Weekly Audit Export (Markdown / JSON)</p>", unsafe_allow_html=True)
+            c_exp_w1, c_exp_w2 = st.columns(2)
+            with c_exp_w1:
+                if st.button("GENERATE WEEKLY MARKDOWN AUDIT", key=f"btn_gen_wk_md_{key_prefix}", use_container_width=True):
+                    md_wk = xauusd_continuous_forward_ops.WeeklyResearchAuditEngine.generate_markdown_weekly_audit()
+                    st.text_area("Weekly Markdown Dossier:", value=md_wk, height=200, key=f"txt_wk_md_{key_prefix}")
+            with c_exp_w2:
+                if st.button("EXPORT WEEKLY AUDIT PAYLOAD (JSON)", key=f"btn_gen_wk_json_{key_prefix}", use_container_width=True):
+                    st.json(weekly_audit)
+
+    st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
+
     # HONEST EMPTY / LOW-DATA UX (Phase 31)
     if core_ev_stats['trades_n'] == 0:
         st.markdown("""

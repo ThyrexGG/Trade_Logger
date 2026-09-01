@@ -240,13 +240,13 @@ class ForwardAccumulationEngine:
         init_phase44_database()
         conn = database.get_connection()
         cur = conn.cursor()
-        cur.execute("""
+        cur.execute(f"""
         SELECT checkpoint_id, timestamp, forward_n, paper_n, shadow_n,
                total_r, expectancy_r, win_rate_pct, profit_factor,
                max_drawdown_r, dataset_fingerprint
         FROM xauusd_forward_accumulation_checkpoints
-        ORDER BY timestamp DESC LIMIT ?
-        """, (limit,))
+        ORDER BY timestamp DESC LIMIT {int(limit)}
+        """)
         rows = cur.fetchall()
         conn.close()
 

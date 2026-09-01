@@ -270,7 +270,7 @@ class ObservationQuarantineSubsystem:
         init_phase39_database()
         conn = database.get_connection()
         cur = conn.cursor()
-        cur.execute("SELECT quarantine_id, observation_id, execution_mode, detected_at, reason, severity, statistical_status, resolution_status FROM xauusd_observation_quarantine ORDER BY detected_at DESC LIMIT ?", (limit,))
+        cur.execute(f"SELECT quarantine_id, observation_id, execution_mode, detected_at, reason, severity, statistical_status, resolution_status FROM xauusd_observation_quarantine ORDER BY detected_at DESC LIMIT {int(limit)}")
         rows = cur.fetchall()
         conn.close()
 
