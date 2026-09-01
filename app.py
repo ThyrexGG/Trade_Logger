@@ -1988,6 +1988,87 @@ def render_xauusd_forward_evidence_center(key_prefix=""):
 
     st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
 
+    # 1H. MORNING-AFTER RESEARCH AUDIT & OVERNIGHT EXPERIMENT RECONCILIATION (Phase 43)
+    with st.expander("MORNING-AFTER RESEARCH AUDIT & OVERNIGHT EXPERIMENT RECONCILIATION (PHASE 43)", expanded=True):
+        import xauusd_overnight_experiment
+
+        c_aud_dt, c_aud_btn = st.columns([2, 1])
+        with c_aud_dt:
+            morn_dt = st.date_input("Select Overnight Session Date:", value=datetime.now(timezone.utc).date(), key=f"morn_dt_p43_{key_prefix}")
+        with c_aud_btn:
+            st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
+            if st.button("START NEW OVERNIGHT SESSION", key=f"btn_start_sess_p43_{key_prefix}", use_container_width=True):
+                new_sess = xauusd_overnight_experiment.OvernightExperimentSessionEngine.start_session("XAUUSD")
+                st.success(f"Session started: {new_sess['session_id']}")
+
+        morn_audit = xauusd_overnight_experiment.MorningAfterAuditSynthesizer.synthesize_morning_audit(morn_dt, symbol="XAUUSD")
+        hero = morn_audit["morning_hero"]
+
+        # Morning Hero Card: "WHAT HAPPENED OVERNIGHT?"
+        st.markdown(f"""
+        <div style="background:rgba(15,23,42,0.95); border:2px solid {hero['verdict_color']}; border-radius:8px; padding:14px 18px; margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <div>
+                    <div style="font-size:10px; font-weight:800; color:#8a99ad; text-transform:uppercase; letter-spacing:1px;">WHAT HAPPENED OVERNIGHT? — {morn_dt.isoformat()}</div>
+                    <div style="font-size:16px; font-weight:900; color:{hero['verdict_color']};">{hero['verdict']}</div>
+                </div>
+                <div style="font-size:11px; color:#cbd5e1; text-align:right;">
+                    Data Quality Score: <b style="color:#00ffcc; font-size:13px;">{morn_audit['data_quality_score']} / 100</b><br/>
+                    Subsystems Live: <b style="color:{'#00ffcc' if morn_audit['operational_health']['subsystems_healthy'] else '#f59e0b'};">{morn_audit['operational_health']['liveness_verdict']}</b>
+                </div>
+            </div>
+            <div style="margin-top:8px; font-size:11px; color:#e2e8f0; line-height:1.5; background:rgba(0,0,0,0.25); padding:8px 12px; border-radius:4px;">
+                <b>Operational Meaning:</b> {hero['meaning']}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # 4 Sub-Tabs for Morning Audit
+        tab_m_recon, tab_m_live, tab_m_time, tab_m_zero = st.tabs([
+            "LIFECYCLE RECONCILIATION",
+            "SUBSYSTEM LIVENESS & HEARTBEATS",
+            "OVERNIGHT TIMELINE",
+            "ZERO-OBSERVATION EXPLANATION"
+        ])
+
+        with tab_m_recon:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Mathematical Lifecycle Reconciliation (0 Discrepancy Enforced)</p>", unsafe_allow_html=True)
+            lc = morn_audit["lifecycle_summary"]
+            c_lc1, c_lc2, c_lc3, c_lc4, c_lc5 = st.columns(5)
+            c_lc1.metric("Setups Detected", lc["setups_detected"])
+            c_lc2.metric("Valid Completed", lc["valid_completed_trades"])
+            c_lc3.metric("Invalidations", lc["invalidations"])
+            c_lc4.metric("Timeouts", lc["timeouts"])
+            c_lc5.metric("Quarantined", lc["quarantined"])
+            st.markdown(f"<div style='font-size:11px; color:#bef264; margin-top:4px;'>Status: <b>{lc['reconciliation_status']}</b></div>", unsafe_allow_html=True)
+
+        with tab_m_live:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Subsystem Liveness & Heartbeat Matrix</p>", unsafe_allow_html=True)
+            hb_matrix = xauusd_overnight_experiment.HeartbeatAndLivenessAuditor.audit_all_subsystems()
+            df_hb = pd.DataFrame(hb_matrix["subsystems"])
+            st.dataframe(df_hb, use_container_width=True)
+
+        with tab_m_time:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Overnight Chronological Timeline</p>", unsafe_allow_html=True)
+            if morn_audit["timeline"]:
+                df_time = pd.DataFrame(morn_audit["timeline"])[["timestamp", "category", "title", "details"]]
+                st.dataframe(df_time, use_container_width=True)
+            else:
+                st.info("No timeline events logged for this session.")
+
+        with tab_m_zero:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#bef264;'>Empirical Zero-Observation Reason Breakdown</p>", unsafe_allow_html=True)
+            z_exp = morn_audit["zero_explanation"]
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.02); border-left:3px solid {z_exp['color']}; border-radius:4px; padding:10px; font-size:11px; color:#cbd5e1;">
+                <b>Reason Code:</b> <code>{z_exp['reason_code']}</code><br/>
+                <b>Diagnosis:</b> {z_exp['title']}<br/>
+                <b>Detailed Explanation:</b> {z_exp['explanation']}
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
+
     # HONEST EMPTY / LOW-DATA UX (Phase 31)
     if core_ev_stats['trades_n'] == 0:
         st.markdown("""
