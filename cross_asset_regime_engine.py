@@ -15,6 +15,8 @@ import hashlib
 import json
 import sqlite3
 import uuid
+import time
+import threading
 from dataclasses import dataclass, asdict, field
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Any, Optional, Tuple
@@ -74,6 +76,11 @@ class MarketRegimeSnapshot:
         return asdict(self)
 
 
+# Thread-safe regime cache
+_REGIME_LOCK = threading.Lock()
+_REGIME_CACHE: Dict[str, Tuple[MarketRegimeSnapshot, float]] = {}
+
+
 # -----------------------------------------------------------------------------
 # 2. CROSS-ASSET REGIME ENGINE
 # -----------------------------------------------------------------------------
@@ -84,12 +91,28 @@ class CrossAssetRegimeEngine:
     """
 
     @classmethod
-    def evaluate_regime(cls, as_of: Optional[datetime] = None) -> MarketRegimeSnapshot:
+    def clear_cache(cls) -> None:
+        """Clears in-memory regime cache."""
+        with _REGIME_LOCK:
+            _REGIME_CACHE.clear()
+
+    @classmethod
+    def evaluate_regime(cls, as_of: Optional[datetime] = None, ttl_sec: float = 4.0) -> MarketRegimeSnapshot:
         """
-        Executes deterministic multi-asset regime classification.
+        Executes deterministic multi-asset regime classification with calculation memoization.
         """
-        if as_of is None:
-            as_of = datetime.now(timezone.utc)
+        is_live = as_of is None
+        as_of_dt = as_of or datetime.now(timezone.utc)
+        cache_key = "live_regime" if is_live else f"hist_regime_{as_of_dt.isoformat()}"
+
+        now_t = time.time()
+        with _REGIME_LOCK:
+            if cache_key in _REGIME_CACHE:
+                cached_snap, cached_time = _REGIME_CACHE[cache_key]
+                if is_live and (now_t - cached_time < ttl_sec):
+                    return cached_snap
+                elif not is_live:
+                    return cached_snap
 
         # 1. Gather observable movements for key benchmarks
         benchmarks: Dict[str, Dict[str, Any]] = {}
@@ -195,13 +218,13 @@ class CrossAssetRegimeEngine:
         dq_score = 94
         dq_rating = "LIVE"
 
-        snapshot_id = f"REGIME_{as_of.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
-        raw_fp = f"{snapshot_id}_{primary_regime}_{confidence:.1f}_{as_of.isoformat()}"
+        snapshot_id = f"REGIME_{as_of_dt.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+        raw_fp = f"{snapshot_id}_{primary_regime}_{confidence:.1f}_{as_of_dt.isoformat()}"
         data_fingerprint = hashlib.sha256(raw_fp.encode("utf-8")).hexdigest()
 
-        return MarketRegimeSnapshot(
+        snap = MarketRegimeSnapshot(
             snapshot_id=snapshot_id,
-            timestamp=as_of.isoformat(),
+            timestamp=as_of_dt.isoformat(),
             primary_regime=primary_regime,
             secondary_regime=secondary_regime,
             confidence_pct=round(confidence, 1),
@@ -213,6 +236,11 @@ class CrossAssetRegimeEngine:
             model_version=REGIME_ENGINE_VERSION,
             data_fingerprint=data_fingerprint
         )
+
+        with _REGIME_LOCK:
+            _REGIME_CACHE[cache_key] = (snap, time.time())
+
+        return snap
 
 
 # -----------------------------------------------------------------------------
@@ -335,6 +363,7 @@ def _ensure_regime_snapshots_table(conn=None):
             created_at TEXT NOT NULL
         )
         """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_regime_snapshots_ts ON market_regime_snapshots(timestamp DESC)")
         conn.commit()
     finally:
         if should_close:

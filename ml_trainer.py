@@ -166,29 +166,46 @@ def predict_directional_probabilities(symbol, current_time_utc=None):
     except ValueError:
         sym_encoded = 0 # Fallback for unknown symbol
 
-    # Fetch live technicals for prediction
-    import yfinance as yf
+    # Fetch live technicals for prediction with in-memory caching
+    global _YF_TECH_CACHE
+    if "_YF_TECH_CACHE" not in globals():
+        _YF_TECH_CACHE = {}
+
+    import time
+    now_t = time.time()
     live_rsi = 50.0
     live_ema_spread = 0.0
     
-    yf_sym = map_symbol_to_yf(symbol)
-    if yf_sym:
-        try:
-            history = yf.download(yf_sym, period="2mo", progress=False)
-            if not history.empty:
-                if isinstance(history.columns, pd.MultiIndex):
-                    history.columns = history.columns.droplevel(1)
-                    
-                close_prices = history['Close']
-                history['RSI'] = calc_rsi(close_prices)
-                history['EMA_20'] = close_prices.ewm(span=20, adjust=False).mean()
-                history['EMA_50'] = close_prices.ewm(span=50, adjust=False).mean()
-                history['EMA_Spread'] = (history['EMA_20'] - history['EMA_50']) / history['EMA_50'] * 100
-                last_row = history.iloc[-1]
-                if not pd.isna(last_row.get("RSI")): live_rsi = last_row["RSI"]
-                if not pd.isna(last_row.get("EMA_Spread")): live_ema_spread = last_row["EMA_Spread"]
-        except:
-            pass
+    clean_sym = str(symbol).upper().strip()
+    if clean_sym in _YF_TECH_CACHE:
+        c_rsi, c_ema, c_time = _YF_TECH_CACHE[clean_sym]
+        if now_t - c_time < 60.0:
+            live_rsi = c_rsi
+            live_ema_spread = c_ema
+        else:
+            del _YF_TECH_CACHE[clean_sym]
+
+    if clean_sym not in _YF_TECH_CACHE:
+        yf_sym = map_symbol_to_yf(symbol)
+        if yf_sym:
+            try:
+                import yfinance as yf
+                history = yf.download(yf_sym, period="2mo", progress=False)
+                if not history.empty:
+                    if isinstance(history.columns, pd.MultiIndex):
+                        history.columns = history.columns.droplevel(1)
+                        
+                    close_prices = history['Close']
+                    history['RSI'] = calc_rsi(close_prices)
+                    history['EMA_20'] = close_prices.ewm(span=20, adjust=False).mean()
+                    history['EMA_50'] = close_prices.ewm(span=50, adjust=False).mean()
+                    history['EMA_Spread'] = (history['EMA_20'] - history['EMA_50']) / history['EMA_50'] * 100
+                    last_row = history.iloc[-1]
+                    if not pd.isna(last_row.get("RSI")): live_rsi = float(last_row["RSI"])
+                    if not pd.isna(last_row.get("EMA_Spread")): live_ema_spread = float(last_row["EMA_Spread"])
+                    _YF_TECH_CACHE[clean_sym] = (live_rsi, live_ema_spread, now_t)
+            except Exception:
+                _YF_TECH_CACHE[clean_sym] = (50.0, 0.0, now_t)
 
     # Prepare feature array matching training structure
     X_pred = pd.DataFrame([{

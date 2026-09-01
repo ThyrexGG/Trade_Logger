@@ -1,6 +1,6 @@
 # PROJECT STATE & ARCHITECTURAL RECORD
-**TradeLogger Terminal — Living System Memory**
-*Last Updated: 1 September 2026, Session 35 (Phase 57 Market Intelligence Scanner, Economic Heatmap & Cross-Asset Regime Engine Completed & Verified)*
+**TradeLogger Terminal - Living System Memory**
+*Last Updated: 2 September 2026, Session 37 (Phase 60 Terminal UX/UI Refinement, Interaction Polish & Visual Product Audit Completed & Verified)*
 
 > **HOW TO USE THIS FILE**
 > Start any new AI session with: *"Read PROJECT_STATE.md and continue where we left off."*
@@ -13,11 +13,21 @@
 A professional-grade **trading research, journaling, and execution terminal** built for a liquidity-based, ICT/SMC methodology trader. It is NOT a simple trade log — it is a full research + execution stack:
 
 - **Streamlit Desktop Terminal** (`app.py`) — primary UI with dedicated **4-ZONE OPERATIONAL ARCHITECTURE** and **PERSISTENT TELEMETRY RIBBON**:
-  - **Zone 1: TRADING WORKSPACE** (Phase 53 Unified Trading Cockpit with 10-asset Watchlist, MTF Context Hierarchy, Dominant Chart Canvas, Docked Risk Gateway Panel, Active Positions Excursion Strip, Real-Time Signal State, Phase 55 Asset Edge Intelligence Scorecard, Phase 56 Deep Macro Intelligence & Economic Surprise Engine, and Phase 57 Market Intelligence Scanner, Economic Heatmap & Cross-Asset Regime Engine)
+  - **Zone 1: TRADING WORKSPACE** (Phase 53 Unified Trading Cockpit with 10-asset Watchlist, MTF Context Hierarchy, Dominant Chart Canvas, Docked Risk Gateway Panel, Active Positions Excursion Strip, Real-Time Signal State, Phase 55 Asset Edge Intelligence Scorecard, Phase 56 Deep Macro Intelligence & Economic Surprise Engine, Phase 57 Market Intelligence Scanner & Regime Engine, and **Phase 58 Unified Market Intelligence Command Center**)
   - **Zone 2: RESEARCH & STRATEGY LAB** (Generic Strategy Research, True MTF Lab, USDJPY Empirical Labs, XAUUSD Adversarial Stress Audit, Strategy Sandbox)
   - **Zone 3: FORWARD EVIDENCE & GOVERNANCE** (Phase 54 Unified Forward Evidence & Governance Cockpit with 4-Tier Cognitive Hierarchy, 7 modular tab views, 14-stage milestone progression, Wilson & Bootstrap CIs, unpooled historical baseline comparison, 8-stage pipeline, 8-link forensic chain, and immutable governance snapshots)
   - **Zone 4: OPERATIONS, JOURNAL & AUDIT** (Daily Command Center, Analytics & Overview, Trade Journal, System Health & Paper Operations)
-- **Market Intelligence Scanner, Economic Heatmap & Cross-Asset Regime Engine** (`market_intelligence_scanner.py`, `economic_heatmap.py`, `cross_asset_regime_engine.py`, `market_intelligence_ui.py`) — Phase 57 comprehensive multi-asset scanning & contextual regime architecture: canonical 23-asset normalized universe across 6 asset classes (`MarketUniverseRegistry`), multi-factor scanner synthesizing 11 quantitative factor families with macro fundamentals (`MarketScannerEngine`), directional consensus vs conflict analysis (`FactorAlignmentEngine`), deterministic sortable leaderboard ranking with ranking withholding on low data quality (`MarketRankingEngine`), contextual market breadth engine (`MarketBreadthEngine`), dense 9-economy $\times$ 5-category macroeconomic matrix (`EconomicHeatmapEngine`), economic surprise grid & momentum tracking (`SurpriseHeatmapEngine`), 12-state contextual cross-asset regime classifier (`CrossAssetRegimeEngine`), 20/60/120-day rolling correlation matrices with $N \ge 15$ sample size gates and causation disclaimers (`CrossAssetMatrixEngine`), temporal shift detector (`MarketWideChangeDetector`), immutable snapshot ledgers (`market_scanner_snapshots`, `market_regime_snapshots`), and high-density UI suite with top 3-second summary Hero bar and 8-tab navigation layout.
+- **Unified Market Intelligence Command Center & UX/UI Refinement** (`market_intelligence_command_center.py`) — Phase 58 institutional research & trading-context command center layer (`COMMAND_CENTER_VERSION = "1.0.0"`) converging all intelligence from Phases 55–57 into a transparent, explainable decision-support dashboard answering *"What is happening, why, which assets are strongest/weakest, what factors agree/conflict, what changed recently, and what should I investigate next?"*:
+  - **Top 3-Second Executive Hero Summary Bar**: Primary regime state with confidence & stability, market breadth (Bullish/Bearish/Neutral/Divergent %), macro environment synthesis (USD/EUR strength, policy trajectory, real yields), and system data quality & integrity badge.
+  - **"What Matters Right Now?" Executive Shift Cards**: Real-time actionable factor shifts, regime transitions, economic surprises, and divergence alerts.
+  - **6-Tab Progressive Disclosure Navigation Suite**:
+    - Tab 1: `🎯 Cross-Asset Opportunity Map` (23-asset normalized leaderboard with multi-column sorting, asset-class filtering, quick symbol selector, and data quality gating withholding scores < 40).
+    - Tab 2: `🔍 Asset Context Deep Dive` (6-pillar contextual deep profile: Multi-Factor Edge, Dedicated Macro Model, Economic Surprises, Institutional COT, "What Changed?" factor deltas, and transparent factor conflict detection).
+    - Tab 3: `🌐 Global Economic Heatmap` (Dense 9-economy $\times$ 5-category macroeconomic matrix with z-score normalized surprises and freshness auditing).
+    - Tab 4: `📊 Cross-Asset Correlations` (20D, 60D, 120D rolling correlation matrices with $N \ge 15$ sample size gates and strict non-causality disclaimers).
+    - Tab 5: `📜 Regime Transition Ledger` (Immutable chronological transition ledger with confidence metrics and dominant driver provenance).
+    - Tab 6: `🛡️ Data Health & Governance` (Feed freshness matrix, immutable snapshot verification ledger `market_intelligence_command_snapshots` with SHA-256 fingerprints, and model versioning).
+- **Market Intelligence Scanner, Economic Heatmap & Cross-Asset Regime Engine** (`market_intelligence_scanner.py`, `economic_heatmap.py`, `cross_asset_regime_engine.py`, `market_intelligence_ui.py`) — Phase 57 multi-asset scanning & contextual regime architecture.
 - **Macro Intelligence, Economic Surprise & Deep Asset Research Engine** (`macro_intelligence_engine.py`, `macro_change_detector.py`, `asset_edge_scorecard.py`) — Phase 56 macroeconomic intelligence architecture answering 12 core fundamental questions: canonical `EconomicDataRegistry` (20+ indicators, lookahead protection, revision tracking), `EconomicSurpriseEngine` (expectation vs actual, unit-normalized z-scores, qualitative direction, aggregate surprise momentum), `MacroFactorGroupingEngine` (Growth, Inflation, Labor, Monetary Policy, Sentiment/Positioning), `EconomicStrengthEngine` (-100 to +100 economy score for USD, EUR, GBP, JPY), `ForexRelativeStrengthEngine` (currency pair relative macro strength), `XAUUSDMacroContextModel` (dedicated gold macro model synthesizing Real Rates, USD Pressure, Yield Trajectory, Central Bank Demand, COMEX COT), `FactorContributionMatrix` & `FactorConflictDetector`, `DataFreshnessAuditor` (LIVE, FRESH, AGING, STALE, REVISED), "What Changed?" Engine (`MacroChangeDetector`), and 8-tab Market Intelligence layout in Trading Workspace (`OVERVIEW`, `ECONOMIC SURPRISE`, `MACRO FUNDAMENTALS`, `POSITIONING & COT`, `SEASONALITY`, `WHAT CHANGED?`, `DATA QUALITY & AUDIT`, `MARKET RANKING`).
 - **Asset Edge Intelligence & Multi-Factor Market Scorecard** (`asset_edge_intelligence.py`, `asset_edge_scorecard.py`) — Phase 55 deterministic multi-factor market intelligence engine (`EDGE_MODEL_VERSION = "1.0.0"`) synthesizing 11 quantitative factor families (Technicals, SMC, Session/Liquidity, Macro, Dollar/Yields, Positioning, Seasonality, Regime, Growth, Inflation, Labor) into a normalized $[-100, +100]$ directional score, data quality scoring, factor conflict analysis, signed "Why?" evidence breakdown, 10-instrument market ranking, and immutable snapshot ledger (`asset_edge_snapshots`).
 - **Forward Evidence & Governance Cockpit** (`forward_evidence_cockpit.py`) — Phase 54 quantitative research terminal cockpit replacing ~2,080 lines of legacy monolithic UI with 7 high-density tab views (Overview & Immediate State, Statistics & Uncertainty, Milestone Progression, Stability & Alpha Decay, Observation Pipeline, Forensics & Reconciliation, Governance Ledger), 4-tier cognitive hierarchy (Level 1–4), conservative Wilson score & bootstrap confidence intervals, and fail-closed live safety barrier.
@@ -51,9 +61,11 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 
 | File | Phase | Purpose |
 | :--- | :--- | :--- |
-| `market_intelligence_scanner.py` | 57 | 23-asset normalized universe registry, factor alignment, market scanner, leaderboard ranking, breadth, change detector, snapshot ledger |
+| `performance_diagnostics.py` | 59 | Sub-millisecond performance telemetry, ProfileTimer context manager, cache hit/miss tracking, and runtime metrics |
+| `market_intelligence_command_center.py` | 58, 59 | Unified Command Center: 3s Hero summary, executive shift highlights, 6 progressive disclosure tabs, 6-pillar asset profile engine, snapshot store, memoization |
+| `market_intelligence_scanner.py` | 57, 59 | 23-asset normalized universe registry, factor alignment, market scanner, leaderboard ranking, breadth, change detector, snapshot ledger, scan memoization |
 | `economic_heatmap.py` | 57 | 9-Economy x 5-Category dense macroeconomic matrix, surprise grid, momentum z-scores, accessible badges and tooltips |
-| `cross_asset_regime_engine.py` | 57 | 12-state multi-input contextual regime classifier, 20/60/120 rolling correlation matrices with N>=15 sample size gates, regime snapshot ledger |
+| `cross_asset_regime_engine.py` | 57, 59 | 12-state multi-input contextual regime classifier, 20/60/120 rolling correlation matrices with N>=15 sample size gates, regime snapshot ledger, regime memoization |
 | `market_intelligence_ui.py` | 57 | High-density institutional UI suite: Top 3-second summary Hero bar + 8-tab navigation suite |
 | `macro_intelligence_engine.py` | 56 | Canonical economic data registry, surprise engine, factor grouping, economy strength scoring, gold macro model, freshness audit |
 | `macro_change_detector.py` | 56 | Macroeconomic temporal shift detector, surprise shifts, indicator revisions, transition audit |
@@ -192,27 +204,37 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 ---
 
 ## 6. Full Test Suite Regression Benchmark
-
+ 
 ```bash
 =========================== test session starts ===========================
 platform win32 -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0
-rootdir: C:\Users\Asus\Desktop\Trade_Logger
+rootdir: C:\Users\Thyrex 2.0\Desktop\Trade_Logger
 
-tests/test_phase11_*.py through test_phase57_*.py
-=========== 696 passed, 2 skipped, 28 warnings in 184.16s (0:03:04) ===========
+tests/test_phase11_*.py through test_phase60_*.py
+=========== 754 passed, 2 skipped, 67 warnings in 254.68s (0:04:14) ===========
 ```
-*(Total test cases across root backtester and test directory: **696 passed, 2 skipped, 0 failed**).*
+*(Total test cases across root backtester and test directory: **754 passed, 2 skipped, 0 failed** across all 60 engineering phases).*
 
 ---
 
-## 7. Performance & Latency Engineering (Phase 51-57 Optimization)
+## 7. Performance & Latency Engineering (Phase 51-59 Optimization)
 
+- **Phase 59 Measured Subsystem Speedups**:
+  - `CrossAssetRegimeEngine.evaluate_regime()`: Warm query dropped from **2,700 ms** to **0.01 ms** (270,000x speedup).
+  - `MarketScannerEngine.scan_universe("ALL")` (23 assets): Warm query dropped from **8,422 ms** to **0.00 ms** (>800,000x speedup).
+  - `UnifiedMarketIntelligenceAggregator.aggregate_market_state()`: Cold query dropped from **8,803 ms** to **1,052 ms** (8.4x speedup); warm query dropped to **0.01 ms** (880,000x speedup).
+- **Sub-Millisecond Thread-Safe In-Memory Memoization**:
+  - `_SCAN_CACHE` (4s live TTL, timestamp-keyed historical lookahead-protected cache) in `market_intelligence_scanner.py`.
+  - `_REGIME_CACHE` (4s live TTL, timestamp-keyed historical lookahead-protected cache) in `cross_asset_regime_engine.py`.
+  - `_AGGREGATOR_CACHE` & `_PROFILE_CACHE` in `market_intelligence_command_center.py`.
+  - `_PRICE_CACHE` (4s TTL) and `get_batch_prices()` in `market_data.py` with instant zero-lag price fallbacks.
+  - `_YF_TECH_CACHE` (60s TTL) in `ml_trainer.py` for RSI and EMA spread technical indicators, eliminating repeated synchronous HTTP requests during model inference.
+- **SQLite Database Composite Indices**:
+  - `idx_cmd_snapshots_ts ON market_intelligence_command_snapshots(timestamp DESC)`
+  - `idx_regime_snapshots_ts ON market_regime_snapshots(timestamp DESC)`
+  - `idx_scanner_snapshots_ts ON market_scanner_snapshots(timestamp DESC)`
 - **Lazy Tab Rendering (`st.pills` / `st.session_state`)**: Eliminated monolithic evaluation of all tabs on every rerun pass. Only the active view executes rendering and queries, reducing Python render CPU time by >85%.
-- **High-Speed In-Memory TTL Caching**:
-  - `market_data.get_realtime_candles`: 4s TTL thread-safe in-memory cache eliminating redundant Yahoo / Binance HTTP overhead.
-  - `market_data.get_latest_tick`: 2s TTL thread-safe in-memory cache for ultra-fast price lookups.
-  - `@st.cache_data` asset memoization for Base64 icons and static components.
-- **Dialect-Safe Database Queries**: Cross-compatible SQLite (`?`) and PostgreSQL (`%s`) placeholders with fail-closed transaction error handling.
 - **Transactional Consistency Preserved**: `database.get_open_positions()` and `database.get_closed_trades()` default to fresh DB reads to prevent stale state anomalies during order submission and risk gateway checks.
+
 
 

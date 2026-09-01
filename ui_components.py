@@ -1,15 +1,17 @@
+# -*- coding: utf-8 -*-
 """
-TradeLogger Professional Design System & UI Component Library (Phase 52)
-=======================================================================
+TradeLogger Professional Design System & UI Component Library (Phase 60 Refinement)
+==================================================================================
 Provides centralized design tokens, global stylesheet injection, standardized
 15-state visual language, persistent global telemetry ribbon, and reusable
-trading terminal component primitives.
+trading terminal component primitives for high-performance institutional UX.
 """
 
 import streamlit as st
 import pandas as pd
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timezone
+import textwrap
 
 # -----------------------------------------------------------------------------
 # 1. DESIGN TOKENS
@@ -21,14 +23,16 @@ TOKENS = {
         "bg_panel": "#0f172a",
         "bg_elevated": "#1e293b",
         "bg_hover": "#27354f",
+        "bg_active": "rgba(0, 255, 204, 0.08)",
         "border_subtle": "rgba(255, 255, 255, 0.08)",
         "border_card": "rgba(255, 255, 255, 0.12)",
         "border_accent": "rgba(0, 255, 204, 0.35)",
-        "border_glow": "rgba(0, 255, 204, 0.2)",
+        "border_glow": "rgba(0, 255, 204, 0.25)",
         
-        # Semantic Accents (Restrained & Professional)
+        # Semantic Accents (Restrained & Institutional)
         "accent_primary": "#00ffcc",      # Teal / Cyan Accent
         "accent_secondary": "#00a3ff",    # Electric Blue Accent
+        "accent_tertiary": "#bef264",     # Lime Accent
         "mode_paper": "#00d2ff",          # Paper Mode (Cyan)
         "mode_shadow": "#a855f7",         # Shadow Mode (Purple)
         "mode_live_blocked": "#ef4444",   # Live Safety Lock (Crimson Red)
@@ -47,7 +51,7 @@ TOKENS = {
         "state_neutral": "#64748b",
     },
     "typography": {
-        "font_family": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+        "font_family": "-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
         "font_mono": "'JetBrains Mono', 'Fira Code', 'Roboto Mono', Consolas, monospace",
         "size_hero": "1.75rem",
         "size_h1": "1.35rem",
@@ -80,7 +84,7 @@ TOKENS = {
 STATES_SPEC: Dict[str, Dict[str, Any]] = {
     "SUCCESS": {
         "label": "SUCCESS",
-        "icon": "✓",
+        "icon": "&#10003;",
         "color": "#10b981",
         "bg": "rgba(16, 185, 129, 0.12)",
         "border": "rgba(16, 185, 129, 0.35)",
@@ -89,7 +93,7 @@ STATES_SPEC: Dict[str, Dict[str, Any]] = {
     },
     "WARNING": {
         "label": "WARNING",
-        "icon": "▲",
+        "icon": "&#9650;",
         "color": "#f59e0b",
         "bg": "rgba(245, 158, 11, 0.12)",
         "border": "rgba(245, 158, 11, 0.35)",
@@ -98,7 +102,7 @@ STATES_SPEC: Dict[str, Dict[str, Any]] = {
     },
     "ERROR": {
         "label": "ERROR",
-        "icon": "✕",
+        "icon": "&#10005;",
         "color": "#ef4444",
         "bg": "rgba(239, 68, 68, 0.12)",
         "border": "rgba(239, 68, 68, 0.35)",
@@ -107,7 +111,7 @@ STATES_SPEC: Dict[str, Dict[str, Any]] = {
     },
     "INFO": {
         "label": "INFO",
-        "icon": "ℹ",
+        "icon": "&#8505;",
         "color": "#3b82f6",
         "bg": "rgba(59, 130, 246, 0.12)",
         "border": "rgba(59, 130, 246, 0.35)",
@@ -116,7 +120,7 @@ STATES_SPEC: Dict[str, Dict[str, Any]] = {
     },
     "NEUTRAL": {
         "label": "STANDBY",
-        "icon": "●",
+        "icon": "&#9679;",
         "color": "#94a3b8",
         "bg": "rgba(148, 163, 184, 0.10)",
         "border": "rgba(148, 163, 184, 0.25)",
@@ -125,7 +129,7 @@ STATES_SPEC: Dict[str, Dict[str, Any]] = {
     },
     "NO_DATA": {
         "label": "NO DATA (N=0)",
-        "icon": "○",
+        "icon": "&#9675;",
         "color": "#94a3b8",
         "bg": "rgba(148, 163, 184, 0.08)",
         "border": "rgba(148, 163, 184, 0.20)",
@@ -134,7 +138,7 @@ STATES_SPEC: Dict[str, Dict[str, Any]] = {
     },
     "LOADING": {
         "label": "SYNCING",
-        "icon": "↻",
+        "icon": "&#8635;",
         "color": "#00ffcc",
         "bg": "rgba(0, 255, 204, 0.10)",
         "border": "rgba(0, 255, 204, 0.30)",
@@ -143,7 +147,7 @@ STATES_SPEC: Dict[str, Dict[str, Any]] = {
     },
     "DISCONNECTED": {
         "label": "DISCONNECTED",
-        "icon": "⚡",
+        "icon": "&#9889;",
         "color": "#ef4444",
         "bg": "rgba(239, 68, 68, 0.15)",
         "border": "rgba(239, 68, 68, 0.40)",
@@ -152,7 +156,7 @@ STATES_SPEC: Dict[str, Dict[str, Any]] = {
     },
     "STALE_DATA": {
         "label": "STALE DATA",
-        "icon": "⏱",
+        "icon": "&#9201;",
         "color": "#f59e0b",
         "bg": "rgba(245, 158, 11, 0.12)",
         "border": "rgba(245, 158, 11, 0.35)",
@@ -161,7 +165,7 @@ STATES_SPEC: Dict[str, Dict[str, Any]] = {
     },
     "REJECTED": {
         "label": "REJECTED",
-        "icon": "⊘",
+        "icon": "&#8856;",
         "color": "#f43f5e",
         "bg": "rgba(244, 63, 94, 0.12)",
         "border": "rgba(244, 63, 94, 0.35)",
@@ -170,7 +174,7 @@ STATES_SPEC: Dict[str, Dict[str, Any]] = {
     },
     "QUARANTINED": {
         "label": "QUARANTINED",
-        "icon": "🛡",
+        "icon": "&#128737;",
         "color": "#f59e0b",
         "bg": "rgba(245, 158, 11, 0.15)",
         "border": "rgba(245, 158, 11, 0.40)",
@@ -179,7 +183,7 @@ STATES_SPEC: Dict[str, Dict[str, Any]] = {
     },
     "BLOCKED": {
         "label": "SAFETY BLOCKED",
-        "icon": "🔒",
+        "icon": "&#128274;",
         "color": "#ef4444",
         "bg": "rgba(239, 68, 68, 0.15)",
         "border": "rgba(239, 68, 68, 0.40)",
@@ -188,7 +192,7 @@ STATES_SPEC: Dict[str, Dict[str, Any]] = {
     },
     "PAPER": {
         "label": "PAPER EXECUTION",
-        "icon": "◈",
+        "icon": "&#9672;",
         "color": "#00d2ff",
         "bg": "rgba(0, 210, 255, 0.12)",
         "border": "rgba(0, 210, 255, 0.35)",
@@ -197,7 +201,7 @@ STATES_SPEC: Dict[str, Dict[str, Any]] = {
     },
     "SHADOW": {
         "label": "SHADOW EXECUTION",
-        "icon": "◇",
+        "icon": "&#9671;",
         "color": "#a855f7",
         "bg": "rgba(168, 85, 247, 0.12)",
         "border": "rgba(168, 85, 247, 0.35)",
@@ -205,8 +209,8 @@ STATES_SPEC: Dict[str, Dict[str, Any]] = {
         "severity": "NORMAL"
     },
     "LIVE_BLOCKED": {
-        "label": "LIVE — BLOCKED 🔒",
-        "icon": "🔒",
+        "label": "LIVE - BLOCKED &#128274;",
+        "icon": "&#128274;",
         "color": "#ef4444",
         "bg": "rgba(239, 68, 68, 0.15)",
         "border": "rgba(239, 68, 68, 0.45)",
@@ -224,17 +228,22 @@ def inject_global_design_system():
     css = f"""
     <style>
     /* ==========================================================================
-       TRADELOGGER PROFESSIONAL DESIGN SYSTEM (PHASE 52)
+       TRADELOGGER PROFESSIONAL DESIGN SYSTEM (PHASE 60 REFINEMENT)
        ========================================================================== */
     
     :root {{
         --bg-app: {TOKENS['colors']['bg_app']};
         --bg-panel: {TOKENS['colors']['bg_panel']};
         --bg-elevated: {TOKENS['colors']['bg_elevated']};
+        --bg-hover: {TOKENS['colors']['bg_hover']};
+        --bg-active: {TOKENS['colors']['bg_active']};
         --border-subtle: {TOKENS['colors']['border_subtle']};
         --border-card: {TOKENS['colors']['border_card']};
         --border-accent: {TOKENS['colors']['border_accent']};
+        --border-glow: {TOKENS['colors']['border_glow']};
         --accent-primary: {TOKENS['colors']['accent_primary']};
+        --accent-secondary: {TOKENS['colors']['accent_secondary']};
+        --accent-tertiary: {TOKENS['colors']['accent_tertiary']};
         --text-primary: {TOKENS['colors']['text_primary']};
         --text-secondary: {TOKENS['colors']['text_secondary']};
         --text-muted: {TOKENS['colors']['text_muted']};
@@ -250,8 +259,8 @@ def inject_global_design_system():
     
     /* Hide Default Header Decoration */
     header[data-testid="stHeader"] {{
-        background: rgba(10, 14, 23, 0.85) !important;
-        backdrop-filter: blur(8px) !important;
+        background: rgba(10, 14, 23, 0.90) !important;
+        backdrop-filter: blur(10px) !important;
         border-bottom: 1px solid var(--border-subtle) !important;
     }}
     
@@ -261,12 +270,13 @@ def inject_global_design_system():
         border: 1px solid var(--border-card) !important;
         border-radius: {TOKENS['radii']['md']} !important;
         padding: 14px 16px !important;
-        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25) !important;
-        transition: border-color 0.15s ease !important;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
     }}
     
     div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlockBorderWrapper"]:hover {{
-        border-color: rgba(255, 255, 255, 0.18) !important;
+        border-color: rgba(255, 255, 255, 0.20) !important;
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45) !important;
     }}
 
     /* Global Telemetry Ribbon */
@@ -274,12 +284,12 @@ def inject_global_design_system():
         display: flex;
         align-items: center;
         justify-content: space-between;
-        background: linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(10, 14, 23, 0.95) 100%);
+        background: linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(10, 14, 23, 0.98) 100%);
         border: 1px solid var(--border-accent);
         border-radius: {TOKENS['radii']['md']};
         padding: 8px 14px;
         margin-bottom: 12px;
-        box-shadow: 0 4px 16px rgba(0, 255, 204, 0.08);
+        box-shadow: 0 4px 18px rgba(0, 255, 204, 0.10);
         flex-wrap: wrap;
         gap: 8px;
     }}
@@ -287,18 +297,18 @@ def inject_global_design_system():
     .tl-telemetry-cluster {{
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 10px;
         flex-wrap: wrap;
     }}
 
     .tl-telemetry-item {{
         display: inline-flex;
         align-items: center;
-        gap: 6px;
+        gap: 5px;
         font-size: 11.5px;
         font-family: var(--font-mono);
         color: var(--text-secondary);
-        background: rgba(30, 41, 59, 0.6);
+        background: rgba(30, 41, 59, 0.7);
         border: 1px solid var(--border-subtle);
         padding: 3px 8px;
         border-radius: 4px;
@@ -311,10 +321,14 @@ def inject_global_design_system():
 
     .tl-telemetry-price {{
         font-family: var(--font-mono);
-        font-size: 13px;
-        font-weight: 800;
+        font-size: 13.5px;
+        font-weight: 900;
         color: #00ffcc;
         letter-spacing: 0.5px;
+        background: rgba(0, 255, 204, 0.08);
+        border: 1px solid rgba(0, 255, 204, 0.25);
+        padding: 2px 8px;
+        border-radius: 4px;
     }}
 
     /* Standardized State Badges */
@@ -324,7 +338,7 @@ def inject_global_design_system():
         gap: 5px;
         font-size: 11px;
         font-family: var(--font-mono);
-        font-weight: 700;
+        font-weight: 800;
         letter-spacing: 0.4px;
         padding: 3px 9px;
         border-radius: 4px;
@@ -362,7 +376,7 @@ def inject_global_design_system():
 
     .tl-metric-value {{
         font-size: 1.35rem;
-        font-weight: 800;
+        font-weight: 900;
         font-family: var(--font-mono);
         color: #ffffff;
         letter-spacing: -0.5px;
@@ -388,10 +402,10 @@ def inject_global_design_system():
 
     .tl-section-title {{
         font-size: 1.15rem;
-        font-weight: 800;
+        font-weight: 900;
         color: #ffffff;
         text-transform: uppercase;
-        letter-spacing: 0.3px;
+        letter-spacing: 0.4px;
         margin: 0;
         display: flex;
         align-items: center;
@@ -420,7 +434,7 @@ def inject_global_design_system():
 
     .tl-empty-title {{
         font-size: 14px;
-        font-weight: 700;
+        font-weight: 800;
         color: #ffffff;
         text-transform: uppercase;
         letter-spacing: 0.4px;
@@ -438,7 +452,7 @@ def inject_global_design_system():
     /* Navigation Zone Pills Customization */
     div[data-testid="stPills"] button {{
         font-size: 11.5px !important;
-        font-weight: 700 !important;
+        font-weight: 800 !important;
         letter-spacing: 0.5px !important;
         text-transform: uppercase !important;
         border-radius: 6px !important;
@@ -451,6 +465,29 @@ def inject_global_design_system():
         border: 1px solid var(--border-card) !important;
         border-radius: {TOKENS['radii']['md']} !important;
         overflow: hidden !important;
+    }}
+
+    /* Responsive Viewport Optimizations */
+    @media (max-width: 1440px) {{
+        .tl-telemetry-ribbon {{
+            padding: 6px 10px;
+            font-size: 11px;
+        }}
+        .tl-telemetry-item {{
+            font-size: 10.5px;
+            padding: 2px 6px;
+        }}
+        .tl-telemetry-price {{
+            font-size: 12px;
+        }}
+    }}
+
+    @media (max-width: 1280px) {{
+        .tl-telemetry-ribbon {{
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 6px;
+        }}
     }}
     </style>
     """
@@ -530,13 +567,20 @@ def render_global_telemetry_ribbon(
     data_health: str = "HEALTHY",
     exec_mode: str = "PAPER",
     system_health: str = "NORMAL",
-    live_blocked: bool = True
+    live_blocked: bool = True,
+    spread_pips: Optional[float] = None
 ):
     """
     Renders the persistent top telemetry ribbon across all zones.
-    Communicates at a glance: Symbol, Price, Timeframe, Session, Data Health, Execution Mode, System Health, and Safety Lock.
+    Communicates at a glance: Symbol, Price, Timeframe, Session, Spread, Data Health, Execution Mode, System Health, and Safety Lock.
     """
-    price_disp = f"${price:,.2f}" if price and price > 0 else "DATA UNAVAILABLE"
+    if price and price > 0:
+        if symbol in ["XAUUSD", "USOIL", "BTCUSD", "NAS100", "SPX500", "US30"]:
+            price_disp = f"${price:,.2f}"
+        else:
+            price_disp = f"{price:,.4f}"
+    else:
+        price_disp = "DATA UNAVAILABLE"
     
     # Data Health Badge
     health_upper = str(data_health).upper()
@@ -562,11 +606,15 @@ def render_global_telemetry_ribbon(
     else:
         sys_badge = render_state_badge("WARNING", f"SYS {system_health}")
 
+    # Optional spread
+    spread_html = f'<span class="tl-telemetry-item"><b>SPREAD:</b> {spread_pips:.1f}p</span>' if spread_pips is not None else ""
+
     html = f"""
     <div class="tl-telemetry-ribbon">
         <div class="tl-telemetry-cluster">
             <span class="tl-telemetry-item"><b>ASSET:</b> <span style="color:#ffffff;">{symbol}</span></span>
             <span class="tl-telemetry-price">{price_disp}</span>
+            {spread_html}
             <span class="tl-telemetry-item"><b>TF:</b> {timeframe}</span>
             <span class="tl-telemetry-item"><b>SESSION:</b> {session_name}</span>
             {dh_badge}
@@ -586,16 +634,16 @@ def render_safety_banner():
     Renders permanent, unambiguous safety disclaimer for all execution panels.
     Confirms LIVE_AUTOMATION_ENABLED = False and LIVE_BROKER_TRANSMISSION = 'BLOCKED'.
     """
-    html = f"""
+    html = """
     <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.35); border-left: 4px solid #ef4444; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
         <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 14px;">🔒</span>
+            <span style="font-size: 14px;">&#128274;</span>
             <span style="font-size: 11.5px; font-weight: 700; color: #ffffff; letter-spacing: 0.3px;">
                 SAFETY GATE ENFORCED: <span style="color: #ef4444;">LIVE BROKER TRANSMISSION IS PERMANENTLY BLOCKED</span>
             </span>
         </div>
         <div style="font-size: 11px; font-family: monospace; color: #94a3b8;">
-            AUTOMATION = OFF • SHADOW/PAPER ONLY
+            AUTOMATION = OFF &#8226; SHADOW/PAPER ONLY
         </div>
     </div>
     """
@@ -607,6 +655,4 @@ def render_html(html_content: str):
     Renders raw HTML via st.markdown with strict unindentation / dedent
     so that indented python multiline strings are never parsed as markdown code blocks.
     """
-    import textwrap
     st.markdown(textwrap.dedent(html_content).strip(), unsafe_allow_html=True)
-

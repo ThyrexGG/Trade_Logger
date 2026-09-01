@@ -19,6 +19,8 @@ import hashlib
 import json
 import sqlite3
 import uuid
+import time
+import threading
 from dataclasses import dataclass, asdict, field
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Any, Optional, Tuple
@@ -547,10 +549,21 @@ class FactorAlignmentEngine:
 # 4. MARKET SCANNER & MULTI-ASSET ENGINE
 # -----------------------------------------------------------------------------
 
+# Thread-safe scan cache
+_SCAN_LOCK = threading.Lock()
+_SCAN_CACHE: Dict[str, Tuple[List[AssetScanRecord], float]] = {}
+
+
 class MarketScannerEngine:
     """
     Orchestrates live cross-asset universe scanning by synthesizing Asset Edge & Macro engines.
     """
+
+    @classmethod
+    def clear_cache(cls) -> None:
+        """Clears in-memory scan cache."""
+        with _SCAN_LOCK:
+            _SCAN_CACHE.clear()
 
     @classmethod
     def scan_symbol(cls, symbol: str, as_of: Optional[datetime] = None) -> AssetScanRecord:
@@ -669,19 +682,34 @@ class MarketScannerEngine:
     def scan_universe(
         cls,
         asset_class: str = "ALL",
-        as_of: Optional[datetime] = None
+        as_of: Optional[datetime] = None,
+        ttl_sec: float = 4.0
     ) -> List[AssetScanRecord]:
         """
-        Executes a scan over all or filtered assets in the catalog.
+        Executes a high-speed scan over all or filtered assets in the catalog with calculation memoization.
         """
-        if as_of is None:
-            as_of = datetime.now(timezone.utc)
+        is_live = as_of is None
+        as_of_dt = as_of or datetime.now(timezone.utc)
+        cache_key = f"live_{asset_class.upper()}" if is_live else f"hist_{asset_class.upper()}_{as_of_dt.isoformat()}"
+
+        now_t = time.time()
+        with _SCAN_LOCK:
+            if cache_key in _SCAN_CACHE:
+                cached_records, cached_time = _SCAN_CACHE[cache_key]
+                if is_live and (now_t - cached_time < ttl_sec):
+                    return cached_records
+                elif not is_live:
+                    return cached_records
 
         target_assets = MarketUniverseRegistry.get_assets_by_class(asset_class)
         records = []
         for item in target_assets:
-            rec = cls.scan_symbol(item["symbol"], as_of=as_of)
+            rec = cls.scan_symbol(item["symbol"], as_of=as_of_dt)
             records.append(rec)
+
+        with _SCAN_LOCK:
+            _SCAN_CACHE[cache_key] = (records, time.time())
+
         return records
 
 
@@ -901,6 +929,7 @@ def _ensure_scanner_snapshots_table(conn=None):
             created_at TEXT NOT NULL
         )
         """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_scanner_snapshots_ts ON market_scanner_snapshots(timestamp DESC)")
         conn.commit()
     finally:
         if should_close:

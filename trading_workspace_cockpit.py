@@ -1,15 +1,15 @@
+# -*- coding: utf-8 -*-
 """
-TradeLogger Unified Trading Workspace Cockpit (Phase 53)
-=========================================================
+TradeLogger Unified Trading Workspace Cockpit (Phase 60 Refinement)
+===================================================================
 Professional institutional trading terminal cockpit unifying:
 - Global Telemetry Ribbon
-- Scanable Multi-Asset Watchlist Sidebar
-- High-Performance Chart Canvas with MTF Bias & SMC Overlays
+- Scanable Multi-Asset Watchlist Sidebar with Asset Class Filter
+- High-Performance Chart Canvas with MTF Bias Hierarchy & SMC Overlays
 - Docked Canonical Execution & Pre-Trade Risk Gateway Panel
 - Persistent Active Position Strip with MAE/MFE Excursion Indicators
 - Real-Time Signal State Machine & Setup Checklist
-- Market Context & Macro Intelligence Region (Future Edge Finder Boundary)
-- Dedicated Price Alerts Quick Drawer
+- Market Context & Macro Intelligence Region (Asset Edge Boundary)
 
 Strict Safety Invariants:
 - LIVE_AUTOMATION_ENABLED = False
@@ -52,12 +52,15 @@ class TradingWorkspaceCockpit:
     """
 
     @classmethod
-    def get_watchlist_data(cls) -> List[Dict[str, Any]]:
+    def get_watchlist_data(cls, asset_filter: str = "ALL") -> List[Dict[str, Any]]:
         """
         Gathers live telemetry, HTF/LTF bias, and setup state for all watchlist instruments.
         """
         rows = []
         for item in WATCHLIST_SYMBOLS:
+            if asset_filter != "ALL" and item["asset_class"] != asset_filter:
+                continue
+
             sym = item["symbol"]
             price = market_data.get_latest_price(sym) or 0.0
             
@@ -139,19 +142,48 @@ class TradingWorkspaceCockpit:
     @classmethod
     def render_watchlist(cls, selected_symbol: str) -> str:
         """
-        Renders the professional scanable watchlist sidebar panel.
+        Renders the professional scanable watchlist sidebar panel with asset class filter.
         """
         ui_components.render_html("""
-        <div style="font-size: 11px; font-weight: 800; color: #8a99ad; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+        <div style="font-size: 11px; font-weight: 800; color: #8a99ad; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
             <span>INSTRUMENT WATCHLIST</span>
-            <span style="color: #00ffcc; font-size: 10px;">LIVE STREAM</span>
+            <span style="color: #00ffcc; font-size: 10px; font-family: monospace;">LIVE STREAM</span>
         </div>
         """)
 
-        w_data = cls.get_watchlist_data()
+        # Asset Class Filter Pills
+        asset_filters = ["ALL", "FOREX", "COMMODITY", "INDEX", "CRYPTO"]
+        if "watchlist_filter" not in st.session_state:
+            st.session_state.watchlist_filter = "ALL"
+
+        if hasattr(st, "pills"):
+            selected_filter = st.pills(
+                "Filter Class",
+                options=asset_filters,
+                default=st.session_state.watchlist_filter,
+                key="watchlist_filter_pills",
+                label_visibility="collapsed"
+            )
+            if selected_filter:
+                st.session_state.watchlist_filter = selected_filter
+        else:
+            selected_filter = st.selectbox(
+                "Filter Class",
+                options=asset_filters,
+                index=asset_filters.index(st.session_state.watchlist_filter),
+                key="watchlist_filter_sel",
+                label_visibility="collapsed"
+            )
+            st.session_state.watchlist_filter = selected_filter
+
+        w_data = cls.get_watchlist_data(asset_filter=st.session_state.watchlist_filter)
         
         # Interactive Symbol Selector
         sym_options = [w["symbol"] for w in w_data]
+        if not sym_options:
+            sym_options = [s["symbol"] for s in WATCHLIST_SYMBOLS]
+            w_data = cls.get_watchlist_data("ALL")
+
         curr_idx = sym_options.index(selected_symbol) if selected_symbol in sym_options else 0
         
         new_sym = st.selectbox(
@@ -167,7 +199,7 @@ class TradingWorkspaceCockpit:
         for item in w_data:
             is_active = (item["symbol"] == new_sym)
             border_col = "#00ffcc" if is_active else "rgba(255, 255, 255, 0.08)"
-            bg_col = "rgba(0, 255, 204, 0.06)" if is_active else "rgba(15, 23, 42, 0.7)"
+            bg_col = "rgba(0, 255, 204, 0.08)" if is_active else "rgba(15, 23, 42, 0.7)"
             
             # Badge Colors
             b4_col = "#10b981" if "BULL" in item["bias_4h"] else ("#ef4444" if "BEAR" in item["bias_4h"] else "#94a3b8")
@@ -180,9 +212,30 @@ class TradingWorkspaceCockpit:
             else:
                 setup_badge = '<span style="color:#64748b; background:rgba(255,255,255,0.04); font-size:9.5px; font-weight:700; padding:1px 5px; border-radius:3px;">FLAT</span>'
 
-            px_str = f"${item['price']:,.2f}" if item['price'] >= 100 else f"{item['price']:.5f}" if item['price'] > 0 else "OFFLINE"
+            px_str = f"${item['price']:,.2f}" if item['price'] >= 100 else f"{item['price']:.4f}" if item['price'] > 0 else "OFFLINE"
 
-            html_cards += f'<div style="background:{bg_col}; border:1px solid {border_col}; border-radius:6px; padding:7px 9px; transition:all 0.15s ease;"><div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:800; font-size:12px; color:{"#00ffcc" if is_active else "#ffffff"}; font-family:monospace;">{item["display"]}</span><span style="font-weight:800; font-size:12px; color:#ffffff; font-family:monospace;">{px_str}</span></div><div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;"><div style="display:flex; gap:4px; font-size:9.5px; font-family:monospace;"><span style="color:{b4_col};">4H {item["bias_4h"]}</span><span style="color:#475569;">|</span><span style="color:{b15_col};">15M {item["bias_15m"]}</span></div><div>{setup_badge}</div></div></div>'
+            active_indicator = '<span style="color:#00ffcc; font-size:10px; margin-right:4px;">&#9679;</span>' if is_active else ""
+
+            html_cards += f'''
+            <div style="background:{bg_col}; border:1px solid {border_col}; border-radius:6px; padding:7px 9px; transition:all 0.15s ease;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-weight:800; font-size:12px; color:{'#00ffcc' if is_active else '#ffffff'}; font-family:monospace;">
+                        {active_indicator}{item["display"]}
+                    </span>
+                    <span style="font-weight:800; font-size:12px; color:#ffffff; font-family:monospace;">
+                        {px_str}
+                    </span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+                    <div style="display:flex; gap:4px; font-size:9.5px; font-family:monospace;">
+                        <span style="color:{b4_col};">4H {item["bias_4h"]}</span>
+                        <span style="color:#475569;">|</span>
+                        <span style="color:{b15_col};">15M {item["bias_15m"]}</span>
+                    </div>
+                    <div>{setup_badge}</div>
+                </div>
+            </div>
+            '''
         
         html_cards += "</div>"
         ui_components.render_html(html_cards)
@@ -191,7 +244,7 @@ class TradingWorkspaceCockpit:
     @classmethod
     def render_mtf_context_bar(cls, symbol: str):
         """
-        Renders a compact horizontal multi-timeframe bias bar across 1D -> 4H -> 1H -> 15M -> 5M -> 1M.
+        Renders a compact horizontal multi-timeframe bias bar across 1D -> 4H -> 15M -> 5M -> 1M.
         """
         mtf = cls.get_mtf_bias_hierarchy(symbol)
         
@@ -201,19 +254,33 @@ class TradingWorkspaceCockpit:
             if "BULL" in bias_upper or "ENTRY" in bias_upper:
                 col = "#10b981"
                 bg = "rgba(16, 185, 129, 0.12)"
-                icon = "▲"
+                icon = "&#9650;"
             elif "BEAR" in bias_upper:
                 col = "#ef4444"
                 bg = "rgba(239, 68, 68, 0.12)"
-                icon = "▼"
+                icon = "&#9660;"
             else:
                 col = "#94a3b8"
                 bg = "rgba(148, 163, 184, 0.08)"
-                icon = "●"
+                icon = "&#9679;"
 
-            items_html += f'<div style="background:{bg}; border:1px solid rgba(255,255,255,0.06); border-radius:4px; padding:4px 8px; display:flex; align-items:center; gap:5px; font-family:monospace;"><span style="color:#64748b; font-size:10px; font-weight:800;">{tf}</span><span style="color:{col}; font-size:11px; font-weight:800;">{icon} {bias}</span></div>'
+            items_html += f'''
+            <div style="background:{bg}; border:1px solid rgba(255,255,255,0.06); border-radius:4px; padding:3px 8px; display:flex; align-items:center; gap:5px; font-family:monospace;">
+                <span style="color:#64748b; font-size:10px; font-weight:800;">{tf}:</span>
+                <span style="color:{col}; font-size:11px; font-weight:800;">{icon} {bias}</span>
+            </div>
+            '''
 
-        html = f'<div style="background:rgba(15,23,42,0.6); border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:6px 10px; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px;"><div style="font-size:10.5px; font-weight:800; color:#8a99ad; text-transform:uppercase; letter-spacing:0.5px;">MTF STRUCTURE CONTEXT:</div><div style="display:flex; gap:6px; flex-wrap:wrap;">{items_html}</div></div>'
+        html = f'''
+        <div style="background:rgba(15,23,42,0.7); border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:6px 10px; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px;">
+            <div style="font-size:10.5px; font-weight:800; color:#8a99ad; text-transform:uppercase; letter-spacing:0.5px;">
+                MTF STRUCTURE BIAS:
+            </div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                {items_html}
+            </div>
+        </div>
+        '''
         ui_components.render_html(html)
 
     @classmethod
@@ -224,7 +291,7 @@ class TradingWorkspaceCockpit:
         ui_components.render_html("""
         <div style="font-size: 11px; font-weight: 800; color: #8a99ad; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
             <span>EXECUTION & RISK PANEL</span>
-            <span style="color: #ef4444; font-size: 10px; font-weight: 800;">🔒 LIVE BLOCKED</span>
+            <span style="color: #ef4444; font-size: 10px; font-weight: 800;">&#128274; LIVE BLOCKED</span>
         </div>
         """)
 
@@ -235,14 +302,16 @@ class TradingWorkspaceCockpit:
             bid = float(latest_tick.get("bid", live_price))
             ask = float(latest_tick.get("ask", live_price))
 
+            px_format = f"${live_price:,.2f}" if live_price >= 100 else f"{live_price:.4f}"
+
             ui_components.render_html(f"""
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.08);">
                 <div>
                     <span style="font-size: 14px; font-weight: 800; color: #ffffff; font-family: monospace;">{symbol}</span>
                     <span style="font-size: 10px; color: #8a99ad; margin-left: 4px;">({active_tf})</span>
                 </div>
-                <div style="font-family: monospace; font-size: 12px; color: #00ffcc; font-weight: 800;">
-                    ${live_price:,.2f}
+                <div style="font-family: monospace; font-size: 13px; color: #00ffcc; font-weight: 900;">
+                    {px_format}
                 </div>
             </div>
             """)
@@ -375,7 +444,7 @@ class TradingWorkspaceCockpit:
         st.markdown("""
         <div style="font-size: 11px; font-weight: 800; color: #8a99ad; text-transform: uppercase; letter-spacing: 0.8px; margin-top: 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
             <span>ACTIVE OPEN POSITIONS & EXCURSION AUDIT</span>
-            <span style="font-size: 10px; color: #00ffcc;">REAL-TIME RECONCILED</span>
+            <span style="font-size: 10px; color: #00ffcc; font-family: monospace;">REAL-TIME RECONCILED</span>
         </div>
         """, unsafe_allow_html=True)
 
@@ -455,18 +524,17 @@ class TradingWorkspaceCockpit:
         """)
 
         if symbol == "XAUUSD":
-            status_badge = ui_components.render_state_badge("SUCCESS", "SETUP ELIGIBLE")
             c1, c2, c3, c4, c5 = st.columns(5)
             with c1:
-                ui_components.render_html("<div style='background:rgba(255,255,255,0.02); padding:6px; border-radius:4px; font-size:11px; font-family:monospace;'><span style='color:#10b981;'>✓</span> 1D Bias Aligned</div>")
+                ui_components.render_html("<div style='background:rgba(255,255,255,0.02); padding:6px; border-radius:4px; font-size:11px; font-family:monospace;'><span style='color:#10b981;'>&#10003;</span> 1D Bias Aligned</div>")
             with c2:
-                ui_components.render_html("<div style='background:rgba(255,255,255,0.02); padding:6px; border-radius:4px; font-size:11px; font-family:monospace;'><span style='color:#10b981;'>✓</span> 4H DOL &ge; 2.0R</div>")
+                ui_components.render_html("<div style='background:rgba(255,255,255,0.02); padding:6px; border-radius:4px; font-size:11px; font-family:monospace;'><span style='color:#10b981;'>&#10003;</span> 4H DOL &ge; 2.0R</div>")
             with c3:
-                ui_components.render_html("<div style='background:rgba(255,255,255,0.02); padding:6px; border-radius:4px; font-size:11px; font-family:monospace;'><span style='color:#10b981;'>✓</span> 15M Liquidity Swept</div>")
+                ui_components.render_html("<div style='background:rgba(255,255,255,0.02); padding:6px; border-radius:4px; font-size:11px; font-family:monospace;'><span style='color:#10b981;'>&#10003;</span> 15M Liquidity Swept</div>")
             with c4:
-                ui_components.render_html("<div style='background:rgba(255,255,255,0.02); padding:6px; border-radius:4px; font-size:11px; font-family:monospace;'><span style='color:#10b981;'>✓</span> 15M MSS Confirmed</div>")
+                ui_components.render_html("<div style='background:rgba(255,255,255,0.02); padding:6px; border-radius:4px; font-size:11px; font-family:monospace;'><span style='color:#10b981;'>&#10003;</span> 15M MSS Confirmed</div>")
             with c5:
-                ui_components.render_html("<div style='background:rgba(255,255,255,0.02); padding:6px; border-radius:4px; font-size:11px; font-family:monospace;'><span style='color:#00ffcc;'>↻</span> 1M Limit Waiting</div>")
+                ui_components.render_html("<div style='background:rgba(255,255,255,0.02); padding:6px; border-radius:4px; font-size:11px; font-family:monospace;'><span style='color:#00ffcc;'>&#8635;</span> 1M Limit Waiting</div>")
         else:
             ui_components.render_empty_state(
                 title="NO ACTIVE SETUP",
@@ -477,7 +545,7 @@ class TradingWorkspaceCockpit:
     @classmethod
     def render_market_context_intelligence(cls, symbol: str):
         """
-        Renders the Multi-Factor Asset Edge Scorecard & Market Intelligence Region (Phase 55).
+        Renders the Multi-Factor Asset Edge Scorecard & Market Intelligence Region (Phase 55/56).
         """
         ui_components.render_html("""
         <div style="font-size: 11px; font-weight: 800; color: #8a99ad; text-transform: uppercase; letter-spacing: 0.8px; margin-top: 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
@@ -492,7 +560,7 @@ class TradingWorkspaceCockpit:
 
 def render_trading_workspace_cockpit():
     """
-    Primary rendering entrypoint for the Phase 53 Unified Trading Workspace Cockpit.
+    Primary rendering entrypoint for the Phase 53/60 Unified Trading Workspace Cockpit.
     """
     if "active_ws_symbol" not in st.session_state:
         st.session_state.active_ws_symbol = "XAUUSD"
@@ -503,9 +571,9 @@ def render_trading_workspace_cockpit():
     ui_components.render_safety_banner()
 
     # Desktop 3-Column Cockpit Layout
-    # Column 1: Watchlist (Left Sidebar)
-    # Column 2: Central Chart Canvas (Dominant Visual)
-    # Column 3: Docked Execution / Setup Panel (Right Sidebar)
+    # Column 1: Watchlist (Left Sidebar 1.1)
+    # Column 2: Central Chart Canvas (Dominant Visual 3.4)
+    # Column 3: Docked Execution / Setup Panel (Right Sidebar 1.5)
     col_watch, col_chart, col_exec = st.columns([1.1, 3.4, 1.5])
 
     with col_watch:

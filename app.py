@@ -1662,10 +1662,18 @@ def render_live_dashboard():
         else:
             curr_session = "GLOBAL OFF-PEAK"
 
+        ui_components.inject_global_design_system()
+        
         mkt_health_info = market_data.get_market_health(active_sym, active_tf)
         mkt_health_status = mkt_health_info.get("status", "HEALTHY")
         exec_mode_val = database.get_setting("SYSTEM_STATE", "PAPER")
         sys_health_val = database.get_setting("SYSTEM_HEALTH", "HEALTHY")
+
+        # Get latest tick spread if available
+        tick_info = market_data.get_latest_tick(active_sym) or {}
+        bid_px = tick_info.get("bid", latest_p)
+        ask_px = tick_info.get("ask", latest_p)
+        spread_val = round(abs(ask_px - bid_px), 2) if (ask_px and bid_px and active_sym == "XAUUSD") else None
 
         ui_components.render_global_telemetry_ribbon(
             symbol=active_sym,
@@ -1675,7 +1683,8 @@ def render_live_dashboard():
             data_health=mkt_health_status,
             exec_mode=exec_mode_val,
             system_health=sys_health_val,
-            live_blocked=True
+            live_blocked=True,
+            spread_pips=spread_val
         )
 
         # ----------------------------------------------------
@@ -2447,12 +2456,12 @@ def render_live_dashboard():
 
         elif selected_main_tab == "MARKET SCANNER & REGIME":
             # ----------------------------------------------------
-            # MARKET INTELLIGENCE SCANNER & REGIME (PHASE 57)
+            # UNIFIED MARKET INTELLIGENCE COMMAND CENTER (PHASE 58)
             # ----------------------------------------------------
             import importlib
-            import market_intelligence_ui
-            importlib.reload(market_intelligence_ui)
-            market_intelligence_ui.render_market_intelligence_suite()
+            import market_intelligence_command_center
+            importlib.reload(market_intelligence_command_center)
+            market_intelligence_command_center.render_market_intelligence_command_center()
 
         # ----------------------------------------------------
         # AI MARKET CONTEXT & TECHNICAL ANALYSIS PIPELINE
