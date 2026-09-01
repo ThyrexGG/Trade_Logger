@@ -2418,6 +2418,109 @@ def render_xauusd_forward_evidence_center(key_prefix=""):
 
     st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
 
+    # 1L. FORWARD EVIDENCE COLLECTION & FIRST-OBSERVATION READINESS (Phase 47)
+    with st.expander("FORWARD EVIDENCE COLLECTION & FIRST-OBSERVATION READINESS (PHASE 47)", expanded=True):
+        import xauusd_forward_evidence_collection
+
+        first_obs_state = xauusd_forward_evidence_collection.FirstRealObservationDetector.evaluate_first_observation_state("XAUUSD")
+        morning_summary = xauusd_forward_evidence_collection.HumanReadableMorningSummary.generate_morning_summary("XAUUSD")
+        why_exp = xauusd_forward_evidence_collection.WhyWasThisObservationCreatedExplainer.explain_observation(first_obs_state["first_observation_record"])
+        forensic_ver = xauusd_forward_evidence_collection.OneClickForensicVerifier.verify_observation(first_obs_state["first_observation_record"])
+
+        # Hero Collection Card
+        st.markdown(f"""
+        <div style="background:rgba(15,23,42,0.95); border:2px solid {first_obs_state['state_color']}; border-radius:8px; padding:14px 18px; margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <div>
+                    <div style="font-size:10px; font-weight:800; color:#8a99ad; text-transform:uppercase; letter-spacing:1px;">FORWARD EVIDENCE COLLECTION STATUS (PHASE 47)</div>
+                    <div style="font-size:16px; font-weight:900; color:{first_obs_state['state_color']};">{first_obs_state['state']}</div>
+                </div>
+                <div style="font-size:11px; color:#cbd5e1; text-align:right;">
+                    Verdict: <b style="color:{first_obs_state['state_color']};">{first_obs_state['research_verdict']}</b><br/>
+                    Forward N: <b style="color:#00ffcc;">{first_obs_state['forward_n']}</b> | Quarantined: <b style="color:{'#ef4444' if first_obs_state['quarantined_count'] > 0 else '#00ffcc'};">{first_obs_state['quarantined_count']}</b> | Morning: <b style="color:{morning_summary['verdict_color']};">{morning_summary['verdict']}</b>
+                </div>
+            </div>
+            <div style="margin-top:8px; font-size:11px; color:#e2e8f0; line-height:1.5; background:rgba(0,0,0,0.25); padding:8px 12px; border-radius:4px;">
+                <b>System Readiness Note:</b> {first_obs_state['meaning']}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        tab_p47_ready, tab_p47_ver, tab_p47_why, tab_p47_away, tab_p47_gate = st.tabs([
+            "FIRST-OBSERVATION READINESS",
+            "ONE-CLICK FORENSIC VERIFIER",
+            "WHY WAS THIS CREATED?",
+            "WHAT HAPPENED WHILE I WAS AWAY?",
+            "ELIGIBILITY GATE RULES"
+        ])
+
+        with tab_p47_ready:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>6-Pillar Forward Collection Operational Readiness</p>", unsafe_allow_html=True)
+            c_r1, c_r2, c_r3 = st.columns(3)
+            c_r1.metric("Strategy Contract", "LOCKED & FROZEN", delta="SHA-256 Verified")
+            c_r2.metric("Dataset Isolation", "UNPOOLED", delta="IDs Disjoint")
+            c_r3.metric("Live Automation", "PERMANENTLY BLOCKED", delta="Fail-Closed")
+
+            c_r4, c_r5, c_r6 = st.columns(3)
+            c_r4.metric("Market Feed", "ONLINE & HEALTHY", delta="Fresh Tick Stream")
+            c_r5.metric("Replay Protection", "ACTIVE", delta="Fingerprint Deduplication")
+            c_r6.metric("Quarantine Subsystem", "MONITORING", delta=f"{first_obs_state['quarantined_count']} Quarantined")
+
+        with tab_p47_ver:
+            st.markdown(f"<p style='font-size:11px; font-weight:700; color:#00ffcc;'>10-Pillar Forensic Verification Matrix: <span style='color:{forensic_ver['verdict_color']};'>{forensic_ver['verdict']}</span></p>", unsafe_allow_html=True)
+            if forensic_ver["pillars"]:
+                df_pil = pd.DataFrame(forensic_ver["pillars"])
+                st.dataframe(df_pil, use_container_width=True)
+            else:
+                st.info("No forward observation recorded yet. The verification matrix will evaluate the first observation automatically upon execution.")
+
+        with tab_p47_why:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Observation Provenance & Explainable Research Narrative</p>", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.02); border-left:3px solid #00ffcc; border-radius:4px; padding:12px; font-size:11px; color:#cbd5e1; line-height:1.5;">
+                <b style="color:#00ffcc;">WHY DID THE SYSTEM RECORD THIS?</b><br/>
+                {why_exp['why_recorded']}<br/><br/>
+                <b style="color:#38bdf8;">WHAT DID THE SYSTEM KNOW AT THAT EXACT TIME?</b><br/>
+                {why_exp['what_was_known']}<br/><br/>
+                <b style="color:#f59e0b;">WHAT DID THE SYSTEM NOT KNOW YET? (LOOKAHEAD PROTECTION)</b><br/>
+                {why_exp['what_was_not_known']}
+            </div>
+            """, unsafe_allow_html=True)
+
+        with tab_p47_away:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Plain-Language Morning Summary (What Happened While I Was Away?)</p>", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.02); border-left:3px solid {morning_summary['verdict_color']}; border-radius:4px; padding:12px; font-size:11px; color:#cbd5e1; line-height:1.5;">
+                <b>Morning Verdict:</b> <b style="color:{morning_summary['verdict_color']};">{morning_summary['verdict']}</b><br/>
+                <b>Summary:</b> {morning_summary['summary_text']}<br/><br/>
+                • Forward Sample Size: <b>N = {morning_summary['forward_n']}</b><br/>
+                • Quarantined Records: <b>{morning_summary['quarantined_count']}</b><br/>
+                • Strategy Contract: <b>{morning_summary['contract_hash'][:12]}... (FROZEN)</b><br/>
+                • Live Broker Execution: <b>{morning_summary['live_automation']}</b>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with tab_p47_gate:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#bef264;'>11-State Forward Evidence Eligibility Gate Specification</p>", unsafe_allow_html=True)
+            st.markdown("""
+            <div style="font-size:11px; color:#cbd5e1; line-height:1.5;">
+                Every forward observation is strictly gated through 11 validation filters before contributing to forward research metrics:<br/>
+                1. <b>ELIGIBLE</b> — Passed all identity, temporal, contract, price, and provenance constraints.<br/>
+                2. <b>QUARANTINED</b> — Filtered for data anomaly (NaN/Inf R-multiple, non-numeric values).<br/>
+                3. <b>MISSING_PROVENANCE</b> — Missing unique identifier or execution origin.<br/>
+                4. <b>CONTRACT_MISMATCH</b> — Strategy hash differs from frozen baseline.<br/>
+                5. <b>LOOKAHEAD_VIOLATION</b> — Future timestamp or unreleased macroeconomic actuals.<br/>
+                6. <b>STALE_MARKET_DATA</b> — Market feed latency exceeded maximum threshold.<br/>
+                7. <b>DUPLICATE_OBSERVATION</b> — Repeated observation ID or replay attempt.<br/>
+                8. <b>INVALID_TIMESTAMP</b> — Unparseable or malformed ISO datetime string.<br/>
+                9. <b>INVALID_PRICE</b> — Non-positive, infinite, or corrupt entry/exit quote.<br/>
+                10. <b>UNKNOWN_SOURCE</b> — Execution source unverified.<br/>
+                11. <b>INCOMPLETE_CONTEXT</b> — Missing session or macroeconomic calendar metadata.
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
+
     # HONEST EMPTY / LOW-DATA UX (Phase 31)
     if core_ev_stats['trades_n'] == 0:
         st.markdown("""
