@@ -1914,7 +1914,7 @@ def render_xauusd_forward_evidence_center(key_prefix=""):
 
         with tab_cmd_insp:
             st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Observation Forensic Inspector (Identity, Horizon, Quality Score, Quarantine)</p>", unsafe_allow_html=True)
-            df_all_trades = XAUUSDForwardJournal.get_forward_trades(mode="PAPER")
+            df_all_trades = xauusd_forward_validator.XAUUSDForwardJournal.get_forward_trades(mode="PAPER")
             if not df_all_trades.empty:
                 obs_ids = df_all_trades["signal_id"].dropna().tolist() if "signal_id" in df_all_trades.columns else []
                 if obs_ids:

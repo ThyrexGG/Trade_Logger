@@ -27,7 +27,7 @@ class StrategyContractIntegrityGuard:
     """
     Verifies that the frozen strategy parameters and contract have not been altered.
     """
-    FROZEN_CONTRACT_PATH = "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md"
+    FROZEN_CONTRACT_PATH = os.path.join(os.path.dirname(__file__), "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
     
     # Frozen Parameter Signatures
     FROZEN_PARAMETERS = {

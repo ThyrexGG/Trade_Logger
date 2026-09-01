@@ -8,15 +8,8 @@ from typing import Dict, List, Any, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from xauusd_forward_validator import XAUUSDForwardJournal, XAUUSDForwardMetrics
-from xauusd_forward_monitor import XAUUSDForwardMonitor
-from xauusd_drift_detector import XAUUSDDriftDetector
-from xauusd_execution_quality import XAUUSDExecutionDiagnostics
-from xauusd_research_governance import (
-    XAUUSDParityWatchdog,
-    XAUUSDDataIntegrityWatchdog,
-    ResearchIntegrityAuditor
-)
+
+
 
 
 class ForwardEvidenceAnalyzer:
@@ -396,6 +389,7 @@ class ExecutionStrategyDecomposer:
     """
     @staticmethod
     def decompose_divergence(mode: str = "PAPER") -> Dict[str, Any]:
+        from xauusd_execution_quality import XAUUSDExecutionDiagnostics
         exec_d = XAUUSDExecutionDiagnostics.run_execution_diagnostics(mode=mode)
         timeout_rate = exec_d.get("miss_rate_pct", 8.5)
         fill_rate = exec_d.get("fill_rate_pct", 91.5)
@@ -415,6 +409,11 @@ class ForwardEvidenceScorer:
     """
     @staticmethod
     def calculate_evidence_score(mode: str = "PAPER") -> Dict[str, Any]:
+        from xauusd_forward_monitor import XAUUSDForwardMonitor
+        from xauusd_drift_detector import XAUUSDDriftDetector
+        from xauusd_execution_quality import XAUUSDExecutionDiagnostics
+        from xauusd_research_governance import XAUUSDParityWatchdog, XAUUSDDataIntegrityWatchdog
+
         fwd = XAUUSDForwardMonitor.get_forward_summary(mode=mode)
         drift = XAUUSDDriftDetector.evaluate_distribution_drift(mode=mode)
         exec_d = XAUUSDExecutionDiagnostics.run_execution_diagnostics(mode=mode)
@@ -501,6 +500,10 @@ class ResearchDecisionStateClassifier:
     """
     @staticmethod
     def classify_state(mode: str = "PAPER") -> Dict[str, Any]:
+        from xauusd_research_governance import ResearchIntegrityAuditor
+        from xauusd_forward_monitor import XAUUSDForwardMonitor
+        from xauusd_drift_detector import XAUUSDDriftDetector
+
         integ = ResearchIntegrityAuditor.evaluate_integrity()
         if not integ["all_passed"]:
             return {
