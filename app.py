@@ -40,6 +40,10 @@ import xauusd_forward_stability
 import xauusd_forward_execution_stress
 import xauusd_forward_drawdown_audit
 import xauusd_forward_reproducibility
+import user_preferences
+import command_palette
+import keyboard_shortcuts
+import workspace_layout_manager
 
 def render_html(html_str):
     clean_lines = [line.strip() for line in html_str.splitlines()]
@@ -1633,15 +1637,35 @@ def render_live_dashboard():
                 </svg>
             </div>
         """
-        st.markdown(f"""
-        <div style="display: flex; align-items: center; gap: 14px; margin-top: 8px; margin-bottom: 10px;">
-            {logo_html}
-            <div>
-                <h1 style="margin: 0; font-size: 1.85rem; font-weight: 800; color: #ffffff; letter-spacing: -0.5px; text-transform: uppercase;">TradeLogger Terminal</h1>
-                <p style="margin: 2px 0 0 0; color: #8a99ad; font-size: 13px; letter-spacing: 0.2px;">Quantitative Strategy Research, Live Paper Execution & Forward Evidence Engine</p>
+        # Phase 61: Initialize Preferences & Keyboard Shortcuts
+        user_preferences.UserPreferencesManager.initialize_preferences()
+        keyboard_shortcuts.inject_keyboard_shortcuts_listener()
+
+        c_hdr_title, c_hdr_actions = st.columns([3.5, 1.5])
+        with c_hdr_title:
+            st.markdown(f"""
+            <div style="display: flex; align-items: center; gap: 14px; margin-top: 8px; margin-bottom: 10px;">
+                {logo_html}
+                <div>
+                    <h1 style="margin: 0; font-size: 1.85rem; font-weight: 800; color: #ffffff; letter-spacing: -0.5px; text-transform: uppercase;">TradeLogger Terminal</h1>
+                    <p style="margin: 2px 0 0 0; color: #8a99ad; font-size: 13px; letter-spacing: 0.2px;">Quantitative Strategy Research, Live Paper Execution & Forward Evidence Engine</p>
+                </div>
             </div>
-        </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
+        with c_hdr_actions:
+            c_act1, c_act2 = st.columns([1.5, 1.0])
+            with c_act1:
+                if st.button("COMMAND (CTRL+K)", key="btn_open_cmd_palette_top", use_container_width=True):
+                    st.session_state["show_command_palette"] = True
+                    st.rerun()
+            with c_act2:
+                if st.button("HOTKEYS (?)", key="btn_open_shortcuts_help", use_container_width=True):
+                    st.session_state["show_shortcuts_modal"] = True
+                    st.rerun()
+
+        # Render Command Palette / Shortcuts Modal if triggered
+        command_palette.render_command_palette_modal()
+        keyboard_shortcuts.render_keyboard_shortcut_reference_modal()
 
         # ----------------------------------------------------
         # PERSISTENT GLOBAL TELEMETRY RIBBON (PHASE 52)
