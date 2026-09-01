@@ -2069,6 +2069,122 @@ def render_xauusd_forward_evidence_center(key_prefix=""):
 
     st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
 
+    # 1I. LONG-TERM FORWARD RESEARCH, ACCUMULATION & ALPHA DECAY MONITOR (Phase 44)
+    with st.expander("LONG-TERM FORWARD RESEARCH, ACCUMULATION & ALPHA DECAY MONITOR (PHASE 44)", expanded=True):
+        import xauusd_forward_accumulation
+        import xauusd_alpha_decay_monitor
+
+        alpha_eval = xauusd_alpha_decay_monitor.AlphaDecayMonitor.evaluate_alpha_decay("XAUUSD")
+        hist_comp = alpha_eval["historical_comparison"]
+
+        # Alpha Decay Hero Card
+        st.markdown(f"""
+        <div style="background:rgba(15,23,42,0.95); border:2px solid {alpha_eval['decay_color']}; border-radius:8px; padding:14px 18px; margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <div>
+                    <div style="font-size:10px; font-weight:800; color:#8a99ad; text-transform:uppercase; letter-spacing:1px;">ALPHA DECAY & LONG-TERM EDGE STABILITY (PHASE 44)</div>
+                    <div style="font-size:16px; font-weight:900; color:{alpha_eval['decay_color']};">{alpha_eval['decay_state']}</div>
+                </div>
+                <div style="font-size:11px; color:#cbd5e1; text-align:right;">
+                    Forward Clean N: <b style="color:#00ffcc;">{alpha_eval['forward_n']}</b> | Historical Holdout N: <b style="color:#bef264;">82 (+0.637R)</b><br/>
+                    Contract Hash: <b style="color:#00ffcc;">PHASE 21 FROZEN</b> | Safety: <b style="color:#f59e0b;">LOCKED</b>
+                </div>
+            </div>
+            <div style="margin-top:8px; font-size:11px; color:#e2e8f0; line-height:1.5; background:rgba(0,0,0,0.25); padding:8px 12px; border-radius:4px;">
+                <b>Research Interpretation:</b> {alpha_eval['research_interpretation']}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Tabs for Milestones, Rolling Windows, Expanding Curve, Historical Comparison, Sequential Blocks, Regime Stability, Checkpoints
+        tab_p44_miles, tab_p44_roll, tab_p44_curve, tab_p44_comp, tab_p44_block, tab_p44_regime, tab_p44_chk = st.tabs([
+            "SAMPLE MILESTONES (10 TO 500)",
+            "ROLLING STABILITY WINDOWS",
+            "EXPANDING PERFORMANCE CURVE",
+            "HISTORICAL VS FORWARD",
+            "CHRONOLOGICAL BLOCKS",
+            "REGIME & NEWS STABILITY",
+            "ACCUMULATION CHECKPOINTS"
+        ])
+
+        with tab_p44_miles:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Deterministic Sample Milestones (N = 10 to 500)</p>", unsafe_allow_html=True)
+            milestones = xauusd_forward_accumulation.SampleMilestoneEngine.evaluate_all_milestones("XAUUSD")
+            df_milestones = pd.DataFrame(milestones)[["target_n", "status_label", "current_progress_pct", "remaining_n", "expectancy_r", "win_rate_pct", "profit_factor", "total_r"]]
+            st.dataframe(df_milestones, use_container_width=True)
+
+        with tab_p44_roll:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Rolling Forward Windows (Last 10, 20, 30, 50, 75, 100 Trades)</p>", unsafe_allow_html=True)
+            rolling_res = alpha_eval["rolling_windows"]
+            df_rolling = pd.DataFrame(rolling_res)[["window_name", "actual_n", "expectancy_r", "win_rate_pct", "profit_factor", "total_r", "max_drawdown_r", "win_streak", "loss_streak", "interpretation"]]
+            st.dataframe(df_rolling, use_container_width=True)
+
+        with tab_p44_curve:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Expanding Chronological Performance Curve (Raw Observations 1 to N)</p>", unsafe_allow_html=True)
+            curve_data = xauusd_forward_accumulation.ExpandingWindowCurveEngine.compute_expanding_curve()
+            if curve_data:
+                df_curve = pd.DataFrame(curve_data)[["trade_index", "signal_id", "timestamp", "r_multiple", "cumulative_r", "cumulative_expectancy", "cumulative_win_rate", "running_drawdown_r"]]
+                st.dataframe(df_curve, use_container_width=True)
+            else:
+                st.info("No completed forward trades recorded yet to generate expanding curve.")
+
+        with tab_p44_comp:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Locked Historical Baseline (N = 82) vs Forward Accumulation</p>", unsafe_allow_html=True)
+            c_cmp_h1, c_cmp_h2 = st.columns(2)
+            with c_cmp_h1:
+                st.markdown(f"""
+                <div style="background:rgba(255,255,255,0.02); border-left:3px solid #bef264; border-radius:4px; padding:10px; font-size:11px; color:#cbd5e1;">
+                    <b>Locked Historical Baseline:</b><br/>
+                    • Sample Size: <b>N = 82 Trades</b><br/>
+                    • Expectancy: <b>+0.637 R</b><br/>
+                    • 95% Bootstrap CI: <b>[+0.477 R, +0.817 R]</b><br/>
+                    • Win Rate: <b>58.6%</b> | Profit Factor: <b>2.52</b><br/>
+                    • Max Drawdown: <b>4.00 R</b>
+                </div>
+                """, unsafe_allow_html=True)
+            with c_cmp_h2:
+                f_st = hist_comp["forward_stats"]
+                d_st = hist_comp["deltas"]
+                st.markdown(f"""
+                <div style="background:rgba(255,255,255,0.02); border-left:3px solid {hist_comp['verdict_color']}; border-radius:4px; padding:10px; font-size:11px; color:#cbd5e1;">
+                    <b>Forward Accumulation ({hist_comp['verdict']}):</b><br/>
+                    • Forward Sample Size: <b>N = {hist_comp['forward_n']} Trades</b><br/>
+                    • Forward Expectancy: <b>{f_st['expectancy_r']:+.3f} R</b> (Delta: {d_st['expectancy_delta']:+.3f}R)<br/>
+                    • Forward Win Rate: <b>{f_st['win_rate_pct']:.1f}%</b> (Delta: {d_st['win_rate_delta_pct']:+.1f}%)<br/>
+                    • Forward Profit Factor: <b>{f_st['profit_factor']:.2f}</b><br/>
+                    • Total Accumulated: <b>{f_st['total_r']:+.2f} R</b>
+                </div>
+                """, unsafe_allow_html=True)
+
+        with tab_p44_block:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Chronological Sequential Blocks (Tertiles & Quartiles)</p>", unsafe_allow_html=True)
+            blocks_res = alpha_eval["sequential_blocks"]
+            if blocks_res["has_enough_data"]:
+                st.markdown(f"<p style='font-size:11px; color:{blocks_res['stability_color']};'><b>Tertiles:</b> {blocks_res['stability_verdict']}</p>", unsafe_allow_html=True)
+                df_tertiles = pd.DataFrame(blocks_res["tertiles"])
+                st.dataframe(df_tertiles, use_container_width=True)
+            else:
+                st.info(f"{blocks_res['status']} — Requires at least 9 clean forward trades.")
+
+        with tab_p44_regime:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Operational Regime Subgroups (Sessions, Bank Holidays, News Proximity)</p>", unsafe_allow_html=True)
+            regime_res = alpha_eval["regime_stability"]
+            df_reg_ui = pd.DataFrame(regime_res["subgroups"])[["subgroup_name", "sample_n", "statistical_tier", "expectancy_r", "win_rate_pct", "profit_factor", "total_r"]]
+            st.dataframe(df_reg_ui, use_container_width=True)
+            st.markdown(f"<div style='font-size:11px; color:#8a99ad; margin-top:4px;'><i>Note: {regime_res['disclaimer']}</i></div>", unsafe_allow_html=True)
+
+        with tab_p44_chk:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#bef264;'>Deterministic Forward Accumulation Checkpoints</p>", unsafe_allow_html=True)
+            if st.button("CREATE NEW ACCUMULATION CHECKPOINT", key=f"btn_make_chk_p44_{key_prefix}", use_container_width=True):
+                new_chk = xauusd_forward_accumulation.ForwardAccumulationEngine.create_accumulation_checkpoint("XAUUSD")
+                st.success(f"Checkpoint created: {new_chk['checkpoint_id']} (Fingerprint: {new_chk['dataset_fingerprint'][:16]}...)")
+            chk_history = xauusd_forward_accumulation.ForwardAccumulationEngine.get_accumulation_history(limit=10)
+            if chk_history:
+                df_chk_ui = pd.DataFrame(chk_history)[["checkpoint_id", "timestamp", "forward_n", "total_r", "expectancy_r", "win_rate_pct", "profit_factor", "dataset_fingerprint"]]
+                st.dataframe(df_chk_ui, use_container_width=True)
+
+    st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
+
     # HONEST EMPTY / LOW-DATA UX (Phase 31)
     if core_ev_stats['trades_n'] == 0:
         st.markdown("""
