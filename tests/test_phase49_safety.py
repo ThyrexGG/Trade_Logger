@@ -17,7 +17,8 @@ def test_strategy_contract_hash_exact_match():
     contract_path = os.path.join(os.path.dirname(__file__), "..", "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
     if os.path.exists(contract_path):
         with open(contract_path, "rb") as f:
-            actual_hash = hashlib.sha256(f.read()).hexdigest()
+            content = f.read().replace(b"\r\n", b"\n")
+            actual_hash = hashlib.sha256(content).hexdigest()
         assert actual_hash == FROZEN_CONTRACT_HASH
         assert actual_hash == "7f135a1269626a21dba769b7f0173c8a5428dcb7b47a88976045ea8aff376b76"
 
