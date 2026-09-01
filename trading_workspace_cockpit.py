@@ -500,26 +500,17 @@ class TradingWorkspaceCockpit:
     @classmethod
     def render_market_context_intelligence(cls, symbol: str):
         """
-        Renders the market context & macro intelligence region.
-        Acts as the architectural integration boundary for the future Asset Edge Finder.
+        Renders the Multi-Factor Asset Edge Scorecard & Market Intelligence Region (Phase 55).
         """
         st.markdown("""
         <div style="font-size: 11px; font-weight: 800; color: #8a99ad; text-transform: uppercase; letter-spacing: 0.8px; margin-top: 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
-            <span>MARKET INTELLIGENCE & MACRO CONTEXT</span>
-            <span style="font-size: 10px; color: #64748b;">FUTURE ASSET EDGE FINDER BOUNDARY</span>
+            <span>ASSET EDGE INTELLIGENCE & MULTI-FACTOR SCORECARD</span>
+            <span style="font-size: 10px; color: #00ffcc; font-family: monospace;">PHASE 55 ENGINE</span>
         </div>
         """, unsafe_allow_html=True)
 
-        with st.container(border=True):
-            col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-            with col_m1:
-                ui_components.render_metric_card("Active Session", "LONDON / NY", subtitle="Peak Global Liquidity", badge_state="SUCCESS")
-            with col_m2:
-                ui_components.render_metric_card("Macro Calendar Risk", "LOW RISK", subtitle="Next High Impact: > 3 Hours", badge_state="SUCCESS")
-            with col_m3:
-                ui_components.render_metric_card("DXY Dollar Context", "104.25", subtitle="Consolidating Above 50 EMA", badge_state="INFO")
-            with col_m4:
-                ui_components.render_metric_card("Market Regime", "EXPANSION", subtitle="Normal Volatility Environment", badge_state="SUCCESS")
+        import asset_edge_scorecard
+        asset_edge_scorecard.render_asset_edge_scorecard(symbol)
 
 
 def render_trading_workspace_cockpit():
