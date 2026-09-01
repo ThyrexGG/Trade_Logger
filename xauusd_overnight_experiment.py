@@ -366,11 +366,12 @@ class HeartbeatAndLivenessAuditor:
         results = []
         all_healthy = True
 
+        ph = database.get_sql_placeholder(conn)
         for sub in cls.SUBSYSTEMS:
-            cur.execute("""
+            cur.execute(f"""
             SELECT heartbeat_id, timestamp, status, latency_ms, details
             FROM xauusd_heartbeats
-            WHERE subsystem = ?
+            WHERE subsystem = {ph}
             ORDER BY timestamp DESC LIMIT 1
             """, (sub,))
             row = cur.fetchone()
@@ -476,7 +477,8 @@ class OperationalOutageTracker:
 
         conn = database.get_connection()
         cur = conn.cursor()
-        cur.execute("SELECT start_time FROM xauusd_operational_outages WHERE outage_id = ?", (outage_id,))
+        placeholder = database.get_sql_placeholder(conn)
+        cur.execute(f"SELECT start_time FROM xauusd_operational_outages WHERE outage_id = {placeholder}", (outage_id,))
         row = cur.fetchone()
 
         duration_sec = 0.0
