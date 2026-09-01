@@ -1,6 +1,6 @@
 # PROJECT STATE & ARCHITECTURAL RECORD
 **TradeLogger Terminal — Living System Memory**
-*Last Updated: 1 September 2026, Session 25 (Phase 45 Continuous Forward Operations, Weekly Audits, Regime Transition Drift & Incident Deduplication Completed & Verified)*
+*Last Updated: 1 September 2026, Session 26 (Phase 46 Forward Evidence Accumulation, 14-Stage Sample Milestones & Research Decision Gate Completed & Verified)*
 
 > **HOW TO USE THIS FILE**
 > Start any new AI session with: *"Read PROJECT_STATE.md and continue where we left off."*
@@ -24,7 +24,9 @@ A professional-grade **trading research, journaling, and execution terminal** bu
   - Evidence Governance & Reproducibility (Phase 41), Master Research Command Center (Phase 42)
   - Overnight Experiment Live Collection & Morning Audit (Phase 43), Long-Term Accumulation & Alpha Decay Monitor (Phase 44)
   - Continuous Forward Research Operations, Weekly Audits & Regime Transition Drift (Phase 45)
+  - Forward Evidence Accumulation, 14-Stage Sample Milestones & Research Decision Gate (Phase 46)
   - Strictly zero emojis across all UI tabs, buttons, metrics, and logs.
+- **Forward Evidence Accumulation & Research Decision Gate** (`xauusd_forward_decision_gate.py`) — 12-tier evidence classification spectrum ($N = 0$ to $N \ge 500$), 14 deterministic research milestones ($0, 1, 5, 10, 20, 30, 50, 75, 100, 125, 150, 200, 300, 500$), deterministic research decision gate, historical holdout ($N = 82$) side-by-side comparative engine, multi-tier bootstrap confidence intervals (90%, 95%, 99%), sequential evidence warning, immutable milestone snapshot store (`xauusd_forward_milestone_snapshots`), and 0–100 Evidence Quality Score (`EVIDENCE QUALITY != STRATEGY QUALITY`).
 - **Continuous Forward Research Operations Supervisor** (`xauusd_continuous_forward_ops.py`) — Master operational supervisor, automated weekly forward evidence audits, "What Changed This Week?" delta reports, regime-transition drift detection, incident-based alert deduplication, and "Since You Were Away" forensic audit engine.
 - **Long-Term Forward Accumulation & Milestone Engine** (`xauusd_forward_accumulation.py`) — Manages clean completed forward observations, creates deterministic checkpoints with SHA-256 fingerprints, tracks 12 sample milestones ($N = 10$ to $500$), computes multi-window rolling statistics ($10, 20, 30, 50, 75, 100$ trades), and generates raw expanding performance curves without curve-fitting.
 - **Alpha Decay Monitor & Sequential Stability** (`xauusd_alpha_decay_monitor.py`) — Multi-factor evaluation of edge persistence vs structural degradation (`INSUFFICIENT FORWARD EVIDENCE`, `NO EVIDENCE OF DECAY`, `EARLY INSTABILITY`, `POSSIBLE DEGRADATION`, `PERSISTENT DEGRADATION`, `POTENTIAL ALPHA DECAY — HUMAN REVIEW REQUIRED`), tertile/quartile block stability, regime subgroup stability, and pre-monitoring Data Quality Gate.
@@ -44,7 +46,8 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 
 | File | Phase | Purpose |
 | :--- | :--- | :--- |
-| `app.py` | 1–45 | Master Streamlit terminal (9 tabs) + Research Lab, Command Center, Morning Audit, Alpha Decay Monitor, Continuous Operations |
+| `app.py` | 1–46 | Master Streamlit terminal (9 tabs) + Research Lab, Command Center, Morning Audit, Alpha Decay Monitor, Continuous Operations, Decision Gate |
+| `xauusd_forward_decision_gate.py` | 46 | Forward evidence accumulation, 14 sample milestones, 12 evidence tiers, decision gate, comparative engine |
 | `xauusd_continuous_forward_ops.py` | 45 | Continuous operations supervisor, weekly research audit, regime transition drift, incident deduplication |
 | `xauusd_forward_accumulation.py` | 44 | Clean forward accumulation, checkpoints, 12 sample milestones, 6 rolling windows, expanding curve |
 | `xauusd_alpha_decay_monitor.py` | 44 | Conservative alpha decay monitor, sequential blocks, regime stability, data quality gate |
@@ -141,6 +144,7 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 | **Phase 43** | Overnight Experiment Live Collection, Liveness Heartbeats & Morning Audit | ✅ COMPLETE | 13 Passed |
 | **Phase 44** | Long-Term Forward Accumulation, Rolling Stability & Alpha Decay Monitoring | ✅ COMPLETE | 15 Passed |
 | **Phase 45** | Continuous Forward Operations, Weekly Audits, Regime Transition Drift & Incident Deduplication | ✅ COMPLETE | 12 Passed |
+| **Phase 46** | Forward Evidence Accumulation, 14-Stage Sample Milestones & Research Decision Gate | ✅ COMPLETE | 15 Passed |
 
 ---
 

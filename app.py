@@ -2287,6 +2287,137 @@ def render_xauusd_forward_evidence_center(key_prefix=""):
 
     st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
 
+    # 1K. FORWARD EVIDENCE ACCUMULATION & RESEARCH DECISION GATE (Phase 46)
+    with st.expander("FORWARD EVIDENCE ACCUMULATION & RESEARCH DECISION GATE (PHASE 46)", expanded=True):
+        import xauusd_forward_decision_gate
+
+        fwd_trades = xauusd_forward_accumulation.ForwardAccumulationEngine.get_clean_completed_observations(mode="PAPER")
+        fwd_n = len(fwd_trades)
+        fwd_r = fwd_trades["r_multiple"].astype(float).values if (fwd_n > 0 and "r_multiple" in fwd_trades.columns) else []
+        fwd_exp = float(np.mean(fwd_r)) if len(fwd_r) > 0 else 0.0
+
+        tier_res = xauusd_forward_decision_gate.EvidenceTierClassifier.classify_tier(fwd_n)
+        milestones_v2 = xauusd_forward_decision_gate.SampleMilestoneEngineV2.evaluate_milestones(fwd_n)
+        comp_v2 = xauusd_forward_decision_gate.HistoricalVsForwardComparativeEngine.compare_historical_vs_forward(fwd_trades)
+        ev_score_res = xauusd_forward_decision_gate.ForwardEvidenceQualityScorer.calculate_evidence_quality_score("XAUUSD")
+        gate_res = xauusd_forward_decision_gate.ResearchDecisionGateEngine.evaluate_decision_gate(
+            fwd_n, fwd_exp, ev_score_res["evidence_quality_score"], ev_score_res["quarantined_count"]
+        )
+        statements = xauusd_forward_decision_gate.WhatCanWeSaySynthesizer.synthesize_statements(fwd_n, fwd_exp)
+        seq_warn = xauusd_forward_decision_gate.SequentialEvidenceWarningEngine.get_sequential_warning()
+
+        # Evidence Hero Card
+        st.markdown(f"""
+        <div style="background:rgba(15,23,42,0.95); border:2px solid {gate_res['decision_color']}; border-radius:8px; padding:14px 18px; margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <div>
+                    <div style="font-size:10px; font-weight:800; color:#8a99ad; text-transform:uppercase; letter-spacing:1px;">HOW MUCH GENUINE FORWARD EVIDENCE DO WE HAVE? (PHASE 46)</div>
+                    <div style="font-size:16px; font-weight:900; color:{tier_res['tier_color']};">{tier_res['tier_name']}</div>
+                </div>
+                <div style="font-size:11px; color:#cbd5e1; text-align:right;">
+                    Decision: <b style="color:{gate_res['decision_color']};">{gate_res['decision_state']}</b><br/>
+                    Next Milestone: <b style="color:#00ffcc;">N = {milestones_v2['next_milestone']}</b> ({milestones_v2['trades_remaining']} remaining) | Evidence Quality: <b style="color:{ev_score_res['status_color']};">{ev_score_res['evidence_quality_score']}/100</b>
+                </div>
+            </div>
+            <div style="margin-top:8px; font-size:11px; color:#e2e8f0; line-height:1.5; background:rgba(0,0,0,0.25); padding:8px 12px; border-radius:4px;">
+                <b>Research Decision Rationale:</b> {gate_res['rationale']}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Tabs
+        tab_p46_miles, tab_p46_comp, tab_p46_say, tab_p46_gate, tab_p46_warn, tab_p46_snaps, tab_p46_qual = st.tabs([
+            "MILESTONE PROGRESS",
+            "HISTORICAL VS FORWARD",
+            "WHAT CAN & CANNOT BE SAID",
+            "DECISION GATE",
+            "SEQUENTIAL EVIDENCE WARNING",
+            "SNAPSHOT LEDGER",
+            "EVIDENCE QUALITY"
+        ])
+
+        with tab_p46_miles:
+            st.markdown(f"<p style='font-size:11px; font-weight:700; color:#00ffcc;'>14 Deterministic Research Milestones (Current: N = {fwd_n} | Next: N = {milestones_v2['next_milestone']})</p>", unsafe_allow_html=True)
+            st.progress(milestones_v2["completion_pct_toward_next"] / 100.0)
+            df_m_v2 = pd.DataFrame(milestones_v2["milestone_cards"])[["target_n", "status_label", "trades_remaining", "completion_pct"]]
+            st.dataframe(df_m_v2, use_container_width=True)
+
+        with tab_p46_comp:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Locked Historical Baseline (N = 82) vs Genuine Forward Evidence</p>", unsafe_allow_html=True)
+            c_cp1, c_cp2 = st.columns(2)
+            with c_cp1:
+                h_b = comp_v2["historical_baseline"]
+                st.markdown(f"""
+                <div style="background:rgba(255,255,255,0.02); border-left:3px solid #bef264; border-radius:4px; padding:10px; font-size:11px; color:#cbd5e1;">
+                    <b>Locked Historical Holdout Baseline:</b><br/>
+                    • Sample Size: <b>N = {h_b['trades_n']} Trades</b><br/>
+                    • Expectancy: <b>{h_b['expectancy_r']:+.3f} R</b> (95% CI: [{h_b['ci_95'][0]:+.3f}R, {h_b['ci_95'][1]:+.3f}R])<br/>
+                    • Win Rate: <b>{h_b['win_rate_pct']:.1f}%</b> | Profit Factor: <b>{h_b['profit_factor']:.2f}</b><br/>
+                    • Max Drawdown: <b>{h_b['max_drawdown_r']:.2f} R</b> | Max Loss Streak: <b>{h_b['max_loss_streak']}</b>
+                </div>
+                """, unsafe_allow_html=True)
+            with c_cp2:
+                f_s = comp_v2["forward_stats"]
+                d_s = comp_v2["deltas"]
+                st.markdown(f"""
+                <div style="background:rgba(255,255,255,0.02); border-left:3px solid {comp_v2['consistency_color']}; border-radius:4px; padding:10px; font-size:11px; color:#cbd5e1;">
+                    <b>Forward Evidence ({comp_v2['consistency']}):</b><br/>
+                    • Forward Sample Size: <b>N = {f_s['trades_n']} Trades</b><br/>
+                    • Forward Expectancy: <b>{f_s['expectancy_r']:+.3f} R</b> (Delta: {d_s['expectancy_delta']:+.3f}R)<br/>
+                    • Forward Win Rate: <b>{f_s['win_rate_pct']:.1f}%</b> (Delta: {d_s['win_rate_delta_pct']:+.1f}%)<br/>
+                    • Forward Profit Factor: <b>{f_s['profit_factor']:.2f}</b> | Drawdown: <b>{f_s['max_drawdown_r']:.2f} R</b> ({comp_v2['drawdown_reality']})
+                </div>
+                """, unsafe_allow_html=True)
+
+        with tab_p46_say:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Permitted Research Statements vs Prohibited Claims</p>", unsafe_allow_html=True)
+            c_s1, c_s2 = st.columns(2)
+            with c_s1:
+                st.markdown("<b style='color:#00ffcc; font-size:11px;'>WHAT CAN BE LEGITIMATELY STATED:</b>", unsafe_allow_html=True)
+                for p in statements["permitted_statements"]:
+                    st.markdown(f"<div style='font-size:11px; color:#cbd5e1; margin-bottom:4px;'>• {p}</div>", unsafe_allow_html=True)
+            with c_s2:
+                st.markdown("<b style='color:#ef4444; font-size:11px;'>WHAT IS STRICTLY PROHIBITED TO CLAIM:</b>", unsafe_allow_html=True)
+                for pr in statements["prohibited_claims"]:
+                    st.markdown(f"<div style='font-size:11px; color:#ef4444; margin-bottom:4px;'>• {pr}</div>", unsafe_allow_html=True)
+
+        with tab_p46_gate:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Deterministic Research Decision Gate Status</p>", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.02); border-left:3px solid {gate_res['decision_color']}; border-radius:4px; padding:12px; font-size:11px; color:#cbd5e1;">
+                <b>Current Decision State:</b> <b style="color:{gate_res['decision_color']};">{gate_res['decision_state']}</b><br/>
+                <b>Full Decision Rationale:</b> {gate_res['rationale']}<br/>
+                <b>Recommended Next Action:</b> {tier_res['recommended_action']}
+            </div>
+            """, unsafe_allow_html=True)
+
+        with tab_p46_warn:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#f59e0b;'>Interim Analysis & Optional Stopping Risk Warning</p>", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="background:rgba(245,158,11,0.05); border:1px solid #f59e0b; border-radius:6px; padding:12px; font-size:11px; color:#e2e8f0; line-height:1.5;">
+                <b>{seq_warn['title']}</b><br/><br/>
+                {seq_warn['warning_text']}
+            </div>
+            """, unsafe_allow_html=True)
+
+        with tab_p46_snaps:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#bef264;'>Immutable Milestone Snapshot Ledger</p>", unsafe_allow_html=True)
+            snaps_list = xauusd_forward_decision_gate.MilestoneSnapshotStore.get_milestone_snapshots(limit=10)
+            if snaps_list:
+                df_snaps_ui = pd.DataFrame(snaps_list)[["milestone", "actual_n", "timestamp", "expectancy", "win_rate", "profit_factor", "max_drawdown", "decision_state"]]
+                st.dataframe(df_snaps_ui, use_container_width=True)
+            else:
+                st.info("No milestone snapshots recorded yet.")
+
+        with tab_p46_qual:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Evidence Trustworthiness vs Strategy Quality (0–100)</p>", unsafe_allow_html=True)
+            c_q1, c_q2 = st.columns(2)
+            c_q1.metric("Evidence Quality Score", f"{ev_score_res['evidence_quality_score']} / 100", delta=ev_score_res['status'])
+            c_q2.metric("Quarantined Records", ev_score_res["quarantined_count"])
+            st.markdown(f"<div style='font-size:11px; color:#8a99ad; margin-top:4px;'><i>Notice: {ev_score_res['disclaimer']}</i></div>", unsafe_allow_html=True)
+
+    st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
+
     # HONEST EMPTY / LOW-DATA UX (Phase 31)
     if core_ev_stats['trades_n'] == 0:
         st.markdown("""
