@@ -1,6 +1,9 @@
 import pandas as pd
 import numpy as np
-import yfinance as yf
+try:
+    import yfinance as yf
+except ImportError:
+    yf = None
 from datetime import datetime
 
 def map_symbol_to_yf(sym):
@@ -77,6 +80,8 @@ def run_backtest(symbol, timeframe="1h", strategy="Trend Continuation", risk_pct
         bias_tf = "1h"
 
     def fetch_and_clean_yf(sym, p, i):
+        if yf is None:
+            return pd.DataFrame()
         d = yf.download(sym, period=p, interval=i, progress=False)
         if d.empty: return d
         if isinstance(d.columns, pd.MultiIndex):
