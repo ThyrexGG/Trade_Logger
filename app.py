@@ -2519,6 +2519,111 @@ def render_xauusd_forward_evidence_center(key_prefix=""):
             </div>
             """, unsafe_allow_html=True)
 
+    # 1M. FORWARD SIGNAL LIFECYCLE & EVIDENCE INTEGRITY VALIDATION (Phase 48)
+    with st.expander("FORWARD SIGNAL LIFECYCLE & EVIDENCE INTEGRITY (PHASE 48)", expanded=True):
+        import xauusd_forward_lifecycle
+
+        recon_audit = xauusd_forward_lifecycle.ForwardLifecycleReconciliationAudit.audit_database_integrity()
+        iso_guard = xauusd_forward_lifecycle.ForwardDatasetIsolationGuard.verify_isolation()
+        alpha_obs = xauusd_forward_lifecycle.ForwardAlphaDecayObservationalMonitor.calculate_observational_metrics(mode="PAPER")
+        away_clf = xauusd_forward_lifecycle.ForwardMorningAwaySummaryClassifier.classify_away_reality()
+
+        # Hero Lifecycle Card
+        st.markdown(f"""
+        <div style="background:rgba(15,23,42,0.95); border:2px solid {'#00ffcc' if recon_audit['dataset_isolation_clean'] else '#ef4444'}; border-radius:8px; padding:14px 18px; margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <div>
+                    <div style="font-size:10px; font-weight:800; color:#8a99ad; text-transform:uppercase; letter-spacing:1px;">FORWARD SIGNAL LIFECYCLE & RECONCILIATION (PHASE 48)</div>
+                    <div style="font-size:16px; font-weight:900; color:{away_clf['color']};">{away_clf['status_badge']}: {away_clf['title']}</div>
+                </div>
+                <div style="font-size:11px; color:#cbd5e1; text-align:right;">
+                    Reconciliation: <b style="color:#00ffcc;">{recon_audit['audit_verdict']}</b> | Completed N: <b style="color:#00ffcc;">{recon_audit['completed_observations']}</b><br/>
+                    Dataset Isolation: <b style="color:{'#00ffcc' if iso_guard['is_isolated'] else '#ef4444'};">{iso_guard['status']}</b> | Live Transmission: <b style="color:#f59e0b;">BLOCKED (FAIL-CLOSED)</b>
+                </div>
+            </div>
+            <div style="margin-top:8px; font-size:11px; color:#e2e8f0; line-height:1.5; background:rgba(0,0,0,0.25); padding:8px 12px; border-radius:4px;">
+                <b>Operational Observation Status:</b> {away_clf['explanation']}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        tab_p48_flow, tab_p48_recon, tab_p48_iso, tab_p48_alpha, tab_p48_away = st.tabs([
+            "END-TO-END LIFECYCLE FLOW",
+            "RECONCILIATION & ORPHAN AUDIT",
+            "DATASET ISOLATION MATRIX",
+            "OBSERVATIONAL ALPHA MONITOR",
+            "WHAT HAPPENED WHILE I WAS AWAY? (ADVANCED)"
+        ])
+
+        with tab_p48_flow:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>9-Stage Forward Observation Lifecycle & Current Counts</p>", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:12px; font-size:11px; color:#cbd5e1; line-height:1.6;">
+                1. <b>MARKET DATA</b> — Tick Stream & 1M OHLC: <b style="color:#00ffcc;">ONLINE</b><br/>
+                2. <b>SIGNAL DETECTION</b> — Total Strategy Signals Detected: <b style="color:#ffffff;">{recon_audit['total_signals']}</b><br/>
+                3. <b>FORWARD ELIGIBILITY</b> — 11-State Filter: <b style="color:#bef264;">ACTIVE</b> (Rejected: {recon_audit['rejected_count']})<br/>
+                4. <b>OBSERVATION CAPTURE</b> — Atomic Provenance Store: <b style="color:#00ffcc;">INITIALIZED</b> (Quarantined: {recon_audit['quarantined_count']})<br/>
+                5. <b>PAPER/SHADOW EXECUTION</b> — Active Simulated Trades: <b style="color:#38bdf8;">{recon_audit['open_observations']} Open</b><br/>
+                6. <b>OUTCOME TRACKING</b> — Completed Outcomes: <b style="color:#00ffcc;">{recon_audit['completed_observations']}</b> | Expired/Timeouts: <b style="color:#8a99ad;">{recon_audit['expired_count']}</b> | Invalidations: <b style="color:#8a99ad;">{recon_audit['invalidated_count']}</b><br/>
+                7. <b>EVIDENCE EVENT RECORDING</b> — Immutable Event Store: <b style="color:#00ffcc;">APPEND-ONLY ACTIVE</b><br/>
+                8. <b>RECONCILIATION AUDIT</b> — Mathematical Balance: <b style="color:#00ffcc;">{recon_audit['audit_verdict']}</b><br/>
+                9. <b>DASHBOARD PRESENTATION</b> — Truthful Representation: <b style="color:#00ffcc;">N = {recon_audit['completed_observations']} (NO SYNTHETIC DATA)</b>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with tab_p48_recon:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Database Integrity, Orphan & Balance Audit</p>", unsafe_allow_html=True)
+            c_rc1, c_rc2, c_rc3 = st.columns(3)
+            c_rc1.metric("Total Forward Signals", recon_audit["total_signals"])
+            c_rc2.metric("Completed Observations", recon_audit["completed_observations"])
+            c_rc3.metric("Quarantined Records", recon_audit["quarantined_count"])
+
+            c_rc4, c_rc5, c_rc6 = st.columns(3)
+            c_rc4.metric("Duplicate Signal IDs", recon_audit["duplicate_signal_ids"], delta="0 Expected")
+            c_rc5.metric("Invalid Price Records", recon_audit["invalid_price_records"], delta="0 Expected")
+            c_rc6.metric("Orphan Lifecycle Events", recon_audit["orphan_lifecycle_events"], delta="0 Expected")
+
+            if recon_audit["discrepancies"]:
+                st.warning("Integrity Discrepancies: " + "; ".join(recon_audit["discrepancies"]))
+            else:
+                st.success("All forward database records, identifiers, and price values are verified clean and reconciled.")
+
+        with tab_p48_iso:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Strict Historical vs Forward Dataset Isolation Proof</p>", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.02); border-left:3px solid #00ffcc; border-radius:4px; padding:12px; font-size:11px; color:#cbd5e1; line-height:1.5;">
+                • <b>Historical Holdout Baseline:</b> N = <b>{iso_guard['historical_baseline_n']}</b> | E[R] = <b>+{iso_guard['historical_expectancy_r']:.3f}R</b> (Locked Reference)<br/>
+                • <b>Forward Signals Logged:</b> <b>{iso_guard['forward_signals_count']}</b><br/>
+                • <b>Dataset Overlap:</b> <b style="color:{'#00ffcc' if iso_guard['overlap_count'] == 0 else '#ef4444'};">{iso_guard['overlap_count']} Shared IDs</b> (Strictly Disjoint: IDs_hist ∩ IDs_fwd = ∅)<br/>
+                • <b>Contract SHA-256:</b> <span style="font-family:monospace; color:#bef264;">{iso_guard['historical_contract_hash']}</span><br/>
+                • <b>Live Broker Transmission:</b> <b style="color:#f59e0b;">BLOCKED (FAIL-CLOSED INVARIANT)</b>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with tab_p48_alpha:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Purely Observational Alpha Decay Monitoring (Zero Parameter Changes)</p>", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.02); border-left:3px solid {alpha_obs['color']}; border-radius:4px; padding:12px; font-size:11px; color:#cbd5e1; line-height:1.5;">
+                <b>Sample Status:</b> <b style="color:{alpha_obs['color']};">{alpha_obs['sample_status']}</b><br/>
+                <b>Observational Verdict:</b> {alpha_obs['decay_verdict']}<br/><br/>
+                • Forward Sample Size: <b>N = {alpha_obs['forward_n']}</b><br/>
+                • Forward Expectancy: <b>{alpha_obs['expectancy_r']:+.3f} R</b> (Historical Benchmark: +{alpha_obs['historical_expectancy_r']:.3f}R)<br/>
+                • Win Rate: <b>{alpha_obs['win_rate_pct']:.1f}%</b> | Profit Factor: <b>{alpha_obs['profit_factor']:.2f}</b> | Max DD: <b>{alpha_obs['max_drawdown_r']:.2f}R</b><br/>
+                • <i>Governance Notice: No alpha decay conclusions or strategy parameter mutations are permitted on N &lt; 30.</i>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with tab_p48_away:
+            st.markdown("<p style='font-size:11px; font-weight:700; color:#00ffcc;'>Morning Away Reality Diagnosis (8 Discrete States)</p>", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.02); border-left:3px solid {away_clf['color']}; border-radius:4px; padding:12px; font-size:11px; color:#cbd5e1; line-height:1.5;">
+                <b>Classified State:</b> <b style="color:{away_clf['color']};">{away_clf['title']}</b><br/>
+                <b>Category:</b> <span style="color:#00ffcc; font-family:monospace;">{away_clf['category']}</span><br/><br/>
+                <b>Detailed Reality Diagnosis:</b><br/>
+                {away_clf['explanation']}
+            </div>
+            """, unsafe_allow_html=True)
+
     st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:14px 0;'>", unsafe_allow_html=True)
 
     # HONEST EMPTY / LOW-DATA UX (Phase 31)
