@@ -1,6 +1,6 @@
 # PROJECT STATE & ARCHITECTURAL RECORD
 **TradeLogger Terminal - Living System Memory**
-*Last Updated: 2 September 2026, Session 40 (FastAPI Migration Stage 3.5A–3.5D read-path latency optimization — snapshot/preferences/positions, watchlist, risk preview, and forward-evidence endpoints)*
+*Last Updated: 2 September 2026, Session 41 (React SPA Migration Stages 4–11 complete + Stage 10 Final Integration/Performance Gate; currency-aware FX risk sizing fix)*
 
 > **HOW TO USE THIS FILE**
 > Start any new AI session with: *"Read PROJECT_STATE.md and continue where we left off."*
@@ -204,16 +204,20 @@ A professional-grade **trading research, journaling, and execution terminal** bu
 ---
 
 ## 6. Full Test Suite Regression Benchmark
- 
+
 ```bash
 =========================== test session starts ===========================
-platform win32 -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0
-rootdir: C:\Users\Thyrex 2.0\Desktop\Trade_Logger
+platform win32 -- Python 3.14.7, pytest-9.1.1
 
-tests/test_phase11_*.py through test_phase62_*.py
-=========== 822 passed, 2 skipped, 67 warnings in 549.86s (0:09:09) ===========
+tests/  (tracked suite: phases 11–62, FastAPI Stage 2/3/3.5, React migration
+         adapters Stage 10/11, forex position sizing)
+=========== 898 passed, 2 skipped, 0 failed in 75s ===========
 ```
-*(Total test cases across root backtester and test directory: **822 passed, 2 skipped, 0 failed** across all 62 engineering phases).*
+*(Tracked `tests/` directory: **898 passed, 2 skipped, 0 failed**. A full-tree run
+also collects two gitignored root-level scratch files — `test_backtester.py::test_lot_rounding`
+and `test_ws.py::test_websocket_stream` — which fail for pre-existing, migration-unrelated
+reasons: an untouched backtester rounding assertion and a missing `pytest-asyncio`
+registration. See `docs/STAGE_10_FINAL_INTEGRATION_PERFORMANCE_GATE.md` §4.)*
 
 ---
 
@@ -263,3 +267,88 @@ so UI polling can no longer manufacture duplicate audit records.
 
 
 
+
+---
+
+## 9. React SPA Migration (Stages 4–11) & Stage 10 Final Integration Gate
+
+**Architecture:** `React 19 + TypeScript + Vite + Tailwind (frontend/)` → typed
+`fetch` API client → **FastAPI adapter** (`api/`, run on :8000 / :8010 in dev) →
+authoritative Python engines → SQLite/Postgres. React is presentation only; the
+adapter reproduces no calculation, research, evidence, risk or safety logic.
+Streamlit (`app.py`, :8501) remains the operational golden reference and was not
+modified by any migration stage.
+
+**Migrated surfaces (all sidebar items `status: 'live'`, no placeholder pages left):**
+
+| Stage | Commit | Surface |
+| :-- | :-- | :-- |
+| 4 | `f4501ff` | React foundation + health screen |
+| 5 | `5fbf8f2` | App shell, 4-zone navigation, Ctrl/Cmd+K command palette, telemetry ribbon |
+| 6 | `854af3a` | Watchlist + Market Snapshot (`/workspace`, `/workspace/market`) |
+| 7 | `960acb7` | Risk Gateway + lot-size calculator (`/workspace/risk`) — `POST /api/risk/preview`, calculation-only |
+| 8 | `0396d5e` | Market Intelligence command center + Asset Intelligence + Opportunity Map + Economic Heatmap (`/research/intelligence`, `/research/intelligence/asset/:symbol`) |
+| 9 | `b40450b` | Forward Evidence + Statistical Surveillance + Governance (`/evidence`, `/evidence/{forward,statistics,governance}`) — widened `/api/forward-evidence/state` pass-through |
+| 10* | `6af8f7c` | Strategy Lab + Backtesting (`/research/strategy`, `/research/backtest`) — new adapter `GET /api/research/strategy`, `POST /api/research/backtest` (research-only, fail-closed) |
+| 11* | `c478dba` | Positions + Journal + Audit + Operations overview + System Health (`/workspace/positions`, `/operations`, `/operations/{journal,audit,system}`) — new adapter `GET /api/operations/{journal,audit,system}` |
+| risk fix | `d23a54f` | Currency-aware FX position sizing & margin in `risk_gateway.py` (see below) |
+| Gate | *(this session)* | Stage 10 final integration / performance / regression / parity / safety audit — `docs/STAGE_10_FINAL_INTEGRATION_PERFORMANCE_GATE.md` |
+
+\* The user's incremental master-prompt numbering; the roadmap in
+`docs/REACT_MIGRATION_AUDIT.md` §6 folds these into its Stages 8–9 plus the final
+gate (its "STAGE 10").
+
+**FastAPI adapter endpoints (18 total):** 14 GET (health, watchlist, market
+snapshot, preferences, 4× intelligence, positions, forward-evidence state, 3×
+operations, research strategy), `PUT /api/preferences` (UI layout only — predates
+the migration), `POST /api/risk/preview` (calculation-only), `POST /api/research/backtest`
+(research-only). **No order / execute / close / modify / cancel / transmit /
+automation endpoint exists.**
+
+**Stage 10 gate result — ✅ PASS:**
+- Backend regression: tracked `tests/` = **898 passed, 2 skipped, 0 failed**; the
+  2 full-tree failures are gitignored scratch files, pre-existing and unrelated.
+- Frontend: `tsc -b` clean; production build clean (431.81 kB JS / 119.20 kB gzip;
+  no chart lib, no Axios/React-Query/Redux/Zustand/WebSockets).
+- Browser QA: 18/18 routes render with real backend data, **0 console errors, 0
+  exceptions**, no body overflow at 1920/1440/1280/390.
+- Network QA: no N+1, no fetch loops, no per-keystroke filter requests, no runaway
+  polling; hidden-tab polling stops; `AbortController` + request-id race guards;
+  StrictMode does not double-submit; no non-GET request on any route load.
+- Safety QA: `LIVE_AUTOMATION_ENABLED = False`, `LIVE_BROKER_TRANSMISSION = BLOCKED`
+  verified on `/api/health` and `/api/operations/system`; full-DOM execution-control
+  scan across all routes found only the Risk Gateway `BUY`/`SELL` `role="radio"`
+  calculation-direction toggle (transmits nothing).
+- Golden-reference parity: risk preview, positions count, journal count, evidence
+  `sample_n`, contract hash and safety flags are byte-identical between the Python
+  engine and the FastAPI adapter; `:8501/_stcore/health` → `ok`.
+- Performance (dev, warm, median): intelligence / evidence / risk-preview /
+  watchlist / snapshot / positions / research-strategy read paths are all
+  **3–8 ms**. `/api/operations/audit` (~1.4 s) and `/api/operations/system`
+  (~0.7 s) are uncached Stage 11 endpoints — **deferred** to a future Stage 3.5-style
+  bounded-TTL-cache sub-stage (frontend already throttles them: 60 s / 20 s poll,
+  hidden-paused, 12 s module cache).
+
+### 9.1 Currency-aware FX risk sizing fix (`d23a54f`)
+
+**Root cause:** `risk_gateway.calculate_pre_trade_risk_preview()` treated a
+stop-distance P/L denominated in the pair's **quote** currency as USD. For USDJPY
+(quote = JPY) this over-stated risk ~160×, sizing 0.01 lots for a 3% / $300 budget
+and reporting "$434 / 4.34%"; margin used a hardcoded 1:30 leverage on an
+`entry × units` (JPY) notional → the bogus "$5,316" figure.
+
+**Fix (adapter-side helpers in `risk_gateway.py`, reusing `symbol_mapping.CANONICAL_SYMBOLS`
+and `instrument_specs.DEFAULT_SPECS` — no per-symbol constants):**
+- `quote_ccy_to_usd_factor(symbol, price)` → `1.0` when quote == USD;
+  `1.0 / price` when base == USD (USD/XXX); static spec estimate + warning for
+  non-USD crosses.
+- Sizing: `lots = target_risk_usd / (sl_distance × contract_size × quote→USD factor)`
+  referenced at the entry price (consistent with the execution gate).
+- Margin: `USD notional × instrument_specs.margin_factor` (0.01 = 1:100 for FX),
+  where USD notional is `lots × contract_size` for USD-base pairs.
+- `evaluate_trade_risk()` routed through the same helper — identical output for
+  USD-base and USD-quote pairs, only non-USD crosses now converted.
+
+**Regression-locked:** USDJPY SELL 159.487 / 159.921 / $10k / 3% → **1.10 lots,
+$299.33 risk, 2.99%, $1,100 margin**. EURUSD sizing unchanged (0.20 lots, $100,
+1.0%, reward $200). Tests: `tests/test_forex_position_sizing.py` (12).
