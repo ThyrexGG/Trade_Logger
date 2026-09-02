@@ -9,17 +9,18 @@ import {
 } from '../components/operations/primitives'
 
 /**
- * Trade journal (`/operations/journal`). Read-only over the authoritative
- * `closed_trades` table. Client-side filtering; no journal-write endpoint
- * exists so nothing can be created or edited here.
+ * Trade journal (`/operations/journal`). Read view over the authoritative
+ * `closed_trades` table with client-side filtering. The subjective annotation
+ * fields (setup tag / notes / chart snapshot) are editable in place via
+ * `PATCH /api/operations/journal/{trade_id}`; execution facts stay immutable.
  */
 export function JournalPage() {
-  const { state, data, error, refreshing, refetch } = useJournal()
+  const { state, data, error, refreshing, refetch, applyEntry } = useJournal()
 
   return (
     <PageContainer
       title="Trade Journal"
-      description="Closed-trade record with subjective setup tags, notes and ratings. Read-only."
+      description="Closed-trade record with editable setup tags, notes and chart snapshots. Execution facts are immutable."
       actions={
         <div className="flex flex-wrap items-center gap-2">
           {refreshing ? <span className="text-[11px] text-muted" aria-live="polite">Refreshing…</span> : null}
@@ -54,14 +55,15 @@ export function JournalPage() {
               </p>
             ) : null}
             <JournalSummary data={data} />
-            <JournalView data={data} />
+            <JournalView data={data} onEntryUpdated={applyEntry} />
           </>
         ) : null}
 
         <p className="border-t border-border-subtle pt-3 text-[11px] text-muted">
-          Journal records keep their authoritative account / source. Not exposed
-          by the current API: journal creation / editing, per-entry screenshots,
-          free-form annotations beyond the note field, and tag management.
+          Journal records keep their authoritative account / source. Editable:
+          setup tag, notes, chart-snapshot URL. Not exposed by the current API:
+          journal creation / deletion, star rating, and file-upload screenshots
+          (paste a URL instead). Nothing here can submit or transmit an order.
         </p>
       </div>
     </PageContainer>

@@ -22,7 +22,8 @@ def test_journal_matches_closed_trades_table():
 
     df = database.get_closed_trades()
     assert d["total_trades"] == len(df)
-    assert d["writable"] is False
+    # Stage 12: the annotation fields are now editable via PATCH /journal/{id}
+    assert d["writable"] is True
     assert d["source"] == "closed_trades"
     assert d["wins"] + d["losses"] <= d["total_trades"]
     if d["entries"]:

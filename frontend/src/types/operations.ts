@@ -29,6 +29,26 @@ export interface JournalTradeItem {
   chart_snapshot_url: string | null
 }
 
+/**
+ * Editable journal annotations (Stage 12). Mirrors the legacy Streamlit
+ * "Log & Review Trade Setup" form. Every execution / trade fact is immutable
+ * and is rejected by the backend as an unknown field.
+ */
+export interface JournalUpdateRequest {
+  setup_tag?: string
+  notes?: string
+  chart_snapshot_url?: string
+}
+
+export interface JournalUpdateResponse {
+  entry: JournalTradeItem
+  updated_fields: string[]
+  writable: boolean
+  source: string
+  live_broker_transmission: string
+  timestamp: string
+}
+
 export interface JournalResponse {
   entries: JournalTradeItem[]
   total_trades: number

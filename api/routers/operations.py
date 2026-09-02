@@ -15,20 +15,23 @@ broker. `sqlite3` placeholders are handled for both SQLite and Postgres.
 import math
 import sqlite3
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Mapping, Optional
 
 import pandas as pd
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Path, Query
 
 import database
 from api.schemas import (
     JournalResponse,
     JournalTradeItem,
+    JournalUpdateRequest,
+    JournalUpdateResponse,
     AuditResponse,
     AuditOrderItem,
     OperationsSystemResponse,
     SystemSafetyGate,
     ReconciliationHealth,
+    _JOURNAL_EDITABLE_FIELDS,
 )
 
 router = APIRouter(prefix="/api/operations", tags=["Operations"])
@@ -61,6 +64,58 @@ def _num_or_none(value: Any):
 
 # --- Journal --------------------------------------------------------------
 
+def _placeholder(conn: Any) -> str:
+    is_sq = isinstance(conn, sqlite3.Connection) or type(conn).__module__.startswith("sqlite3")
+    return "?" if is_sq else "%s"
+
+
+def _journal_item(r: Mapping[str, Any]) -> JournalTradeItem:
+    """Serialize one `closed_trades` row (dict or pandas row) into the schema."""
+    rating_raw = r.get("rating")
+    try:
+        rating = int(rating_raw) if rating_raw is not None and str(rating_raw) != "nan" else None
+    except (TypeError, ValueError):
+        rating = None
+    return JournalTradeItem(
+        trade_id=_s(r.get("trade_id")) or "",
+        account_id=_s(r.get("account_id")) or "UNKNOWN",
+        symbol=(_s(r.get("symbol")) or "").upper(),
+        direction=(_s(r.get("direction")) or "").upper(),
+        volume=_f(r.get("volume")),
+        entry_price=_f(r.get("entry_price")),
+        exit_price=_f(r.get("exit_price")),
+        commission=_f(r.get("commission")),
+        swap=_f(r.get("swap")),
+        gross_profit=_f(r.get("gross_profit")),
+        net_profit=_f(r.get("net_profit")),
+        entry_time=_s(r.get("entry_time")) or "",
+        exit_time=_s(r.get("exit_time")) or "",
+        duration_minutes=_f(r.get("duration_minutes")),
+        setup_tag=_s(r.get("setup_tag")),
+        notes=_s(r.get("notes")),
+        rating=rating,
+        chart_snapshot_url=_s(r.get("chart_snapshot_url")),
+    )
+
+
+def _fetch_journal_row(trade_id: str) -> Optional[Dict[str, Any]]:
+    """Read one closed trade straight from the DB (bypasses the read cache)."""
+    conn = database.get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT * FROM closed_trades WHERE trade_id = {_placeholder(conn)}",
+            (trade_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        cols = [c[0] for c in cur.description]
+        return dict(zip(cols, row))
+    finally:
+        conn.close()
+
+
 @router.get("/journal", response_model=JournalResponse)
 def get_journal() -> JournalResponse:
     """
@@ -84,31 +139,7 @@ def get_journal() -> JournalResponse:
                 losses += 1
             acc = _s(r.get("account_id")) or "UNKNOWN"
             accounts.add(acc)
-            rating_raw = r.get("rating")
-            try:
-                rating = int(rating_raw) if rating_raw is not None and str(rating_raw) != "nan" else None
-            except (TypeError, ValueError):
-                rating = None
-            entries.append(JournalTradeItem(
-                trade_id=_s(r.get("trade_id")) or "",
-                account_id=acc,
-                symbol=(_s(r.get("symbol")) or "").upper(),
-                direction=(_s(r.get("direction")) or "").upper(),
-                volume=_f(r.get("volume")),
-                entry_price=_f(r.get("entry_price")),
-                exit_price=_f(r.get("exit_price")),
-                commission=_f(r.get("commission")),
-                swap=_f(r.get("swap")),
-                gross_profit=_f(r.get("gross_profit")),
-                net_profit=net,
-                entry_time=_s(r.get("entry_time")) or "",
-                exit_time=_s(r.get("exit_time")) or "",
-                duration_minutes=_f(r.get("duration_minutes")),
-                setup_tag=_s(r.get("setup_tag")),
-                notes=_s(r.get("notes")),
-                rating=rating,
-                chart_snapshot_url=_s(r.get("chart_snapshot_url")),
-            ))
+            entries.append(_journal_item(r))
 
     return JournalResponse(
         entries=entries,
@@ -118,7 +149,50 @@ def get_journal() -> JournalResponse:
         total_net_profit=round(total_net, 2),
         accounts=sorted(accounts),
         source="closed_trades",
-        writable=False,
+        writable=True,
+        timestamp=datetime.now(timezone.utc).isoformat(),
+    )
+
+
+# --- Journal edit (Stage 12) --------------------------------------------
+# Migrates the legacy Streamlit "Log & Review Trade Setup" workflow
+# (`app.py` -> `database.update_trade_journal`) to the React SPA. Only the
+# subjective annotation fields are writable; every execution / trade fact is
+# immutable. This endpoint never submits, modifies, cancels or transmits an
+# order and touches no broker / execution code path.
+
+@router.patch("/journal/{trade_id}", response_model=JournalUpdateResponse)
+def patch_journal(
+    payload: JournalUpdateRequest,
+    trade_id: str = Path(..., min_length=1, max_length=128),
+) -> JournalUpdateResponse:
+    """
+    Update the subjective journal annotations (`setup_tag`, `notes`,
+    `chart_snapshot_url`) of one existing closed trade. Unknown fields are
+    rejected (422); a missing trade is 404. Persistence is delegated to the
+    authoritative `database.update_trade_journal` helper — no SQL is duplicated
+    here. Returns the re-read authoritative journal record.
+    """
+    if _fetch_journal_row(trade_id) is None:
+        raise HTTPException(status_code=404, detail=f"Trade '{trade_id}' not found in closed_trades")
+
+    provided = payload.model_dump(exclude_none=True)
+    kwargs: Dict[str, Any] = {}
+    for field in _JOURNAL_EDITABLE_FIELDS:
+        if field in provided:
+            value = provided[field]
+            kwargs[field] = value.strip() if isinstance(value, str) and field != "notes" else value
+
+    database.update_trade_journal(trade_id=trade_id, **kwargs)
+    database.invalidate_db_cache("closed_trades")
+
+    updated = _fetch_journal_row(trade_id)
+    if updated is None:  # pragma: no cover - row cannot vanish between calls
+        raise HTTPException(status_code=404, detail=f"Trade '{trade_id}' disappeared during update")
+
+    return JournalUpdateResponse(
+        entry=_journal_item(updated),
+        updated_fields=list(kwargs.keys()),
         timestamp=datetime.now(timezone.utc).isoformat(),
     )
 

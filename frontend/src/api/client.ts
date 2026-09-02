@@ -96,4 +96,34 @@ export async function apiPost<T>(
   return (await response.json()) as T
 }
 
+export async function apiPatch<T>(
+  path: string,
+  body: unknown,
+  init?: RequestInit,
+): Promise<T> {
+  const url = `${API_BASE_URL}${path}`
+
+  let response: Response
+  try {
+    response = await fetch(url, {
+      method: 'PATCH',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      ...init,
+    })
+  } catch (cause) {
+    throw new ApiError(`Network error contacting API at ${url}`, 0, { cause })
+  }
+
+  if (!response.ok) {
+    const detail = await readErrorDetail(response)
+    throw new ApiError(
+      detail ?? `API request to ${path} failed with ${response.status}`,
+      response.status,
+    )
+  }
+
+  return (await response.json()) as T
+}
+
 export { API_BASE_URL }

@@ -1,6 +1,6 @@
 # PROJECT STATE & ARCHITECTURAL RECORD
 **TradeLogger Terminal - Living System Memory**
-*Last Updated: 2 September 2026, Session 41 (React SPA Migration Stages 4–11 complete + Stage 10 Final Integration/Performance Gate; currency-aware FX risk sizing fix)*
+*Last Updated: 2 September 2026, Session 42 (React SPA Migration Stages 4–11 + Stage 10 Final Integration/Performance Gate; currency-aware FX risk sizing fix; Streamlit retirement evaluation; Stage 12 journal-edit migration)*
 
 > **HOW TO USE THIS FILE**
 > Start any new AI session with: *"Read PROJECT_STATE.md and continue where we left off."*
@@ -387,3 +387,34 @@ power-user console for research / alerts / analytics / paper execution. Next ste
 is a product-scope decision by the owner (keep the 7 workflows in Streamlit
 permanently, or migrate them in bounded units starting with a journal-write
 endpoint, then alerts, then analytics). No deletion authorized in this stage.
+
+### 9.3 Stage 12 — Journal edit migration (first bounded migration unit)
+
+Full detail: `docs/STAGE_12_JOURNAL_EDIT_MIGRATION.md`. Migrates the legacy
+Streamlit "Log & Review Trade Setup" workflow to the React SPA — the **first**
+of the bounded migration units named in §9.2.
+
+- **New endpoint:** `PATCH /api/operations/journal/{trade_id}` — thin adapter
+  over the authoritative `database.update_trade_journal`; no SQL duplicated.
+- **Editable (annotations only):** `setup_tag`, `notes`, `chart_snapshot_url` —
+  exactly the fields the Streamlit form writes. **Immutable** (rejected 422 via
+  `extra="forbid"`): symbol, side, prices, volume, timestamps, P&L, ids, rating.
+  Unknown trade → 404; empty / all-null payload → 422.
+- **React:** `/operations/journal` gains an in-place per-row editor
+  (edit / save / cancel, loading + error states, sends only changed fields,
+  duplicate-submit guarded). PATCH response is spliced into the cached list —
+  no refetch, no polling change. Journal `useJournal` hook now exposes
+  `applyEntry`; `JournalResponse.writable` is now `true`.
+- **Safety:** the endpoint touches no broker / execution code path. Verified —
+  `automation_enabled=False`, `broker_transmission=BLOCKED` unchanged after
+  edits; no `execution_orders` row written; `open_positions` unchanged.
+- **Tests:** `tests/test_stage12_journal_edit.py` (24 cases: success, 404,
+  validation, unknown-field rejection, immutability, round-trip, GET-reflects,
+  no-execution). Full suite **921 passed, 2 skipped, 0 failed**. `tsc -b` +
+  production build clean (436.50 kB JS / 120.47 kB gzip). Browser smoke: edit
+  → PATCH 200 → editor closes → value visible; 0 console errors.
+- **Still deferred** (unchanged): Price Alerts, Analytics, Daily Command Center,
+  Research Lab, AI Assistant, paper execution. Not migrated here.
+- **Pre-existing latent bug noted (out of scope):** `api/routers/positions.py:34`
+  does an unguarded `float(pos.get("tp", 0.0))` that raises `TypeError` when an
+  open position has a NULL `tp`; only surfaces under random test ordering.

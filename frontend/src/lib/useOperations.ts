@@ -3,6 +3,7 @@ import { getAudit, getJournal, getSystemOps } from '../api/operations'
 import type {
   AuditResponse,
   JournalResponse,
+  JournalTradeItem,
   OperationsSystemResponse,
 } from '../types/operations'
 import type { LoadState } from './useWatchlist'
@@ -13,6 +14,8 @@ export interface OpsResource<T> {
   error: string | null
   refreshing: boolean
   refetch: () => void
+  /** Apply an authoritative payload locally (e.g. from a PATCH response) without a refetch. */
+  setLocal: (updater: (prev: T | null) => T | null) => void
 }
 
 interface CacheSlot {
@@ -47,6 +50,21 @@ function useOpsResource<T>(
   const hasData = useRef(Boolean(slot?.data))
 
   const refetch = useCallback(() => setNonce((n) => n + 1), [])
+
+  const setLocal = useCallback(
+    (updater: (prev: T | null) => T | null) => {
+      setData((prev) => {
+        const next = updater(prev)
+        if (next != null) {
+          const slot = cache.get(key)
+          cache.set(key, { data: next, error: slot?.error ?? null, at: Date.now() })
+          hasData.current = true
+        }
+        return next
+      })
+    },
+    [key],
+  )
 
   useEffect(() => {
     let disposed = false
@@ -102,12 +120,33 @@ function useOpsResource<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nonce])
 
-  return { state, data, error, refreshing, refetch }
+  return { state, data, error, refreshing, refetch, setLocal }
 }
 
-/** Read-only trade journal (`closed_trades`). Slow refresh — journal changes rarely. */
-export function useJournal(): OpsResource<JournalResponse> {
-  return useOpsResource('journal', (s) => getJournal(s), 60_000)
+export interface JournalResource extends OpsResource<JournalResponse> {
+  /** Splice an authoritative updated entry (from a PATCH response) into the list. */
+  applyEntry: (entry: JournalTradeItem) => void
+}
+
+/** Trade journal (`closed_trades`). Slow refresh — journal changes rarely.
+ *  Annotation fields (setup_tag / notes / chart_snapshot_url) are editable via PATCH. */
+export function useJournal(): JournalResource {
+  const base = useOpsResource('journal', (s) => getJournal(s), 60_000)
+  const applyEntry = useCallback(
+    (entry: JournalTradeItem) => {
+      base.setLocal((prev) =>
+        prev
+          ? {
+              ...prev,
+              entries: prev.entries.map((e) => (e.trade_id === entry.trade_id ? entry : e)),
+              timestamp: new Date().toISOString(),
+            }
+          : prev,
+      )
+    },
+    [base],
+  )
+  return { ...base, applyEntry }
 }
 
 /** Read-only execution audit trail (`execution_orders`). */

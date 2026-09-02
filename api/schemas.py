@@ -4,7 +4,7 @@ TradeLogger FastAPI Pydantic Response & Request Schemas
 Stage 2 & Stage 3 Read-Only Vertical Slice Models
 """
 from typing import Dict, List, Optional, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 # -------------------------------------------------------------------------
@@ -596,7 +596,41 @@ class JournalResponse(BaseModel):
     total_net_profit: float
     accounts: List[str]
     source: str = "closed_trades"
-    writable: bool = False
+    writable: bool = True
+    timestamp: str
+
+
+# --- Journal edit (Stage 12) -----------------------------------------------
+# Only the subjective annotation fields the legacy Streamlit journal edits
+# (`database.update_trade_journal`) are writable. Every execution / trade fact
+# (symbol, side, prices, volume, timestamps, P&L, ids) is immutable and is
+# rejected as an unknown field by `extra="forbid"`.
+_JOURNAL_EDITABLE_FIELDS = ("setup_tag", "notes", "chart_snapshot_url")
+
+
+class JournalUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    setup_tag: Optional[str] = Field(default=None, max_length=120)
+    notes: Optional[str] = Field(default=None, max_length=20_000)
+    chart_snapshot_url: Optional[str] = Field(default=None, max_length=3_000_000)
+
+    @model_validator(mode="after")
+    def _at_least_one_field(self) -> "JournalUpdateRequest":
+        if all(getattr(self, f) is None for f in _JOURNAL_EDITABLE_FIELDS):
+            raise ValueError(
+                "provide at least one editable field: "
+                + ", ".join(_JOURNAL_EDITABLE_FIELDS)
+            )
+        return self
+
+
+class JournalUpdateResponse(BaseModel):
+    entry: JournalTradeItem
+    updated_fields: List[str]
+    writable: bool = True
+    source: str = "closed_trades"
+    live_broker_transmission: str = "BLOCKED"
     timestamp: str
 
 
