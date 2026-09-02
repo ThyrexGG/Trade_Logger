@@ -14,6 +14,7 @@ import { StrategyLabPage } from './pages/StrategyLabPage'
 import { BacktestWorkspacePage } from './pages/BacktestWorkspacePage'
 import { PositionsPage } from './pages/PositionsPage'
 import { PriceAlertsPage } from './pages/PriceAlertsPage'
+import { AnalyticsPage } from './pages/AnalyticsPage'
 import { JournalPage } from './pages/JournalPage'
 import { AuditPage } from './pages/AuditPage'
 import { OperationsOverviewPage } from './pages/OperationsOverviewPage'
@@ -28,6 +29,7 @@ const LIVE_ITEM_PAGES: Record<string, ReactElement> = {
   'workspace.risk': <RiskGatewayPage />,
   'workspace.positions': <PositionsPage />,
   'workspace.alerts': <PriceAlertsPage />,
+  'workspace.analytics': <AnalyticsPage />,
   'research.intelligence': <IntelligencePage />,
   'research.strategy': <StrategyLabPage />,
   'research.backtest': <BacktestWorkspacePage />,

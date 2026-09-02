@@ -85,6 +85,14 @@ export const ZONES: Zone[] = [
         icon: BellIcon,
         status: 'live',
       },
+      {
+        id: 'workspace.analytics',
+        label: 'Analytics',
+        description: 'Filtered trading performance over the closed-trade journal.',
+        path: '/workspace/analytics',
+        icon: ChartIcon,
+        status: 'live',
+      },
     ],
   },
   {

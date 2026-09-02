@@ -760,3 +760,119 @@ class AlertDeleteResponse(BaseModel):
     deleted: bool = True
     alert_id: int
     timestamp: str
+
+
+# -------------------------------------------------------------------------
+# 12. Analytics Schemas (Stage 14) — read-only. Thin adapter over the
+#     authoritative `analytics.calculate_performance_metrics` + the
+#     `closed_trades` table. GET-only, no execution / broker / order path.
+# -------------------------------------------------------------------------
+class SymbolPnl(BaseModel):
+    symbol: str
+    net_profit: float
+
+
+class DirectionStats(BaseModel):
+    trades: int
+    win_rate: float
+    pnl: float
+
+
+class PerformanceMetrics(BaseModel):
+    """Faithful mirror of `analytics.calculate_performance_metrics` output."""
+    total_trades: int
+    winning_trades: int
+    losing_trades: int
+    break_even_trades: int
+    win_rate: float
+    loss_rate: float
+    total_net_pnl: float
+    total_gross_profit: float
+    total_gross_loss: float
+    profit_factor: float
+    avg_win: float
+    avg_loss: float
+    win_loss_ratio: float
+    expectancy: float
+    max_drawdown_usd: float
+    max_drawdown_pct: float
+    sqn: float
+    gain_pct: float
+    final_balance: float
+    peak_balance: float
+    avg_duration_minutes: float
+    long_stats: DirectionStats
+    short_stats: DirectionStats
+    best_trade: float
+    worst_trade: float
+    best_symbols: List[SymbolPnl]
+    worst_symbols: List[SymbolPnl]
+
+
+class EquityAnchor(BaseModel):
+    time: str
+    equity: float
+    net_profit: float
+    symbol: str
+
+
+class DailyPnl(BaseModel):
+    date: str
+    net_profit: float
+    trades: int
+
+
+class SymbolBreakdownRow(BaseModel):
+    symbol: str
+    net_profit: float
+    trades: int
+    wins: int
+    win_rate: float
+
+
+class TagBreakdownRow(BaseModel):
+    setup_tag: str
+    net_profit: float
+    trades: int
+
+
+class PeriodReturns(BaseModel):
+    """P&L windows relative to *now* (matches the Streamlit implementation)."""
+    avg_daily_pct: float
+    weekly_pct: float
+    monthly_pct: float
+    annualized_pct: float
+    weekly_pnl: float
+    monthly_pnl: float
+
+
+class AnalyticsFiltersEcho(BaseModel):
+    account: str
+    symbols: List[str]
+    start: Optional[str] = None
+    end: Optional[str] = None
+    initial_balance: float
+
+
+class AnalyticsAvailable(BaseModel):
+    accounts: List[str]
+    symbols: List[str]
+    date_min: Optional[str] = None
+    date_max: Optional[str] = None
+
+
+class AnalyticsPerformanceResponse(BaseModel):
+    metrics: PerformanceMetrics
+    equity_curve: List[EquityAnchor]
+    equity_curve_sampled: bool
+    daily_pnl: List[DailyPnl]
+    symbol_breakdown: List[SymbolBreakdownRow]
+    tag_breakdown: List[TagBreakdownRow]
+    period_returns: PeriodReturns
+    official_balance: Optional[float] = None
+    filters_applied: AnalyticsFiltersEcho
+    available: AnalyticsAvailable
+    matched_trades: int
+    source: str = "closed_trades"
+    live_broker_transmission: str = "BLOCKED"
+    timestamp: str

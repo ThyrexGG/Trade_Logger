@@ -1,6 +1,6 @@
 # PROJECT STATE & ARCHITECTURAL RECORD
 **TradeLogger Terminal - Living System Memory**
-*Last Updated: 2 September 2026, Session 43 (React SPA Migration Stages 4–11 + Stage 10 Final Integration/Performance Gate; currency-aware FX risk sizing fix; Streamlit retirement evaluation; Stage 12 journal-edit migration; Stage 13 price-alerts migration)*
+*Last Updated: 3 September 2026, Session 44 (React SPA Migration Stages 4–11 + Stage 10 Final Integration/Performance Gate; currency-aware FX risk sizing fix; Streamlit retirement evaluation; Stage 12 journal-edit; Stage 13 price-alerts; Stage 14 analytics migration)*
 
 > **HOW TO USE THIS FILE**
 > Start any new AI session with: *"Read PROJECT_STATE.md and continue where we left off."*
@@ -458,3 +458,46 @@ Full detail: `docs/STAGE_13_PRICE_ALERTS_MIGRATION.md`. Migrates the Streamlit
   symbols, alert editing, per-account alerts.
 - **Still deferred:** Analytics, Daily Command Center, Research Lab, AI
   Assistant, paper execution.
+
+### 9.5 Stage 14 — Analytics migration (third bounded migration unit)
+
+Full detail: `docs/STAGE_14_ANALYTICS_MIGRATION.md`. Migrates the Streamlit
+"ANALYTICS & OVERVIEW" tab (`app.py:1882–2470`) to the React SPA.
+
+- **New router** `api/routers/analytics.py` — one GET endpoint
+  `GET /api/analytics/performance?account&symbols&start&end&initial_balance`.
+  Every headline metric comes from the authoritative
+  `analytics.calculate_performance_metrics` (no formula reimplemented); the
+  router only filters the `closed_trades` population (account / symbol / date,
+  exactly as the Streamlit page, incl. the `format="mixed"` date parse) and
+  shapes derived series: `equity_curve` (real anchors, ≤400 decimated),
+  `daily_pnl`, `symbol_breakdown`, `tag_breakdown`, `period_returns`,
+  `official_balance` (`database.get_account_balances`), plus `available`
+  (accounts / symbols / date range) so the filter UI needs no second request.
+- **Validation:** unknown account / symbol → 422; unparseable date → 422;
+  `start > end` → 422; `initial_balance <= 0` or non-finite → 422. GET-only
+  (POST/PUT/DELETE → 405). `research_analytics.py` is **not** imported (that
+  powers a different tab — a Research Lab unit).
+- **React:** new nav item `workspace.analytics` → `/workspace/analytics`
+  (`AnalyticsPage` + `components/analytics/AnalyticsControls.tsx` +
+  `AnalyticsView.tsx`): metric cards, equity `Sparkline` (reused, no new dep),
+  period returns, symbol/tag P&L bars, direction split, performance-index bars,
+  daily P&L bar series. `useAnalytics` = one aggregated GET, **300ms debounce**
+  on filter changes, `AbortController`, last-good retained on a rejected filter,
+  **no polling**. No calculation in the browser — only formatting.
+- **Parity:** all `calculate_performance_metrics` fields byte-verified equal
+  (`test_metrics_match_canonical_function`, unfiltered + filtered). Intentional
+  presentation-only diffs: equity spline + synthetic baseline point dropped;
+  radar → bars; month-calendar grid → daily-P&L bar series (data still exposed).
+  Out of scope: "Sync MT5 / Sync Capital" ingestion buttons, research analytics.
+- **Safety:** no `execution_pipeline` / broker / risk file touched; router binds
+  no execution symbol; `automation_enabled=False`, `broker=BLOCKED`,
+  `execution_orders`, `open_positions` all unchanged.
+- **Tests:** `tests/test_stage14_analytics.py` (19 cases). Full suite
+  **967 passed, 2 skipped, 0 failed**. `tsc -b` + build clean (151 modules,
+  462.07 kB JS / 125.87 kB gzip). Browser smoke: real data + sparkline, symbol
+  filter → 1 debounced GET, `start>end` → 422 + warning strip + last-good kept,
+  GET-only, 0 console errors; 7-route regression clean.
+- **Remaining Streamlit-only:** Daily Command Center, Research Lab
+  (incl. `research_analytics.py`), AI Market Context, manual paper execution,
+  the notification-rules engine, the sync buttons, the calendar widget.
