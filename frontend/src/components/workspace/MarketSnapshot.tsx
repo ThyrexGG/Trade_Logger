@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import type { MarketSnapshot as MarketSnapshotData } from '../../types/market'
 import type { LoadState } from '../../lib/useWatchlist'
 import {
@@ -106,6 +107,12 @@ export function MarketSnapshot({
               cached
             </span>
           ) : null}
+          <Link
+            to={`/workspace/risk?symbol=${encodeURIComponent(symbol)}`}
+            className="rounded border border-border px-1.5 py-0.5 text-muted hover:border-border-subtle hover:text-primary"
+          >
+            Plan risk →
+          </Link>
         </div>
       </header>
 

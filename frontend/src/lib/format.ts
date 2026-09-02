@@ -46,3 +46,33 @@ export function ageSeconds(iso: string | undefined, now: number = Date.now()): n
   if (Number.isNaN(then)) return null
   return Math.max(0, (now - then) / 1000)
 }
+
+/** USD amount with sign and 2dp, e.g. "$1,005.67" / "-$42.00". */
+export function formatUsd(value: number): string {
+  if (!Number.isFinite(value)) return '—'
+  const sign = value < 0 ? '-' : ''
+  return `${sign}$${Math.abs(value).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`
+}
+
+/** Percentage with 2dp, e.g. "1.05%". */
+export function formatPercent(value: number): string {
+  if (!Number.isFinite(value)) return '—'
+  return `${value.toFixed(2)}%`
+}
+
+/** Lot size at the backend's 0.01 step. */
+export function formatLots(value: number): string {
+  if (!Number.isFinite(value)) return '—'
+  return value.toFixed(2)
+}
+
+/** Parses a user-entered number; returns null for blank / non-numeric. */
+export function parseNumberInput(raw: string): number | null {
+  const trimmed = raw.trim()
+  if (trimmed === '') return null
+  const n = Number(trimmed)
+  return Number.isFinite(n) ? n : null
+}

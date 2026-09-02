@@ -66,7 +66,7 @@ export const ZONES: Zone[] = [
         description: 'Position sizing and risk preview (calculation only).',
         path: '/workspace/risk',
         icon: ShieldIcon,
-        status: 'shell',
+        status: 'live',
       },
       {
         id: 'workspace.positions',

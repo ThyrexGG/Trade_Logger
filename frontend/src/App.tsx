@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/shell/AppShell'
 import { ALL_NAV_ITEMS } from './lib/navigation'
 import { MarketWorkspacePage } from './pages/MarketWorkspacePage'
+import { RiskGatewayPage } from './pages/RiskGatewayPage'
 import { ZoneOverviewPage } from './pages/ZoneOverviewPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { SystemHealthPage } from './pages/SystemHealthPage'
@@ -11,6 +12,7 @@ import { NotFoundPage } from './pages/NotFoundPage'
 /** Item routes whose page is implemented for real (not a placeholder). */
 const LIVE_ITEM_PAGES: Record<string, ReactElement> = {
   'workspace.market': <MarketWorkspacePage />,
+  'workspace.risk': <RiskGatewayPage />,
   'operations.system': <SystemHealthPage />,
 }
 
