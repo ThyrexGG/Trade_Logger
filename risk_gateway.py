@@ -5,10 +5,27 @@ portfolio open risk, directional correlation, and market data health.
 Deterministic and strictly fail-closed.
 """
 
-from typing import Dict, Any, List, Optional
+import time
+from typing import Dict, Any, List, Optional, Tuple
 import database
 import market_data
 import account_state
+
+# --- Stage 3.5C: bounded caches for the calculation-only risk preview path ---
+# These are consumed ONLY by calculate_pre_trade_risk_preview(). The authoritative
+# execution gate evaluate_trade_risk() deliberately does not use them and keeps
+# reading live state uncached.
+_PREVIEW_OPEN_POSITIONS_TTL_SEC = 2.0        # reuses database._DB_CACHE["open_positions_None"]
+_PREVIEW_CORRELATION_TTL_SEC = 300.0         # correlation_matrix is near-static (periodic batch refresh)
+
+# key = tuple(sorted((sym_a, sym_b))) -> (correlation_value, epoch_timestamp)
+_CORRELATION_CACHE: Dict[Tuple[str, str], Tuple[float, float]] = {}
+
+
+def clear_correlation_cache() -> None:
+    """Deterministically clears the preview-path correlation memo (used by tests/benchmarks)."""
+    _CORRELATION_CACHE.clear()
+
 
 def get_account_state(broker: str):
     return account_state.get_account_state(broker)
@@ -29,10 +46,27 @@ def get_contract_size(symbol: str) -> float:
         return 100000.0  # Standard FX lot = 100,000 units
 
 
-def get_pair_correlation(sym_a: str, sym_b: str) -> float:
-    """Looks up correlation between two assets from correlation_matrix or returns baseline."""
+def get_pair_correlation(sym_a: str, sym_b: str, ttl_sec: float = 0.0) -> float:
+    """Looks up correlation between two assets from correlation_matrix or returns baseline.
+
+    ttl_sec > 0 opts into a bounded in-memory memo (Stage 3.5C). Default 0.0 keeps the
+    original uncached behaviour for the authoritative execution gate.
+    """
     if sym_a == sym_b:
         return 1.0
+    if ttl_sec > 0:
+        key = tuple(sorted((sym_a, sym_b)))
+        hit = _CORRELATION_CACHE.get(key)
+        if hit is not None and (time.time() - hit[1]) < ttl_sec:
+            return hit[0]
+    val = _lookup_pair_correlation(sym_a, sym_b)
+    if ttl_sec > 0:
+        _CORRELATION_CACHE[tuple(sorted((sym_a, sym_b)))] = (val, time.time())
+    return val
+
+
+def _lookup_pair_correlation(sym_a: str, sym_b: str) -> float:
+    """Authoritative correlation lookup: correlation_matrix table, then baseline fallback."""
     try:
         conn = database.get_connection()
         cursor = conn.cursor()
@@ -410,14 +444,17 @@ def calculate_pre_trade_risk_preview(
     preview["estimated_margin_usd"] = round(margin_req, 2)
 
     # Check Portfolio Correlation Warnings
+    # Stage 3.5C: this block is advisory-only (produces warnings[], affects no number).
+    # Reuse the Stage 3.5A 2s open-position cache and a bounded correlation memo so the
+    # calculation-only preview does not repeat DB round trips on every keystroke.
     try:
-        open_pos = database.get_open_positions()
+        open_pos = database.get_open_positions(ttl_sec=_PREVIEW_OPEN_POSITIONS_TTL_SEC)
         if not open_pos.empty:
             for _, pos in open_pos.iterrows():
                 pos_sym = str(pos["symbol"]).upper()
                 pos_dir = str(pos["direction"]).upper()
                 if pos_sym != sym:
-                    corr = get_pair_correlation(sym, pos_sym)
+                    corr = get_pair_correlation(sym, pos_sym, ttl_sec=_PREVIEW_CORRELATION_TTL_SEC)
                     if abs(corr) >= 0.80:
                         same_dir = (direction in ["BUY", "LONG"] and "BUY" in pos_dir) or \
                                    (direction in ["SELL", "SHORT"] and "SELL" in pos_dir)
