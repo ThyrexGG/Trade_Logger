@@ -106,7 +106,7 @@ def test_ai_context_is_read_only_and_bounded():
     assert sys_before["open_positions"] == sys_after["open_positions"]
     assert audit_before["total_records"] == audit_after["total_records"]
     assert audit_before["mode_counts"] == audit_after["mode_counts"]
-    assert len(block) <= 13_500  # bounded
+    assert len(block) <= 18_000  # bounded (raised for the Stage 18 macro section)
     assert "read-only" in SYSTEM_INSTRUCTION.lower()
     assert "never claim to have executed" in SYSTEM_INSTRUCTION.lower()
 

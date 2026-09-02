@@ -151,6 +151,14 @@ export const ZONES: Zone[] = [
         icon: FlaskIcon,
         status: 'live',
       },
+      {
+        id: 'research.macro',
+        label: 'Macro Intelligence',
+        description: 'Economic calendar, surprise, currency strength and asset macro context.',
+        path: '/research/macro',
+        icon: BrainIcon,
+        status: 'live',
+      },
     ],
   },
   {

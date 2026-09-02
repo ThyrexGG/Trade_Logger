@@ -1178,3 +1178,75 @@ class AIStatusResponse(BaseModel):
     read_only: bool = True
     live_broker_transmission: str = "BLOCKED"
     timestamp: str
+
+
+# -------------------------------------------------------------------------
+# 15. Macro / Market Intelligence Schemas (Stage 18) — read-only. Thin
+#     envelopes over the deterministic macro engines + the provider layer.
+#     Every response carries `data_provider` / `provider_is_live` / `provenance`
+#     so seeded/demo data is never presented as real. No execution path.
+# -------------------------------------------------------------------------
+class _MacroEnvelope(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    data_provider: str
+    provider_is_live: bool
+    provenance: str  # live | seed_demo | unavailable
+    available: bool
+    disclaimer: Optional[str] = None
+    timestamp: str
+
+
+class MacroEventsResponse(_MacroEnvelope):
+    window: Optional[str] = None
+    count: int = 0
+    total_matched: int = 0
+    truncated: bool = False
+    events: List[Dict[str, Any]] = []
+
+
+class MacroSurprisesResponse(_MacroEnvelope):
+    count: int = 0
+    positive: int = 0
+    negative: int = 0
+    neutral: int = 0
+    surprises: List[Dict[str, Any]] = []
+
+
+class MacroCurrencyResponse(_MacroEnvelope):
+    currency: str
+    state: Optional[str] = None
+    score: Optional[float] = None
+    direction: Optional[str] = None
+
+
+class MacroCurrenciesResponse(_MacroEnvelope):
+    currencies: List[Dict[str, Any]] = []
+    strongest: List[Dict[str, Any]] = []
+    weakest: List[Dict[str, Any]] = []
+    insufficient_evidence: List[str] = []
+
+
+class MacroPairsResponse(_MacroEnvelope):
+    pairs: List[Dict[str, Any]] = []
+
+
+class MacroAssetResponse(_MacroEnvelope):
+    asset: str
+    label: Optional[str] = None
+    state: Optional[str] = None
+    macro_bias: Optional[str] = None
+    score: Optional[float] = None
+
+
+class MacroAssetsResponse(_MacroEnvelope):
+    assets: List[Dict[str, Any]] = []
+
+
+class MacroOverviewResponse(_MacroEnvelope):
+    macro_regime: str
+    macro_regime_note: Optional[str] = None
+    strongest_currencies: List[Dict[str, Any]] = []
+    weakest_currencies: List[Dict[str, Any]] = []
+    insufficient_currencies: List[str] = []
+    upcoming_high_impact: List[Dict[str, Any]] = []
+    latest_surprises: List[Dict[str, Any]] = []

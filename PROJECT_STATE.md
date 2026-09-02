@@ -1,6 +1,6 @@
 # PROJECT STATE & ARCHITECTURAL RECORD
 **TradeLogger Terminal - Living System Memory**
-*Last Updated: 3 September 2026, Session 45 (React SPA Migration Stages 4–11 + Stage 10 gate; FX risk fix; Streamlit retirement eval; Stage 12 journal-edit; Stage 13 price-alerts; Stage 14 analytics; Stage 15 Intelligence Layer — command center + research lab + read-only Gemini assistant)*
+*Last Updated: 3 September 2026, Session 46 (React SPA Migration Stages 4–11 + Stage 10 gate; FX risk fix; Streamlit retirement eval; Stages 12–14 journal/alerts/analytics; Stage 15 Intelligence Layer; Stage 18 Market & Macro Intelligence foundation)*
 
 > **HOW TO USE THIS FILE**
 > Start any new AI session with: *"Read PROJECT_STATE.md and continue where we left off."*
@@ -546,3 +546,54 @@ commits `5397ba2` / `0c2b2fd` / `0f77d24`.
   command-center note/snapshot writing, `MultipleTestingTracker`. `requirements.txt`
   unchanged (`google-generativeai` already present); `.env.example` gains
   optional `GEMINI_API_KEY`.
+
+### 9.7 Stage 18 — Market & Macro Intelligence foundation (preview)
+
+Full detail: `docs/STAGE_18_MACRO_INTELLIGENCE.md`. Built as a preview to be
+refined against reference screenshots.
+
+- **Reuse:** `macro_intelligence_engine.py` (Phase 56, 1609 lines — surprise /
+  economic strength / 5 factor groups / FX relative strength / gold macro model,
+  covered by `test_phase55_macro` + 13× `test_phase56_*` + `test_phase57_*`)
+  is reused **unchanged**. Stage 18 adds only the provider + surprise config +
+  service + API + UI + Gemini layers.
+- **Provider abstraction** `api/macro_provider.py` — `MacroDataProvider` protocol
+  + `normalize_event` (missing fields stay None, malformed dropped, `"225K"`
+  parsed). Default `SeedDemoProvider` (env `MACRO_DATA_PROVIDER`) wraps the
+  existing seeded registry + `StandardMacroCalendarProvider`. **DATA INTEGRITY:**
+  the seed data is synthetic (USD/EUR/GBP/JPY only) → every response tagged
+  `provenance:"seed_demo"`, `provider_is_live:false`; CHF/CAD/AUD/NZD →
+  `INSUFFICIENT_EVIDENCE` (never a fabricated score); a real feed plugs in with
+  one class, no other change.
+- **Surprise engine** `api/surprise_engine.py` — deterministic
+  `evaluate_surprise()` with an explicit per-indicator config (no universal
+  rule: CPI beat → NEGATIVE/HAWKISH, GDP beat → POSITIVE, Unemployment beat →
+  NEGATIVE/DOVISH). `normalized_surprise` only when a std is configured;
+  `surprise_pct` only when valid. States POSITIVE/NEGATIVE/INLINE/INSUFFICIENT/
+  UNAVAILABLE.
+- **API** `api/routers/macro.py` (GET-only): `/api/macro/{events,events/upcoming,
+  events/recent,surprises,currencies,currencies/{ccy},pairs,assets,assets/{asset},
+  overview}`. Bad window/date/start>end/currency/impact/limit → 422; unsupported
+  ccy/asset → 404; POST/PUT/DELETE → 405. No secret in any response (test).
+- **React** `/research/macro` (nav `research.macro`) — 4 tabs (Overview /
+  Economic Calendar / Currency Strength / Asset Macro Context), one batched
+  `Promise.allSettled` fetch, permanent provenance banner, insufficient-data
+  states. No new dependency.
+- **Gemini** `api/ai_context.py` — bounded `macro_intelligence` snapshot section
+  (regime, ≤3 strongest/weakest ccy, ≤5 upcoming high-impact, ≤5 surprises,
+  asset bias); `SYSTEM_INSTRUCTION` updated: macro = context, possibly demo,
+  "never an execution signal". Context block still bounded (~7k of 16k cap).
+- **Tests:** `tests/test_stage18_macro.py` (32). Full suite **1043 passed,
+  2 skipped, 0 failed**. `tsc -b` + build clean (165 modules, 510.10 kB JS).
+  14-route browser regression clean; `/research/macro` GET-only, 0 console errors.
+- **Safety:** `automation_enabled=false`, `broker=BLOCKED`, `execution_orders`
+  =335, `mode_counts`, `open_positions`=2 all unchanged. No execution/broker/
+  risk/Stage-11-cache file touched; macro + AI modules bind no execution symbol
+  (binding + import-graph tests).
+- **Gap audit (§18I):** implemented = calendar / surprise / currency score /
+  factor groups / asset context / rankings / insufficient-evidence. Partial /
+  missing (next iteration, all additive): composite integer scorecard + gauges,
+  per-instrument 6-category scorecard, "score over time" sparkline
+  (`MacroIntelligenceSnapshotStore` exists, unused), per-country economic
+  heatmaps, "Technical Signal" sub-score, dedicated COT / Crowd Sentiment
+  panels, and a real macro data provider.
