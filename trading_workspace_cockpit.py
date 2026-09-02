@@ -104,10 +104,12 @@ class TradingWorkspaceCockpit:
     def get_watchlist_data(cls, asset_filter: str = "ALL", search_query: str = "") -> List[Dict[str, Any]]:
         """
         Gathers live telemetry, HTF/LTF bias, edge scores, and setup state for all watchlist instruments.
+        Uses high-speed batch resolution with cached/concurrent fetching.
         """
-        rows = []
         sq = search_query.strip().upper() if search_query else ""
 
+        # 1. Filter items according to asset class and search query
+        active_items = []
         for item in WATCHLIST_SYMBOLS:
             if asset_filter != "ALL" and item["asset_class"] != asset_filter:
                 continue
@@ -119,10 +121,26 @@ class TradingWorkspaceCockpit:
             if sq and (sq not in sym and sq not in disp.upper() and sq not in name.upper()):
                 continue
 
-            price = market_data.get_latest_price(sym) or 0.0
+            active_items.append(item)
+
+        if not active_items:
+            return []
+
+        # 2. Batch resolve prices across all active symbols (concurrent cold / instant cached)
+        symbols = [item["symbol"] for item in active_items]
+        batch_prices = market_data.get_batch_prices(symbols, ttl_sec=8.0)
+
+        # 3. Assemble structured rows preserving deterministic order
+        rows = []
+        for item in active_items:
+            sym = item["symbol"]
+            disp = item["display"]
+            name = item["name"]
+
+            price = batch_prices.get(sym, 0.0)
             
             # Tick and spread estimate
-            tick = market_data.get_latest_tick(sym) or {}
+            tick = market_data.get_latest_tick(sym, ttl_sec=8.0) or {}
             bid = tick.get("bid", price)
             ask = tick.get("ask", price)
             spread = round(abs(ask - bid), 4) if (ask and bid) else 0.0
