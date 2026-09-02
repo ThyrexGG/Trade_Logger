@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-TradeLogger User Preferences Engine (Phase 61)
-==============================================
-Provides lightweight, reliable user preference management across terminal sessions.
-Preferences persist in Streamlit session_state and optionally in SQLite user_terminal_preferences.
+TradeLogger User Preferences Engine (Phase 61 / Fast Terminal Architecture)
+===========================================================================
+Provides lightweight, reliable, high-speed user preference management.
+Features thread-safe process-level caching for sub-millisecond API reads,
+Streamlit session_state synchronization, and database persistence (SQLite / PostgreSQL).
 
 Strict Safety Invariants:
 - NEVER stores credentials, API keys, or broker secrets.
@@ -13,6 +14,7 @@ Strict Safety Invariants:
 
 import sqlite3
 import json
+import threading
 from typing import Dict, Any, Optional
 import streamlit as st
 import database
@@ -28,9 +30,13 @@ DEFAULT_PREFERENCES: Dict[str, Any] = {
     "last_active_subtab": "CHARTS & WORKSPACE"
 }
 
+# Process-level thread-safe in-memory cache for sub-millisecond reads
+_PREFERENCES_CACHE: Optional[Dict[str, Any]] = None
+_PREFERENCES_LOCK = threading.Lock()
+
 
 def _ensure_preferences_table(conn=None):
-    """Ensures SQLite preferences table exists."""
+    """Ensures preferences table exists in SQLite or PostgreSQL."""
     should_close = False
     if conn is None:
         conn = database.get_connection()
@@ -54,18 +60,27 @@ def _ensure_preferences_table(conn=None):
 
 class UserPreferencesManager:
     """
-    Manages user preferences with session_state caching and SQLite persistence.
+    Manages user preferences with process-level caching and database persistence.
     """
 
     @classmethod
-    def initialize_preferences(cls) -> Dict[str, Any]:
+    def initialize_preferences(cls, force_reload: bool = False) -> Dict[str, Any]:
         """
-        Initializes preferences in session state from SQLite defaults.
+        Initializes preferences with process-level caching and Streamlit session_state sync.
         """
-        _ensure_preferences_table()
-        if "user_preferences" not in st.session_state:
+        global _PREFERENCES_CACHE
+        with _PREFERENCES_LOCK:
+            if _PREFERENCES_CACHE is not None and not force_reload:
+                try:
+                    if "user_preferences" not in st.session_state:
+                        st.session_state["user_preferences"] = dict(_PREFERENCES_CACHE)
+                except Exception:
+                    pass
+                return dict(_PREFERENCES_CACHE)
+
+            # Cold load from DB
+            _ensure_preferences_table()
             prefs = dict(DEFAULT_PREFERENCES)
-            # Load from DB if available
             try:
                 conn = database.get_connection()
                 cur = conn.cursor()
@@ -79,13 +94,18 @@ class UserPreferencesManager:
                         prefs[k] = v
             except Exception:
                 pass
-            st.session_state["user_preferences"] = prefs
-        return st.session_state["user_preferences"]
+
+            _PREFERENCES_CACHE = dict(prefs)
+            try:
+                st.session_state["user_preferences"] = prefs
+            except Exception:
+                pass
+            return dict(_PREFERENCES_CACHE)
 
     @classmethod
     def get_preference(cls, key: str, default: Any = None) -> Any:
         """
-        Retrieves a user preference.
+        Retrieves a user preference from cache.
         """
         prefs = cls.initialize_preferences()
         return prefs.get(key, DEFAULT_PREFERENCES.get(key, default))
@@ -93,11 +113,19 @@ class UserPreferencesManager:
     @classmethod
     def set_preference(cls, key: str, value: Any, persist_to_db: bool = True) -> None:
         """
-        Sets a user preference and optionally persists to SQLite.
+        Sets a user preference in memory cache and optionally persists to SQLite/PostgreSQL.
         """
-        prefs = cls.initialize_preferences()
-        prefs[key] = value
-        st.session_state["user_preferences"] = prefs
+        global _PREFERENCES_CACHE
+        with _PREFERENCES_LOCK:
+            if _PREFERENCES_CACHE is None:
+                cls.initialize_preferences()
+            _PREFERENCES_CACHE[key] = value
+
+        try:
+            if "user_preferences" in st.session_state:
+                st.session_state["user_preferences"][key] = value
+        except Exception:
+            pass
 
         if persist_to_db:
             try:
@@ -107,10 +135,20 @@ class UserPreferencesManager:
                 val_json = json.dumps(value)
                 now_iso = datetime.now(timezone.utc).isoformat()
                 placeholder = database.get_sql_placeholder(conn)
-                cur.execute(
-                    f"INSERT OR REPLACE INTO user_terminal_preferences (pref_key, pref_value, updated_at) VALUES ({placeholder}, {placeholder}, {placeholder})",
-                    (key, val_json, now_iso)
-                )
+                if database.is_postgres():
+                    cur.execute(
+                        f"""
+                        INSERT INTO user_terminal_preferences (pref_key, pref_value, updated_at)
+                        VALUES ({placeholder}, {placeholder}, {placeholder})
+                        ON CONFLICT (pref_key) DO UPDATE SET pref_value = EXCLUDED.pref_value, updated_at = EXCLUDED.updated_at
+                        """,
+                        (key, val_json, now_iso)
+                    )
+                else:
+                    cur.execute(
+                        f"INSERT OR REPLACE INTO user_terminal_preferences (pref_key, pref_value, updated_at) VALUES ({placeholder}, {placeholder}, {placeholder})",
+                        (key, val_json, now_iso)
+                    )
                 conn.commit()
                 conn.close()
             except Exception:
@@ -119,16 +157,24 @@ class UserPreferencesManager:
     @classmethod
     def get_all_preferences(cls) -> Dict[str, Any]:
         """
-        Returns all active preferences.
+        Returns all active preferences from process cache.
         """
         return dict(cls.initialize_preferences())
 
     @classmethod
     def reset_to_defaults(cls) -> Dict[str, Any]:
         """
-        Resets all preferences to factory defaults.
+        Resets all preferences to factory defaults in cache and DB.
         """
-        st.session_state["user_preferences"] = dict(DEFAULT_PREFERENCES)
+        global _PREFERENCES_CACHE
+        with _PREFERENCES_LOCK:
+            _PREFERENCES_CACHE = dict(DEFAULT_PREFERENCES)
+
+        try:
+            st.session_state["user_preferences"] = dict(DEFAULT_PREFERENCES)
+        except Exception:
+            pass
+
         try:
             conn = database.get_connection()
             cur = conn.cursor()
@@ -138,3 +184,12 @@ class UserPreferencesManager:
         except Exception:
             pass
         return dict(DEFAULT_PREFERENCES)
+
+    @classmethod
+    def invalidate_cache(cls) -> None:
+        """
+        Explicitly invalidates process cache forcing database reload on next read.
+        """
+        global _PREFERENCES_CACHE
+        with _PREFERENCES_LOCK:
+            _PREFERENCES_CACHE = None

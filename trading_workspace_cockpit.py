@@ -52,6 +52,55 @@ class TradingWorkspaceCockpit:
     """
 
     @classmethod
+    def get_symbol_context_metrics(cls, sym: str) -> Dict[str, Any]:
+        """
+        Returns contextual bias, setup state, edge score, and quality metrics for a single symbol.
+        """
+        sym_clean = sym.upper().replace("/", "").replace(":", "").strip()
+        if sym_clean == "XAUUSD":
+            macro = XAUUSDLiveMTFStateEngine.get_1d_macro_bias("XAUUSD")
+            bias_4h = "BULL" if macro.get("state") == "BULLISH" else ("BEAR" if macro.get("state") == "BEARISH" else "NEUT")
+            return {
+                "bias_4h": bias_4h,
+                "bias_15m": "BULL",
+                "setup_state": "SETUP READY",
+                "edge_score": 65.0,
+                "macro_score": 55.0,
+                "agreement_pct": 85.0,
+                "data_quality": 95
+            }
+        elif sym_clean == "USDJPY":
+            return {
+                "bias_4h": "BULL",
+                "bias_15m": "BEAR",
+                "setup_state": "WATCHING",
+                "edge_score": 40.0,
+                "macro_score": 45.0,
+                "agreement_pct": 60.0,
+                "data_quality": 90
+            }
+        elif sym_clean in ["EURUSD", "GBPUSD"]:
+            return {
+                "bias_4h": "BEAR",
+                "bias_15m": "NEUT",
+                "setup_state": "FLAT",
+                "edge_score": -30.0,
+                "macro_score": -25.0,
+                "agreement_pct": 50.0,
+                "data_quality": 88
+            }
+        else:
+            return {
+                "bias_4h": "NEUT",
+                "bias_15m": "NEUT",
+                "setup_state": "FLAT",
+                "edge_score": 10.0,
+                "macro_score": 0.0,
+                "agreement_pct": 50.0,
+                "data_quality": 85
+            }
+
+    @classmethod
     def get_watchlist_data(cls, asset_filter: str = "ALL", search_query: str = "") -> List[Dict[str, Any]]:
         """
         Gathers live telemetry, HTF/LTF bias, edge scores, and setup state for all watchlist instruments.
@@ -78,40 +127,7 @@ class TradingWorkspaceCockpit:
             ask = tick.get("ask", price)
             spread = round(abs(ask - bid), 4) if (ask and bid) else 0.0
 
-            # Bias check & multi-factor edge scores
-            if sym == "XAUUSD":
-                macro = XAUUSDLiveMTFStateEngine.get_1d_macro_bias("XAUUSD")
-                bias_4h = "BULL" if macro.get("state") == "BULLISH" else ("BEAR" if macro.get("state") == "BEARISH" else "NEUT")
-                bias_15m = "BULL"
-                setup_state = "SETUP READY"
-                edge_score = 65.0
-                macro_score = 55.0
-                agreement_pct = 85.0
-                data_quality = 95
-            elif sym == "USDJPY":
-                bias_4h = "BULL"
-                bias_15m = "BEAR"
-                setup_state = "WATCHING"
-                edge_score = 40.0
-                macro_score = 45.0
-                agreement_pct = 60.0
-                data_quality = 90
-            elif sym in ["EURUSD", "GBPUSD"]:
-                bias_4h = "BEAR"
-                bias_15m = "NEUT"
-                setup_state = "FLAT"
-                edge_score = -30.0
-                macro_score = -25.0
-                agreement_pct = 50.0
-                data_quality = 88
-            else:
-                bias_4h = "NEUT"
-                bias_15m = "NEUT"
-                setup_state = "FLAT"
-                edge_score = 10.0
-                macro_score = 0.0
-                agreement_pct = 50.0
-                data_quality = 85
+            ctx = cls.get_symbol_context_metrics(sym)
 
             rows.append({
                 "symbol": sym,
@@ -120,13 +136,13 @@ class TradingWorkspaceCockpit:
                 "asset_class": item["asset_class"],
                 "price": price,
                 "spread": spread,
-                "bias_4h": bias_4h,
-                "bias_15m": bias_15m,
-                "setup_state": setup_state,
-                "edge_score": edge_score,
-                "macro_score": macro_score,
-                "agreement_pct": agreement_pct,
-                "data_quality": data_quality,
+                "bias_4h": ctx["bias_4h"],
+                "bias_15m": ctx["bias_15m"],
+                "setup_state": ctx["setup_state"],
+                "edge_score": ctx["edge_score"],
+                "macro_score": ctx["macro_score"],
+                "agreement_pct": ctx["agreement_pct"],
+                "data_quality": ctx["data_quality"],
                 "mode": "PAPER"
             })
         return rows

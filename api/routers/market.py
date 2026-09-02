@@ -36,6 +36,7 @@ def _calculate_market_session(dt: datetime) -> str:
 async def get_market_snapshot(symbol: str) -> MarketSnapshotResponse:
     """
     Returns near-instant cached Market Snapshot and multi-timeframe bias hierarchy.
+    Directly queries single symbol without full universe iteration.
     """
     sym = symbol.upper().replace("/", "").replace(":", "").strip()
     now_utc = datetime.now(timezone.utc)
@@ -44,24 +45,18 @@ async def get_market_snapshot(symbol: str) -> MarketSnapshotResponse:
     matched_meta = next((s for s in WATCHLIST_SYMBOLS if s["symbol"] == sym), None)
     display_name = matched_meta["display"] if matched_meta else sym
 
-    # 2. Retrieve authoritative watchlist metrics
-    w_data = TradingWorkspaceCockpit.get_watchlist_data("ALL")
-    matched_row = next((r for r in w_data if r["symbol"] == sym), None)
-
-    price = market_data.get_latest_price(sym) or (matched_row["price"] if matched_row else 0.0)
+    # 2. Retrieve authoritative price, tick, and spread for single symbol
+    price = market_data.get_latest_price(sym) or 0.0
     tick = market_data.get_latest_tick(sym) or {}
     bid = tick.get("bid", price)
     ask = tick.get("ask", price)
-    spread = round(abs(ask - bid), 4) if (ask and bid) else (matched_row["spread"] if matched_row else 0.0)
+    spread = round(abs(ask - bid), 4) if (ask and bid) else 0.0
 
     # 3. Retrieve authoritative MTF bias hierarchy
     mtf_bias = TradingWorkspaceCockpit.get_mtf_bias_hierarchy(sym)
 
-    # 4. Extract edge score, setup state, and data quality
-    setup_state = matched_row["setup_state"] if matched_row else "FLAT"
-    edge_score = matched_row["edge_score"] if matched_row else 0.0
-    macro_score = matched_row["macro_score"] if matched_row else 0.0
-    data_quality = matched_row["data_quality"] if matched_row else 85
+    # 4. Extract edge score, setup state, and data quality directly for this symbol
+    ctx = TradingWorkspaceCockpit.get_symbol_context_metrics(sym)
 
     return MarketSnapshotResponse(
         symbol=sym,
@@ -72,10 +67,10 @@ async def get_market_snapshot(symbol: str) -> MarketSnapshotResponse:
         spread=spread,
         session=_calculate_market_session(now_utc),
         mtf_bias=mtf_bias,
-        setup_state=setup_state,
-        edge_score=edge_score,
-        macro_score=macro_score,
-        data_quality=data_quality,
+        setup_state=ctx["setup_state"],
+        edge_score=ctx["edge_score"],
+        macro_score=ctx["macro_score"],
+        data_quality=ctx["data_quality"],
         live_broker_transmission="BLOCKED",
         cached=True,
         timestamp=now_utc.isoformat()
