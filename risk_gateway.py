@@ -10,6 +10,8 @@ from typing import Dict, Any, List, Optional, Tuple
 import database
 import market_data
 import account_state
+import symbol_mapping
+import instrument_specs
 
 # --- Stage 3.5C: bounded caches for the calculation-only risk preview path ---
 # These are consumed ONLY by calculate_pre_trade_risk_preview(). The authoritative
@@ -44,6 +46,110 @@ def get_contract_size(symbol: str) -> float:
         return 1000.0 # 1000 barrels per lot
     else:
         return 100000.0  # Standard FX lot = 100,000 units
+
+
+# ---------------------------------------------------------------------------
+# Currency-aware position sizing helpers
+# ---------------------------------------------------------------------------
+# The account currency is USD. A price move on an FX contract produces P/L
+# denominated in the pair's QUOTE currency, which must be converted to USD
+# before it can be compared against a USD risk budget. These helpers reuse the
+# authoritative canonical registry (symbol_mapping.CANONICAL_SYMBOLS) and broker
+# specs (instrument_specs.DEFAULT_SPECS) instead of hardcoding per-symbol values.
+
+def _symbol_currencies(symbol: str) -> Tuple[str, Optional[str], Optional[str]]:
+    """(canonical_symbol, base_ccy, quote_ccy). Falls back to slicing a 6-char FX code."""
+    raw = str(symbol).upper().strip()
+    canon = symbol_mapping.normalize_symbol(raw) or raw
+    meta = symbol_mapping.CANONICAL_SYMBOLS.get(canon)
+    if meta:
+        return canon, meta.get("base"), meta.get("quote")
+    spec = instrument_specs.DEFAULT_SPECS.get(canon, {})
+    quote = spec.get("currency")
+    letters = "".join(ch for ch in canon if ch.isalpha())
+    if len(letters) == 6:
+        return canon, letters[:3], (quote or letters[3:])
+    return canon, None, quote
+
+
+def _symbol_spec(symbol: str) -> Dict[str, Any]:
+    raw = str(symbol).upper().strip()
+    canon = symbol_mapping.normalize_symbol(raw) or raw
+    return instrument_specs.DEFAULT_SPECS.get(canon, {})
+
+
+def quote_ccy_to_usd_factor(symbol: str, reference_price: float) -> Tuple[float, Optional[str]]:
+    """
+    Multiplier that converts a P/L amount denominated in the pair's QUOTE
+    currency into USD (the account currency). Returns (factor, warning_or_None).
+
+      quote == USD           -> 1.0            (EURUSD, GBPUSD, XAUUSD, USD-priced indices)
+      base  == USD (USD/XXX) -> 1.0 / price    (USDJPY, USDCHF, USDCAD): 1 quote unit = 1/price USD
+      cross (neither is USD) -> static spec estimate (tick_value / tick_size / contract_size),
+                                else 1.0 with a warning (no live cross-rate in the calc-only path)
+    """
+    canon, base, quote = _symbol_currencies(symbol)
+    if not quote or quote == "USD":
+        return 1.0, None
+    if base == "USD":
+        if reference_price and float(reference_price) > 0:
+            return 1.0 / float(reference_price), None
+        return 1.0, f"{canon}: reference price unavailable for {quote}->USD conversion."
+    # Cross pair — no direct USD leg in this pair.
+    spec = _symbol_spec(symbol)
+    cs = float(spec.get("contract_size", 0.0) or 0.0)
+    tv = float(spec.get("tick_value", 0.0) or 0.0)
+    ts = float(spec.get("tick_size", 0.0) or 0.0)
+    if cs > 0 and tv > 0 and ts > 0:
+        return (tv / ts) / cs, (
+            f"{canon}: {quote}->USD uses a static spec estimate; live cross-rate "
+            f"is not available in the calculation-only path."
+        )
+    return 1.0, (
+        f"{canon}: {quote}->USD rate unavailable; risk is shown in {quote} terms "
+        f"without currency conversion."
+    )
+
+
+def position_risk_usd(symbol: str, price_distance: float, lots: float, reference_price: float) -> Tuple[float, Optional[str]]:
+    """
+    Worst-case P/L in USD for `lots` over `price_distance` price units, using the
+    authoritative contract size and quote->USD conversion. Long/short symmetric
+    (the caller passes abs(entry - stop)).
+    """
+    spec = _symbol_spec(symbol)
+    c_size = float(spec.get("contract_size") or 0.0) or get_contract_size(symbol)
+    factor, warn = quote_ccy_to_usd_factor(symbol, reference_price)
+    return abs(float(price_distance)) * float(lots) * c_size * factor, warn
+
+
+def position_notional_usd(symbol: str, lots: float, reference_price: float) -> float:
+    """USD notional controlled by `lots` — base currency exposure converted to USD."""
+    spec = _symbol_spec(symbol)
+    c_size = float(spec.get("contract_size") or 0.0) or get_contract_size(symbol)
+    canon, base, quote = _symbol_currencies(symbol)
+    units = float(lots) * c_size  # units of the base currency / instrument
+    if base == "USD":
+        return units  # USD is the base -> notional already in USD
+    if quote == "USD" or not quote:
+        return units * float(reference_price)  # base priced directly in USD
+    # Cross: approximate via quote-notional then convert quote -> USD.
+    factor, _ = quote_ccy_to_usd_factor(symbol, reference_price)
+    return units * float(reference_price) * factor
+
+
+def margin_factor_for(symbol: str, fallback_leverage: float = 30.0) -> float:
+    """Broker margin factor from instrument_specs (e.g. 0.01 = 1:100), else 1/leverage."""
+    spec = _symbol_spec(symbol)
+    mf = spec.get("margin_factor")
+    try:
+        mf = float(mf)
+        if mf > 0:
+            return mf
+    except (TypeError, ValueError):
+        pass
+    lev = float(fallback_leverage) if fallback_leverage else 30.0
+    return 1.0 / max(1.0, lev)
 
 
 def get_pair_correlation(sym_a: str, sym_b: str, ttl_sec: float = 0.0) -> float:
@@ -209,16 +315,21 @@ def evaluate_trade_risk(signal: Dict[str, Any]) -> Dict[str, Any]:
         return res
 
     # 6. PER-TRADE RISK CALCULATION
-    contract_size = get_contract_size(symbol)
+    # Currency-aware: P/L is denominated in the pair's quote currency and
+    # converted to USD via the canonical base/quote registry (shared with the
+    # pre-trade preview). Behaviour is unchanged for USD-base pairs (USDJPY /
+    # USDCHF / USDCAD -> divide by entry) and USD-quote pairs (EURUSD, XAUUSD ->
+    # no conversion); only non-USD crosses are now converted instead of being
+    # mis-counted as already-USD.
+    _spec = _symbol_spec(symbol)
+    contract_size = float(_spec.get("contract_size") or 0.0) or get_contract_size(symbol)
     trade_risk_usd = 0.0
     trade_risk_pct = 0.0
     if sl is not None and entry > 0:
         dist = abs(entry - sl)
-        if symbol.startswith("USD") and symbol != "USD":
-            # For USD-base pairs like USDJPY, USDCHF, USDCAD: 1 lot risk in USD = (dist / entry) * contract_size
-            trade_risk_usd = (dist / entry) * volume * contract_size
-        else:
-            trade_risk_usd = dist * volume * contract_size
+        trade_risk_usd, _conv_warn = position_risk_usd(symbol, dist, volume, entry)
+        if _conv_warn:
+            res["warnings"].append(_conv_warn)
         trade_risk_pct = (trade_risk_usd / balance) * 100.0
 
     res["trade_risk"] = {
@@ -409,38 +520,58 @@ def calculate_pre_trade_risk_preview(
         preview["is_valid"] = False
         preview["errors"].append(f"SELL Stop Loss ({sl:.5f}) must be strictly above Entry ({entry:.5f}).")
 
-    c_size = get_contract_size(sym)
+    spec = _symbol_spec(sym)
+    c_size = float(spec.get("contract_size") or 0.0) or get_contract_size(sym)
+    # Rounding step kept at the historical 0.01 lot; min/max clamp uses the
+    # broker spec where available (this fix is scoped to currency conversion,
+    # not lot-step granularity).
+    lot_step = 0.01
+    min_qty = float(spec.get("min_qty") or 0.0) or 0.01
+    max_qty = float(spec.get("max_qty") or 0.0) or 1_000_000.0
     target_risk_usd = bal * (risk_pct / 100.0)
 
-    # Position sizing: Lots = Target Risk / (SL Distance * Contract Size)
-    raw_lots = target_risk_usd / (sl_dist * c_size) if (sl_dist * c_size) > 0 else 0.01
-    lots = max(0.01, round(round(raw_lots / 0.01) * 0.01, 2)) # Round to nearest 0.01 lot
-    
-    actual_risk_usd = sl_dist * lots * c_size
+    # Currency-aware position sizing. P/L on an FX contract is denominated in the
+    # pair's QUOTE currency and converted to USD (the account currency) via the
+    # canonical base/quote registry — e.g. USDJPY divides by the USDJPY price,
+    # EURUSD needs no conversion. Conversion is referenced at the entry price
+    # (the single price known at sizing time, consistent with the execution gate).
+    conv_factor, conv_warn = quote_ccy_to_usd_factor(sym, entry)
+    if conv_warn:
+        preview["warnings"].append(conv_warn)
+
+    usd_risk_per_lot = sl_dist * c_size * conv_factor
+    # Lots = Target Risk (USD) / worst-case USD loss per lot
+    raw_lots = (target_risk_usd / usd_risk_per_lot) if usd_risk_per_lot > 0 else min_qty
+    lots = round(round(raw_lots / lot_step) * lot_step, 2)  # snap to nearest 0.01 lot
+    lots = min(max(lots, min_qty), max_qty)
+
+    actual_risk_usd = sl_dist * lots * c_size * conv_factor
     actual_risk_pct = (actual_risk_usd / bal) * 100.0
 
     preview["calculated_lot_size"] = lots
     preview["actual_risk_usd"] = round(actual_risk_usd, 2)
     preview["actual_risk_pct"] = round(actual_risk_pct, 2)
 
-    # Reward & R:R Calculations
+    # Reward & R:R Calculations (same quote->USD conversion as the risk leg)
     if tp1 > 0:
         tp1_dist = abs(tp1 - entry)
-        tp1_usd = tp1_dist * lots * c_size
+        tp1_usd = tp1_dist * lots * c_size * conv_factor
         preview["reward_tp1_usd"] = round(tp1_usd, 2)
         preview["reward_tp1_pct"] = round((tp1_usd / bal) * 100.0, 2)
         rr = tp1_dist / sl_dist if sl_dist > 0 else 0.0
         preview["risk_reward_ratio"] = f"1:{rr:.2f}"
-    
+
     if tp2 > 0:
         tp2_dist = abs(tp2 - entry)
-        tp2_usd = tp2_dist * lots * c_size
+        tp2_usd = tp2_dist * lots * c_size * conv_factor
         preview["reward_tp2_usd"] = round(tp2_usd, 2)
         preview["reward_tp2_pct"] = round((tp2_usd / bal) * 100.0, 2)
 
-    # Estimated Margin
-    notional_value = entry * lots * c_size
-    margin_req = notional_value / max(1.0, float(leverage))
+    # Estimated Margin — USD notional * broker margin factor (from instrument_specs).
+    # For USDJPY the base currency is USD, so notional is lots*contract_size USD
+    # (NOT entry*lots*contract_size, which would be a JPY figure).
+    notional_usd = position_notional_usd(sym, lots, entry)
+    margin_req = notional_usd * margin_factor_for(sym, fallback_leverage=leverage)
     preview["estimated_margin_usd"] = round(margin_req, 2)
 
     # Check Portfolio Correlation Warnings
