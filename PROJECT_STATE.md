@@ -352,3 +352,38 @@ and `instrument_specs.DEFAULT_SPECS` — no per-symbol constants):**
 **Regression-locked:** USDJPY SELL 159.487 / 159.921 / $10k / 3% → **1.10 lots,
 $299.33 risk, 2.99%, $1,100 margin**. EURUSD sizing unchanged (0.20 lots, $100,
 1.0%, reward $200). Tests: `tests/test_forex_position_sizing.py` (12).
+
+### 9.2 Streamlit Legacy UI Retirement Evaluation — **RECOMMENDATION: KEEP**
+
+Full evaluation: `docs/STAGE_11_STREAMLIT_RETIREMENT_EVALUATION.md` (no source
+changed). Streamlit (`app.py`) is **partially superseded, not fully superseded**:
+
+- **11 surfaces FULLY_REPLACED** by React (watchlist, market snapshot, risk
+  preview, positions, market/asset intelligence, opportunity map, economic
+  heatmap, execution audit, system health, operations overview, app shell).
+- **3 PARTIALLY_REPLACED** (Forward Evidence — React 4 pages vs 7-tab cockpit;
+  Backtest — `backtester` only, not the 3-layer `research_engine` workflow;
+  Journal — React read-only, no annotation write).
+- **7 NOT_REPLACED, no React/FastAPI equivalent:** manual paper/shadow order
+  entry (Quick Terminal → `execution_pipeline.submit_order`), AI Market Context
+  (Ollama local LLM), Price Alerts CRUD, Analytics & Overview, Daily Command
+  Center, Research Lab (True MTF / USDJPY empirical labs / edge discovery),
+  Adversarial Stress Audits.
+
+**Hard backend coupling:** `streamlit` is a module-level import of
+`trading_workspace_cockpit`, `user_preferences`, `market_intelligence_command_center`
+— all imported by FastAPI routers. The Streamlit *process* can stop, but
+`streamlit>=1.30.0` must stay in `requirements.txt` or the React SPA's backend
+fails to import. **Deployment:** the only documented deploy (`deployment_guide.md`)
+is `streamlit run app.py`; no React/FastAPI deploy config exists.
+
+**Retirement risk: MEDIUM–HIGH.** Safety is unaffected (all fail-closed logic is
+backend, UI-independent; 55 targeted safety/parity tests pass;
+`automation_enabled=False`, `broker=BLOCKED` verified). Roadmap invariant #5
+("Streamlit Coexistence") keeps `app.py` operational.
+
+**Outcome:** coexistence — React = read-only monitoring/analysis SPA, Streamlit =
+power-user console for research / alerts / analytics / paper execution. Next step
+is a product-scope decision by the owner (keep the 7 workflows in Streamlit
+permanently, or migrate them in bounded units starting with a journal-write
+endpoint, then alerts, then analytics). No deletion authorized in this stage.
