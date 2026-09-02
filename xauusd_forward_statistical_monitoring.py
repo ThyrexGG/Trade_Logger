@@ -15,6 +15,8 @@ Provides:
 import hashlib
 import json
 import sqlite3
+import threading
+import time
 import uuid
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone, date, timedelta
@@ -740,6 +742,9 @@ class SequentialEvidenceGovernanceEngine:
                 snap_fp
             ))
             conn.commit()
+            # A milestone snapshot is a material forward-evidence state transition:
+            # drop the cached read snapshot so the next read recomputes.
+            Phase49MonitoringFacade.invalidate_forward_state_snapshot()
             return {"snapshot_id": snapshot_id, "snapshot_fingerprint": snap_fp, "status": "RECORDED"}
         except Exception as e:
             return {"status": "ERROR", "message": str(e)}
@@ -880,11 +885,58 @@ class RestartDeterminismAuditor:
         }
 
 
+# -----------------------------------------------------------------------------
+# Stage 3.5D — bounded, thread-safe read-snapshot cache for the API read path.
+# The authoritative computation (evaluate_full_forward_state) is unchanged and
+# still runs verbatim on a cold read / after invalidation; this only prevents an
+# identical multi-second recomputation on every UI poll. Explicitly invalidated
+# by record_milestone_snapshot() (a genuine forward-evidence state transition).
+# -----------------------------------------------------------------------------
+_FORWARD_STATE_SNAPSHOT_TTL_SEC = 60.0
+_forward_state_snapshot_lock = threading.Lock()
+_forward_state_snapshot: Dict[str, Any] = {"key": None, "data": None, "ts": 0.0}
+
+
 class Phase49MonitoringFacade:
     """
     Unified facade coordinating all Phase 49 engines for dashboard rendering,
     automated audits, and forensic verification.
     """
+
+    @classmethod
+    def get_cached_forward_state_snapshot(
+        cls,
+        mode: str = "PAPER",
+        symbol: str = "XAUUSD",
+        ttl_sec: float = _FORWARD_STATE_SNAPSHOT_TTL_SEC,
+    ) -> Dict[str, Any]:
+        """
+        Returns evaluate_full_forward_state() through a process-local, TTL-bounded,
+        thread-safe single-slot cache. Read-only: performs no audit/event writes.
+        A cold call computes the authoritative state exactly as before.
+        """
+        cache_key = (str(mode).upper(), str(symbol).upper())
+        with _forward_state_snapshot_lock:
+            snap = _forward_state_snapshot
+            if (
+                snap["data"] is not None
+                and snap["key"] == cache_key
+                and (time.time() - snap["ts"]) < ttl_sec
+            ):
+                return snap["data"]
+            state = cls.evaluate_full_forward_state(mode=mode, symbol=symbol)
+            _forward_state_snapshot["key"] = cache_key
+            _forward_state_snapshot["data"] = state
+            _forward_state_snapshot["ts"] = time.time()
+            return state
+
+    @classmethod
+    def invalidate_forward_state_snapshot(cls) -> None:
+        """Explicit invalidation hook for genuine forward-evidence state changes."""
+        with _forward_state_snapshot_lock:
+            _forward_state_snapshot["key"] = None
+            _forward_state_snapshot["data"] = None
+            _forward_state_snapshot["ts"] = 0.0
 
     @classmethod
     def evaluate_full_forward_state(cls, mode: str = "PAPER", symbol: str = "XAUUSD") -> Dict[str, Any]:

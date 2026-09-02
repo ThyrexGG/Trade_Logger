@@ -267,3 +267,26 @@ Every migration stage must satisfy the following checklist before proceeding to 
 ```
 
 If any item fails: **STOP immediately, investigate, fix, and re-verify.**
+
+---
+
+## 8. Stage 3.5 — Read-Path Latency Optimization Sub-Stages (post Gate 3)
+
+Between Migration Gate 3 and Stage 4, the read-only FastAPI endpoints were profiled
+and optimized in isolation. Adapter-layer only: no authoritative engine, strategy
+math, dataset, or safety-invariant change. Each is one focused commit + a
+`tests/test_stage35*.py` suite, benchmarked with an in-process `TestClient` against
+live Postgres.
+
+| Sub-stage | Endpoint(s) | Change |
+| :-- | :-- | :-- |
+| **3.5A** | `/api/market/snapshot/{symbol}`, `/api/preferences`, `/api/positions` | Single-symbol snapshot path (no full-universe scan); thread-safe `_PREFERENCES_CACHE`; `database.get_open_positions(ttl_sec=2.0)`. |
+| **3.5B** | `/api/watchlist` | Bounded-concurrency price batching + aligned `market_data._PRICE_CACHE` TTL. |
+| **3.5C** | `POST /api/risk/preview` | Reuse the 3.5A 2 s open-position cache; opt-in `risk_gateway.get_pair_correlation(ttl_sec=300)` memo used **only** by the calculation-only preview — `evaluate_trade_risk()` keeps reading correlations uncached. Warm P50 ≈ 1,530  ms → ≈ 2.5 ms. |
+| **3.5D** | `GET /api/forward-evidence/state` | `Phase49MonitoringFacade.get_cached_forward_state_snapshot()`: bounded, thread-safe, process-local, 60 s TTL, single-slot; explicitly invalidated by `SequentialEvidenceGovernanceEngine.record_milestone_snapshot()`. The read path no longer calls `Phase50Facade.get_phase50_full_state()` (its output was never used in the response), removing ~15.3 s of Phase 50 work, ~3.1 s of duplicate Phase 49 computation, and — critically — the per-request `xauusd_phase50_operational_audits` INSERT. Warm P50 ≈ 14,650 ms → ≈ 2.3 ms; cold ≈ 1.6 s (one authoritative `evaluate_full_forward_state`). |
+
+**3.5D audit semantics**: the operational-audit INSERT in
+`Phase50E2EOperationalProofEngine.audit_end_to_end_pipeline()` is preserved and
+still runs from the Streamlit cockpit (`load_cockpit_state()`) and explicit
+pipeline audits. Only the polled read endpoint stopped triggering it, so UI polling
+can no longer create duplicate audit rows. No forensic evidence removed.

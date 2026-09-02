@@ -1,6 +1,6 @@
 # PROJECT STATE & ARCHITECTURAL RECORD
 **TradeLogger Terminal - Living System Memory**
-*Last Updated: 2 September 2026, Session 39 (Phase 62 End-to-End Response Latency, Streamlit Rerun Optimization & UX Performance Benchmark Completed & Verified)*
+*Last Updated: 2 September 2026, Session 40 (FastAPI Migration Stage 3.5A–3.5D read-path latency optimization — snapshot/preferences/positions, watchlist, risk preview, and forward-evidence endpoints)*
 
 > **HOW TO USE THIS FILE**
 > Start any new AI session with: *"Read PROJECT_STATE.md and continue where we left off."*
@@ -235,6 +235,31 @@ tests/test_phase11_*.py through test_phase62_*.py
   - `idx_scanner_snapshots_ts ON market_scanner_snapshots(timestamp DESC)`
 - **Lazy Tab Rendering (`st.pills` / `st.session_state`)**: Eliminated monolithic evaluation of all tabs on every rerun pass. Only the active view executes rendering and queries, reducing Python render CPU time by >85%.
 - **Transactional Consistency Preserved**: `database.get_open_positions()` and `database.get_closed_trades()` default to fresh DB reads to prevent stale state anomalies during order submission and risk gateway checks.
+
+---
+
+## 8. FastAPI Migration — Stage 3.5 Read-Path Latency Optimization
+
+Adapter-layer only. No change to authoritative Python engines, strategy mathematics,
+`evaluate_trade_risk()`, dataset definitions, Strategy Contract SHA-256, or the
+FastAPI/Streamlit architecture. Each sub-stage is a single focused commit with
+measured before/after (in-process `TestClient`, live Postgres) and a dedicated
+`tests/test_stage35*.py` suite.
+
+| Sub-stage | Endpoint(s) | Mechanism | Warm P50 before → after |
+| :-- | :-- | :-- | :-- |
+| 3.5A | `/api/market/snapshot/{sym}`, `/api/preferences`, `/api/positions` | single-symbol snapshot bypass; `user_preferences._PREFERENCES_CACHE` (thread-safe process cache); `database.get_open_positions(ttl_sec=2.0)` | see Stage 3.5A commit |
+| 3.5B | `/api/watchlist` | bounded concurrent price batching + aligned `_PRICE_CACHE` TTL | ~cold → sub-50 ms warm |
+| 3.5C | `POST /api/risk/preview` | reuse 2 s open-position cache; opt-in `get_pair_correlation(ttl_sec=300)` memo (preview path only; execution gate stays uncached) | ~1,530 ms → ~2.5 ms |
+| 3.5D | `GET /api/forward-evidence/state` | `Phase49MonitoringFacade.get_cached_forward_state_snapshot()` — bounded, thread-safe, process-local, 60 s TTL, explicitly invalidated by `record_milestone_snapshot()`. Read path no longer calls `Phase50Facade.get_phase50_full_state()` (unused by the response) → eliminates ~15.3 s Phase 50 work, ~3.1 s duplicate Phase 49 work, and the per-GET `xauusd_phase50_operational_audits` INSERT | ~14,650 ms → ~2.3 ms (cold ~1.6 s) |
+
+**Stage 3.5D audit-write correction**: the `xauusd_phase50_operational_audits`
+INSERT lives in `Phase50E2EOperationalProofEngine.audit_end_to_end_pipeline()` and
+represents an operational-pipeline audit event. It was firing on every read poll of
+`/api/forward-evidence/state`. It is **not deleted** — it still runs when the
+Streamlit Forward Evidence & Governance cockpit calls `load_cockpit_state()` or an
+explicit pipeline audit is invoked. The read endpoint simply no longer triggers it,
+so UI polling can no longer manufacture duplicate audit records.
 
 
 

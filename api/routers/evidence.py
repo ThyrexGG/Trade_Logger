@@ -7,8 +7,8 @@ Preserves locked historical baseline and Strategy Contract SHA-256 without modif
 from datetime import datetime, timezone
 from fastapi import APIRouter
 from api.schemas import ForwardEvidenceStateResponse, HistoricalBaselineModel
-from forward_evidence_cockpit import ForwardEvidenceCockpit
 from xauusd_forward_statistical_monitoring import (
+    Phase49MonitoringFacade,
     HISTORICAL_BASELINE,
     FROZEN_CONTRACT_HASH
 )
@@ -22,8 +22,11 @@ async def get_forward_evidence_state() -> ForwardEvidenceStateResponse:
     Returns the authoritative forward statistical monitoring state, Wilson score intervals,
     milestone progression, and locked historical holdout comparison.
     """
-    cockpit_state = ForwardEvidenceCockpit.load_cockpit_state()
-    p49 = cockpit_state.get("p49", {})
+    # Stage 3.5D: authoritative Phase 49 state through a bounded, thread-safe
+    # read-snapshot cache. This is the exact payload load_cockpit_state()["p49"]
+    # produces — the Phase 50 operational audit (and its per-call audit-record
+    # INSERT) is NOT part of the read path and is not needed for this response.
+    p49 = Phase49MonitoringFacade.get_cached_forward_state_snapshot(mode="PAPER", symbol="XAUUSD")
     metrics = p49.get("metrics", {})
     milestones = p49.get("milestones", {})
     decision = p49.get("decision", {})
@@ -52,5 +55,5 @@ async def get_forward_evidence_state() -> ForwardEvidenceStateResponse:
         historical_baseline=baseline,
         strategy_contract_hash=FROZEN_CONTRACT_HASH,
         live_broker_transmission="BLOCKED",
-        timestamp=cockpit_state.get("evaluated_at", datetime.now(timezone.utc).isoformat())
+        timestamp=p49.get("evaluated_at", datetime.now(timezone.utc).isoformat())
     )
