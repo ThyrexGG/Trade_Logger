@@ -25,3 +25,6 @@ __pycache__/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Claude Code — personal per-machine overrides (settings.json is shared)
+.claude/settings.local.json
