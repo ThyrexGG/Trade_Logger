@@ -10,6 +10,8 @@ import { EvidenceCommandCenterPage } from './pages/EvidenceCommandCenterPage'
 import { ForwardEvidencePage } from './pages/ForwardEvidencePage'
 import { EvidenceStatisticsPage } from './pages/EvidenceStatisticsPage'
 import { EvidenceGovernancePage } from './pages/EvidenceGovernancePage'
+import { StrategyLabPage } from './pages/StrategyLabPage'
+import { BacktestWorkspacePage } from './pages/BacktestWorkspacePage'
 import { ZoneOverviewPage } from './pages/ZoneOverviewPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { SystemHealthPage } from './pages/SystemHealthPage'
@@ -20,6 +22,8 @@ const LIVE_ITEM_PAGES: Record<string, ReactElement> = {
   'workspace.market': <MarketWorkspacePage />,
   'workspace.risk': <RiskGatewayPage />,
   'research.intelligence': <IntelligencePage />,
+  'research.strategy': <StrategyLabPage />,
+  'research.backtest': <BacktestWorkspacePage />,
   'evidence.forward': <ForwardEvidencePage />,
   'evidence.statistics': <EvidenceStatisticsPage />,
   'evidence.governance': <EvidenceGovernancePage />,

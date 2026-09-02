@@ -390,3 +390,173 @@ class ForwardEvidenceStateResponse(BaseModel):
     dataset: DatasetProvenanceModel
     safety: SafetyBarrierModel
     timestamp: str
+
+
+# -------------------------------------------------------------------------
+# 9. Strategy Lab & Backtesting Schemas (Research-Only)
+#
+# Stage 10: thin adapter over the authoritative research code
+# (`backtester.run_backtest` / `run_walk_forward` / `run_monte_carlo`,
+# `research_engine.ResearchExperiment`, the `strategies` registry). React
+# never reproduces any backtest, indicator, optimization or Monte-Carlo
+# calculation — every value below is produced by the Python research engine
+# and merely serialized here. Research-only: no broker, no live execution.
+# -------------------------------------------------------------------------
+class StrategyInfo(BaseModel):
+    name: str
+    version: str
+    description: str
+
+
+class ResearchDefaults(BaseModel):
+    train_split: float
+    val_split: float
+    holdout_split: float
+    struct_tf: str
+    bias_tf: str
+    spread_pips: float
+    slippage_pips: float
+    commission_pct: float
+    random_seed: int
+
+
+class BacktestDefaults(BaseModel):
+    strategy: str
+    risk_pct: float
+    sl_atr: float
+    tp_atr: float
+    capital: float
+    slippage: float
+    commission_pct: float
+    fixed_spread: float
+    train_split: float
+
+
+class TimeframeSpec(BaseModel):
+    timeframe: str
+    period: str
+    interval: str
+    struct_tf: str
+    bias_tf: str
+
+
+class ResearchMethodology(BaseModel):
+    execution_model: str
+    lookahead_protection: bool
+    lookahead_note: str
+    data_source: str
+    timezone: str
+    slippage_model: str
+    commission_model: str
+    spread_model: str
+    split_model: str
+    notes: List[str]
+
+
+class StrategyLabResponse(BaseModel):
+    contract_hash: str
+    strategies: List[StrategyInfo]
+    research_defaults: ResearchDefaults
+    backtest_defaults: BacktestDefaults
+    supported_symbols: List[str]
+    timeframes: List[TimeframeSpec]
+    methodology: ResearchMethodology
+    mode: str = "RESEARCH"
+    live_broker_transmission: str = "BLOCKED"
+    timestamp: str
+
+
+class BacktestRunRequest(BaseModel):
+    symbol: str = "XAUUSD"
+    timeframe: str = "1h"
+    strategy: str = "Trend Continuation"
+    mode: str = "standard"  # "standard" | "walk_forward"
+    risk_pct: float = 1.0
+    sl_atr: float = 1.5
+    tp_atr: float = 2.0
+    capital: float = 10000.0
+    slippage: float = 0.0001
+    commission_pct: float = 0.01
+    fixed_spread: float = 0.0
+    train_split: float = 0.8
+    include_monte_carlo: bool = True
+
+
+class BacktestMetricsBlock(BaseModel):
+    total_trades: int
+    win_rate_pct: Optional[float] = None
+    profit_factor: Optional[float] = None
+    max_drawdown_pct: Optional[float] = None
+    wfo_flag: Optional[str] = None
+    raw: Dict[str, str]
+
+
+class BacktestTrade(BaseModel):
+    entry_time: Optional[str] = None
+    exit_time: Optional[str] = None
+    direction: Optional[str] = None
+    position_size: Optional[float] = None
+    entry_price: Optional[float] = None
+    exit_price: Optional[float] = None
+    stop_loss: Optional[float] = None
+    take_profit: Optional[float] = None
+    gross_pnl: Optional[float] = None
+    commission: Optional[float] = None
+    pnl: Optional[float] = None
+    equity: Optional[float] = None
+    is_oos: Optional[bool] = None
+    session: Optional[str] = None
+    liquidity_type: Optional[str] = None
+    confluence_score: Optional[float] = None
+
+
+class EquityPoint(BaseModel):
+    time: str
+    equity: float
+
+
+class MonteCarloBlock(BaseModel):
+    iterations: int
+    risk_of_ruin_pct: float
+    confidence_95_dd_pct: float
+    median_dd_pct: float
+    note: str = "Trade-order reshuffle simulation over the executed trade P&L series."
+
+
+class BacktestConfigEcho(BaseModel):
+    symbol: str
+    timeframe: str
+    strategy: str
+    mode: str
+    risk_pct: float
+    sl_atr: float
+    tp_atr: float
+    capital: float
+    slippage: float
+    commission_pct: float
+    fixed_spread: float
+    train_split: float
+
+
+class BacktestRunResponse(BaseModel):
+    status: str  # "complete" | "failed"
+    mode: str
+    config: BacktestConfigEcho
+    config_id: str
+    error: Optional[str] = None
+    ran_at: str
+    duration_sec: float
+    metrics: Optional[BacktestMetricsBlock] = None
+    metrics_is: Optional[BacktestMetricsBlock] = None
+    metrics_oos: Optional[BacktestMetricsBlock] = None
+    final_capital: Optional[str] = None
+    final_capital_value: Optional[float] = None
+    trades: List[BacktestTrade] = Field(default_factory=list)
+    trades_total: int = 0
+    trades_truncated: bool = False
+    equity_curve: List[EquityPoint] = Field(default_factory=list)
+    equity_curve_total: int = 0
+    equity_curve_sampled: bool = False
+    monte_carlo: Optional[MonteCarloBlock] = None
+    wfo_flag: Optional[str] = None
+    live_broker_transmission: str = "BLOCKED"
