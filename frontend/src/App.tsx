@@ -15,6 +15,7 @@ import { BacktestWorkspacePage } from './pages/BacktestWorkspacePage'
 import { PositionsPage } from './pages/PositionsPage'
 import { PriceAlertsPage } from './pages/PriceAlertsPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
+import { CommandCenterPage } from './pages/CommandCenterPage'
 import { JournalPage } from './pages/JournalPage'
 import { AuditPage } from './pages/AuditPage'
 import { OperationsOverviewPage } from './pages/OperationsOverviewPage'
@@ -25,6 +26,7 @@ import { NotFoundPage } from './pages/NotFoundPage'
 
 /** Item routes whose page is implemented for real (not a placeholder). */
 const LIVE_ITEM_PAGES: Record<string, ReactElement> = {
+  'workspace.command-center': <CommandCenterPage />,
   'workspace.market': <MarketWorkspacePage />,
   'workspace.risk': <RiskGatewayPage />,
   'workspace.positions': <PositionsPage />,

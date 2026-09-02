@@ -876,3 +876,122 @@ class AnalyticsPerformanceResponse(BaseModel):
     source: str = "closed_trades"
     live_broker_transmission: str = "BLOCKED"
     timestamp: str
+
+
+# -------------------------------------------------------------------------
+# 13. Daily Command Center Schemas (Stage 15A) — read-only aggregator.
+#     Every section is a re-shaped slice of an already-authoritative source
+#     (analytics / positions / alerts / intelligence / forward-evidence /
+#     research notes). No new calculation, no execution / broker path.
+# -------------------------------------------------------------------------
+class CCSessionClock(BaseModel):
+    utc_time: str
+    current_session: str
+    next_session: str
+    next_session_in_min: Optional[int] = None
+
+
+class CCSafety(BaseModel):
+    automation_enabled: bool = False
+    live_broker_transmission: str = "BLOCKED"
+    kill_switch_engaged: Optional[bool] = None
+    overall_status: str = "UNKNOWN"
+
+
+class CCDailyPerformance(BaseModel):
+    date: str
+    net_pnl: float
+    trades: int
+    wins: int
+    losses: int
+    win_rate: float
+    gross_profit: float
+    gross_loss: float
+
+
+class CCAccountSummary(BaseModel):
+    all_time_net_pnl: float
+    all_time_trades: int
+    all_time_win_rate: float
+    profit_factor: float
+    max_drawdown_pct: float
+    official_balance: Optional[float] = None
+    derived_balance: float
+
+
+class CCSymbolExposure(BaseModel):
+    symbol: str
+    count: int
+    floating_pnl: float
+
+
+class CCPositions(BaseModel):
+    total_open: int
+    total_floating_pnl: float
+    long_count: int
+    short_count: int
+    by_symbol: List[CCSymbolExposure]
+
+
+class CCTriggeredAlert(BaseModel):
+    id: int
+    symbol: str
+    condition: str
+    target_price: float
+    triggered_at: Optional[str] = None
+
+
+class CCAlerts(BaseModel):
+    active: int
+    triggered: int
+    triggered_recent: List[CCTriggeredAlert]
+
+
+class CCMarketContext(BaseModel):
+    primary_regime: str
+    regime_confidence_pct: float
+    breadth_bullish_pct: float
+    breadth_bearish_pct: float
+    strongest_asset: str
+    weakest_asset: str
+    usd_strength_state: str
+    data_quality: int
+
+
+class CCResearchState(BaseModel):
+    decision_state: str
+    sample_n: int
+    headline: str
+
+
+class CCNote(BaseModel):
+    note_id: str
+    created_at: str
+    category: str
+    note_text: str
+    session_context: Optional[str] = None
+
+
+class CCWatchHighlight(BaseModel):
+    symbol: str
+    last_price: Optional[float] = None
+    bias: Optional[str] = None
+    score: Optional[float] = None
+
+
+class CommandCenterOverviewResponse(BaseModel):
+    as_of: str
+    session: CCSessionClock
+    safety: CCSafety
+    daily_performance: Optional[CCDailyPerformance] = None
+    account_summary: Optional[CCAccountSummary] = None
+    positions: Optional[CCPositions] = None
+    alerts: Optional[CCAlerts] = None
+    market_context: Optional[CCMarketContext] = None
+    research_state: Optional[CCResearchState] = None
+    research_notes: List[CCNote] = []
+    watchlist_highlights: List[CCWatchHighlight] = []
+    sections_degraded: List[str] = []
+    source: str = "command_center_aggregate"
+    live_broker_transmission: str = "BLOCKED"
+    timestamp: str

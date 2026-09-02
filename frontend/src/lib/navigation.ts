@@ -54,6 +54,14 @@ export const ZONES: Zone[] = [
     icon: CandlesIcon,
     items: [
       {
+        id: 'workspace.command-center',
+        label: 'Command Center',
+        description: 'Daily "what matters today" overview — read-only aggregate.',
+        path: '/workspace/command-center',
+        icon: GaugeIcon,
+        status: 'live',
+      },
+      {
         id: 'workspace.market',
         label: 'Market',
         description: 'Watchlist, market snapshot and multi-timeframe context.',
