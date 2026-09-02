@@ -737,6 +737,7 @@ def create_price_alert(symbol, target_price, condition, account_id="ALL", notes=
         
     conn.commit()
     conn.close()
+    invalidate_db_cache("price_alerts")
     return alert_id
 
 def get_active_price_alerts():
@@ -760,15 +761,30 @@ def get_active_price_alerts():
         })
     return alerts
 
-def get_all_price_alerts(limit=50):
-    """Returns a pandas DataFrame of all price alerts (ACTIVE and TRIGGERED)."""
+def get_all_price_alerts(limit=50, ttl_sec: float = 0.0):
+    """Returns a pandas DataFrame of all price alerts (ACTIVE and TRIGGERED).
+
+    Optional short-TTL cache (mirrors ``get_closed_trades``): each fresh DB
+    connection to the cloud Postgres backend costs a network round-trip, so a
+    few seconds of caching on this rarely-changing list removes a repeated
+    per-navigation stall without affecting correctness. Writes
+    (``create_price_alert`` / ``delete_price_alert`` / ``mark_price_alert_triggered``)
+    invalidate the ``price_alerts`` cache key.
+    """
+    if ttl_sec > 0:
+        cached = _DB_CACHE.get("price_alerts")
+        if cached and time.time() - cached[1] < ttl_sec and isinstance(cached[0], pd.DataFrame):
+            return cached[0].copy()
+
     conn = get_connection()
     if is_postgres():
         df = pd.read_sql_query("SELECT * FROM price_alerts ORDER BY id DESC LIMIT %s", conn, params=(limit,))
     else:
         df = pd.read_sql_query("SELECT * FROM price_alerts ORDER BY id DESC LIMIT ?", conn, params=(limit,))
     conn.close()
-    return df
+    if ttl_sec > 0:
+        _DB_CACHE["price_alerts"] = (df, time.time())
+    return df.copy()
 
 def mark_price_alert_triggered(alert_id):
     """Marks a price alert as TRIGGERED."""
@@ -781,6 +797,7 @@ def mark_price_alert_triggered(alert_id):
         cursor.execute("UPDATE price_alerts SET status = 'TRIGGERED', triggered_at = ? WHERE id = ?", (now_iso, int(alert_id)))
     conn.commit()
     conn.close()
+    invalidate_db_cache("price_alerts")
     return True
 
 def delete_price_alert(alert_id):
@@ -793,6 +810,7 @@ def delete_price_alert(alert_id):
         cursor.execute("DELETE FROM price_alerts WHERE id = ?", (int(alert_id),))
     conn.commit()
     conn.close()
+    invalidate_db_cache("price_alerts")
     return True
 
 # ----------------- Trade Journal Snapshots & Notes -----------------

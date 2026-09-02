@@ -14,12 +14,15 @@ export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
 
-  // Global shortcut: Ctrl/Cmd+K toggles the palette.
+  // Global shortcuts: Ctrl/Cmd+K toggles the palette; Escape closes it
+  // regardless of which element holds focus.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         setPaletteOpen((v) => !v)
+      } else if (e.key === 'Escape') {
+        setPaletteOpen(false)
       }
     }
     window.addEventListener('keydown', onKeyDown)

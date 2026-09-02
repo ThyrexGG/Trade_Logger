@@ -27,12 +27,19 @@ async def get_open_positions() -> PositionsResponse:
             pos_id = str(pos.get("position_id", ""))
             sym = str(pos.get("symbol", "")).upper()
             direction = str(pos.get("direction", "BUY")).upper()
-            vol = float(pos.get("volume", 0.0))
-            entry_px = float(pos.get("entry_price", 0.0))
-            curr_px = float(pos.get("current_price", 0.0))
-            sl = float(pos.get("sl", 0.0))
-            tp = float(pos.get("tp", 0.0))
-            pnl = float(pos.get("floating_pnl", 0.0))
+            def _f(key: str, default: float = 0.0) -> float:
+                v = pos.get(key, default)
+                try:
+                    return float(v) if v is not None else default
+                except (TypeError, ValueError):
+                    return default
+
+            vol = _f("volume")
+            entry_px = _f("entry_price")
+            curr_px = _f("current_price")
+            sl = _f("sl")
+            tp = _f("tp")  # NULL tp is valid (no take-profit set) -> 0.0, not a crash
+            pnl = _f("floating_pnl")
             acc = str(pos.get("account_id", "PAPER"))
 
             total_pnl += pnl

@@ -160,7 +160,7 @@ def _positions_section() -> CCPositions:
 
 
 def _alerts_section() -> CCAlerts:
-    df = database.get_all_price_alerts(limit=50)
+    df = database.get_all_price_alerts(limit=50, ttl_sec=8.0)
     if df is None or df.empty:
         return CCAlerts(active=0, triggered=0, triggered_recent=[])
     active = triggered = 0

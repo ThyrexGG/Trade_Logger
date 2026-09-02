@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 # Allowlisted read-only sources ONLY.
 from api.routers import command_center as cc

@@ -93,7 +93,7 @@ def _fetch_alert_row(alert_id: int) -> Optional[Dict[str, Any]]:
 @router.get("", response_model=AlertsResponse)
 def list_alerts() -> AlertsResponse:
     """Authoritative list of price alerts (`price_alerts`, newest first, 50)."""
-    df = database.get_all_price_alerts(limit=50)
+    df = database.get_all_price_alerts(limit=50, ttl_sec=8.0)
     items: List[AlertItem] = []
     if isinstance(df, pd.DataFrame) and not df.empty:
         for _, r in df.iterrows():

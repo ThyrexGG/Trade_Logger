@@ -226,7 +226,6 @@ def get_currencies() -> Dict[str, Any]:
 
 def get_pairs() -> Dict[str, Any]:
     from macro_intelligence_engine import ForexRelativeStrengthEngine
-    from api.macro_provider import _CCY_BY_COUNTRY  # noqa
     out = []
     for pair in _FX_PAIRS:
         base, quote = pair[:3], pair[3:]
