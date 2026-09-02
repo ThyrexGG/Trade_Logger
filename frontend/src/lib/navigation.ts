@@ -58,7 +58,7 @@ export const ZONES: Zone[] = [
         description: 'Watchlist, market snapshot and multi-timeframe context.',
         path: '/workspace/market',
         icon: ChartIcon,
-        status: 'shell',
+        status: 'live',
       },
       {
         id: 'workspace.risk',

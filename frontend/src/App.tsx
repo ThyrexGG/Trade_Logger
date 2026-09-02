@@ -2,7 +2,7 @@ import type { ReactElement } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/shell/AppShell'
 import { ALL_NAV_ITEMS } from './lib/navigation'
-import { WorkspacePage } from './pages/WorkspacePage'
+import { MarketWorkspacePage } from './pages/MarketWorkspacePage'
 import { ZoneOverviewPage } from './pages/ZoneOverviewPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { SystemHealthPage } from './pages/SystemHealthPage'
@@ -10,6 +10,7 @@ import { NotFoundPage } from './pages/NotFoundPage'
 
 /** Item routes whose page is implemented for real (not a placeholder). */
 const LIVE_ITEM_PAGES: Record<string, ReactElement> = {
+  'workspace.market': <MarketWorkspacePage />,
   'operations.system': <SystemHealthPage />,
 }
 
@@ -24,7 +25,7 @@ export default function App() {
       <Route path="/" element={<AppShell />}>
         <Route index element={<Navigate to="/workspace" replace />} />
 
-        <Route path="workspace" element={<WorkspacePage />} />
+        <Route path="workspace" element={<MarketWorkspacePage />} />
         <Route path="research" element={<ZoneOverviewPage zoneId="research" />} />
         <Route path="evidence" element={<ZoneOverviewPage zoneId="evidence" />} />
         <Route
