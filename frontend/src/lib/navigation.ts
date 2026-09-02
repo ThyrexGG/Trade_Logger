@@ -101,6 +101,14 @@ export const ZONES: Zone[] = [
         icon: ChartIcon,
         status: 'live',
       },
+      {
+        id: 'workspace.assistant',
+        label: 'AI Assistant',
+        description: 'Read-only analytical chat over your TradeLogger data.',
+        path: '/workspace/assistant',
+        icon: BrainIcon,
+        status: 'live',
+      },
     ],
   },
   {

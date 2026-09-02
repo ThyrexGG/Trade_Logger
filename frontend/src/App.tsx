@@ -17,6 +17,7 @@ import { PositionsPage } from './pages/PositionsPage'
 import { PriceAlertsPage } from './pages/PriceAlertsPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
 import { CommandCenterPage } from './pages/CommandCenterPage'
+import { AssistantPage } from './pages/AssistantPage'
 import { JournalPage } from './pages/JournalPage'
 import { AuditPage } from './pages/AuditPage'
 import { OperationsOverviewPage } from './pages/OperationsOverviewPage'
@@ -33,6 +34,7 @@ const LIVE_ITEM_PAGES: Record<string, ReactElement> = {
   'workspace.positions': <PositionsPage />,
   'workspace.alerts': <PriceAlertsPage />,
   'workspace.analytics': <AnalyticsPage />,
+  'workspace.assistant': <AssistantPage />,
   'research.intelligence': <IntelligencePage />,
   'research.strategy': <StrategyLabPage />,
   'research.backtest': <BacktestWorkspacePage />,

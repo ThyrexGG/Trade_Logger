@@ -1128,3 +1128,53 @@ class CommandCenterOverviewResponse(BaseModel):
     source: str = "command_center_aggregate"
     live_broker_transmission: str = "BLOCKED"
     timestamp: str
+
+
+# -------------------------------------------------------------------------
+# 14. AI Assistant Schemas (Stage 15C) — read-only analytical chat over an
+#     allowlisted TradeLogger context + Gemini. The chat endpoint being POST
+#     does NOT give it execution authority: it only generates text. No path to
+#     execution_pipeline / broker_adapter / risk_gateway / order submission.
+# -------------------------------------------------------------------------
+AIChatRole = Literal["user", "assistant"]
+
+
+class AIChatMessage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    role: AIChatRole
+    content: str = Field(..., min_length=1, max_length=4000)
+
+
+class AIChatRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    messages: List[AIChatMessage] = Field(..., min_length=1, max_length=20)
+
+    @model_validator(mode="after")
+    def _bounds(self) -> "AIChatRequest":
+        if self.messages[-1].role != "user":
+            raise ValueError("the last message must be from the user")
+        total = sum(len(m.content) for m in self.messages)
+        if total > 24_000:
+            raise ValueError("conversation too large (max 24000 characters total)")
+        return self
+
+
+class AIChatResponse(BaseModel):
+    ok: bool
+    reply: Optional[str] = None
+    error: Optional[str] = None
+    error_kind: Optional[str] = None  # not_configured | provider_unavailable | timeout | rate_limit | empty
+    model: Optional[str] = None
+    context_sections_used: List[str] = []
+    context_sections_unavailable: List[str] = []
+    read_only: bool = True
+    live_broker_transmission: str = "BLOCKED"
+    timestamp: str
+
+
+class AIStatusResponse(BaseModel):
+    configured: bool
+    model: Optional[str] = None
+    read_only: bool = True
+    live_broker_transmission: str = "BLOCKED"
+    timestamp: str

@@ -20,7 +20,8 @@ from api.routers import (
     operations,
     alerts,
     analytics,
-    command_center
+    command_center,
+    ai
 )
 
 # Initialize FastAPI App
@@ -53,6 +54,7 @@ app.include_router(operations.router)
 app.include_router(alerts.router)
 app.include_router(analytics.router)
 app.include_router(command_center.router)
+app.include_router(ai.router)
 
 
 @app.get("/")
