@@ -6,6 +6,10 @@ import { MarketWorkspacePage } from './pages/MarketWorkspacePage'
 import { RiskGatewayPage } from './pages/RiskGatewayPage'
 import { IntelligencePage } from './pages/IntelligencePage'
 import { AssetProfilePage } from './pages/AssetProfilePage'
+import { EvidenceCommandCenterPage } from './pages/EvidenceCommandCenterPage'
+import { ForwardEvidencePage } from './pages/ForwardEvidencePage'
+import { EvidenceStatisticsPage } from './pages/EvidenceStatisticsPage'
+import { EvidenceGovernancePage } from './pages/EvidenceGovernancePage'
 import { ZoneOverviewPage } from './pages/ZoneOverviewPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { SystemHealthPage } from './pages/SystemHealthPage'
@@ -16,6 +20,9 @@ const LIVE_ITEM_PAGES: Record<string, ReactElement> = {
   'workspace.market': <MarketWorkspacePage />,
   'workspace.risk': <RiskGatewayPage />,
   'research.intelligence': <IntelligencePage />,
+  'evidence.forward': <ForwardEvidencePage />,
+  'evidence.statistics': <EvidenceStatisticsPage />,
+  'evidence.governance': <EvidenceGovernancePage />,
   'operations.system': <SystemHealthPage />,
 }
 
@@ -32,7 +39,7 @@ export default function App() {
 
         <Route path="workspace" element={<MarketWorkspacePage />} />
         <Route path="research" element={<ZoneOverviewPage zoneId="research" />} />
-        <Route path="evidence" element={<ZoneOverviewPage zoneId="evidence" />} />
+        <Route path="evidence" element={<EvidenceCommandCenterPage />} />
         <Route
           path="operations"
           element={<ZoneOverviewPage zoneId="operations" />}

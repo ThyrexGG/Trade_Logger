@@ -254,7 +254,13 @@ class PositionsResponse(BaseModel):
 
 
 # -------------------------------------------------------------------------
-# 8. Forward Evidence Schemas (Stage 3 Read-Only)
+# 8. Forward Evidence & Governance Schemas (Read-Only)
+#
+# Stage 9: the response is widened to a faithful pass-through of the
+# sub-states the authoritative Phase 49 engine ALREADY computes inside
+# Phase49MonitoringFacade.get_cached_forward_state_snapshot(). No statistical,
+# governance, or milestone logic lives in the adapter — every value below is
+# produced verbatim by the engine and merely serialized here.
 # -------------------------------------------------------------------------
 class HistoricalBaselineModel(BaseModel):
     sample_size: int = 82
@@ -262,6 +268,101 @@ class HistoricalBaselineModel(BaseModel):
     win_rate_pct: float = 58.6
     profit_factor: float = 2.52
     status: str = "LOCKED & UNPOOLED"
+
+
+class ForwardMetricsModel(BaseModel):
+    trades_n: int
+    win_rate_pct: float
+    expectancy_r: float
+    average_r: float
+    median_r: float
+    profit_factor: float
+    cumulative_r: float
+    max_drawdown_r: float
+    std_dev_r: float
+    win_count: int
+    loss_count: int
+    breakeven_count: int
+    win_streak: int
+    loss_streak: int
+    outcomes: Dict[str, float]
+    maturity_tier: str
+    maturity_label: str
+    interpretation: str
+
+
+class UncertaintyModel(BaseModel):
+    sample_n: int
+    statistical_status: str
+    status_badge: str
+    win_rate_statement: str
+    expectancy_statement: str
+    ci_90_wr: Optional[List[float]] = None
+    ci_95_wr: Optional[List[float]] = None
+    ci_99_wr: Optional[List[float]] = None
+    ci_90_exp: Optional[List[float]] = None
+    ci_95_exp: Optional[List[float]] = None
+    ci_99_exp: Optional[List[float]] = None
+    prohibited_claim: str
+    valid_statement: str
+
+
+class HoldoutComparisonModel(BaseModel):
+    historical: Dict[str, Any]
+    forward: Dict[str, Any]
+    deltas: Dict[str, float]
+    comparison_verdict: str
+    explanation: str
+    pooling_prevention_check: str
+
+
+class AlphaDecayModel(BaseModel):
+    forward_n: int
+    decay_state: str
+    loss_clustering_detected: bool
+    expectancy_deterioration: bool
+    max_drawdown_expansion: Optional[bool] = None
+    action_required: str
+    summary: str
+
+
+class MilestoneRoadmapEntry(BaseModel):
+    target_n: int
+    status_label: str
+    trades_remaining: int
+    is_reached: bool
+
+
+class MilestoneProgressModel(BaseModel):
+    current_n: int
+    next_milestone: int
+    trades_remaining: int
+    completion_pct_toward_next: float
+    milestone_roadmap: List[MilestoneRoadmapEntry]
+
+
+class DecisionStateModel(BaseModel):
+    decision_state: str
+    rationale: str
+    research_action: str
+
+
+class DatasetProvenanceModel(BaseModel):
+    symbol: str
+    mode: str
+    total_records: int
+    clean_n: int
+    quarantined_count: int
+    dataset_fingerprint: str
+    contract_hash: str
+    is_isolated: bool
+    status: str
+
+
+class SafetyBarrierModel(BaseModel):
+    live_automation_enabled: bool = False
+    broker_transmission: str = "BLOCKED (FAIL-CLOSED)"
+    status: str = "PASS (SAFETY LOCKED)"
 
 
 class ForwardEvidenceStateResponse(BaseModel):
@@ -277,5 +378,15 @@ class ForwardEvidenceStateResponse(BaseModel):
     wilson_ci_upper_pct: float
     historical_baseline: HistoricalBaselineModel
     strategy_contract_hash: str
+    contract_valid: bool = True
     live_broker_transmission: str = "BLOCKED"
+    # Stage 9 — authoritative sub-state pass-through
+    metrics: ForwardMetricsModel
+    uncertainty: UncertaintyModel
+    holdout: HoldoutComparisonModel
+    alpha_decay: AlphaDecayModel
+    milestones: MilestoneProgressModel
+    decision: DecisionStateModel
+    dataset: DatasetProvenanceModel
+    safety: SafetyBarrierModel
     timestamp: str

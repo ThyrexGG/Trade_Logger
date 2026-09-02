@@ -126,7 +126,7 @@ export const ZONES: Zone[] = [
         description: 'Forward sample accumulation and decision state.',
         path: '/evidence/forward',
         icon: GaugeIcon,
-        status: 'shell',
+        status: 'live',
       },
       {
         id: 'evidence.statistics',
@@ -134,7 +134,7 @@ export const ZONES: Zone[] = [
         description: 'Statistical surveillance, milestones and holdout comparison.',
         path: '/evidence/statistics',
         icon: ChartIcon,
-        status: 'shell',
+        status: 'live',
       },
       {
         id: 'evidence.governance',
@@ -142,7 +142,7 @@ export const ZONES: Zone[] = [
         description: 'Governance state and evidence provenance.',
         path: '/evidence/governance',
         icon: ShieldIcon,
-        status: 'shell',
+        status: 'live',
       },
     ],
   },

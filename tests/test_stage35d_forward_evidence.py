@@ -39,10 +39,19 @@ import database
 client = TestClient(app)
 EP = "/api/forward-evidence/state"
 
-RESPONSE_KEYS = {
+# The original Stage 3 flat fields — every one of these is still present and
+# carries the same value/semantics.
+LEGACY_RESPONSE_KEYS = {
     "symbol", "mode", "sample_n", "win_rate_pct", "profit_factor", "expected_r",
     "next_milestone", "decision_state", "wilson_ci_lower_pct", "wilson_ci_upper_pct",
     "historical_baseline", "strategy_contract_hash", "live_broker_transmission", "timestamp",
+}
+# Stage 9 widened the read-only response with an authoritative pass-through of
+# the Phase 49 sub-states the engine already computes (no new computation in the
+# adapter). The flat keys above remain a strict subset.
+RESPONSE_KEYS = LEGACY_RESPONSE_KEYS | {
+    "contract_valid", "metrics", "uncertainty", "holdout", "alpha_decay",
+    "milestones", "decision", "dataset", "safety",
 }
 
 
@@ -221,13 +230,18 @@ def test_statistics_identical_cached_vs_fresh():
         assert a[k] == b[k], k
 
 
-# --- 10. response schema unchanged -----------------------------------
+# --- 10. response schema: legacy fields preserved, Stage 9 pass-through added --
 def test_response_schema_unchanged():
     data = client.get(EP).json()
+    # every original flat field is still present with the same meaning
+    assert LEGACY_RESPONSE_KEYS.issubset(data.keys())
     assert set(data.keys()) == RESPONSE_KEYS
     assert data["live_broker_transmission"] == "BLOCKED"
     assert data["symbol"] == "XAUUSD"
     assert data["mode"] == "PAPER"
+    # Stage 9 sub-states are authoritative pass-through, not adapter-computed
+    assert data["safety"]["live_automation_enabled"] is False
+    assert len(data["milestones"]["milestone_roadmap"]) == 14
 
 
 # --- 11. no execution / broker capability -----------------------------
