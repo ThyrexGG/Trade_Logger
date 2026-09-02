@@ -4,6 +4,8 @@ import { AppShell } from './components/shell/AppShell'
 import { ALL_NAV_ITEMS } from './lib/navigation'
 import { MarketWorkspacePage } from './pages/MarketWorkspacePage'
 import { RiskGatewayPage } from './pages/RiskGatewayPage'
+import { IntelligencePage } from './pages/IntelligencePage'
+import { AssetProfilePage } from './pages/AssetProfilePage'
 import { ZoneOverviewPage } from './pages/ZoneOverviewPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { SystemHealthPage } from './pages/SystemHealthPage'
@@ -13,6 +15,7 @@ import { NotFoundPage } from './pages/NotFoundPage'
 const LIVE_ITEM_PAGES: Record<string, ReactElement> = {
   'workspace.market': <MarketWorkspacePage />,
   'workspace.risk': <RiskGatewayPage />,
+  'research.intelligence': <IntelligencePage />,
   'operations.system': <SystemHealthPage />,
 }
 
@@ -44,6 +47,11 @@ export default function App() {
             }
           />
         ))}
+
+        <Route
+          path="research/intelligence/asset/:symbol"
+          element={<AssetProfilePage />}
+        />
 
         <Route path="*" element={<NotFoundPage />} />
       </Route>

@@ -92,7 +92,7 @@ export const ZONES: Zone[] = [
         description: 'Cross-asset regime, breadth and macro intelligence.',
         path: '/research/intelligence',
         icon: BrainIcon,
-        status: 'shell',
+        status: 'live',
       },
       {
         id: 'research.strategy',
@@ -209,5 +209,17 @@ export function getBreadcrumbs(pathname: string): Crumb[] {
   if (item) {
     crumbs.push({ label: item.label, path: item.path })
   }
+
+  // Asset intelligence detail: /research/intelligence/asset/:symbol
+  const assetMatch = pathname.match(/^\/research\/intelligence\/asset\/([^/]+)$/)
+  if (assetMatch) {
+    const intel = ALL_NAV_ITEMS.find((i) => i.id === 'research.intelligence')
+    if (intel) crumbs.push({ label: intel.label, path: intel.path })
+    crumbs.push({
+      label: decodeURIComponent(assetMatch[1]).toUpperCase(),
+      path: pathname,
+    })
+  }
+
   return crumbs
 }

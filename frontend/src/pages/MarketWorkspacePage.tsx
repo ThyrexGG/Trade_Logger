@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useWatchlist } from '../lib/useWatchlist'
 import { useMarketSnapshot } from '../lib/useMarketSnapshot'
 import { Watchlist } from '../components/workspace/Watchlist'
@@ -11,17 +12,26 @@ import { MarketSnapshot } from '../components/workspace/MarketSnapshot'
  */
 export function MarketWorkspacePage() {
   const watchlist = useWatchlist()
-  const [selected, setSelected] = useState<string | null>(null)
+  const [searchParams] = useSearchParams()
+  const requestedSymbol = searchParams.get('symbol')?.toUpperCase() || null
+  const [selected, setSelected] = useState<string | null>(requestedSymbol)
 
-  // Default to the backend's first configured instrument; recover if the
-  // current selection disappears from a refreshed list.
+  // Honour a ?symbol= handoff (from intelligence / risk); otherwise default to
+  // the backend's first configured instrument. Recover if the current
+  // selection disappears from a refreshed list.
+  useEffect(() => {
+    if (requestedSymbol && requestedSymbol !== selected) {
+      setSelected(requestedSymbol)
+    }
+  }, [requestedSymbol]) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (watchlist.items.length === 0) return
     const stillPresent = watchlist.items.some((i) => i.symbol === selected)
-    if (!selected || !stillPresent) {
+    if (!selected || (!stillPresent && !requestedSymbol)) {
       setSelected(watchlist.items[0].symbol)
     }
-  }, [watchlist.items, selected])
+  }, [watchlist.items, selected, requestedSymbol])
 
   const snapshot = useMarketSnapshot(selected)
   const onSelect = useCallback((symbol: string) => setSelected(symbol), [])

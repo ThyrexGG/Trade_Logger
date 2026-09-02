@@ -69,6 +69,23 @@ export function formatLots(value: number): string {
   return value.toFixed(2)
 }
 
+/** Signed score with 1dp, e.g. "+47.3" / "-12.0" / "0.0". */
+export function formatSignedScore(value: number): string {
+  if (!Number.isFinite(value)) return '—'
+  return (value > 0 ? '+' : '') + value.toFixed(1)
+}
+
+/** A macro/forecast number: integer-ish stays clean, fractions keep 1-2dp. */
+export function formatMacroValue(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '—'
+  const abs = Math.abs(value)
+  const decimals = abs >= 100 ? 1 : 2
+  return value.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: decimals,
+  })
+}
+
 /** Parses a user-entered number; returns null for blank / non-numeric. */
 export function parseNumberInput(raw: string): number | null {
   const trimmed = raw.trim()
