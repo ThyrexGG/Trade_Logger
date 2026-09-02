@@ -1,0 +1,43 @@
+@import 'tailwindcss';
+@import './styles/tokens.css';
+
+/*
+ * Map TradeLogger design tokens onto Tailwind's theme so utilities such as
+ * bg-background, text-secondary, border-border, text-positive are available.
+ */
+@theme inline {
+  --color-background: var(--tl-background);
+  --color-surface: var(--tl-surface);
+  --color-surface-elevated: var(--tl-surface-elevated);
+  --color-surface-hover: var(--tl-surface-hover);
+  --color-border: var(--tl-border);
+  --color-border-subtle: var(--tl-border-subtle);
+
+  --color-primary: var(--tl-text-primary);
+  --color-secondary: var(--tl-text-secondary);
+  --color-muted: var(--tl-text-muted);
+
+  --color-positive: var(--tl-positive);
+  --color-negative: var(--tl-negative);
+  --color-warning: var(--tl-warning);
+  --color-info: var(--tl-info);
+  --color-accent: var(--tl-accent);
+
+  --font-sans: var(--tl-font-sans);
+  --font-mono: var(--tl-font-mono);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--tl-background);
+  color: var(--tl-text-primary);
+  font-family: var(--tl-font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}

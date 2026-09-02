@@ -1,0 +1,32 @@
+/*
+ * TradeLogger design tokens (Stage 4 foundation).
+ * Derived from the existing Streamlit visual language in ui_components.py (TOKENS)
+ * and .streamlit/config.toml. This is a consistency baseline for later stages,
+ * not a redesign.
+ */
+:root {
+  /* Surfaces */
+  --tl-background: #0a0e17;
+  --tl-surface: #0f172a;
+  --tl-surface-elevated: #1e293b;
+  --tl-surface-hover: #27354f;
+  --tl-border: rgba(255, 255, 255, 0.12);
+  --tl-border-subtle: rgba(255, 255, 255, 0.08);
+
+  /* Text */
+  --tl-text-primary: #ffffff;
+  --tl-text-secondary: #94a3b8;
+  --tl-text-muted: #64748b;
+
+  /* Semantic state */
+  --tl-positive: #10b981;
+  --tl-negative: #ef4444;
+  --tl-warning: #f59e0b;
+  --tl-info: #3b82f6;
+  --tl-accent: #00ffcc;
+
+  /* Typography */
+  --tl-font-sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto,
+    Helvetica, Arial, sans-serif;
+  --tl-font-mono: 'JetBrains Mono', 'Fira Code', 'Roboto Mono', Consolas, monospace;
+}
