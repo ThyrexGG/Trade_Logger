@@ -199,7 +199,7 @@ data fetch is <30 ms for most pages, ~0.7–1.3 s for `/operations/audit`,
 ## Git
 
 - Branch: `main`
-- Commit: **`<filled in on commit>`** — `chore(stabilization): current-state docs, perf baseline, small fixes`
+- Commit: **`68c44e5`** — `chore(stabilization): current-state docs, perf baseline, small fixes`
 - Working tree: clean after commit
 - Files: 6 modified (`database.py`, `api/ai_context.py`, `api/macro_service.py`,
   `api/routers/{alerts,command_center,positions}.py`, `frontend/.../AppShell.tsx`),
