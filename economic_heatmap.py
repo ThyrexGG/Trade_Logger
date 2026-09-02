@@ -41,6 +41,9 @@ HEATMAP_VERSION = "1.0.0"
 # 1. ECONOMY CATALOG & CANONICAL DEFINITIONS (9 Global Economies)
 # -----------------------------------------------------------------------------
 
+SUPPORTED_CATEGORIES = ["GROWTH", "INFLATION", "LABOR", "RATES", "SURPRISE"]
+
+
 GLOBAL_ECONOMIES: Dict[str, Dict[str, Any]] = {
     "USD": {
         "country_name": "United States",
@@ -125,7 +128,9 @@ GLOBAL_ECONOMIES: Dict[str, Dict[str, Any]] = {
     }
 }
 
+SUPPORTED_ECONOMIES = list(GLOBAL_ECONOMIES.keys())
 CATEGORIES = ["GROWTH", "INFLATION", "LABOR", "RATES", "SURPRISE"]
+
 
 
 # -----------------------------------------------------------------------------

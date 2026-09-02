@@ -71,8 +71,14 @@ def get_connection():
             pass
         return conn
 
-def init_db():
-    """Initializes the database and creates the necessary tables."""
+_DB_INITIALIZED = False
+
+def init_db(force: bool = False):
+    """Initializes the database and creates the necessary tables (idempotent once per process)."""
+    global _DB_INITIALIZED
+    if _DB_INITIALIZED and not force:
+        return
+
     conn = get_connection()
     cursor = conn.cursor()
     
@@ -448,6 +454,7 @@ def init_db():
             except Exception:
                 pass
     
+    _DB_INITIALIZED = True
     conn.commit()
     conn.close()
 
@@ -679,9 +686,17 @@ def save_account_balance(account_id, balance, equity, currency="USD"):
         
     conn.commit()
     conn.close()
+    invalidate_db_cache("account_balances")
 
-def get_account_balances():
-    """Returns a dict of {account_id: {'balance': float, 'equity': float, 'currency': str}} from database."""
+def get_account_balances(ttl_sec: float = 2.0):
+    """Returns a dict of {account_id: {'balance': float, 'equity': float, 'currency': str}} from database with fast TTL cache."""
+    now_t = time.time()
+    cache_key = "account_balances"
+    if ttl_sec > 0 and cache_key in _DB_CACHE:
+        cached_val, cached_time = _DB_CACHE[cache_key]
+        if now_t - cached_time < ttl_sec:
+            return dict(cached_val)
+
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT account_id, balance, equity, currency FROM account_metadata")
@@ -695,7 +710,8 @@ def get_account_balances():
             "equity": float(row[2]),
             "currency": str(row[3])
         }
-    return balances
+    _DB_CACHE[cache_key] = (balances, time.time())
+    return dict(balances)
 
 # ----------------- Price Alerts Management -----------------
 
@@ -866,18 +882,24 @@ def toggle_favorite_symbol(symbol):
 # ----------------- App Settings & Saved Chart Layouts -----------------
 
 def get_setting(key, default=""):
-    """Fetches a saved app setting by key."""
+    """Fetches a saved app setting by key with in-memory fast caching."""
+    cache_key = f"setting_{key}"
+    if cache_key in _DB_CACHE:
+        cached_val, cached_time = _DB_CACHE[cache_key]
+        if time.time() - cached_time < 30.0:
+            return cached_val
     try:
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
         if is_postgres():
             cursor.execute("SELECT value FROM app_settings WHERE key = %s", (key,))
         else:
             cursor.execute("SELECT value FROM app_settings WHERE key = ?", (key,))
         row = cursor.fetchone()
         conn.close()
-        return row[0] if row else default
+        res = row[0] if row else default
+        _DB_CACHE[cache_key] = (res, time.time())
+        return res
     except Exception as e:
         print(f"Error reading setting {key}: {e}")
         return default
@@ -887,7 +909,6 @@ def set_setting(key, value):
     try:
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
         val_str = str(value)
         if is_postgres():
             cursor.execute("""
@@ -898,6 +919,7 @@ def set_setting(key, value):
             cursor.execute("INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)", (key, val_str))
         conn.commit()
         conn.close()
+        _DB_CACHE[f"setting_{key}"] = (val_str, time.time())
         return True
     except Exception as e:
         print(f"Error saving setting {key}: {e}")
@@ -906,25 +928,25 @@ def set_setting(key, value):
 # ----------------- Super App Chart Drawings Database -----------------
 
 def get_chart_drawings(symbol):
-    """Fetches saved chart drawings JSON for a specific symbol."""
+    """Fetches saved chart drawings JSON for a specific symbol with in-memory caching."""
     sym = str(symbol).strip().upper()
+    cache_key = f"drawings_{sym}"
+    if cache_key in _DB_CACHE:
+        cached_val, cached_time = _DB_CACHE[cache_key]
+        if time.time() - cached_time < 30.0:
+            return cached_val
     try:
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS chart_drawings (
-                symbol TEXT PRIMARY KEY,
-                drawings_data TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            )
-        """)
         if is_postgres():
             cursor.execute("SELECT drawings_data FROM chart_drawings WHERE symbol = %s", (sym,))
         else:
             cursor.execute("SELECT drawings_data FROM chart_drawings WHERE symbol = ?", (sym,))
         row = cursor.fetchone()
         conn.close()
-        return row[0] if row else "[]"
+        res = row[0] if row else "[]"
+        _DB_CACHE[cache_key] = (res, time.time())
+        return res
     except Exception as e:
         print(f"Error reading drawings for {sym}: {e}")
         return "[]"
@@ -936,13 +958,6 @@ def save_chart_drawings(symbol, drawings_json):
     try:
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS chart_drawings (
-                symbol TEXT PRIMARY KEY,
-                drawings_data TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            )
-        """)
         if is_postgres():
             cursor.execute("""
                 INSERT INTO chart_drawings (symbol, drawings_data, updated_at)
@@ -958,6 +973,7 @@ def save_chart_drawings(symbol, drawings_json):
             """, (sym, str(drawings_json), now_str))
         conn.commit()
         conn.close()
+        _DB_CACHE[f"drawings_{sym}"] = (str(drawings_json), time.time())
         return True
     except Exception as e:
         print(f"Error saving drawings for {sym}: {e}")

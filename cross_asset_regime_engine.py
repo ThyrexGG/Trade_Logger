@@ -47,6 +47,11 @@ REGIME_STATES = [
     "INSUFFICIENT_DATA"
 ]
 
+VALID_REGIME_STATES = REGIME_STATES
+
+CORRELATION_DISCLAIMER = "CORRELATION ≠ CAUSATION: Statistical correlation measures historical co-movement and does not imply structural causation or forward predictive certainty."
+
+
 
 # -----------------------------------------------------------------------------
 # 1. REGIME EVALUATION SNAPSHOT DATACLASS
@@ -297,10 +302,22 @@ class CrossAssetMatrixEngine:
         return {
             "window_periods": window,
             "sample_size": sample_size,
+            "sample_size_valid": sample_size >= 15,
             "symbols": symbols,
             "matrix": matrix,
             "disclaimer": "CORRELATION ≠ CAUSATION: Statistical association over the selected lookback. Relationships are non-stationary."
         }
+
+    @classmethod
+    def compute_matrix(
+        cls,
+        window_periods: int = 60,
+        symbols: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
+        """
+        Alias for calculate_correlation_matrix accepting window_periods argument.
+        """
+        return cls.calculate_correlation_matrix(window=window_periods, symbols=symbols)
 
 
 # -----------------------------------------------------------------------------
@@ -382,6 +399,14 @@ class MarketRegimeSnapshotStore:
             return snapshot.snapshot_id
         finally:
             conn.close()
+
+    @classmethod
+    def persist_snapshot(cls, snapshot: MarketRegimeSnapshot) -> Tuple[str, str]:
+        """
+        Persists a regime snapshot and returns (snapshot_id, data_fingerprint).
+        """
+        sid = cls.save_snapshot(snapshot)
+        return sid, snapshot.data_fingerprint
 
     @classmethod
     def get_latest_snapshot(cls) -> Optional[Dict[str, Any]]:

@@ -869,7 +869,8 @@ class MarketWideChangeDetector:
             "biggest_gainer": biggest_gainer,
             "biggest_decliner": biggest_decliner,
             "executive_bullets": executive_bullets,
-            "structured_deltas": deltas
+            "structured_deltas": deltas,
+            "deltas": deltas
         }
 
 
@@ -956,6 +957,54 @@ class MarketScannerSnapshotStore:
             ))
             conn.commit()
             return snapshot_id
+        finally:
+            conn.close()
+
+    @classmethod
+    def persist_snapshot(
+        cls,
+        records: List[AssetScanRecord],
+        as_of: Optional[datetime] = None
+    ) -> Tuple[str, str]:
+        """
+        Takes raw scan records, evaluates rankings, breadth, changes, persists snapshot and returns (snapshot_id, data_fingerprint).
+        """
+        if as_of is None:
+            as_of = datetime.now(timezone.utc)
+        ranked = MarketRankingEngine.rank_records(records)
+        breadth = MarketBreadthEngine.calculate_breadth(records)
+        changes = MarketWideChangeDetector.evaluate_market_changes(records)
+
+        snapshot_id = f"SCAN_{as_of.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+        breadth_json = json.dumps(breadth)
+        rankings_json = json.dumps(ranked)
+        changes_json = json.dumps(changes)
+
+        raw_content = f"{snapshot_id}_{breadth_json}_{rankings_json}_{SCANNER_MODEL_VERSION}"
+        data_fingerprint = hashlib.sha256(raw_content.encode("utf-8")).hexdigest()
+
+        conn = database.get_connection()
+        try:
+            _ensure_scanner_snapshots_table(conn)
+            cursor = conn.cursor()
+            placeholder = database.get_sql_placeholder(conn)
+            cursor.execute(f"""
+            INSERT INTO market_scanner_snapshots (
+                snapshot_id, timestamp, universe_count, breadth_json, rankings_json, changes_json, model_version, data_fingerprint, created_at
+            ) VALUES ({','.join([placeholder]*9)})
+            """, (
+                snapshot_id,
+                as_of.isoformat(),
+                len(ranked),
+                breadth_json,
+                rankings_json,
+                changes_json,
+                SCANNER_MODEL_VERSION,
+                data_fingerprint,
+                datetime.now(timezone.utc).isoformat()
+            ))
+            conn.commit()
+            return snapshot_id, data_fingerprint
         finally:
             conn.close()
 

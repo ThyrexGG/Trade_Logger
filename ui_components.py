@@ -602,11 +602,19 @@ def render_safety_banner():
     render_html(html)
 
 
+def clean_html(html_content: str) -> str:
+    """
+    Strips leading indentation from multiline HTML strings so markdown-it
+    does not parse 4+ leading spaces as <pre><code> blocks.
+    """
+    import textwrap
+    return textwrap.dedent(html_content).strip()
+
+
 def render_html(html_content: str):
     """
     Renders raw HTML via st.markdown with strict unindentation / dedent
     so that indented python multiline strings are never parsed as markdown code blocks.
     """
-    import textwrap
-    st.markdown(textwrap.dedent(html_content).strip(), unsafe_allow_html=True)
+    st.markdown(clean_html(html_content), unsafe_allow_html=True)
 
