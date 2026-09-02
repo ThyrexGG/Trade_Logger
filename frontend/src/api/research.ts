@@ -2,6 +2,8 @@ import { apiGet, apiPost } from './client'
 import type {
   BacktestRunRequest,
   BacktestRunResponse,
+  ResearchAuditRequest,
+  ResearchAuditResponse,
   StrategyLabResponse,
 } from '../types/research'
 
@@ -25,4 +27,17 @@ export function postBacktestRun(
   signal?: AbortSignal,
 ): Promise<BacktestRunResponse> {
   return apiPost<BacktestRunResponse>('/api/research/backtest', req, { signal })
+}
+
+/**
+ * POST /api/research/audit — runs ONE authoritative backtest then applies the
+ * canonical research_analytics / research_engine adversarial-audit functions
+ * (R-multiples, 3-layer expectancy, bootstrap CI, scorecard, execution stress,
+ * drift, dimension attribution). Research-only. Explicit action only.
+ */
+export function postResearchAudit(
+  req: ResearchAuditRequest,
+  signal?: AbortSignal,
+): Promise<ResearchAuditResponse> {
+  return apiPost<ResearchAuditResponse>('/api/research/audit', req, { signal })
 }

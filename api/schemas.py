@@ -563,6 +563,139 @@ class BacktestRunResponse(BaseModel):
 
 
 # -------------------------------------------------------------------------
+# 9B. Research Lab / Adversarial Audit Schemas (Stage 15B)
+#     Thin adapter over research_analytics.* + research_engine.* applied to an
+#     authoritative backtester.run_backtest result. Every statistic is produced
+#     by the canonical research code and only serialized here. Research-only:
+#     no broker / execution / automation path.
+# -------------------------------------------------------------------------
+class ResearchAuditRequest(BaseModel):
+    symbol: str = "XAUUSD"
+    timeframe: str = "1h"
+    strategy: str = "Trend Continuation"
+    risk_pct: float = 1.0
+    sl_atr: float = 1.5
+    tp_atr: float = 2.0
+    capital: float = 10000.0
+    slippage: float = 0.0001
+    commission_pct: float = 0.01
+    fixed_spread: float = 0.0
+    train_split: float = 0.60
+
+
+class ResearchDimensionRow(BaseModel):
+    """One row of `research_analytics.analyze_dimension_metrics` (observed + calculated)."""
+    group: str
+    trades_n: int
+    sample_tier: str
+    win_rate_pct: float
+    expectancy_r: float
+    mean_r: float
+    median_r: float
+    profit_factor: float
+    max_drawdown_r: float
+    avg_mae_r: float
+    avg_mfe_r: float
+    cumulative_r: float
+
+
+class ResearchLayerExpectancy(BaseModel):
+    train_r: float
+    train_trades: int
+    validation_r: float
+    validation_trades: int
+    holdout_r: float
+    holdout_trades: int
+
+
+class ResearchBootstrapCI(BaseModel):
+    sample_size: int
+    observed_mean_r: float
+    observed_median_r: float
+    ci_lower: float
+    ci_upper: float
+    ci_range_str: str
+    verdict: str
+    sample_confidence: str
+
+
+class ResearchScorecard(BaseModel):
+    status: str
+    color: str
+    is_deployable: bool
+    sample_size: int
+    oos_trades: int
+    oos_expectancy_r: float
+    holdout_expectancy_r: float
+    score_reasons: List[str]
+
+
+class ResearchStressScenario(BaseModel):
+    scenario: str
+    expectancy_r: float
+    edge_retention_pct: float
+    is_profitable: bool
+
+
+class ResearchExecutionStress(BaseModel):
+    base_expectancy_r: float
+    fragility_rating: str
+    scenarios: List[ResearchStressScenario]
+
+
+class ResearchDriftPoint(BaseModel):
+    trade_index: int
+    rolling_20_r: float
+
+
+class ResearchExpectancyDrift(BaseModel):
+    status: str
+    historical_expectancy_r: float
+    rolling_20_r: float
+    rolling_50_r: float
+    rolling_100_r: float
+    curve: List[ResearchDriftPoint]
+
+
+class ResearchQualityPoint(BaseModel):
+    min_confluence: float
+    trades_n: int
+    expectancy_r: float
+    win_rate_pct: float
+
+
+class ResearchConfluenceCalibration(BaseModel):
+    calibration_status: str
+    buckets: List[ResearchDimensionRow]
+    quality_curve: List[ResearchQualityPoint]
+
+
+class ResearchAuditResponse(BaseModel):
+    status: str  # "complete" | "failed"
+    config: BacktestConfigEcho
+    config_id: str
+    error: Optional[str] = None
+    ran_at: str
+    duration_sec: float
+    contract_hash: str
+    sample_n: int
+    layer_expectancy: Optional[ResearchLayerExpectancy] = None
+    bootstrap_ci: Optional[ResearchBootstrapCI] = None
+    scorecard: Optional[ResearchScorecard] = None
+    execution_stress: Optional[ResearchExecutionStress] = None
+    expectancy_drift: Optional[ResearchExpectancyDrift] = None
+    liquidity_breakdown: List[ResearchDimensionRow] = []
+    session_breakdown: List[ResearchDimensionRow] = []
+    liquidity_session_matrix: List[ResearchDimensionRow] = []
+    regime_breakdown: List[ResearchDimensionRow] = []
+    hourly_breakdown: List[ResearchDimensionRow] = []
+    daily_breakdown: List[ResearchDimensionRow] = []
+    confluence: Optional[ResearchConfluenceCalibration] = None
+    notes: List[str] = []
+    live_broker_transmission: str = "BLOCKED"
+
+
+# -------------------------------------------------------------------------
 # 10. Operations Schemas (Positions page reuses section 7; Journal / Audit /
 #     System are read-only pass-throughs of authoritative SQLite tables and
 #     `system_health.evaluate_system_health`). No execution, no mutation.

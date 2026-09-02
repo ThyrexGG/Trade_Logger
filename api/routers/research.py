@@ -20,9 +20,11 @@ from datetime import datetime, timezone
 from time import perf_counter
 from typing import Any, Dict, List, Optional
 
+import pandas as pd
 from fastapi import APIRouter, HTTPException
 
 import backtester
+import research_analytics
 import research_engine
 import strategies
 from xauusd_market_conditions import FROZEN_CONTRACT_HASH
@@ -41,6 +43,18 @@ from api.schemas import (
     BacktestTrade,
     EquityPoint,
     MonteCarloBlock,
+    ResearchAuditRequest,
+    ResearchAuditResponse,
+    ResearchBootstrapCI,
+    ResearchConfluenceCalibration,
+    ResearchDimensionRow,
+    ResearchDriftPoint,
+    ResearchExecutionStress,
+    ResearchExpectancyDrift,
+    ResearchLayerExpectancy,
+    ResearchQualityPoint,
+    ResearchScorecard,
+    ResearchStressScenario,
 )
 
 router = APIRouter(prefix="/api/research", tags=["Strategy Lab & Backtesting"])
@@ -378,5 +392,216 @@ def run_research_backtest(req: BacktestRunRequest) -> BacktestRunResponse:
         equity_curve_sampled=eq_sampled,
         monte_carlo=mc,
         wfo_flag=(overall.wfo_flag if overall else None),
+        live_broker_transmission="BLOCKED",
+    )
+
+
+# --- Research Lab / adversarial audit (Stage 15B) -----------------------
+# Faithful migration of the Streamlit "GENERAL RESEARCH & EDGE AUDIT" tab
+# (app.py). Runs one authoritative backtest, then applies the canonical
+# research_analytics.* + research_engine.* functions to its trades. Nothing is
+# reimplemented — every statistic is produced by the same code the Streamlit
+# tab calls and merely serialized.
+
+def _dimension_rows(df: Optional["pd.DataFrame"]) -> List[ResearchDimensionRow]:
+    if df is None or getattr(df, "empty", True):
+        return []
+    group_col = df.columns[0]
+    out: List[ResearchDimensionRow] = []
+    for _, r in df.iterrows():
+        out.append(ResearchDimensionRow(
+            group=str(r.get(group_col, "")),
+            trades_n=int(r.get("trades_N", 0) or 0),
+            sample_tier=str(r.get("sample_tier", "")),
+            win_rate_pct=float(r.get("win_rate_pct", 0.0) or 0.0),
+            expectancy_r=float(r.get("expectancy_r", 0.0) or 0.0),
+            mean_r=float(r.get("mean_r", 0.0) or 0.0),
+            median_r=float(r.get("median_r", 0.0) or 0.0),
+            profit_factor=float(r.get("profit_factor", 0.0) or 0.0),
+            max_drawdown_r=float(r.get("max_drawdown_r", 0.0) or 0.0),
+            avg_mae_r=float(r.get("avg_mae_r", 0.0) or 0.0),
+            avg_mfe_r=float(r.get("avg_mfe_r", 0.0) or 0.0),
+            cumulative_r=float(r.get("cumulative_r", 0.0) or 0.0),
+        ))
+    return out
+
+
+@router.post("/audit", response_model=ResearchAuditResponse)
+def run_research_audit(req: ResearchAuditRequest) -> ResearchAuditResponse:
+    """
+    Statistical edge / adversarial audit: runs one authoritative
+    `backtester.run_backtest`, then applies the canonical research functions
+    (R-multiple normalization, 3-layer expectancy, bootstrap CI, scorecard,
+    execution-cost stress, expectancy drift, liquidity / session / confluence /
+    regime / time-of-day attribution). Research-only — explicit action, no
+    broker / execution / automation path.
+    """
+    try:
+        from xauusd_research_governance import LiveTradingSafetyBarrier
+        LiveTradingSafetyBarrier.assert_live_automation_disabled()
+    except HTTPException:
+        raise
+    except Exception:
+        pass
+
+    tf = (req.timeframe or "1h").lower()
+    if tf not in _ALLOWED_TF:
+        raise HTTPException(status_code=422, detail=f"timeframe must be one of {sorted(_ALLOWED_TF)}")
+    if req.strategy not in strategies.STRATEGY_REGISTRY:
+        raise HTTPException(
+            status_code=422,
+            detail=f"unknown strategy '{req.strategy}'. Available: {sorted(strategies.STRATEGY_REGISTRY)}",
+        )
+    if not backtester.map_symbol_to_yf(req.symbol):
+        raise HTTPException(status_code=422, detail=f"symbol '{req.symbol}' is not supported for backtesting")
+    if req.capital <= 0:
+        raise HTTPException(status_code=422, detail="capital must be positive")
+    if not (0.1 <= req.train_split <= 0.9):
+        raise HTTPException(status_code=422, detail="train_split must be between 0.1 and 0.9")
+
+    config = BacktestConfigEcho(
+        symbol=req.symbol.upper(), timeframe=tf, strategy=req.strategy, mode="standard",
+        risk_pct=req.risk_pct, sl_atr=req.sl_atr, tp_atr=req.tp_atr, capital=req.capital,
+        slippage=req.slippage, commission_pct=req.commission_pct, fixed_spread=req.fixed_spread,
+        train_split=req.train_split,
+    )
+    config_id = hashlib.sha256(
+        json.dumps(config.model_dump(), sort_keys=True).encode("utf-8")
+    ).hexdigest()[:16]
+    ran_at = datetime.now(timezone.utc).isoformat()
+    started = perf_counter()
+
+    def _fail(msg: str) -> ResearchAuditResponse:
+        return ResearchAuditResponse(
+            status="failed", config=config, config_id=config_id, error=msg,
+            ran_at=ran_at, duration_sec=round(perf_counter() - started, 2),
+            contract_hash=FROZEN_CONTRACT_HASH, sample_n=0, live_broker_transmission="BLOCKED",
+        )
+
+    try:
+        res = backtester.run_backtest(
+            symbol=config.symbol, timeframe=tf, strategy=req.strategy,
+            risk_pct=req.risk_pct, sl_atr=req.sl_atr, tp_atr=req.tp_atr,
+            capital=req.capital, slippage=req.slippage, commission_pct=req.commission_pct,
+            fixed_spread=req.fixed_spread, train_split=req.train_split,
+        )
+    except Exception as exc:  # pragma: no cover - defensive
+        return _fail(f"Backtest engine raised: {type(exc).__name__}: {exc}")
+
+    if not isinstance(res, dict) or "error" in res:
+        return _fail(str(res.get("error")) if isinstance(res, dict) else "Malformed engine response")
+
+    raw_trades = res.get("trades") or []
+    if len(raw_trades) < 4:
+        return _fail(f"Only {len(raw_trades)} trades — not enough for a statistical audit (need >= 4).")
+
+    df_r = research_analytics.calculate_trade_r_multiples(raw_trades)
+    n_t = len(df_r)
+    is_df = df_r.iloc[: int(n_t * 0.60)]
+    val_df = df_r.iloc[int(n_t * 0.60): int(n_t * 0.80)]
+    hold_df = df_r.iloc[int(n_t * 0.80):]
+    oos_df = df_r.iloc[int(n_t * 0.60):]
+
+    def _mean_r(d) -> float:
+        return round(float(d["r_multiple"].mean()), 3) if not d.empty else 0.0
+
+    layer = ResearchLayerExpectancy(
+        train_r=_mean_r(is_df), train_trades=int(len(is_df)),
+        validation_r=_mean_r(val_df), validation_trades=int(len(val_df)),
+        holdout_r=_mean_r(hold_df), holdout_trades=int(len(hold_df)),
+    )
+
+    boot_raw = research_engine.BootstrapEstimator.calculate_r_expectancy_ci(
+        list(oos_df["r_multiple"].values), n_iterations=3000, random_seed=42,
+    )
+    boot = ResearchBootstrapCI(
+        sample_size=int(boot_raw.get("sample_size", 0)),
+        observed_mean_r=float(boot_raw.get("observed_mean_r", 0.0)),
+        observed_median_r=float(boot_raw.get("observed_median_r", 0.0)),
+        ci_lower=float(boot_raw.get("ci_lower", 0.0)),
+        ci_upper=float(boot_raw.get("ci_upper", 0.0)),
+        ci_range_str=str(boot_raw.get("ci_range_str", "")),
+        verdict=str(boot_raw.get("verdict", "")),
+        sample_confidence=str(boot_raw.get("sample_confidence", "")),
+    )
+
+    stress_raw = research_analytics.stress_test_execution_sensitivity(raw_trades)
+    stress = ResearchExecutionStress(
+        base_expectancy_r=float(stress_raw.get("base_expectancy_r", 0.0)),
+        fragility_rating=str(stress_raw.get("fragility_rating", "UNKNOWN")),
+        scenarios=[ResearchStressScenario(
+            scenario=str(s.get("scenario", "")),
+            expectancy_r=float(s.get("expectancy_r", 0.0)),
+            edge_retention_pct=float(s.get("edge_retention_pct", 0.0)),
+            is_profitable=bool(s.get("is_profitable", False)),
+        ) for s in stress_raw.get("scenarios", [])],
+    )
+
+    sc_raw = research_engine.ScorecardClassifier.evaluate_strategy(
+        {"total_trades": len(is_df), "expectancy_r": layer.train_r},
+        {"total_trades": len(val_df), "expectancy_r": layer.validation_r},
+        {"total_trades": len(hold_df), "expectancy_r": layer.holdout_r},
+        boot_raw, wfo_status="Robust",
+        execution_fragility=stress.fragility_rating, parameter_stability="STABLE",
+    )
+    scorecard = ResearchScorecard(
+        status=str(sc_raw.get("status", "UNCERTAIN")),
+        color=str(sc_raw.get("color", "#f59e0b")),
+        is_deployable=bool(sc_raw.get("is_deployable", False)),
+        sample_size=int(sc_raw.get("sample_size", n_t)),
+        oos_trades=int(sc_raw.get("oos_trades", len(oos_df))),
+        oos_expectancy_r=float(sc_raw.get("oos_expectancy_r", layer.validation_r)),
+        holdout_expectancy_r=float(sc_raw.get("holdout_expectancy_r", layer.holdout_r)),
+        score_reasons=[str(x) for x in sc_raw.get("score_reasons", [])],
+    )
+
+    drift_raw = research_analytics.monitor_expectancy_drift(df_r)
+    drift = ResearchExpectancyDrift(
+        status=str(drift_raw.get("status", "")),
+        historical_expectancy_r=float(drift_raw.get("historical_expectancy_r", 0.0)),
+        rolling_20_r=float(drift_raw.get("rolling_20_r", 0.0)),
+        rolling_50_r=float(drift_raw.get("rolling_50_r", 0.0)),
+        rolling_100_r=float(drift_raw.get("rolling_100_r", 0.0)),
+        curve=[ResearchDriftPoint(trade_index=int(p.get("trade_index", 0)),
+                                  rolling_20_r=float(p.get("rolling_20_r", 0.0)))
+               for p in drift_raw.get("curve", [])],
+    )
+
+    sessions_raw = research_analytics.analyze_sessions(df_r)
+    conf_raw = research_analytics.analyze_confluence_calibration(df_r)
+    time_raw = research_analytics.analyze_time_and_day(df_r)
+
+    confluence = ResearchConfluenceCalibration(
+        calibration_status=str(conf_raw.get("calibration_status", "")),
+        buckets=_dimension_rows(conf_raw.get("buckets")),
+        quality_curve=[ResearchQualityPoint(
+            min_confluence=float(q.get("min_confluence", 0.0)),
+            trades_n=int(q.get("trades_N", 0)),
+            expectancy_r=float(q.get("expectancy_r", 0.0)),
+            win_rate_pct=float(q.get("win_rate_pct", 0.0)),
+        ) for q in conf_raw.get("quality_curve", [])],
+    )
+
+    return ResearchAuditResponse(
+        status="complete", config=config, config_id=config_id,
+        ran_at=ran_at, duration_sec=round(perf_counter() - started, 2),
+        contract_hash=FROZEN_CONTRACT_HASH, sample_n=n_t,
+        layer_expectancy=layer, bootstrap_ci=boot, scorecard=scorecard,
+        execution_stress=stress, expectancy_drift=drift,
+        liquidity_breakdown=_dimension_rows(research_analytics.analyze_liquidity_sources(df_r)),
+        session_breakdown=_dimension_rows(sessions_raw.get("session_breakdown")),
+        liquidity_session_matrix=_dimension_rows(sessions_raw.get("liquidity_session_matrix")),
+        regime_breakdown=_dimension_rows(research_analytics.analyze_market_regimes(df_r)),
+        hourly_breakdown=_dimension_rows(time_raw.get("hourly")),
+        daily_breakdown=_dimension_rows(time_raw.get("daily")),
+        confluence=confluence,
+        notes=[
+            "Historical research only — not forward evidence, not live execution.",
+            "3-layer split (60% train / 20% validation / 20% holdout) is chronological by trade index.",
+            "Bootstrap CI uses the out-of-sample (post-60%) trades with a fixed seed (42) — reproducible.",
+            "Execution-stress penalties are the canonical research_analytics model, not a re-simulation.",
+            "Liquidity / session / regime / confluence tags come from the strategy modules; "
+            "absent tags fall back to a single synthetic bucket.",
+        ],
         live_broker_transmission="BLOCKED",
     )

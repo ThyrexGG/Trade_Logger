@@ -169,3 +169,130 @@ export interface BacktestRunResponse {
   wfo_flag: string | null
   live_broker_transmission: string
 }
+
+// --- Research Lab / adversarial audit (Stage 15B) -------------------------
+
+export interface ResearchAuditRequest {
+  symbol: string
+  timeframe: string
+  strategy: string
+  risk_pct: number
+  sl_atr: number
+  tp_atr: number
+  capital: number
+  slippage: number
+  commission_pct: number
+  fixed_spread: number
+  train_split: number
+}
+
+export interface ResearchDimensionRow {
+  group: string
+  trades_n: number
+  sample_tier: string
+  win_rate_pct: number
+  expectancy_r: number
+  mean_r: number
+  median_r: number
+  profit_factor: number
+  max_drawdown_r: number
+  avg_mae_r: number
+  avg_mfe_r: number
+  cumulative_r: number
+}
+
+export interface ResearchLayerExpectancy {
+  train_r: number
+  train_trades: number
+  validation_r: number
+  validation_trades: number
+  holdout_r: number
+  holdout_trades: number
+}
+
+export interface ResearchBootstrapCI {
+  sample_size: number
+  observed_mean_r: number
+  observed_median_r: number
+  ci_lower: number
+  ci_upper: number
+  ci_range_str: string
+  verdict: string
+  sample_confidence: string
+}
+
+export interface ResearchScorecard {
+  status: string
+  color: string
+  is_deployable: boolean
+  sample_size: number
+  oos_trades: number
+  oos_expectancy_r: number
+  holdout_expectancy_r: number
+  score_reasons: string[]
+}
+
+export interface ResearchStressScenario {
+  scenario: string
+  expectancy_r: number
+  edge_retention_pct: number
+  is_profitable: boolean
+}
+
+export interface ResearchExecutionStress {
+  base_expectancy_r: number
+  fragility_rating: string
+  scenarios: ResearchStressScenario[]
+}
+
+export interface ResearchDriftPoint {
+  trade_index: number
+  rolling_20_r: number
+}
+
+export interface ResearchExpectancyDrift {
+  status: string
+  historical_expectancy_r: number
+  rolling_20_r: number
+  rolling_50_r: number
+  rolling_100_r: number
+  curve: ResearchDriftPoint[]
+}
+
+export interface ResearchQualityPoint {
+  min_confluence: number
+  trades_n: number
+  expectancy_r: number
+  win_rate_pct: number
+}
+
+export interface ResearchConfluenceCalibration {
+  calibration_status: string
+  buckets: ResearchDimensionRow[]
+  quality_curve: ResearchQualityPoint[]
+}
+
+export interface ResearchAuditResponse {
+  status: 'complete' | 'failed'
+  config: BacktestConfigEcho
+  config_id: string
+  error: string | null
+  ran_at: string
+  duration_sec: number
+  contract_hash: string
+  sample_n: number
+  layer_expectancy: ResearchLayerExpectancy | null
+  bootstrap_ci: ResearchBootstrapCI | null
+  scorecard: ResearchScorecard | null
+  execution_stress: ResearchExecutionStress | null
+  expectancy_drift: ResearchExpectancyDrift | null
+  liquidity_breakdown: ResearchDimensionRow[]
+  session_breakdown: ResearchDimensionRow[]
+  liquidity_session_matrix: ResearchDimensionRow[]
+  regime_breakdown: ResearchDimensionRow[]
+  hourly_breakdown: ResearchDimensionRow[]
+  daily_breakdown: ResearchDimensionRow[]
+  confluence: ResearchConfluenceCalibration | null
+  notes: string[]
+  live_broker_transmission: string
+}

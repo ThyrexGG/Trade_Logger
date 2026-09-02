@@ -12,6 +12,7 @@ import { EvidenceStatisticsPage } from './pages/EvidenceStatisticsPage'
 import { EvidenceGovernancePage } from './pages/EvidenceGovernancePage'
 import { StrategyLabPage } from './pages/StrategyLabPage'
 import { BacktestWorkspacePage } from './pages/BacktestWorkspacePage'
+import { ResearchAuditPage } from './pages/ResearchAuditPage'
 import { PositionsPage } from './pages/PositionsPage'
 import { PriceAlertsPage } from './pages/PriceAlertsPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
@@ -35,6 +36,7 @@ const LIVE_ITEM_PAGES: Record<string, ReactElement> = {
   'research.intelligence': <IntelligencePage />,
   'research.strategy': <StrategyLabPage />,
   'research.backtest': <BacktestWorkspacePage />,
+  'research.audit': <ResearchAuditPage />,
   'evidence.forward': <ForwardEvidencePage />,
   'evidence.statistics': <EvidenceStatisticsPage />,
   'evidence.governance': <EvidenceGovernancePage />,

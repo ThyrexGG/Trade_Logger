@@ -135,6 +135,14 @@ export const ZONES: Zone[] = [
         icon: ReplayIcon,
         status: 'live',
       },
+      {
+        id: 'research.audit',
+        label: 'Edge Audit',
+        description: 'Statistical edge & adversarial audit (R-multiples, bootstrap, stress).',
+        path: '/research/audit',
+        icon: FlaskIcon,
+        status: 'live',
+      },
     ],
   },
   {
