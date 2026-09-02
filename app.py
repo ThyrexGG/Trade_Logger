@@ -4423,6 +4423,11 @@ def render_live_dashboard():
         else:
             st.info("No canonical execution records found.")
 
+        # Phase 62: Live Performance Command Center & UX Latency Profiler
+        st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:24px 0 16px 0;'>", unsafe_allow_html=True)
+        import application_performance_profiler
+        application_performance_profiler.render_performance_command_center()
+
 render_live_dashboard()
 
 # Force Streamlit Reload

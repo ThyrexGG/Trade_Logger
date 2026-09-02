@@ -129,3 +129,12 @@ class ProfileTimer:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.duration_ms = (time.perf_counter() - self.t0) * 1000.0
         PerformanceDiagnostics.record_duration(self.component_name, self.duration_ms)
+
+
+# Phase 62 Re-exports & Helper
+try:
+    import application_performance_profiler
+    render_performance_command_center = application_performance_profiler.render_performance_command_center
+    get_profiler = application_performance_profiler.get_profiler
+except ImportError:
+    pass

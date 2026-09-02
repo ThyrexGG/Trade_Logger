@@ -1,35 +1,49 @@
 """
-Phase 57: Test Suite for Market-Wide Change Detection Engine
-Verifies:
-- Change detection between current records and prior state
-- Material rank changes (>= 3 spots)
-- Material score changes (>= 15 pts)
-- Regime changes and factor divergence alerts
+TradeLogger Phase 57 — Test Suite: Market-Wide Change Detector
+==============================================================
+Validates:
+- Comparison between prior and current market scan snapshots.
+- Accurate detection of ranking position shifts.
+- Accurate detection of directional bias transitions.
+- Identification of notable score gainers and decliners.
 """
 
 import pytest
-from market_intelligence_scanner import MarketWideChangeDetector, AssetScanRecord
+from market_intelligence_scanner import (
+    MarketScannerEngine,
+    MarketWideChangeDetector
+)
 
 
-def test_change_detector_evaluation():
-    records = [
-        AssetScanRecord(
-            symbol="EURUSD", asset_class="FX", display_name="Euro / USD",
-            price=1.0850, price_change_24h_pct=0.45, volatility_atr_pct=0.62,
-            edge_score=45.0, macro_score=30.0, technical_score=50.0,
-            positioning_score=20.0, seasonality_score=10.0, regime_score=15.0,
-            data_quality_score=90, data_quality_rating="LIVE",
-            factor_agreement_pct=85.0, conflict_state="ALIGNED", conflict_score=10.0,
-            dominant_driver="TECHNICAL", dominant_risk="NONE",
-            context_state="BULLISH CONTEXT", why_bullets=[], data_fingerprint="f1"
-        )
-    ]
-    changes = MarketWideChangeDetector.evaluate_market_changes(records)
-    assert isinstance(changes, dict)
-    assert "summary" in changes
-    assert "material_rank_changes" in changes
-    assert "material_score_changes" in changes
-    assert "regime_changes" in changes
-    assert "factor_divergence_alerts" in changes
-    assert "data_quality_changes" in changes
-    assert isinstance(changes["material_rank_changes"], list)
+def test_change_detector_single_snapshot():
+    """Verify change detector generates structured baseline deltas for initial scan."""
+    records = MarketScannerEngine.scan_universe("ALL")
+    changes = MarketWideChangeDetector.evaluate_market_changes(records, previous_records=None)
+
+    assert changes["total_deltas"] == 23
+    assert "executive_bullets" in changes
+    assert len(changes["executive_bullets"]) > 0
+    assert "structured_deltas" in changes
+
+
+def test_change_detector_consecutive_snapshots():
+    """Verify change detector computes deltas between previous and current snapshots."""
+    records = MarketScannerEngine.scan_universe("ALL")
+    # For identical snapshots, zero score deltas are detected
+    changes_same = MarketWideChangeDetector.evaluate_market_changes(records, previous_records=records)
+    assert changes_same["total_deltas"] == 0
+    assert len(changes_same["structured_deltas"]) == 0
+
+    # For modified snapshot, deltas are detected
+    modified = []
+    for r in records:
+        r_dict = r.to_dict()
+        if r.symbol == "XAUUSD":
+            r_dict["edge_score"] = r.edge_score + 25.0
+        from market_intelligence_scanner import AssetScanRecord
+        modified.append(AssetScanRecord(**r_dict))
+
+    changes_diff = MarketWideChangeDetector.evaluate_market_changes(modified, previous_records=records)
+    assert changes_diff["total_deltas"] > 0
+    assert changes_diff["biggest_gainer"] is not None
+    assert changes_diff["biggest_gainer"]["symbol"] == "XAUUSD"

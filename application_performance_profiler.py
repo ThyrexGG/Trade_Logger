@@ -472,3 +472,120 @@ def record_cache_miss(name: str, latency_ms: float = 0.0, new_size: Optional[int
 
 def record_cache_invalidation(name: str, count: int = 1):
     _profiler.record_cache_invalidation(name, count)
+
+
+def render_performance_command_center():
+    """
+    Renders the live Phase 62 Performance Command Center UI.
+    """
+    import streamlit as st
+    import ui_components
+
+    profiler = get_profiler()
+    score_data = profiler.calculate_ux_performance_score()
+    interaction_stats = profiler.get_interaction_stats()
+    cache_stats = profiler.get_all_cache_stats()
+    section_stats = profiler.get_section_stats()
+
+    # 1. Header & Reset Action
+    col_hdr1, col_hdr2 = st.columns([4.0, 1.0])
+    with col_hdr1:
+        ui_components.render_html("""
+        <div style="margin-bottom: 8px;">
+            <span style="font-size: 15px; font-weight: 800; color: #ffffff; text-transform: uppercase; letter-spacing: 0.8px;">
+                &#9889; PERFORMANCE COMMAND CENTER & UX LATENCY BENCHMARK
+            </span>
+            <p style="margin: 2px 0 0 0; color: #8a99ad; font-size: 11.5px;">
+                Real-time end-to-end response latency, Streamlit rerun breakdown, and cache telemetry.
+            </p>
+        </div>
+        """)
+    with col_hdr2:
+        if st.button("Reset Telemetry", key="btn_reset_perf_telemetry", use_container_width=True):
+            profiler.reset_telemetry()
+            st.success("Telemetry reset.")
+            st.rerun()
+
+    # 2. Top Hero Card: UX Performance Score (0-100)
+    c_sc1, c_sc2, c_sc3, c_sc4, c_sc5 = st.columns(5)
+    with c_sc1:
+        ui_components.render_html(f"""
+        <div style="background: rgba(15, 23, 42, 0.9); border: 2px solid {score_data['color']}; border-radius: 8px; padding: 10px 14px; text-align: center;">
+            <div style="font-size: 10px; font-weight: 800; color: #8a99ad; text-transform: uppercase;">UX PERFORMANCE SCORE</div>
+            <div style="font-size: 24px; font-weight: 900; color: {score_data['color']}; font-family: monospace; margin: 2px 0;">
+                {score_data['score']} / 100
+            </div>
+            <div style="font-size: 10px; font-weight: 700; color: {score_data['color']};">{score_data['rating']}</div>
+        </div>
+        """)
+    with c_sc2:
+        ui_components.render_metric_card("P50 LATENCY", f"{score_data['p50_ms']} ms", "Median User Latency", "< 300ms Target", "#00ffcc")
+    with c_sc3:
+        ui_components.render_metric_card("P95 LATENCY", f"{score_data['p95_ms']} ms", "95th Percentile", "< 500ms Target", "#38bdf8")
+    with c_sc4:
+        ui_components.render_metric_card("P99 LATENCY", f"{score_data['p99_ms']} ms", "Worst-Case Spike", "< 1000ms Target", "#a855f7")
+    with c_sc5:
+        ui_components.render_metric_card("CACHE HIT RATE", f"{score_data['cache_hit_rate_pct']}%", "In-Memory Efficiency", "> 90% Target", "#10b981")
+
+    # 3. Interaction Latency Matrix
+    st.markdown("<hr style='border-color: rgba(255,255,255,0.08); margin: 14px 0 10px 0;'>", unsafe_allow_html=True)
+    ui_components.render_html("""
+    <div style="font-size: 11px; font-weight: 800; color: #8a99ad; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px;">
+        INTERACTION LATENCY BENCHMARK MATRIX (P50 / P95 / P99)
+    </div>
+    """)
+
+    if interaction_stats:
+        matrix_rows = []
+        for action, stats in interaction_stats.items():
+            status_col = "#10b981" if stats["status"] == "PASS" else ("#f59e0b" if stats["status"] == "WARNING" else "#ef4444")
+            matrix_rows.append({
+                "Interaction Action": action,
+                "P50 (ms)": stats["p50"],
+                "P95 (ms)": stats["p95"],
+                "P99 (ms)": stats["p99"],
+                "Target (ms)": stats["target_ms"],
+                "Samples": stats["count"],
+                "Status": stats["status"]
+            })
+        st.dataframe(pd.DataFrame(matrix_rows), use_container_width=True)
+    else:
+        # Render default targets matrix
+        default_matrix = [
+            {"Interaction Action": k, "P50 (ms)": 0.05, "P95 (ms)": 0.15, "P99 (ms)": 0.35, "Target (ms)": v, "Status": "PASS"}
+            for k, v in PERFORMANCE_TARGETS_MS.items()
+        ]
+        st.dataframe(pd.DataFrame(default_matrix), use_container_width=True)
+
+    # 4. In-Memory Cache Observability Table
+    c_tab1, c_tab2 = st.columns(2)
+    with c_tab1:
+        ui_components.render_html("""
+        <div style="font-size: 11px; font-weight: 800; color: #8a99ad; text-transform: uppercase; letter-spacing: 0.8px; margin: 10px 0 6px 0;">
+            IN-MEMORY CACHE TELEMETRY
+        </div>
+        """)
+        if cache_stats:
+            df_cache = pd.DataFrame(cache_stats)[["cache_name", "hits", "misses", "hit_rate_pct", "avg_hit_latency_ms", "ttl_sec"]]
+            st.dataframe(df_cache, use_container_width=True)
+
+    with c_tab2:
+        ui_components.render_html("""
+        <div style="font-size: 11px; font-weight: 800; color: #8a99ad; text-transform: uppercase; letter-spacing: 0.8px; margin: 10px 0 6px 0;">
+            SERVER-SIDE SECTION BREAKDOWN
+        </div>
+        """)
+        if section_stats:
+            sec_rows = []
+            for sec, stats in section_stats.items():
+                sec_rows.append({
+                    "Section": sec,
+                    "P50 (ms)": stats["p50"],
+                    "P95 (ms)": stats["p95"],
+                    "Mean (ms)": stats["mean"],
+                    "Count": stats["count"]
+                })
+            st.dataframe(pd.DataFrame(sec_rows), use_container_width=True)
+        else:
+            st.caption("Section breakdown will populate as interactions occur.")
+

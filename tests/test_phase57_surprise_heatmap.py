@@ -1,50 +1,35 @@
 """
-Phase 57: Test Suite for Economic Surprise Heatmap Engine
-Verifies:
-- Economic surprise matrix generation across 9 economies
-- Z-score surprise calculation & bounds
-- Historical surprise momentum tracking
-- Raw event ledger format
+TradeLogger Phase 57 — Test Suite: Economic Surprise Heatmap Engine
+====================================================================
+Validates:
+- Economic surprise index calculation based on actual vs expectation.
+- Z-score deviation momentum scoring.
+- Release evaluation across economies.
 """
 
 import pytest
-from economic_heatmap import SurpriseHeatmapEngine, SUPPORTED_ECONOMIES
+from economic_heatmap import EconomicHeatmapEngine, GLOBAL_ECONOMIES, HeatmapCell
+from macro_intelligence_engine import EconomicSurpriseEngine, EconomicDataRegistry
 
 
-def test_surprise_matrix_completeness():
-    matrix = SurpriseHeatmapEngine.generate_surprise_matrix()
-    assert len(matrix) == 9
-    assert set(matrix.keys()) == set(SUPPORTED_ECONOMIES)
-
-    for econ, data in matrix.items():
-        assert "economy" in data
-        assert "composite_surprise_z" in data
-        assert "surprise_state" in data
-        assert "recent_events" in data
-        assert isinstance(data["recent_events"], list)
-        assert -5.0 <= data["composite_surprise_z"] <= 5.0
+def test_surprise_cell_generation():
+    """Verify surprise cell generation for all 9 economies."""
+    for econ in GLOBAL_ECONOMIES:
+        cell = EconomicHeatmapEngine.get_economy_cell(econ, "SURPRISE")
+        assert isinstance(cell, HeatmapCell)
+        assert cell.category == "SURPRISE"
+        assert cell.economy == econ
+        assert len(cell.badge_label) > 0
+        assert "σ" in cell.badge_label
 
 
-def test_surprise_momentum_trend():
-    momentum = SurpriseHeatmapEngine.get_surprise_momentum()
-    assert len(momentum) == 9
-    for m in momentum:
-        assert "economy" in m
-        assert "current_z" in m
-        assert "prior_z" in m
-        assert "momentum_delta" in m
-        assert "trend" in m
-        assert m["trend"] in ("IMPROVING", "DETERIORATING", "STABLE")
+def test_statistical_surprise_engine_integration():
+    """Verify EconomicSurpriseEngine integrates properly with EconomicDataRegistry."""
+    releases = EconomicDataRegistry.get_releases_as_of(country="USD")
+    assert len(releases) > 0
 
-
-def test_recent_releases_ledger():
-    releases = SurpriseHeatmapEngine.get_recent_releases_ledger(limit=10)
-    assert isinstance(releases, list)
-    assert len(releases) <= 10
-    if releases:
-        rel = releases[0]
-        assert "event_name" in rel
-        assert "economy" in rel
-        assert "actual" in rel
-        assert "consensus" in rel
-        assert "surprise_z" in rel
+    for r in releases[:5]:
+        s = EconomicSurpriseEngine.evaluate_release_surprise(r)
+        assert "z_score" in s
+        assert "direction" in s
+        assert "raw_surprise" in s

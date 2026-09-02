@@ -1,47 +1,62 @@
 """
-Phase 57: Test Suite for Market Scanner Snapshot Integrity
-Verifies:
-- SHA-256 fingerprint generation
-- SQLite persistence in market_scanner_snapshots table
-- Historical snapshot retrieval and ordering
-- Data integrity verification on stored records
+TradeLogger Phase 57 — Test Suite: Snapshot Integrity & Fingerprinting
+======================================================================
+Validates:
+- SHA-256 fingerprint reproducibility on scanner and regime snapshots.
+- SQLite persistence in market_scanner_snapshots and market_regime_snapshots.
+- Immutable timestamp and version auditing.
+- Exact serialization and deserialization roundtrip.
 """
 
 import pytest
+import hashlib
 from market_intelligence_scanner import (
-    MarketScannerEngine,
     MarketScannerSnapshotStore,
-    MarketBreadthEngine
+    MarketScannerEngine,
+    MarketRankingEngine,
+    MarketBreadthEngine,
+    MarketWideChangeDetector
+)
+from cross_asset_regime_engine import (
+    MarketRegimeSnapshotStore,
+    CrossAssetRegimeEngine
 )
 
 
-def test_save_and_retrieve_scanner_snapshot():
-    records = MarketScannerEngine.scan_universe(["EURUSD", "SPX500", "XAUUSD"])
+def test_scanner_snapshot_save_and_retrieve():
+    """Verify saving scanner snapshot to SQLite and retrieving latest snapshot."""
+    records = MarketScannerEngine.scan_universe("ALL")
+    ranked = MarketRankingEngine.rank_records(records)
     breadth = MarketBreadthEngine.calculate_breadth(records)
+    changes = MarketWideChangeDetector.evaluate_market_changes(records)
 
-    snap_id = MarketScannerSnapshotStore.save_scanner_snapshot(
-        scan_records=records,
-        regime_label="RISK_ON",
-        regime_confidence=85.0,
-        breadth_summary=breadth
+    snap_id = MarketScannerSnapshotStore.record_snapshot(
+        ranked_records=ranked,
+        breadth=breadth,
+        changes=changes
     )
 
+    assert isinstance(snap_id, str)
     assert snap_id.startswith("SCAN_")
 
-    latest = MarketScannerSnapshotStore.get_latest_scanner_snapshot()
+    latest = MarketScannerSnapshotStore.get_latest_snapshot()
     assert latest is not None
     assert latest["snapshot_id"] == snap_id
-    assert latest["asset_count"] == 3
-    assert latest["regime_label"] == "RISK_ON"
     assert len(latest["data_fingerprint"]) == 64
+    assert len(latest["rankings"]) == 23
 
 
-def test_list_scanner_snapshots():
-    snapshots = MarketScannerSnapshotStore.list_recent_snapshots(limit=5)
-    assert isinstance(snapshots, list)
-    assert len(snapshots) >= 1
-    for s in snapshots:
-        assert "snapshot_id" in s
-        assert "created_at" in s
-        assert "asset_count" in s
-        assert "data_fingerprint" in s
+def test_regime_snapshot_save_and_retrieve():
+    """Verify saving regime snapshot to SQLite and retrieving latest snapshot."""
+    regime = CrossAssetRegimeEngine.evaluate_regime()
+
+    snap_id = MarketRegimeSnapshotStore.save_snapshot(regime)
+
+    assert isinstance(snap_id, str)
+    assert snap_id.startswith("REGIME_")
+
+    latest = MarketRegimeSnapshotStore.get_latest_snapshot()
+    assert latest is not None
+    assert latest["snapshot_id"] == snap_id
+    assert len(latest["data_fingerprint"]) == 64
+    assert "primary_regime" in latest
