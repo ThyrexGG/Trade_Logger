@@ -1,5 +1,6 @@
 import type { IconComponent } from './icons'
 import {
+  BellIcon,
   BookIcon,
   BrainIcon,
   CandlesIcon,
@@ -74,6 +75,14 @@ export const ZONES: Zone[] = [
         description: 'Open paper/shadow positions and excursion metrics.',
         path: '/workspace/positions',
         icon: ScaleIcon,
+        status: 'live',
+      },
+      {
+        id: 'workspace.alerts',
+        label: 'Price Alerts',
+        description: 'Price-target alerts (notification only, no orders).',
+        path: '/workspace/alerts',
+        icon: BellIcon,
         status: 'live',
       },
     ],

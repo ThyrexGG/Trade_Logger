@@ -3,7 +3,7 @@
 TradeLogger FastAPI Pydantic Response & Request Schemas
 Stage 2 & Stage 3 Read-Only Vertical Slice Models
 """
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Literal, Optional, Any
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
@@ -699,4 +699,64 @@ class OperationsSystemResponse(BaseModel):
     live_broker_transmission: str = "BLOCKED"
     safety_gate: SystemSafetyGate
     open_positions: int
+    timestamp: str
+
+
+# -------------------------------------------------------------------------
+# 11. Price Alerts Schemas (Stage 13) — monitoring only. Thin adapter over the
+#     authoritative `price_alerts` table and `database.*_price_alert` helpers.
+#     No execution, no broker, no order path. `id` / `status` / `created_at` /
+#     `triggered_at` are server-maintained and never client-controlled.
+# -------------------------------------------------------------------------
+AlertCondition = Literal["ABOVE", "BELOW"]
+
+
+class AlertItem(BaseModel):
+    id: int
+    symbol: str
+    target_price: float
+    condition: AlertCondition
+    status: str
+    account_id: str = "ALL"
+    notes: Optional[str] = None
+    created_at: Optional[str] = None
+    triggered_at: Optional[str] = None
+
+
+class AlertsResponse(BaseModel):
+    alerts: List[AlertItem]
+    total: int
+    active: int
+    triggered: int
+    supported_symbols: List[str]
+    source: str = "price_alerts"
+    live_broker_transmission: str = "BLOCKED"
+    timestamp: str
+
+
+class AlertCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    symbol: str = Field(..., min_length=1, max_length=32)
+    target_price: float = Field(..., gt=0)
+    condition: AlertCondition
+    notes: Optional[str] = Field(default=None, max_length=500)
+
+    @model_validator(mode="after")
+    def _finite_price(self) -> "AlertCreateRequest":
+        import math as _math
+        if not _math.isfinite(self.target_price):
+            raise ValueError("target_price must be a finite number")
+        return self
+
+
+class AlertCreateResponse(BaseModel):
+    alert: AlertItem
+    live_broker_transmission: str = "BLOCKED"
+    timestamp: str
+
+
+class AlertDeleteResponse(BaseModel):
+    deleted: bool = True
+    alert_id: int
     timestamp: str

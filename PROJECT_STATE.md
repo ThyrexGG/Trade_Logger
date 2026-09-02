@@ -1,6 +1,6 @@
 # PROJECT STATE & ARCHITECTURAL RECORD
 **TradeLogger Terminal - Living System Memory**
-*Last Updated: 2 September 2026, Session 42 (React SPA Migration Stages 4–11 + Stage 10 Final Integration/Performance Gate; currency-aware FX risk sizing fix; Streamlit retirement evaluation; Stage 12 journal-edit migration)*
+*Last Updated: 2 September 2026, Session 43 (React SPA Migration Stages 4–11 + Stage 10 Final Integration/Performance Gate; currency-aware FX risk sizing fix; Streamlit retirement evaluation; Stage 12 journal-edit migration; Stage 13 price-alerts migration)*
 
 > **HOW TO USE THIS FILE**
 > Start any new AI session with: *"Read PROJECT_STATE.md and continue where we left off."*
@@ -418,3 +418,43 @@ of the bounded migration units named in §9.2.
 - **Pre-existing latent bug noted (out of scope):** `api/routers/positions.py:34`
   does an unguarded `float(pos.get("tp", 0.0))` that raises `TypeError` when an
   open position has a NULL `tp`; only surfaces under random test ordering.
+
+### 9.4 Stage 13 — Price Alerts migration (second bounded migration unit)
+
+Full detail: `docs/STAGE_13_PRICE_ALERTS_MIGRATION.md`. Migrates the Streamlit
+"PRICE ALERTS" tab (`app.py:3960–4026`) to the React SPA.
+
+- **New router** `api/routers/alerts.py` — `GET/POST/DELETE /api/alerts`, a thin
+  CRUD adapter over the authoritative `price_alerts` table + the canonical
+  `database.create_price_alert` / `get_all_price_alerts` / `delete_price_alert`
+  helpers. No SQL duplicated, no second alert store.
+- **Fields:** `symbol` (validated/normalized via `symbol_mapping.normalize_symbol`
+  → canonical; alias `gold`→`XAUUSD`), `target_price` (`>0`, finite),
+  `condition` (`ABOVE` = price ≥ target, `BELOW` = price ≤ target), `notes`
+  (≤500). Server-maintained `id` / `status` / `created_at` / `triggered_at`
+  rejected as unknown fields (`extra="forbid"`). Unknown symbol/condition/field
+  → 422; unknown `alert_id` → 404; no PUT/PATCH (405).
+- **React:** new nav item `workspace.alerts` → `/workspace/alerts`
+  (`PriceAlertsPage` + `components/alerts/AlertsPanel.tsx`): create form
+  (symbol `<datalist>` from `supported_symbols`, price, condition, note) + list
+  with status tags + per-row delete. `useAlerts` = one GET + 60s hidden-paused
+  refresh; create/delete → one request + one `refetch()`; no optimistic state,
+  no N+1. `apiDelete` added to `client.ts`; `BellIcon` added.
+- **Alert evaluation is unchanged** — still the standalone `auto_sync.py` daemon
+  (`get_active_price_alerts` + `alerts.notify_price_alert` +
+  `mark_price_alert_triggered`). The router adds no evaluation / polling /
+  notification code and `alerts.py` has **zero execution coupling** (verified).
+- **Safety:** no `execution_pipeline` / broker / risk-gateway file touched;
+  router namespace binds no execution symbol; `automation_enabled=False`,
+  `broker=BLOCKED`, `execution_orders`, `open_positions` all unchanged by CRUD.
+- **Tests:** `tests/test_stage13_price_alerts.py` (27 cases). Full suite
+  **948 passed, 2 skipped, 0 failed**. `tsc -b` + build clean (146 modules,
+  446.83 kB JS / 122.43 kB gzip). Browser smoke: create → POST 201 → refetch;
+  unsupported symbol → 422 shown; delete → 200 → row gone; 0 console errors.
+- **Parity:** Price Alerts CRUD is now fully covered by React/API and **could**
+  be removed from `app.py` — **not done** (scope = migration, not retirement).
+  Still Streamlit-only: the custom trade-close **notification-rules engine**
+  (`alerts.get_alert_rules` / `save_alert_rules`), arbitrary non-canonical
+  symbols, alert editing, per-account alerts.
+- **Still deferred:** Analytics, Daily Command Center, Research Lab, AI
+  Assistant, paper execution.

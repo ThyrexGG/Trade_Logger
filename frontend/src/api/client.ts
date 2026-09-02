@@ -126,4 +126,29 @@ export async function apiPatch<T>(
   return (await response.json()) as T
 }
 
+export async function apiDelete<T>(path: string, init?: RequestInit): Promise<T> {
+  const url = `${API_BASE_URL}${path}`
+
+  let response: Response
+  try {
+    response = await fetch(url, {
+      method: 'DELETE',
+      headers: { Accept: 'application/json' },
+      ...init,
+    })
+  } catch (cause) {
+    throw new ApiError(`Network error contacting API at ${url}`, 0, { cause })
+  }
+
+  if (!response.ok) {
+    const detail = await readErrorDetail(response)
+    throw new ApiError(
+      detail ?? `API request to ${path} failed with ${response.status}`,
+      response.status,
+    )
+  }
+
+  return (await response.json()) as T
+}
+
 export { API_BASE_URL }

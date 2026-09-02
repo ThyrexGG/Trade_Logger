@@ -17,7 +17,8 @@ from api.routers import (
     positions,
     evidence,
     research,
-    operations
+    operations,
+    alerts
 )
 
 # Initialize FastAPI App
@@ -32,7 +33,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -47,6 +48,7 @@ app.include_router(positions.router)
 app.include_router(evidence.router)
 app.include_router(research.router)
 app.include_router(operations.router)
+app.include_router(alerts.router)
 
 
 @app.get("/")
