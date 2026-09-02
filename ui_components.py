@@ -652,11 +652,21 @@ def render_safety_banner():
 
 def clean_html(html_content: str) -> str:
     """
-    Strips leading indentation from multiline HTML strings so markdown-it
-    does not parse 4+ leading spaces as <pre><code> blocks.
+    Normalizes multiline HTML strings so markdown-it never parses indented
+    lines as <pre><code> blocks.
+
+    textwrap.dedent() alone is insufficient here: several widgets interpolate an
+    already-indented fragment (e.g. items_html) into another indented f-string,
+    leaving nested lines with 4+ leading spaces after the common prefix is
+    removed. markdown-it then renders those lines verbatim. Stripping the leading
+    whitespace from every line removes the ambiguity; inter-tag indentation is
+    insignificant in HTML and none of these templates are whitespace-sensitive
+    (no <pre> / white-space: pre content).
     """
     import textwrap
-    return textwrap.dedent(html_content).strip()
+    dedented = textwrap.dedent(html_content).strip()
+    lines = [ln.strip() for ln in dedented.splitlines()]
+    return "\n".join(ln for ln in lines if ln)
 
 
 def render_html(html_content: str):
