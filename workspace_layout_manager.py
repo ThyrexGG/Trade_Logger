@@ -20,9 +20,9 @@ from user_preferences import UserPreferencesManager
 WORKSPACE_LAYOUTS: Dict[str, Dict[str, Any]] = {
     "DEFAULT": {
         "name": "Standard Cockpit",
-        "description": "Balanced 3-column trading cockpit with watchlist, dominant chart, and execution panel.",
+        "description": "Clean 2-column trading cockpit with multi-factor watchlist and dominant chart canvas.",
         "icon": "&#9638;",
-        "columns": [1.1, 3.4, 1.5]
+        "columns": [1.3, 4.7]
     },
     "RESEARCH": {
         "name": "Research Focus",
@@ -32,9 +32,9 @@ WORKSPACE_LAYOUTS: Dict[str, Dict[str, Any]] = {
     },
     "COMPACT": {
         "name": "Compact Density",
-        "description": "Maximum information density with scaled down cards and docked trays.",
+        "description": "High information density layout optimizing chart and watchlist space.",
         "icon": "&#9636;",
-        "columns": [1.0, 2.8, 1.2]
+        "columns": [1.1, 4.9]
     },
     "ANALYSIS": {
         "name": "Technical & Macro Analysis",

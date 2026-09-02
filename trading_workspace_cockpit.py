@@ -7,7 +7,6 @@ Professional institutional trading terminal cockpit unifying:
 - Global Telemetry Ribbon
 - Scanable 10-Field Multi-Asset Watchlist Sidebar with Quick Search & Class Filters
 - High-Performance Chart Canvas with MTF Bias Hierarchy & SMC Overlays
-- Docked Canonical Execution & Pre-Trade Risk Gateway Panel
 - Persistent Active Position Strip with MAE/MFE Excursion Indicators
 - Real-Time Signal State Machine & Setup Checklist
 - Market Context & Macro Intelligence Region (Asset Edge Boundary)
@@ -26,8 +25,6 @@ from typing import Dict, List, Any, Optional
 
 import database
 import market_data
-import risk_gateway
-import execution_pipeline
 import tradingview_widget
 import ui_components
 from xauusd_live_state_engine import XAUUSDLiveMTFStateEngine
@@ -334,159 +331,6 @@ class TradingWorkspaceCockpit:
         ui_components.render_html(html)
 
     @classmethod
-    def render_execution_panel(cls, symbol: str, active_tf: str):
-        """
-        Renders the docked canonical execution & pre-trade risk panel on the right.
-        """
-        ui_components.render_html("""
-        <div style="font-size: 11px; font-weight: 800; color: #8a99ad; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
-            <span>EXECUTION & RISK PANEL</span>
-            <span style="color: #ef4444; font-size: 10px; font-weight: 800;">&#128274; LIVE BLOCKED</span>
-        </div>
-        """)
-
-        with st.container(border=True):
-            # 1. Header with Symbol & Live Quote
-            latest_tick = market_data.get_latest_tick(symbol) or {}
-            live_price = float(market_data.get_latest_price(symbol) or 2400.0)
-            bid = float(latest_tick.get("bid", live_price))
-            ask = float(latest_tick.get("ask", live_price))
-
-            px_format = f"${live_price:,.2f}" if live_price >= 100 else f"{live_price:.4f}"
-
-            ui_components.render_html(f"""
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.08);">
-                <div>
-                    <span style="font-size: 14px; font-weight: 800; color: #ffffff; font-family: monospace;">{symbol}</span>
-                    <span style="font-size: 10px; color: #8a99ad; margin-left: 4px;">({active_tf})</span>
-                </div>
-                <div style="font-family: monospace; font-size: 13px; color: #00ffcc; font-weight: 900;">
-                    {px_format}
-                </div>
-            </div>
-            """)
-
-            # 2. Direction Selection (BUY / SELL)
-            c_dir1, c_dir2 = st.columns(2)
-            with c_dir1:
-                is_buy = st.button("BUY / LONG", key=f"btn_cockpit_buy_{symbol}", use_container_width=True, type="primary")
-            with c_dir2:
-                is_sell = st.button("SELL / SHORT", key=f"btn_cockpit_sell_{symbol}", use_container_width=True)
-
-            if is_buy:
-                st.session_state[f"exec_side_{symbol}"] = "BUY"
-            elif is_sell:
-                st.session_state[f"exec_side_{symbol}"] = "SELL"
-            
-            selected_side = st.session_state.get(f"exec_side_{symbol}", "BUY")
-            side_col = "#10b981" if selected_side == "BUY" else "#ef4444"
-
-            ui_components.render_html(f"""
-            <div style="background: rgba(255,255,255,0.02); border-left: 3px solid {side_col}; padding: 4px 8px; border-radius: 3px; font-size: 11px; margin-bottom: 8px;">
-                SELECTED DIRECTION: <b style="color: {side_col};">{selected_side}</b>
-            </div>
-            """)
-
-            # 3. Order Inputs: Entry, Stop Loss, Take Profit
-            default_entry = ask if selected_side == "BUY" else bid
-            c_inp1, c_inp2 = st.columns(2)
-            with c_inp1:
-                inp_entry = st.number_input("Entry Price", value=float(default_entry), format="%.2f" if live_price > 100 else "%.5f", key=f"cp_inp_entry_{symbol}")
-            with c_inp2:
-                default_sl = round(inp_entry * (0.996 if selected_side == "BUY" else 1.004), 2 if live_price > 100 else 5)
-                inp_sl = st.number_input("Stop Loss", value=float(default_sl), format="%.2f" if live_price > 100 else "%.5f", key=f"cp_inp_sl_{symbol}")
-
-            c_tp1, c_tp2 = st.columns(2)
-            with c_tp1:
-                default_tp = round(inp_entry * (1.012 if selected_side == "BUY" else 0.988), 2 if live_price > 100 else 5)
-                inp_tp = st.number_input("Take Profit", value=float(default_tp), format="%.2f" if live_price > 100 else "%.5f", key=f"cp_inp_tp_{symbol}")
-            with c_tp2:
-                inp_risk = st.number_input("Risk %", min_value=0.1, max_value=5.0, value=1.0, step=0.1, key=f"cp_inp_risk_{symbol}")
-
-            # 4. Mode & Target Broker
-            c_m1, c_m2 = st.columns(2)
-            with c_m1:
-                exec_mode = st.selectbox("Execution Mode", ["PAPER", "SHADOW", "LIVE (BLOCKED)"], index=0, key=f"cp_mode_{symbol}")
-            with c_m2:
-                exec_broker = st.selectbox("Broker Target", ["PAPER", "CAPITAL", "MT5"], index=0, key=f"cp_broker_{symbol}")
-
-            # 5. Canonical Risk Gateway Calculation
-            acc_balances = database.get_account_balances()
-            p_bal = acc_balances.get("PAPER", {}).get("balance", 10000.0)
-
-            risk_prev = risk_gateway.calculate_pre_trade_risk_preview(
-                symbol=symbol,
-                side=selected_side,
-                entry_price=inp_entry,
-                stop_loss=inp_sl,
-                take_profit_1=inp_tp,
-                requested_risk_pct=inp_risk,
-                account_balance=p_bal
-            )
-
-            # 6. Risk / Reward Display Matrix
-            ui_components.render_html(f"""
-            <div style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 6px; padding: 8px 10px; margin: 8px 0; font-size: 11px; font-family: monospace;">
-                <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
-                    <span style="color:#8a99ad;">Calculated Lot Size:</span>
-                    <b style="color:#ffffff;">{risk_prev['calculated_lot_size']} Lots</b>
-                </div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
-                    <span style="color:#8a99ad;">Worst-Case Risk (SL):</span>
-                    <b style="color:#ef4444;">-${risk_prev['actual_risk_usd']:,.2f} ({risk_prev['actual_risk_pct']:.2f}%)</b>
-                </div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
-                    <span style="color:#8a99ad;">Target Reward (TP):</span>
-                    <b style="color:#10b981;">+${risk_prev['reward_tp1_usd']:,.2f} ({risk_prev['reward_tp1_pct']:.2f}%)</b>
-                </div>
-                <div style="display:flex; justify-content:space-between;">
-                    <span style="color:#8a99ad;">Risk : Reward (R:R):</span>
-                    <b style="color:#00ffcc;">{risk_prev['risk_reward_ratio']}</b>
-                </div>
-            </div>
-            """)
-
-            if risk_prev["warnings"]:
-                for w in risk_prev["warnings"]:
-                    st.warning(f"{w}")
-
-            if not risk_prev["is_valid"]:
-                for err in risk_prev["errors"]:
-                    st.error(f"{err}")
-
-            # 7. Fail-Closed Live Safety Barrier
-            if "LIVE" in exec_mode:
-                st.error("LIVE EXECUTION STRICTLY BLOCKED — Fail-closed invariant active. Switch to PAPER or SHADOW.")
-                submit_disabled = True
-            else:
-                submit_disabled = not risk_prev["is_valid"]
-
-            # 8. Order Execution Button
-            btn_exec_label = f"EXECUTE {selected_side} ({risk_prev['calculated_lot_size']} Lots)"
-            if st.button(btn_exec_label, key=f"btn_cockpit_submit_{symbol}", use_container_width=True, disabled=submit_disabled, type="primary"):
-                import uuid
-                exec_req = execution_pipeline.CanonicalExecutionRequest(
-                    signal_id=f"COCKPIT_{uuid.uuid4().hex[:8]}",
-                    symbol=symbol,
-                    side=selected_side,
-                    quantity=risk_prev["calculated_lot_size"],
-                    requested_entry=inp_entry,
-                    stop_loss=inp_sl,
-                    take_profit=inp_tp,
-                    broker=exec_broker,
-                    mode=exec_mode,
-                    source="COCKPIT_TERMINAL_UI",
-                    strategy="CockpitManual"
-                )
-                with st.spinner("Submitting order through Canonical Risk Gateway..."):
-                    exec_res = execution_pipeline.submit_order(exec_req)
-                    if exec_res.get("status") in ["success", "FILLED"]:
-                        st.success(f"Order Executed Successfully! State: {exec_res.get('state')}")
-                        st.rerun()
-                    else:
-                        st.error(f"Execution Rejected: {exec_res.get('message')}")
-
-    @classmethod
     def render_active_positions_strip(cls, df_open: pd.DataFrame):
         """
         Renders the persistent active positions and excursion (MAE/MFE) strip below the workspace.
@@ -660,10 +504,10 @@ def render_trading_workspace_cockpit():
             """)
 
     # -------------------------------------------------------------------------
-    # LAYOUT 1: DEFAULT (Balanced 3-Column)
+    # LAYOUT 1: DEFAULT (Balanced 2-Column: Watchlist + Dominant Chart)
     # -------------------------------------------------------------------------
     if active_layout == "DEFAULT":
-        col_watch, col_chart, col_exec = st.columns([1.1, 3.4, 1.5])
+        col_watch, col_chart = st.columns([1.3, 4.7])
 
         with col_watch:
             selected_sym = TradingWorkspaceCockpit.render_watchlist(st.session_state.active_ws_symbol)
@@ -680,9 +524,6 @@ def render_trading_workspace_cockpit():
                 interval=st.session_state.active_ws_timeframe,
                 height=650
             )
-
-        with col_exec:
-            TradingWorkspaceCockpit.render_execution_panel(st.session_state.active_ws_symbol, st.session_state.active_ws_timeframe)
 
         df_open = database.get_open_positions()
         TradingWorkspaceCockpit.render_active_positions_strip(df_open)
@@ -711,16 +552,15 @@ def render_trading_workspace_cockpit():
                 interval=st.session_state.active_ws_timeframe,
                 height=650
             )
-            TradingWorkspaceCockpit.render_execution_panel(st.session_state.active_ws_symbol, st.session_state.active_ws_timeframe)
 
         df_open = database.get_open_positions()
         TradingWorkspaceCockpit.render_active_positions_strip(df_open)
 
     # -------------------------------------------------------------------------
-    # LAYOUT 3: COMPACT (High Density 4-Column)
+    # LAYOUT 3: COMPACT (High Density Layout)
     # -------------------------------------------------------------------------
     elif active_layout == "COMPACT":
-        col_watch, col_chart, col_exec = st.columns([1.0, 2.8, 1.2])
+        col_watch, col_chart = st.columns([1.1, 4.9])
 
         with col_watch:
             selected_sym = TradingWorkspaceCockpit.render_watchlist(st.session_state.active_ws_symbol)
@@ -737,9 +577,6 @@ def render_trading_workspace_cockpit():
                 interval=st.session_state.active_ws_timeframe,
                 height=520
             )
-
-        with col_exec:
-            TradingWorkspaceCockpit.render_execution_panel(st.session_state.active_ws_symbol, st.session_state.active_ws_timeframe)
 
         df_open = database.get_open_positions()
         TradingWorkspaceCockpit.render_active_positions_strip(df_open)
@@ -763,7 +600,6 @@ def render_trading_workspace_cockpit():
                 st.session_state.active_ws_symbol = selected_sym
                 UserPreferencesManager.set_preference("selected_asset", selected_sym)
                 st.rerun()
-            TradingWorkspaceCockpit.render_execution_panel(st.session_state.active_ws_symbol, st.session_state.active_ws_timeframe)
 
         with c_an2:
             TradingWorkspaceCockpit.render_market_context_intelligence(st.session_state.active_ws_symbol)
