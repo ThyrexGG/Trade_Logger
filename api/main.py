@@ -7,7 +7,16 @@ authoritative Python calculation engines without logic duplication.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routers import health, watchlist, market
+from api.routers import (
+    health,
+    watchlist,
+    market,
+    preferences,
+    intelligence,
+    risk,
+    positions,
+    evidence
+)
 
 # Initialize FastAPI App
 app = FastAPI(
@@ -21,14 +30,19 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["GET", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "OPTIONS"],
     allow_headers=["*"],
 )
 
-# Register Stage 2 Read-Only Routers
+# Register Stage 2 & Stage 3 Routers
 app.include_router(health.router)
 app.include_router(watchlist.router)
 app.include_router(market.router)
+app.include_router(preferences.router)
+app.include_router(intelligence.router)
+app.include_router(risk.router)
+app.include_router(positions.router)
+app.include_router(evidence.router)
 
 
 @app.get("/")

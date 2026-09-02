@@ -154,20 +154,21 @@ class FirstGenuineObservationSupervisor:
         """
         conn = database.get_connection()
         cur = conn.cursor()
+        ph = database.get_sql_placeholder(conn)
 
         # Query completed forward trades in canonical forward journal
-        cur.execute("""
+        cur.execute(f"""
         SELECT COUNT(*) FROM xauusd_forward_signals
         WHERE status IN ('COMPLETED', 'TP_HIT', 'SL_HIT', 'EXPIRED', 'CANCELLED', 'INVALIDATED')
-          AND execution_mode = ?
+          AND execution_mode = {ph}
         """, (mode.upper().strip(),))
         row = cur.fetchone()
         completed_n = row[0] if row else 0
 
         # Also count open/active simulated observations
-        cur.execute("""
+        cur.execute(f"""
         SELECT COUNT(*) FROM xauusd_forward_signals
-        WHERE status = 'OPEN' AND execution_mode = ?
+        WHERE status = 'OPEN' AND execution_mode = {ph}
         """, (mode.upper().strip(),))
         open_row = cur.fetchone()
         open_n = open_row[0] if open_row else 0
