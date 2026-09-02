@@ -1,6 +1,6 @@
 # PROJECT STATE & ARCHITECTURAL RECORD
 **TradeLogger Terminal - Living System Memory**
-*Last Updated: 3 September 2026, Session 44 (React SPA Migration Stages 4–11 + Stage 10 Final Integration/Performance Gate; currency-aware FX risk sizing fix; Streamlit retirement evaluation; Stage 12 journal-edit; Stage 13 price-alerts; Stage 14 analytics migration)*
+*Last Updated: 3 September 2026, Session 45 (React SPA Migration Stages 4–11 + Stage 10 gate; FX risk fix; Streamlit retirement eval; Stage 12 journal-edit; Stage 13 price-alerts; Stage 14 analytics; Stage 15 Intelligence Layer — command center + research lab + read-only Gemini assistant)*
 
 > **HOW TO USE THIS FILE**
 > Start any new AI session with: *"Read PROJECT_STATE.md and continue where we left off."*
@@ -501,3 +501,48 @@ Full detail: `docs/STAGE_14_ANALYTICS_MIGRATION.md`. Migrates the Streamlit
 - **Remaining Streamlit-only:** Daily Command Center, Research Lab
   (incl. `research_analytics.py`), AI Market Context, manual paper execution,
   the notification-rules engine, the sync buttons, the calendar widget.
+
+### 9.6 Stage 15 — Intelligence Layer (command center + research lab + AI assistant)
+
+Full detail: `docs/STAGE_15_INTELLIGENCE_LAYER.md`. Three gated checkpoints,
+commits `5397ba2` / `0c2b2fd` / `0f77d24`.
+
+- **15A Daily Command Center** — `GET /api/command-center/overview`
+  (`api/routers/command_center.py`), a concurrent server-side aggregate that
+  re-shapes slices of already-authoritative sources (analytics / positions /
+  alerts / intelligence / forward-evidence / research notes / watchlist). No
+  formula reimplemented. Failing source → named in `sections_degraded`, never
+  500. GET-only. React `/workspace/command-center` (first Workspace item),
+  60s hidden-paused refresh.
+- **15B Research Lab** — `POST /api/research/audit` (in the `research` router):
+  runs one `backtester.run_backtest`, then the canonical `research_analytics.*`
+  + `research_engine.*` functions verbatim (R-multiples, 60/20/20 layers,
+  bootstrap CI seed 42, scorecard, execution stress, drift, liquidity/session/
+  regime/hour/day/confluence attribution). This is `research_analytics.py` —
+  distinct from Stage 14's `analytics.py`. `< 4` trades → structured failure.
+  POST-only, deterministic, fail-closed barrier. React `/research/audit`
+  (nav `research.audit`), explicit-action-only run. `test_research_lab.py`
+  unchanged and passing.
+- **15C Read-only Gemini AI Assistant** — `POST /api/ai/chat` + `GET /api/ai/status`
+  (`api/routers/ai.py`, `api/ai_context.py`, `api/gemini_client.py`). Analytical
+  chat over an allowlisted bounded (~12k) read-only snapshot + Gemini
+  (server-side `GEMINI_API_KEY`, never returned). **Execution isolation:** the
+  AI modules bind no execution/broker/risk symbol and have no import-graph path
+  to them (binding + import-graph tests); execution-style prompts produce a text
+  reply and zero side effects (`execution_orders`, `open_positions`,
+  automation, broker all unchanged). Fixed server-side system instruction,
+  user-unoverridable (prompt-injection test). Unset key → graceful
+  `ok:false, error_kind:"not_configured"` 200. Provider failures → `ok:false` +
+  `error_kind`, never 5xx. React `/workspace/assistant`. Live Gemini call not
+  exercised (no key); plumbing covered by stubbed-provider tests.
+- **Tests:** `test_stage15a` (10) + `test_stage15b` (15) + `test_stage15c` (20).
+  Full suite **1011 passed, 2 skipped, 0 failed**. `tsc -b` + build clean
+  (161 modules, 494.56 kB JS / 133.24 kB gzip). 12-route browser regression clean.
+- **Safety:** `automation_enabled=false`, `broker=BLOCKED`, `execution_orders`
+  = 335 (unchanged), `mode_counts` unchanged, `open_positions` = 2 (unchanged).
+  No `execution_pipeline` / `broker_adapter` / `risk_gateway` / `app.py` file
+  touched. Stage 11 cache untouched.
+- **Not migrated (documented):** XAUUSD news/calendar engine (macro stage),
+  command-center note/snapshot writing, `MultipleTestingTracker`. `requirements.txt`
+  unchanged (`google-generativeai` already present); `.env.example` gains
+  optional `GEMINI_API_KEY`.
