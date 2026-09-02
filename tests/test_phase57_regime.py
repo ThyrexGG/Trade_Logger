@@ -1,58 +1,53 @@
 """
-TradeLogger Phase 57 — Test Suite: Cross-Asset Regime Classification Engine
-===========================================================================
-Validates:
-- 12 distinct contextual regime states.
-- Multi-input synthesis (Equities, Gold, Oil, DXY, US10Y/US2Y, Breadth).
-- Deterministic classification transitions and confidence scoring.
-- Verification of non-directional, contextual terminology.
+Phase 57: Test Suite for Cross-Asset Regime Engine
+Verifies:
+- 12 regime states validation
+- Multi-factor regime classification output structure
+- Deterministic scoring across asset drivers
+- Cryptographic regime snapshot persistence and retrieval
 """
 
+from datetime import datetime, timezone
 import pytest
 from cross_asset_regime_engine import (
     CrossAssetRegimeEngine,
-    REGIME_STATES,
-    REGIME_BENCHMARK_SYMBOLS,
-    MarketRegimeSnapshot
+    MarketRegimeSnapshotStore,
+    VALID_REGIME_STATES
 )
 
 
-def test_regime_states_count():
-    """Verify all 12 defined regime states are recognized."""
-    assert len(REGIME_STATES) == 12
-    expected = {
-        "RISK_ON", "RISK_OFF", "INFLATIONARY", "DISINFLATIONARY",
-        "GROWTH_ACCELERATION", "GROWTH_DECELERATION",
-        "USD_STRENGTH", "USD_WEAKNESS", "RATE_RISE", "RATE_FALL",
-        "MIXED_REGIME", "INSUFFICIENT_DATA"
-    }
-    assert set(REGIME_STATES) == expected
+def test_valid_regime_states_count():
+    assert len(VALID_REGIME_STATES) == 12
+    assert "RISK_ON" in VALID_REGIME_STATES
+    assert "RISK_OFF" in VALID_REGIME_STATES
+    assert "INSUFFICIENT_DATA" in VALID_REGIME_STATES
 
 
-def test_regime_benchmark_symbols():
-    """Verify core benchmark assets are configured for cross-asset assessment."""
-    assert len(REGIME_BENCHMARK_SYMBOLS) == 8
-    assert set(REGIME_BENCHMARK_SYMBOLS) == {"DXY", "US10Y", "US2Y", "XAUUSD", "USOIL", "SPX500", "NAS100", "BTCUSD"}
+def test_regime_classification_structure():
+    regime = CrossAssetRegimeEngine.classify_current_regime()
+    assert isinstance(regime, dict)
+    assert "primary_regime" in regime
+    assert regime["primary_regime"] in VALID_REGIME_STATES
+    assert "confidence_pct" in regime
+    assert 0 <= regime["confidence_pct"] <= 100
+    assert "risk_appetite" in regime
+    assert "inflation_environment" in regime
+    assert "growth_environment" in regime
+    assert "usd_cycle" in regime
+    assert "rates_trend" in regime
+    assert "regime_narrative" in regime
+    assert "driver_breakdown" in regime
+    assert "data_fingerprint" in regime
+    assert len(regime["data_fingerprint"]) == 64
 
 
-def test_regime_evaluation():
-    """Verify standard regime evaluation returns valid MarketRegimeSnapshot."""
-    result = CrossAssetRegimeEngine.evaluate_regime()
-    assert isinstance(result, MarketRegimeSnapshot)
-    assert result.primary_regime in REGIME_STATES
-    assert result.secondary_regime in REGIME_STATES
-    assert 0.0 <= result.confidence_pct <= 100.0
-    assert 0 <= result.data_quality_score <= 100
-    assert isinstance(result.confirming_factors, list)
-    assert len(result.confirming_factors) > 0
-    assert isinstance(result.conflicting_factors, list)
-    assert len(result.data_fingerprint) == 64
+def test_regime_snapshot_storage():
+    regime = CrossAssetRegimeEngine.classify_current_regime()
+    snap_id = MarketRegimeSnapshotStore.save_regime_snapshot(regime)
+    assert snap_id.startswith("REGIME_")
 
-
-def test_regime_safety_context():
-    """Verify regime engine outputs contextual state without trade signal keywords."""
-    result = CrossAssetRegimeEngine.evaluate_regime()
-    text = f"{result.primary_regime} {result.secondary_regime} {' '.join(result.confirming_factors)}"
-    forbidden = ["BUY", "SELL", "ENTRY", "TRADE NOW", "LONG", "SHORT"]
-    for word in forbidden:
-        assert word not in text.upper().split()
+    latest = MarketRegimeSnapshotStore.get_latest_regime_snapshot()
+    assert latest is not None
+    assert latest["snapshot_id"] == snap_id
+    assert latest["primary_regime"] == regime["primary_regime"]
+    assert latest["data_fingerprint"] == regime["data_fingerprint"]

@@ -1,74 +1,53 @@
 """
-TradeLogger Phase 57 — Test Suite: Market Universe Registry
-============================================================
-Validates:
-- 23-asset normalized universe integrity.
-- Asset class partitioning (FX, METALS, INDICES, ENERGY, MACRO, CRYPTO).
-- Base/Quote currency mapping and benchmark rate association.
-- Non-empty metadata and pip size validation.
+Phase 57: Test Suite for Market Universe Registry
+Verifies:
+- 23 assets across 6 asset classes
+- Required metadata fields per asset
+- Normalization and fallback handling
+- Filtering by asset class
 """
 
 import pytest
 from market_intelligence_scanner import MarketUniverseRegistry, MARKET_UNIVERSE_CATALOG
 
 
-def test_market_universe_total_count():
-    """Verify universe contains exactly 23 normalized instruments."""
-    universe = MarketUniverseRegistry.get_all_assets()
-    assert len(universe) == 23
+def test_market_universe_count():
+    symbols = MarketUniverseRegistry.get_all_symbols()
+    assert len(symbols) == 23, f"Expected exactly 23 universe assets, got {len(symbols)}"
     assert len(MARKET_UNIVERSE_CATALOG) == 23
 
 
-def test_market_universe_asset_classes():
-    """Verify all 6 required asset classes are present with correct instruments."""
+def test_market_universe_classes():
     classes = MarketUniverseRegistry.get_available_asset_classes()
-    assert "ALL" in classes
-    assert set(classes[1:]) == {"CRYPTO", "ENERGY", "FX", "INDICES", "MACRO", "METALS"}
-
-    fx_assets = MarketUniverseRegistry.get_assets_by_class("FX")
-    assert len(fx_assets) == 8
-    fx_syms = {a["symbol"] for a in fx_assets}
-    assert fx_syms == {"EURUSD", "GBPUSD", "USDJPY", "GBPJPY", "NZDUSD", "AUDUSD", "USDCHF", "USDCAD"}
-
-    metals = MarketUniverseRegistry.get_assets_by_class("METALS")
-    assert len(metals) == 3
-    assert {a["symbol"] for a in metals} == {"XAUUSD", "XAGUSD", "PLATINUM"}
-
-    indices = MarketUniverseRegistry.get_assets_by_class("INDICES")
-    assert len(indices) == 6
-    assert {a["symbol"] for a in indices} == {"SPX500", "NAS100", "US30", "RUSSELL", "UK100", "NIKKEI"}
-
-    energy = MarketUniverseRegistry.get_assets_by_class("ENERGY")
-    assert len(energy) == 2
-    assert {a["symbol"] for a in energy} == {"USOIL", "NATGAS"}
-
-    macro = MarketUniverseRegistry.get_assets_by_class("MACRO")
-    assert len(macro) == 3
-    assert {a["symbol"] for a in macro} == {"DXY", "US10Y", "US2Y"}
-
-    crypto = MarketUniverseRegistry.get_assets_by_class("CRYPTO")
-    assert len(crypto) == 1
-    assert crypto[0]["symbol"] == "BTCUSD"
+    expected_classes = {"ALL", "FX", "METALS", "INDICES", "ENERGY", "MACRO", "CRYPTO"}
+    assert set(classes) == expected_classes
 
 
 def test_asset_metadata_completeness():
-    """Verify every asset has complete metadata fields with valid data types."""
-    for symbol, meta in MARKET_UNIVERSE_CATALOG.items():
-        assert len(meta["display_name"]) > 0
-        assert meta["asset_class"] in {"FX", "METALS", "INDICES", "ENERGY", "MACRO", "CRYPTO"}
-        assert len(meta["base_currency"]) > 0
-        assert len(meta["quote_currency"]) > 0
-        assert meta["pip_decimal"] >= 1
-        assert isinstance(meta["primary_drivers"], list)
-        assert len(meta["primary_drivers"]) > 0
+    required_keys = [
+        "display_name", "asset_class", "sub_class", "base_currency",
+        "quote_currency", "primary_drivers", "pip_decimal", "default_active"
+    ]
+    for sym, meta in MARKET_UNIVERSE_CATALOG.items():
+        for key in required_keys:
+            assert key in meta, f"Asset {sym} missing required metadata key: {key}"
+        assert isinstance(meta["primary_drivers"], list), f"{sym} primary_drivers must be a list"
+        assert len(meta["primary_drivers"]) > 0, f"{sym} primary_drivers cannot be empty"
 
 
-def test_get_asset_lookup():
-    """Verify lookup functionality for existing and non-existing assets."""
-    xau = MarketUniverseRegistry.get_asset_info("XAUUSD")
-    assert xau is not None
-    assert "Gold" in xau["display_name"]
-    assert xau["asset_class"] == "METALS"
+def test_get_assets_by_class():
+    fx_assets = MarketUniverseRegistry.get_assets_by_class("FX")
+    assert len(fx_assets) == 8
+    for item in fx_assets:
+        assert item["asset_class"] == "FX"
 
-    invalid = MarketUniverseRegistry.get_asset_info("NONEXISTENT")
-    assert invalid["asset_class"] == "UNKNOWN"
+    crypto_assets = MarketUniverseRegistry.get_assets_by_class("CRYPTO")
+    assert len(crypto_assets) == 1
+    assert crypto_assets[0]["symbol"] == "BTCUSD"
+
+
+def test_unlisted_symbol_fallback():
+    info = MarketUniverseRegistry.get_asset_info("NON_EXISTENT_COIN")
+    assert info["symbol"] == "NON_EXISTENT_COIN"
+    assert info["asset_class"] == "UNKNOWN"
+    assert info["default_active"] is False

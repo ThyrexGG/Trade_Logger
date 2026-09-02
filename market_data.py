@@ -1211,3 +1211,18 @@ def validate_trade_model(ai_data, confluence):
         reasons.append("All structural & timing conditions met.")
         
     return {"status": status, "warnings": reasons}
+
+
+def get_multi_symbol_ticks(symbols: List[str], ttl_sec: float = 2.0) -> Dict[str, Dict[str, Any]]:
+    """
+    Fetches real-time executable ticks for multiple symbols with cached batch resolution.
+    Returns mapping: {symbol: tick_dict}.
+    """
+    res = {}
+    for s in symbols:
+        sym_clean = str(s).strip().upper()
+        if sym_clean:
+            tick = get_latest_tick(sym_clean, ttl_sec=ttl_sec)
+            if tick:
+                res[sym_clean] = tick
+    return res

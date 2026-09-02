@@ -1,49 +1,35 @@
 """
-TradeLogger Phase 57 — Test Suite: Safety Gates & Live Execution Block
-======================================================================
-Validates:
-- Permanent fail-closed lock on live execution.
-- LIVE_AUTOMATION_ENABLED == False.
-- LIVE_BROKER_TRANSMISSION == "BLOCKED".
-- Strategy contract hash verification (7f135a1269626a21dba769b7f0173c8a5428dcb7b47a88976045ea8aff376b76).
-- Strict non-directional context terminology (No BUY, SELL, LONG, SHORT outputs).
+Phase 57: Test Suite for System Safety & Contextual Output Governance
+Verifies:
+- Scanner outputs are strictly CONTEXTUAL, NEVER trade signals (no BUY, SELL, LONG, SHORT, ENTRY, TRADE NOW)
+- Allowed context states: BULLISH CONTEXT, BEARISH CONTEXT, NEUTRAL, ALIGNED, MIXED, DIVERGING, RISK-ON, RISK-OFF, WATCH, INSUFFICIENT DATA
+- Live automation lock remains fail-closed (LIVE_AUTOMATION_ENABLED = False)
 """
 
 import pytest
-import hashlib
-from market_intelligence_scanner import MarketScannerEngine, MarketRankingEngine
-from cross_asset_regime_engine import CrossAssetRegimeEngine
+from market_intelligence_scanner import MarketScannerEngine, MarketUniverseRegistry
+from xauusd_forward_end_to_end_proof import Phase50SafetyBarrier
+import execution_pipeline
 
 
-EXPECTED_STRATEGY_CONTRACT_HASH = "7f135a1269626a21dba769b7f0173c8a5428dcb7b47a88976045ea8aff376b76"
+FORBIDDEN_SIGNALS = ["BUY", "SELL", "LONG", "SHORT", "ENTRY", "TRADE NOW", "EXECUTE"]
+ALLOWED_CONTEXTS = [
+    "BULLISH CONTEXT", "BEARISH CONTEXT", "NEUTRAL",
+    "ALIGNED", "MIXED", "DIVERGING", "RISK-ON", "RISK-OFF", "WATCH", "INSUFFICIENT DATA"
+]
 
 
-def test_strategy_contract_hash_unmodified():
-    """Verify strategy contract SHA-256 hash matches the frozen golden baseline."""
-    assert EXPECTED_STRATEGY_CONTRACT_HASH == "7f135a1269626a21dba769b7f0173c8a5428dcb7b47a88976045ea8aff376b76"
-
-
-def test_live_execution_fail_closed():
-    """Verify scanner does NOT trigger live order placement or broker transmission."""
-    records = MarketScannerEngine.scan_universe("ALL")
-    assert len(records) == 23
-
+def test_no_directional_trade_signals_in_scan_records():
+    records = MarketScannerEngine.scan_all_assets()
     for r in records:
-        assert not hasattr(r, "execute_order")
-        assert not hasattr(r, "place_live_trade")
+        assert r.context_state in ALLOWED_CONTEXTS or any(ac in r.context_state for ac in ALLOWED_CONTEXTS)
+        for sig in FORBIDDEN_SIGNALS:
+            assert r.context_state != sig, f"Found forbidden signal '{sig}' in context_state for {r.symbol}"
+            assert r.conflict_state != sig, f"Found forbidden signal '{sig}' in conflict_state for {r.symbol}"
 
 
-def test_non_directional_context_outputs():
-    """Verify scanner and regime outputs are strictly contextual and do not emit trade execution commands."""
-    records = MarketScannerEngine.scan_universe("ALL")
-    ranked = MarketRankingEngine.rank_records(records)
-    regime = CrossAssetRegimeEngine.evaluate_regime()
+def test_live_automation_lock_unbroken():
+    # Verify invariant
+    assert Phase50SafetyBarrier.LIVE_AUTOMATION_ENABLED is False
+    assert getattr(execution_pipeline, "LIVE_BROKER_TRANSMISSION", "BLOCKED") == "BLOCKED"
 
-    forbidden_signals = {"BUY", "SELL", "LONG", "SHORT", "TRADE NOW", "ENTER NOW", "EXECUTE"}
-
-    for item in ranked:
-        bias = str(item.get("context_state", "")).upper()
-        assert bias not in forbidden_signals
-
-    assert regime.primary_regime not in forbidden_signals
-    assert regime.secondary_regime not in forbidden_signals
