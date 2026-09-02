@@ -1,8 +1,26 @@
-# TradeLogger Frontend (Stage 4 Foundation)
+# TradeLogger Frontend
 
-React 19 + TypeScript + Vite + Tailwind CSS foundation for the TradeLogger
-migration. This stage establishes the frontend shell and a single connectivity
-proof screen — it does **not** migrate any terminal features.
+React 19 + TypeScript + Vite + Tailwind CSS terminal frontend for the TradeLogger
+migration.
+
+Stage 5 established the persistent application shell — sidebar navigation across
+the four product zones, top bar with live status, breadcrumbs, a Ctrl/Cmd+K
+command palette, page containers and a reusable placeholder page. Feature pages
+are still being migrated from the authoritative backend; most routes render a
+professional shell placeholder (no fabricated data). `/operations/system` is the
+one route backed by live data (`GET /api/health`).
+
+## Navigation model
+
+`src/lib/navigation.ts` is the single source of truth for the sidebar,
+breadcrumbs and command palette. Zones and routes:
+
+- `/workspace` · `/workspace/{market,risk,positions}`
+- `/research` · `/research/{intelligence,strategy,backtest}`
+- `/evidence` · `/evidence/{forward,statistics,governance}`
+- `/operations` · `/operations/{journal,audit,system}`
+
+`/` redirects to `/workspace`.
 
 ## Architecture
 

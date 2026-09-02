@@ -1,7 +1,7 @@
 /*
- * TradeLogger design tokens (Stage 4 foundation).
+ * TradeLogger design tokens (Stage 5 shell design system).
  * Derived from the existing Streamlit visual language in ui_components.py (TOKENS)
- * and .streamlit/config.toml. This is a consistency baseline for later stages,
+ * and .streamlit/config.toml. Consistency baseline for the React terminal —
  * not a redesign.
  */
 :root {
@@ -24,9 +24,22 @@
   --tl-warning: #f59e0b;
   --tl-info: #3b82f6;
   --tl-accent: #00ffcc;
+  --tl-neutral: #64748b;
+
+  /* Extended shell states */
+  --tl-blocked: #ef4444; /* fail-closed safety lock */
+  --tl-stale: #a16207; /* aged / cached data */
+  --tl-active: #00ffcc; /* current selection / route */
+
+  /* Focus ring */
+  --tl-focus: #38bdf8;
 
   /* Typography */
   --tl-font-sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto,
     Helvetica, Arial, sans-serif;
   --tl-font-mono: 'JetBrains Mono', 'Fira Code', 'Roboto Mono', Consolas, monospace;
+
+  /* Shell metrics */
+  --tl-sidebar-width: 240px;
+  --tl-topbar-height: 52px;
 }

@@ -22,6 +22,9 @@
   --color-warning: var(--tl-warning);
   --color-info: var(--tl-info);
   --color-accent: var(--tl-accent);
+  --color-neutral: var(--tl-neutral);
+  --color-blocked: var(--tl-blocked);
+  --color-stale: var(--tl-stale);
 
   --font-sans: var(--tl-font-sans);
   --font-mono: var(--tl-font-mono);
@@ -40,4 +43,21 @@ body {
   font-family: var(--tl-font-sans);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+}
+
+/* Visible, consistent focus treatment for keyboard users. */
+:focus-visible {
+  outline: 2px solid var(--tl-focus);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Respect reduced-motion preferences for the few transitions we use. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }
