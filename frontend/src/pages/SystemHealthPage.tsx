@@ -1,101 +1,80 @@
-import type { ReactNode } from 'react'
-import { API_BASE_URL } from '../api/client'
+import { Link } from 'react-router-dom'
 import { useHealth } from '../lib/health'
-import { apiStatusView, systemStatusView } from '../lib/status'
+import { useSystemOps } from '../lib/useOperations'
 import { PageContainer } from '../components/shell/PageContainer'
-import { StatusDot } from '../components/shell/StatusDot'
-
-function Row({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="grid grid-cols-[10rem_1fr] items-start gap-4 border-b border-border-subtle py-2.5 last:border-0">
-      <span className="text-sm text-secondary">{label}</span>
-      <div className="text-sm text-primary">{children}</div>
-    </div>
-  )
-}
+import {
+  SystemDiagnostics,
+  SystemHealthPanel,
+  SystemSafety,
+} from '../components/operations/SystemView'
+import { OpsSafetyBanner, SectionError } from '../components/operations/primitives'
 
 /**
- * `/operations/system` — real backend health from GET /api/health. This is the
- * one shell page backed by live data; everything shown here is returned by the
- * FastAPI adapter.
+ * `/operations/system` — operational system health. `/api/health` (via the
+ * app-wide HealthProvider) stays the authoritative connection + safety source;
+ * `/api/operations/system` adds the deterministic safety-gate diagnostics.
+ * No second health mechanism, no toggle, no go-live control.
  */
 export function SystemHealthPage() {
-  const { state, data, error, lastChecked, refetch } = useHealth()
-  const api = apiStatusView(state)
-  const system = systemStatusView(state)
+  const health = useHealth()
+  const ops = useSystemOps()
 
   return (
     <PageContainer
       title="System Health"
-      description="Backend service status reported by the FastAPI adapter."
-      width="standard"
+      description="Backend service status and deterministic safety-gate diagnostics. Read-only."
       actions={
-        <button
-          type="button"
-          onClick={refetch}
-          disabled={state === 'loading'}
-          className="rounded border border-border px-3 py-1.5 text-sm text-primary hover:bg-surface-hover disabled:opacity-50"
-        >
-          Re-check
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {ops.refreshing ? <span className="text-[11px] text-muted" aria-live="polite">Refreshing…</span> : null}
+          <Link to="/operations/audit" className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover">
+            Audit
+          </Link>
+          <Link to="/evidence" className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover">
+            Evidence
+          </Link>
+          <button
+            type="button"
+            onClick={() => { health.refetch(); ops.refetch() }}
+            className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover"
+          >
+            Re-check
+          </button>
+        </div>
       }
     >
-      <div className="rounded-lg border border-border bg-surface p-5">
-        <Row label="API connection">
-          <StatusDot tone={api.tone} label={api.label} pulse={api.pulse} />
-        </Row>
-        <Row label="System status">
-          <StatusDot
-            tone={system.tone}
-            label={system.label}
-            pulse={system.pulse}
+      <div className="space-y-4">
+        <OpsSafetyBanner
+          broker={health.data?.live_broker_transmission}
+          automationDisabled={health.data ? health.data.automation_enabled === false : true}
+        />
+
+        <SystemSafety health={health.data} connection={health.state} />
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <SystemHealthPanel
+            health={health.data}
+            connection={health.state}
+            lastChecked={health.lastChecked}
           />
-        </Row>
-        <Row label="Endpoint">
-          <code className="font-mono text-xs text-muted">
-            {`${API_BASE_URL || ''}/api/health`}
-          </code>
-        </Row>
-        <Row label="Last checked">
-          {lastChecked ? lastChecked.toLocaleString() : '—'}
-        </Row>
+          {ops.state === 'error' && !ops.data ? (
+            <div className="rounded-lg border border-border bg-surface p-4">
+              <SectionError
+                message={ops.error ?? 'The operations system endpoint could not be reached.'}
+                onRetry={ops.refetch}
+              />
+            </div>
+          ) : (
+            <SystemDiagnostics ops={ops.data} />
+          )}
+        </div>
 
-        {state === 'connected' && data ? (
-          <>
-            <Row label="Reported status">
-              <span className="text-positive">{data.status}</span>
-            </Row>
-            <Row label="Service">
-              {data.app_name}{' '}
-              <span className="text-muted">v{data.version}</span>
-            </Row>
-            <Row label="Live broker transmission">
-              <span className="font-mono text-negative">
-                {data.live_broker_transmission}
-              </span>
-            </Row>
-            <Row label="Automation enabled">
-              <span className="font-mono">
-                {String(data.automation_enabled)}
-              </span>
-            </Row>
-            <Row label="Server time">
-              <span className="font-mono text-xs">{data.timestamp}</span>
-            </Row>
-          </>
-        ) : null}
-
-        {state === 'error' ? (
-          <Row label="Error">
-            <span className="text-negative">{error ?? 'Request failed'}</span>
-          </Row>
-        ) : null}
+        <p className="border-t border-border-subtle pt-3 text-[11px] text-muted">
+          `/api/health` is polled on a slow interval by the shell (pauses while
+          hidden). The safety-gate diagnostics refresh every 20s. Host telemetry
+          (CPU / RAM / uptime / latency), market-data feed health and cache
+          statistics are not exposed by the current API and are not fabricated.
+        </p>
       </div>
-
-      <p className="mt-3 text-xs text-muted">
-        The shell polls this endpoint on a slow interval and pauses while the tab
-        is hidden. Health never blocks navigation.
-      </p>
     </PageContainer>
   )
 }

@@ -560,3 +560,109 @@ class BacktestRunResponse(BaseModel):
     monte_carlo: Optional[MonteCarloBlock] = None
     wfo_flag: Optional[str] = None
     live_broker_transmission: str = "BLOCKED"
+
+
+# -------------------------------------------------------------------------
+# 10. Operations Schemas (Positions page reuses section 7; Journal / Audit /
+#     System are read-only pass-throughs of authoritative SQLite tables and
+#     `system_health.evaluate_system_health`). No execution, no mutation.
+# -------------------------------------------------------------------------
+class JournalTradeItem(BaseModel):
+    trade_id: str
+    account_id: str
+    symbol: str
+    direction: str
+    volume: float
+    entry_price: float
+    exit_price: float
+    commission: float
+    swap: float
+    gross_profit: float
+    net_profit: float
+    entry_time: str
+    exit_time: str
+    duration_minutes: float
+    setup_tag: Optional[str] = None
+    notes: Optional[str] = None
+    rating: Optional[int] = None
+    chart_snapshot_url: Optional[str] = None
+
+
+class JournalResponse(BaseModel):
+    entries: List[JournalTradeItem]
+    total_trades: int
+    wins: int
+    losses: int
+    total_net_profit: float
+    accounts: List[str]
+    source: str = "closed_trades"
+    writable: bool = False
+    timestamp: str
+
+
+class AuditOrderItem(BaseModel):
+    execution_id: str
+    signal_id: Optional[str] = None
+    symbol: Optional[str] = None
+    side: Optional[str] = None
+    requested_quantity: Optional[float] = None
+    requested_entry: Optional[float] = None
+    stop_loss: Optional[float] = None
+    take_profit: Optional[float] = None
+    broker: Optional[str] = None
+    mode: Optional[str] = None
+    state: Optional[str] = None
+    reconciliation_status: Optional[str] = None
+    created_at: Optional[str] = None
+    submitted_at: Optional[str] = None
+    resolved_at: Optional[str] = None
+    filled_at: Optional[str] = None
+    execution_latency_ms: Optional[float] = None
+    reject_reason: Optional[str] = None
+    last_error: Optional[str] = None
+
+
+class AuditResponse(BaseModel):
+    events: List[AuditOrderItem]
+    total_returned: int
+    total_records: int
+    state_counts: Dict[str, int]
+    mode_counts: Dict[str, int]
+    decision_ledger_records: int
+    latest_event_at: Optional[str] = None
+    source: str = "execution_orders"
+    read_only: bool = True
+    live_broker_transmission: str = "BLOCKED"
+    timestamp: str
+
+
+class ReconciliationHealth(BaseModel):
+    status: Optional[str] = None
+    healthy: Optional[bool] = None
+    reason: Optional[str] = None
+    last_heartbeat: Optional[str] = None
+    last_success: Optional[str] = None
+    consecutive_failures: Optional[int] = None
+    iterations_count: Optional[int] = None
+
+
+class SystemSafetyGate(BaseModel):
+    overall_status: str
+    automation_allowed: bool
+    reasons: List[str]
+    kill_switch_engaged: Optional[bool] = None
+    emergency_halt_engaged: Optional[bool] = None
+    database_connected: Optional[bool] = None
+    unresolved_unknown_orders_count: Optional[int] = None
+    reconciliation: Optional[ReconciliationHealth] = None
+
+
+class OperationsSystemResponse(BaseModel):
+    api_status: str
+    app_name: str
+    version: str
+    live_automation_enabled: bool = False
+    live_broker_transmission: str = "BLOCKED"
+    safety_gate: SystemSafetyGate
+    open_positions: int
+    timestamp: str

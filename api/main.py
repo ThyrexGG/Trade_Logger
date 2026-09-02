@@ -16,7 +16,8 @@ from api.routers import (
     risk,
     positions,
     evidence,
-    research
+    research,
+    operations
 )
 
 # Initialize FastAPI App
@@ -45,6 +46,7 @@ app.include_router(risk.router)
 app.include_router(positions.router)
 app.include_router(evidence.router)
 app.include_router(research.router)
+app.include_router(operations.router)
 
 
 @app.get("/")
