@@ -315,6 +315,18 @@ objectively derivable from the live candle window's ATR. `GET
 Frontend `/workspace/trade-setup`. Current output: NO_SETUP everywhere.
 `docs/PHASE_72_TRADE_SETUP_ENGINE.md`.
 
+**Phase 73** — `historical_provider.py` (formal `HistoricalIntradayProvider`
+protocol + `ProviderCapability` deciding `INSUFFICIENT_HISTORICAL_DEPTH` before
+ingestion + `EnvKeyVendorProvider` env-only) + `data_coverage.py` (per
+instrument×TF report: SUFFICIENT / PARTIAL / INSUFFICIENT_DATA /
+PROVIDER_UNAVAILABLE / NO_DATA) + `native_gold_revalidation.py` (contract entry
+logic at 1m/5m/15m/1h/1d, labelled NATIVE / NEAR_NATIVE / PROXY). yfinance
+intraday: 1m ~8d, 5m/15m ~70d → native 1m = INSUFFICIENT_HISTORICAL_DEPTH,
+native verdict = BLOCKED BY DATA AVAILABILITY. `strategy_discovery.prepare_data`
+gained `allow_partial` + `DiscoveryResult.data_tier`. P2-11 fixed (Monte Carlo on
+real WFO OOS trades). `GET /api/research/{data-coverage, historical/providers,
+gold-revalidation/native}`. `docs/PHASE_73_INTRADAY_DATA.md`.
+
 ---
 
 ## 11. Evidence (forward validation / governance)
@@ -330,9 +342,9 @@ historical holdout** (N=82, E[R]=+0.637R) is never pooled with forward data.
 ## 12. Testing
 
 `tests/` — run with `pytest tests/ -p no:randomly`.
-Baseline: **1351 passed, 5 skipped, 0 failed (~120s)** (Phase 70; +25 net
-Phase-70 tests). Phase 69 was 1326/5/0 (+44 Phase-69 tests, +4 macro tests made
-provider-aware — `TECHNICAL_DEBT.md` P2-9); Phase 68 was 1281/6/0.
+Baseline: **1391 passed, 5 skipped, 0 failed (~117s)** (Phase 73; +17). Phase 72
+was 1374 (+14), Phase 71 1360 (+10), Phase 70 1351 (+25), Phase 69 1326 (+44
+Phase-69 + 4 macro tests made provider-aware — P2-9); Phase 68 was 1281/6/0.
 
 Naming: `test_phaseNN_*` = the Streamlit-era feature phases (still the bulk of
 coverage); `test_stageNN_*` = the React-migration stages; `test_*_safety.py` /

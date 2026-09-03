@@ -469,7 +469,9 @@ def analyze_gaps(asset: str, timeframe: str) -> Dict[str, Any]:
     times = _open_times(asset, timeframe)
     per_bar_day = (24 * 3600) / tf_sec if tf_sec else 1
     weekend_bars = (49 * 3600) / tf_sec if tf_sec else 1
-    holiday_tol = 1.5 * per_bar_day
+    # A daily series legitimately skips whole holiday weeks (Christmas / New Year /
+    # Golden Week / Easter). Allow a wider holiday cushion on 1d than intraday.
+    holiday_tol = (5.0 if timeframe == "1d" else 1.5) * per_bar_day
 
     weekend = holiday = anomalous = 0
     largest_anom = 0
@@ -521,8 +523,13 @@ def data_sufficiency(asset: str, timeframe: str) -> Dict[str, Any]:
         reasons.append("NO_DATA_IN_STORE")
     if cov.count < rule.min_bars:
         reasons.append(f"BELOW_MIN_BARS ({cov.count} < {rule.min_bars})")
-    # Only *anomalous* (non-weekend / non-holiday) gaps beyond tolerance fail the gate.
-    anomalous_budget = max(2, int(cov.count / 4000))
+    # Only *anomalous* (non-weekend / non-holiday) gaps beyond tolerance fail the
+    # gate. Budget scales with calendar span (~3 holiday-week clusters per year is
+    # normal), not bar count.
+    span_days = 0
+    if cov.first_open_time and cov.last_open_time:
+        span_days = (cov.last_open_time - cov.first_open_time) / 86400.0
+    anomalous_budget = max(3, int(span_days / 110))
     if gap["anomalous_gaps"] > anomalous_budget or gap["largest_anomalous_bars"] > rule.max_gap_bars * 8:
         reasons.append(
             f"ANOMALOUS_GAPS ({gap['anomalous_gaps']} gaps, largest "

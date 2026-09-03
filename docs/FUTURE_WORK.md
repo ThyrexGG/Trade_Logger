@@ -18,6 +18,19 @@ assistant with an allowlisted context (incl. bounded macro snapshot).
 
 ## DONE
 
+- **Intraday Data Foundation & Native Gold Revalidation (Phase 73)** —
+  `historical_provider.py` (formal `HistoricalIntradayProvider` protocol +
+  `ProviderCapability` deciding `INSUFFICIENT_HISTORICAL_DEPTH` *before* ingestion
+  + `EnvKeyVendorProvider` env-only stub) + `data_coverage.py` (per instrument ×
+  timeframe report: `SUFFICIENT` / `PARTIAL` / `INSUFFICIENT_DATA` /
+  `PROVIDER_UNAVAILABLE` / `NO_DATA`) + `native_gold_revalidation.py` (runs the
+  contract's entry logic at 1m/5m/15m/1h/1d, each labelled NATIVE / NEAR_NATIVE /
+  PROXY). Ingested XAUUSD 1m (~8d) / 5m,15m (~70d). **Native 1m =
+  INSUFFICIENT_HISTORICAL_DEPTH; native verdict = BLOCKED BY DATA AVAILABILITY;
+  best real evidence (5m near-native, ~70d) = −0.032R / N=45, no edge.** Answer to
+  the final research question: **NO_VALIDATED_EDGE**. P2-11 resolved (Monte Carlo
+  on real WFO OOS trades). `GET /api/research/{data-coverage, historical/providers,
+  gold-revalidation/native}`. `docs/PHASE_73_INTRADAY_DATA.md`. +17 tests.
 - **Trade Setup Engine (Phase 72)** — `trade_setup.py`: `evaluate_setup()` →
   deterministic `SetupState` (NO_SETUP / WATCH / SETUP_FORMING / READY /
   INVALIDATED / STALE / INSUFFICIENT_EVIDENCE). READY only behind a VALIDATED

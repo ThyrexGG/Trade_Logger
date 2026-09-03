@@ -47,6 +47,50 @@ def get_historical_coverage() -> HistoricalCoverageResponse:
     )
 
 
+@router.get("/data-coverage")
+def get_data_coverage() -> Dict[str, Any]:
+    """Phase 73 — the full instrument x timeframe coverage report with
+    SUFFICIENT / PARTIAL / INSUFFICIENT_DATA / PROVIDER_UNAVAILABLE / NO_DATA."""
+    import data_coverage
+    rep = data_coverage.coverage_report()
+    rep["safety_barrier"] = _SAFETY
+    return rep
+
+
+@router.get("/historical/providers")
+def get_historical_providers() -> Dict[str, Any]:
+    """Phase 73 — historical intraday provider capabilities (no credentials)."""
+    import historical_provider
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "active_provider": historical_provider.get_provider().name,
+        "capabilities": historical_provider.list_capabilities(),
+        "config_pattern": {
+            "env": ["HISTORICAL_OHLCV_PROVIDER", "HISTORICAL_OHLCV_API_KEY"],
+            "note": "key is read server-side only — never returned to the frontend, "
+                    "never in artifacts, never in AI context",
+        },
+        "safety_barrier": _SAFETY,
+    }
+
+
+@router.get("/gold-revalidation/native")
+def get_native_gold_revalidation() -> Dict[str, Any]:
+    """Phase 73 — native / near-native XAUUSD revalidation (1m/5m/15m), each
+    result labelled NATIVE / NEAR_NATIVE / PROXY. `NOT_COMPUTED` until
+    `python -m native_gold_revalidation` has run."""
+    import native_gold_revalidation
+    art = native_gold_revalidation.get_native_revalidation()
+    if not art:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m native_gold_revalidation`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    art["state"] = "AVAILABLE"
+    art["safety_barrier"] = _SAFETY
+    return art
+
+
 @router.get("/universe")
 def get_universe() -> Dict[str, Any]:
     return {
@@ -71,6 +115,23 @@ def get_gold_baseline() -> GoldBaselineResponse:
         raise HTTPException(status_code=500, detail=f"baseline unavailable: {e!r}")
     d = b.to_dict()
     d["safety_barrier"] = _SAFETY
+    # Phase 73 — surface the native/near-native attempt alongside the Phase-71 proxy
+    try:
+        import native_gold_revalidation
+        nat = native_gold_revalidation.get_native_revalidation()
+        if nat:
+            d["native_revalidation"] = {
+                "native_verdict": nat.get("native_verdict"),
+                "edge_status": nat.get("edge_status"),
+                "per_timeframe": [
+                    {k: r.get(k) for k in ("timeframe", "role", "state", "stored_span_days",
+                                           "oos_metrics")}
+                    for r in nat.get("per_timeframe", [])
+                ],
+                "caveat": nat.get("caveat"),
+            }
+    except Exception:
+        pass
     return GoldBaselineResponse(**d)
 
 

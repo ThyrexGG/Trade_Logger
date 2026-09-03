@@ -144,6 +144,55 @@ export function StrategyDiscoveryPage() {
         </SectionCard>
 
         <SectionCard title="XAUUSD — current revalidation">
+          {gold?.native_revalidation ? (
+            <div className="mb-3 space-y-2 rounded border border-border-subtle bg-surface-elevated/30 p-2 text-xs">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
+                Native / near-native attempt (Phase 73)
+              </p>
+              <p className="text-[10px] text-warning">{gold.native_revalidation.native_verdict}</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-[11px] font-mono">
+                  <thead className="text-muted">
+                    <tr>
+                      <th className="py-0.5 pr-2">TF</th>
+                      <th className="py-0.5 pr-2">Role</th>
+                      <th className="py-0.5 pr-2">State</th>
+                      <th className="py-0.5 pr-2 text-right">Span d</th>
+                      <th className="py-0.5 pr-2 text-right">OOS E[R]</th>
+                      <th className="py-0.5 text-right">N</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {gold.native_revalidation.per_timeframe.map((r) => (
+                      <tr key={r.timeframe} className="border-t border-border-subtle/50">
+                        <td className="py-0.5 pr-2">{r.timeframe}</td>
+                        <td className="py-0.5 pr-2">
+                          <span
+                            className={
+                              r.role === 'NATIVE'
+                                ? 'text-info'
+                                : r.role === 'NEAR_NATIVE'
+                                  ? 'text-secondary'
+                                  : 'text-muted'
+                            }
+                          >
+                            {r.role}
+                          </span>
+                        </td>
+                        <td className="py-0.5 pr-2">{r.state}</td>
+                        <td className="py-0.5 pr-2 text-right">{r.stored_span_days ?? '—'}</td>
+                        <td className="py-0.5 pr-2 text-right">
+                          {r.oos_metrics?.expectancy_r ?? '—'}
+                        </td>
+                        <td className="py-0.5 text-right">{r.oos_metrics?.total_trades ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-[9px] text-muted">{gold.native_revalidation.caveat}</p>
+            </div>
+          ) : null}
           {gold?.revalidated_metrics ? (
             <div className="space-y-3 text-xs">
               <p className="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[10px] text-warning">

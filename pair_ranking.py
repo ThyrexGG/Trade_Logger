@@ -128,6 +128,9 @@ def walk_forward(asset: str, strategy_id: str, timeframe: str = "1h",
         "stability": stability,
         "verdict": ("ROBUST" if stability >= 0.75 else "FRAGILE" if stability >= 0.5 else "UNSTABLE"),
         "stitched_oos": stitched,
+        # P2-11 (Phase 73): the real per-trade OOS R sequence, so Monte Carlo runs
+        # on actual trade outcomes rather than a synthesised list.
+        "stitched_oos_r": [round(r, 4) for r in stitched_r],
     }
 
 
@@ -301,8 +304,16 @@ def compute_pair_ranking(instruments: Optional[List[str]] = None,
             wfo = walk_forward(asset, sid, timeframe)
             cand["walk_forward"] = wfo
             wfo_stab = wfo.get("stability")
-            cand["monte_carlo"] = monte_carlo(
-                _synth_trades(wfo.get("stitched_oos", {})), iterations=3000)
+            # P2-11 fix: Monte Carlo on the real per-trade OOS R sequence from WFO.
+            real_r = wfo.get("stitched_oos_r") or []
+            if len(real_r) >= 10:
+                cand["monte_carlo"] = monte_carlo(
+                    [{"pnl": r} for r in real_r], iterations=3000)
+                cand["monte_carlo"]["basis"] = "real_wfo_oos_trades"
+            else:
+                cand["monte_carlo"] = {"state": "INSUFFICIENT_EVIDENCE",
+                                       "reason": f"only {len(real_r)} stitched OOS trades",
+                                       "basis": "none"}
             cand["parameter_sensitivity"] = parameter_sensitivity(
                 asset, sid, timeframe, cand["params"])
             best = disc.discover(asset, sid, timeframe, params=cand["params"])
@@ -338,8 +349,10 @@ def base_result_params(r: "disc.DiscoveryResult") -> Dict[str, float]:
 
 
 def _synth_trades(metric_block: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """MC needs a trade list; when we only kept a stitched R summary, synthesise a
-    trade list matching its win rate / expectancy for the distribution shape."""
+    """DEPRECATED (Phase 73 / P2-11). No longer used in the ranking pipeline —
+    Monte Carlo now runs on ``walk_forward()['stitched_oos_r']``, the real
+    per-trade OOS R sequence. Kept only for the shape test / ad-hoc use; a
+    synthesised list must never be labelled native trade-level evidence."""
     n = metric_block.get("total_trades", 0)
     if not n:
         return []

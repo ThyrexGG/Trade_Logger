@@ -66,6 +66,18 @@ export interface GoldBaselineResponse {
     unverifiable: string[]
     metrics: GoldMetric[]
   }
+  native_revalidation?: {
+    native_verdict: string
+    edge_status: string
+    caveat: string
+    per_timeframe: {
+      timeframe: string
+      role: 'NATIVE' | 'NEAR_NATIVE' | 'PROXY'
+      state: string
+      stored_span_days: number | null
+      oos_metrics?: { expectancy_r?: number | null; total_trades?: number | null } | null
+    }[]
+  } | null
   revalidated_metrics: {
     timeframe_substitution?: string
     approximation_strategy_id?: string

@@ -17,13 +17,12 @@ P2 improvement · P3 nice-to-have. Nothing here is a safety-invariant risk.*
 - **Recommended fix:** precompute swing/FVG/MSS arrays once per df (vectorised)
   and have `analyze` index into them, instead of re-scanning windows each bar.
 
-### P2-11 · Deep-mode Monte Carlo runs on a *synthesised* trade list
-- `pair_ranking._synth_trades` rebuilds a trade list from the stitched
-  walk-forward OOS summary (win rate + expectancy) because the WFO step keeps only
-  an R-summary, not the individual trades. The distribution shape is right but it
-  is not the literal OOS sequence.
-- **Recommended fix:** have `walk_forward` retain the stitched OOS trade dicts and
-  feed those straight to `backtester.run_monte_carlo`.
+### P2-11 · Deep-mode Monte Carlo ran on a *synthesised* trade list — ✅ RESOLVED (Phase 73)
+- **Fix:** `pair_ranking.walk_forward()` now returns `stitched_oos_r` (the real
+  per-trade R sequence from the stitched OOS windows); `compute_pair_ranking`
+  runs Monte Carlo on `[{"pnl": r} for r in stitched_oos_r]` and tags it
+  `basis: "real_wfo_oos_trades"`. `_synth_trades` kept only for its shape test,
+  marked deprecated.
 
 ### P3-8 · Discovery is 1h/4h/1d only
 - Same root cause as P1-6b (no intraday OHLCV). The SMC strategy family is
@@ -208,12 +207,17 @@ P2 improvement · P3 nice-to-have. Nothing here is a safety-invariant risk.*
   Phase-67 historical `TECHNICAL` / `SMC` / `REGIME` light up **wherever the store
   has coverage**. An empty store still returns `None` — the honest gap, now
   closeable by ingestion rather than by a vendor.
-- **Data depth remains (P1-6b):** the only wired source is yfinance, whose
-  intraday depth is shallow — real multi-year coverage exists for **1h / 4h / 1d**
-  only. `15m`/`5m` (~60 d) and `1m` (~7 d, the frozen Gold contract's native TF)
-  stay `INSUFFICIENT_EVIDENCE`. FX comes only as Yahoo `=X` synthetic spot (no real
-  volume). Closing this needs an intraday OHLCV vendor registered via
-  `historical_market_data.register_provider` or bundled candle files.
+- **Data depth remains (P1-6b/c):** the only wired source is yfinance —
+  probed 2026-09 (GC=F): **1h/4h/1d** real multi-year; **5m/15m ~70 d** (`PARTIAL`);
+  **1m ~8 d** (`INSUFFICIENT_HISTORICAL_DEPTH` — the frozen Gold contract's native
+  TF). FX comes only as Yahoo `=X` synthetic spot (no real volume). Native Gold
+  revalidation and real intraday discovery are **BLOCKED BY DATA AVAILABILITY**.
+- **Phase 73 built the provider architecture for either fix:**
+  `historical_provider.HistoricalIntradayProvider` protocol + `ProviderCapability`
+  (decides `INSUFFICIENT_HISTORICAL_DEPTH` before ingestion) + `EnvKeyVendorProvider`
+  (`HISTORICAL_OHLCV_PROVIDER` / `HISTORICAL_OHLCV_API_KEY`, env-only, ships
+  disabled). Add a vendor adapter + `historical_provider.register(...)`. See
+  `docs/PHASE_73_INTRADAY_DATA.md`.
 
 ### P2-7 · Phase-55 `evaluate_asset_edge` still returns symbol-keyed priors — ⚠️ PARTLY RESOLVED (Phase 68)
 - **Was:** `TechnicalStructureFactorEngine` / `SmartMoneyStructureFactorEngine` /

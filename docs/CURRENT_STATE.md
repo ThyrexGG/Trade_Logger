@@ -27,6 +27,7 @@ power-user workflows not yet migrated.
 
 | Area | State |
 | :-- | :-- |
+| Intraday Data Foundation & Native Gold (Phase 73) — `historical_provider.py` + `data_coverage.py` + `native_gold_revalidation.py` | **research-only**, read-only. Formal intraday provider protocol + capability layer; coverage report (SUFFICIENT/PARTIAL/INSUFFICIENT_DATA). yfinance intraday: 1m ~8d, 5m/15m ~70d → **native Gold revalidation BLOCKED BY DATA AVAILABILITY** (best real: 5m −0.032R/N=45). Final research answer: **NO_VALIDATED_EDGE**. `GET /api/research/{data-coverage,historical/providers,gold-revalidation/native}`. See `docs/PHASE_73_INTRADAY_DATA.md`. |
 | Trade Setup Engine (Phase 72) — `trade_setup.py` + `api/routers/trade_setup.py` | **production-safe**, read-only, decision-support only. Deterministic `SetupState`; READY only behind a VALIDATED strategy with every mandatory condition passing + objectively-derivable levels. `GET /api/trade-setup[/{asset}[/conditions]]`. AI may explain, never override. Frontend `/workspace/trade-setup`. Current output: NO_SETUP everywhere (no validated strategy). See `docs/PHASE_72_TRADE_SETUP_ENGINE.md`. |
 | Gold Revalidation Baseline (Phase 71) — `gold_revalidation.py` + `gold_strategy_baseline._with_revalidation` | **research-only**, read-only. Runs the frozen contract's closest approximation on 1h/1d (native 1m not testable on yfinance — stated up front). `GET /api/research/gold-revalidation`; `python -m gold_revalidation`. Verdict: DEGRADED / UNVERIFIABLE. Holdout never read/mutated. See `docs/PHASE_71_GOLD_REVALIDATION.md`. |
 | Strategy Discovery & Pair Ranking (Phase 70) — `strategy_discovery` + `pair_ranking` over the Phase-69 store and the existing `backtester` / `research_engine` | **production-safe**, read-only, research-only. Offline compute (`python -m pair_ranking`); `GET /api/research/{strategies,strategies/{id},pair-ranking}` read the persisted artifact. `ResearchRankingScore` is decomposable and never a trading signal. First 1h verdict: NO ROBUST EDGE FOUND (honest). Frontend `/research/discovery`. See `docs/PHASE_70_STRATEGY_DISCOVERY.md`. |
@@ -122,6 +123,11 @@ code-splitting. See `PERFORMANCE_REPORT.md`. All warm API p50 ≤ 40 ms.
   RankingScore, never raw profit; `< 30` OOS trades → not ranked
   (`INSUFFICIENT_EVIDENCE`); "NO ROBUST EDGE FOUND" is a valid verdict; discovery
   compute never runs on an API request.
+- Phase 72/73: a Trade Setup is READY only behind a VALIDATED strategy; no
+  `TRIGGERED` state / order path. A research result labelled PROXY / NEAR_NATIVE /
+  PARTIAL is never "the strategy result" and never comparable to the frozen
+  holdout; native Gold at 1m is `INSUFFICIENT_HISTORICAL_DEPTH`, not a number.
+  Intraday-provider keys are env-only, never in git / frontend / artifact / AI.
 
 ## Recommended next development area
 

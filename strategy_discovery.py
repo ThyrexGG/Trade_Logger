@@ -41,6 +41,9 @@ import strategies
 # look-ahead. These mirror backtester's own timeframe -> (struct, bias) map.
 # --------------------------------------------------------------------------
 TF_STACK: Dict[str, Tuple[str, str]] = {
+    "1m": ("15m", "1h"),   # Phase 73 — native execution TF of the frozen Gold contract
+    "5m": ("15m", "1h"),
+    "15m": ("1h", "4h"),
     "1h": ("4h", "1d"),
     "4h": ("1d", "1d"),
     "1d": ("1d", "1d"),
@@ -192,6 +195,7 @@ class PreparedData:
     coverage: Dict[str, Any]
     struct_tf: str
     bias_tf: str
+    tier: str = "SUFFICIENT"          # SUFFICIENT | PARTIAL — set by prepare_data
 
 
 # In-process cache: a full pair-ranking run calls prepare_data once per
@@ -204,12 +208,21 @@ def clear_prepare_cache() -> None:
     _PREP_CACHE.clear()
 
 
-def prepare_data(asset: str, timeframe: str, as_of: Optional[datetime] = None
+_PARTIAL_MIN_BASE_BARS = 800   # hard floor for an explicitly-labelled PARTIAL read
+
+
+def prepare_data(asset: str, timeframe: str, as_of: Optional[datetime] = None,
+                 allow_partial: bool = False
                  ) -> Tuple[Optional[PreparedData], Dict[str, Any]]:
-    """Pull base + HTF windows from the store. Returns (PreparedData|None, sufficiency)."""
+    """Pull base + HTF windows from the store. Returns (PreparedData|None, sufficiency).
+
+    ``allow_partial`` (Phase 73): also return data that is real but below the
+    sufficiency bar, tagged ``tier="PARTIAL"``. The ranking pipeline never sets
+    this — only an explicitly-labelled exploratory read (native Gold
+    revalidation) does. Still requires a hard floor of real bars."""
     asset = research_universe.normalise(asset)
     timeframe = (timeframe or "").strip().lower()
-    _ck = f"{asset}::{timeframe}::{int(as_of.timestamp()) if as_of else 'live'}"
+    _ck = f"{asset}::{timeframe}::{int(as_of.timestamp()) if as_of else 'live'}::{allow_partial}"
     if _ck in _PREP_CACHE:
         return _PREP_CACHE[_ck]
 
@@ -220,28 +233,39 @@ def prepare_data(asset: str, timeframe: str, as_of: Optional[datetime] = None
     if timeframe not in TF_STACK:
         return _cache((None, {"state": "NOT_APPLICABLE",
                               "reason": f"timeframe '{timeframe}' not in the discovery stack"}))
-    if not research_universe.timeframe_is_data_capable(timeframe):
-        return _cache((None, {"state": "INSUFFICIENT_EVIDENCE",
-                              "reason": f"{timeframe} has no multi-year depth on the wired data source",
-                              "next_dependency": "an intraday OHLCV provider"}))
 
     suf = store.data_sufficiency(asset, timeframe)
-    if suf["state"] != "AVAILABLE":
-        return _cache((None, suf))
+    capable = research_universe.timeframe_is_data_capable(timeframe)
+    tier = "SUFFICIENT"
+
+    if not (capable and suf["state"] == "AVAILABLE"):
+        if not allow_partial:
+            reason = suf.get("reason") or (
+                f"{timeframe} has no multi-year depth on the wired data source"
+                if not capable else str(suf.get("reasons")))
+            return _cache((None, {"state": "INSUFFICIENT_EVIDENCE", "reason": reason,
+                                  "next_dependency": "an intraday OHLCV provider",
+                                  "coverage": suf.get("coverage")}))
+        tier = "PARTIAL"
 
     struct_tf, bias_tf = TF_STACK[timeframe]
     as_of_epoch = int(as_of.timestamp()) if as_of else None
     base = store.get_candles(asset, timeframe, as_of=as_of_epoch)
     struct = store.get_candles(asset, struct_tf, as_of=as_of_epoch)
     bias = store.get_candles(asset, bias_tf, as_of=as_of_epoch)
-    if len(base) < research_universe.sufficiency_rule(timeframe).min_bars:
-        return _cache((None, store.data_sufficiency(asset, timeframe)))
+
+    floor = (_PARTIAL_MIN_BASE_BARS if tier == "PARTIAL"
+             else research_universe.sufficiency_rule(timeframe).min_bars)
+    if len(base) < floor:
+        s = store.data_sufficiency(asset, timeframe)
+        s["reason"] = f"only {len(base)} {timeframe} bars in store (floor {floor})"
+        return _cache((None, s))
 
     df, dfs, dfb = _candles_df(base), _candles_df(struct), _candles_df(bias)
     raw = json.dumps({"asset": asset, "tf": timeframe, "n": len(base),
                       "first": base[0]["time"], "last": base[-1]["time"],
                       "struct_n": len(struct), "bias_n": len(bias),
-                      "as_of": as_of_epoch}, sort_keys=True)
+                      "tier": tier, "as_of": as_of_epoch}, sort_keys=True)
     dhash = hashlib.sha256(raw.encode()).hexdigest()
     cov = store.get_coverage(asset, timeframe).to_dict()
     return _cache((PreparedData(
@@ -249,7 +273,8 @@ def prepare_data(asset: str, timeframe: str, as_of: Optional[datetime] = None
         dataset_id=f"{asset}:{timeframe}:{base[0]['time']}-{base[-1]['time']}"
                    + (f":asof{as_of_epoch}" if as_of_epoch else ""),
         dataset_hash=dhash, coverage=cov, struct_tf=struct_tf, bias_tf=bias_tf,
-    ), suf))
+        tier=tier,
+    ), {**suf, "tier": tier}))
 
 
 # ==========================================================================
@@ -360,6 +385,7 @@ class DiscoveryResult:
     coverage: Optional[Dict[str, Any]]
     generated_at: str
     next_dependency: Optional[str] = None
+    data_tier: str = "SUFFICIENT"     # SUFFICIENT | PARTIAL | n/a
 
     def to_dict(self) -> Dict[str, Any]:
         return self.__dict__.copy()
@@ -384,8 +410,13 @@ def _insufficient(asset, sid, timeframe, suf) -> DiscoveryResult:
 def discover(asset: str, strategy_id: str, timeframe: str = "1h",
              params: Optional[Dict[str, float]] = None,
              as_of: Optional[datetime] = None,
+             allow_partial: bool = False,
              ) -> DiscoveryResult:
-    """Run one INSTRUMENT x STRATEGY x PARAMS discovery on store data."""
+    """Run one INSTRUMENT x STRATEGY x PARAMS discovery on store data.
+
+    ``allow_partial`` (Phase 73) also runs on real-but-below-bar intraday data,
+    with ``DiscoveryResult.reason`` / ``state`` carrying the PARTIAL tier. Only an
+    explicitly-labelled exploratory read sets this — never the ranking pipeline."""
     sdef = STRATEGY_DEFINITIONS.get(strategy_id)
     if sdef is None:
         raise KeyError(f"unknown strategy_id '{strategy_id}'")
@@ -393,7 +424,7 @@ def discover(asset: str, strategy_id: str, timeframe: str = "1h",
     timeframe = (timeframe or "1h").strip().lower()
     p = {**sdef.defaults(), **(params or {})}
 
-    prepared, suf = prepare_data(asset, timeframe, as_of=as_of)
+    prepared, suf = prepare_data(asset, timeframe, as_of=as_of, allow_partial=allow_partial)
     if prepared is None:
         return _insufficient(asset, strategy_id, timeframe, suf)
 
@@ -443,9 +474,17 @@ def discover(asset: str, strategy_id: str, timeframe: str = "1h",
     temporal = _breakdown_by(trades, lambda t: str(pd.Timestamp(t["entry_time"]).year))
     regime_bd = _regime_breakdown(trades, prepared)
 
-    state = "AVAILABLE" if all_block.get("total_trades", 0) >= _MIN_TRADES_FOR_EDGE else "INSUFFICIENT_EVIDENCE"
-    reason = ("robust sample" if state == "AVAILABLE"
-              else f"only {all_block.get('total_trades', 0)} trades (< {_MIN_TRADES_FOR_EDGE})")
+    enough = all_block.get("total_trades", 0) >= _MIN_TRADES_FOR_EDGE
+    if prepared.tier == "PARTIAL":
+        state = "PARTIAL"
+        reason = (f"PARTIAL data ({prepared.coverage.get('count')} {timeframe} bars, "
+                  f"{all_block.get('total_trades', 0)} trades) — real but below the sufficiency "
+                  f"bar; exploratory only, NOT validation-grade")
+    elif enough:
+        state, reason = "AVAILABLE", "robust sample"
+    else:
+        state = "INSUFFICIENT_EVIDENCE"
+        reason = f"only {all_block.get('total_trades', 0)} trades (< {_MIN_TRADES_FOR_EDGE})"
 
     return DiscoveryResult(
         asset=asset, strategy_id=strategy_id, strategy_version=sdef.version,
@@ -459,6 +498,7 @@ def discover(asset: str, strategy_id: str, timeframe: str = "1h",
         generated_at=datetime.now(timezone.utc).isoformat(),
         next_dependency=None if state == "AVAILABLE"
         else "more history / a lower timeframe with real intraday depth",
+        data_tier=prepared.tier,
     )
 
 
