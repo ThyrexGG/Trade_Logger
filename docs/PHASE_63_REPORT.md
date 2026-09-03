@@ -399,7 +399,7 @@ Deferred (P2):                  command-centre 8-way fan-out multiplies pool
                                 checkouts under concurrent cache-miss — needs a
                                 real uvicorn load test to size
 Code changes:                   NONE
-Commit:                         <filled on commit>  (report + reference images only)
+Commit:                         0fc7730  (docs only — report + reference images)
 ```
 
 ## STOP
