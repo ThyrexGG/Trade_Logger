@@ -32,6 +32,7 @@ const StrategyDiscoveryPage = page(
   () => import('./pages/StrategyDiscoveryPage'),
   'StrategyDiscoveryPage',
 )
+const TradeSetupPage = page(() => import('./pages/TradeSetupPage'), 'TradeSetupPage')
 const BacktestWorkspacePage = page(() => import('./pages/BacktestWorkspacePage'), 'BacktestWorkspacePage')
 const ResearchAuditPage = page(() => import('./pages/ResearchAuditPage'), 'ResearchAuditPage')
 const MacroIntelligencePage = page(() => import('./pages/MacroIntelligencePage'), 'MacroIntelligencePage')
@@ -47,6 +48,7 @@ const SystemHealthPage = page(() => import('./pages/SystemHealthPage'), 'SystemH
 /** Item routes whose page is implemented for real (not a placeholder). */
 const LIVE_ITEM_PAGES: Record<string, ReactElement> = {
   'workspace.command-center': <CommandCenterPage />,
+  'workspace.trade-setup': <TradeSetupPage />,
   'workspace.market': <MarketWorkspacePage />,
   'workspace.risk': <RiskGatewayPage />,
   'workspace.positions': <PositionsPage />,

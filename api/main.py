@@ -27,6 +27,7 @@ from api.routers import (
     ai,
     macro,
     strategy_research,
+    trade_setup,
 )
 
 def _warm_up() -> None:
@@ -135,6 +136,7 @@ app.include_router(command_center.router)
 app.include_router(ai.router)
 app.include_router(macro.router)
 app.include_router(strategy_research.router)
+app.include_router(trade_setup.router)
 
 
 @app.get("/")

@@ -79,7 +79,7 @@ non-GET verbs are: `POST /api/risk/preview` (calc only), `POST /api/research/bac
 
 ```
 api/
-  main.py               FastAPI app; registers 16 routers (strategy_research carries Phase 69 + 70)
+  main.py               FastAPI app; registers 17 routers (strategy_research = Phase 69+70+71; trade_setup = Phase 72)
   schemas.py            all Pydantic request/response models (numbered sections 1..15 + Phase 67/69)
   routers/
     health, watchlist, market, preferences, intelligence, risk, positions,
@@ -304,6 +304,16 @@ approximation (`ict_2022_sweep_mss_fvg`) through the Phase-70 pipeline on 1h/1d
 old-vs-new comparison + an objective `EdgeStatus`. `gold_strategy_baseline`
 merges a persisted `gold_revalidation` artifact into `get_gold_baseline()`.
 `GET /api/research/gold-revalidation`. `docs/PHASE_71_GOLD_REVALIDATION.md`.
+
+**Phase 72** — `trade_setup.py`: `evaluate_setup(asset, as_of)` → deterministic
+`SetupState`. READY only behind a VALIDATED strategy (evidence-gated to a
+`pair_ranking` STRONG scorecard or `gold_revalidation` VALIDATED) with all six
+mandatory conditions from the Phase-67 evidence layer passing and entry/SL/TP
+objectively derivable from the live candle window's ATR. `GET
+/api/trade-setup[/{asset}[/conditions]]`. AI context carries a bounded
+`trade_setups` section; the model may explain but never change the state.
+Frontend `/workspace/trade-setup`. Current output: NO_SETUP everywhere.
+`docs/PHASE_72_TRADE_SETUP_ENGINE.md`.
 
 ---
 

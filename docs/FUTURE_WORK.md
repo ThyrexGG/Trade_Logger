@@ -18,6 +18,19 @@ assistant with an allowlisted context (incl. bounded macro snapshot).
 
 ## DONE
 
+- **Trade Setup Engine (Phase 72)** — `trade_setup.py`: `evaluate_setup()` →
+  deterministic `SetupState` (NO_SETUP / WATCH / SETUP_FORMING / READY /
+  INVALIDATED / STALE / INSUFFICIENT_EVIDENCE). READY only behind a VALIDATED
+  strategy (evidence-gated: `pair_ranking` scorecard STRONG or `gold_revalidation`
+  VALIDATED) with every mandatory condition passing and entry/SL/TP objectively
+  derivable from the live candle window's ATR. Six mandatory conditions from the
+  Phase-67 evidence layer (HTF bias / regime / MTF alignment / SMC trigger /
+  session / freshness). `GET /api/trade-setup[/{asset}[/conditions]]`. AI context
+  gets a bounded `trade_setups` section + a SYSTEM_INSTRUCTION rule that the model
+  may explain but never change the state. Frontend `/workspace/trade-setup`.
+  Current output: **NO_SETUP for every instrument** (no validated strategy) — the
+  honest, correct state. `docs/PHASE_72_TRADE_SETUP_ENGINE.md`. +14 tests.
+  **Phase 69-72 complete.**
 - **Gold Revalidation Baseline (Phase 71)** — `gold_revalidation.py` runs the
   frozen contract's closest approximation (`ict_2022_sweep_mss_fvg` = sweep → MSS
   → FVG) through the Phase-70 pipeline on **1h + 1d** (the frozen contract's

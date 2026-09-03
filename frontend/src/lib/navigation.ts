@@ -62,6 +62,14 @@ export const ZONES: Zone[] = [
         status: 'live',
       },
       {
+        id: 'workspace.trade-setup',
+        label: 'Trade Setup',
+        description: 'Does the current market satisfy a validated strategy right now? READY only behind a validated edge.',
+        path: '/workspace/trade-setup',
+        icon: GaugeIcon,
+        status: 'live',
+      },
+      {
         id: 'workspace.market',
         label: 'Market',
         description: 'Watchlist, market snapshot and multi-timeframe context.',
