@@ -1326,3 +1326,70 @@ class MacroProvidersResponse(BaseModel):
     precedence: List[Dict[str, Any]] = []
     disclaimer: Optional[str] = None
     timestamp: str
+
+
+# -------------------------------------------------------------------------
+# 18. Unified Evidence Fusion (Phase 67) — one canonical, timestamp-correct
+#     evidence representation of an asset. Read-only. Category scores are
+#     contextual intelligence, never an execution signal. Missing evidence and
+#     provider outage stay distinct from neutral evidence.
+# -------------------------------------------------------------------------
+class EvidenceItemModel(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    asset: str
+    category: str
+    metric: str
+    state: str
+    value: Optional[float] = None
+    unit: Optional[str] = None
+    direction: str = "UNKNOWN"
+    strength: Optional[float] = None
+    confidence: Optional[float] = None
+    source: Optional[str] = None
+    source_id: Optional[str] = None
+    provenance: Optional[str] = None
+    as_of: Optional[str] = None
+    available_timestamp: Optional[str] = None
+    release_timestamp: Optional[str] = None
+    observation_timestamp: Optional[str] = None
+    vintage_timestamp: Optional[str] = None
+    age_seconds: Optional[float] = None
+    note: Optional[str] = None
+
+
+class EvidenceCategoryModel(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    category: str
+    state: str
+    direction: str = "UNKNOWN"
+    score: Optional[float] = None
+    confidence: Optional[float] = None
+    coverage: Optional[float] = None
+    freshness: Optional[str] = None
+    age_seconds: Optional[float] = None
+    evidence_count: int = 0
+    sources: List[str] = []
+    provenance: Optional[str] = None
+    reason: Optional[str] = None
+    next_dependency: Optional[str] = None
+    evidence: List[EvidenceItemModel] = []
+
+
+class AssetIntelligenceResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    asset: str
+    as_of: str
+    generated_at: str
+    mode: str
+    timeframe: Optional[str] = None
+    categories: List[EvidenceCategoryModel] = []
+    cross_category_state: str
+    cross_category: Dict[str, Any] = {}
+    coverage: Dict[str, Any] = {}
+    conflicts: List[Dict[str, Any]] = []
+    data_gaps: List[Dict[str, Any]] = []
+    provenance: List[Dict[str, Any]] = []
+    provider_health: Dict[str, Any] = {}
+    model_version: str
+    disclaimer: str
+    safety_barrier: Dict[str, Any] = {}

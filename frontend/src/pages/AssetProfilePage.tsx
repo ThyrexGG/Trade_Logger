@@ -1,7 +1,9 @@
 import { Link, useParams } from 'react-router-dom'
 import { useAssetProfile } from '../lib/useAssetProfile'
+import { useAssetIntelligence } from '../lib/useAssetIntelligence'
 import { PageContainer } from '../components/shell/PageContainer'
 import { AssetProfile } from '../components/intelligence/AssetProfile'
+import { EvidenceFusionPanel } from '../components/intelligence/EvidenceFusionPanel'
 
 /**
  * Asset Intelligence detail. Fetches ONE asset-profile endpoint for the routed
@@ -11,6 +13,7 @@ export function AssetProfilePage() {
   const { symbol: raw } = useParams<{ symbol: string }>()
   const symbol = (raw ?? '').toUpperCase()
   const profile = useAssetProfile(symbol || null)
+  const evidence = useAssetIntelligence(symbol || null)
 
   return (
     <PageContainer
@@ -42,14 +45,25 @@ export function AssetProfilePage() {
         </Link>
       </div>
 
-      <AssetProfile
-        symbol={symbol}
-        state={profile.state}
-        data={profile.data}
-        error={profile.error}
-        refreshing={profile.refreshing}
-        onRetry={profile.refetch}
-      />
+      <div className="space-y-4">
+        <AssetProfile
+          symbol={symbol}
+          state={profile.state}
+          data={profile.data}
+          error={profile.error}
+          refreshing={profile.refreshing}
+          onRetry={profile.refetch}
+        />
+
+        <EvidenceFusionPanel
+          symbol={symbol}
+          state={evidence.state}
+          data={evidence.data}
+          error={evidence.error}
+          refreshing={evidence.refreshing}
+          onRetry={evidence.refetch}
+        />
+      </div>
     </PageContainer>
   )
 }

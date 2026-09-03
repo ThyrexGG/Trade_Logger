@@ -6,13 +6,14 @@ AssetContextProfileEngine, and EconomicHeatmapEngine without formula duplication
 """
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from api.schemas import (
     IntelligenceSummaryResponse,
     OpportunityMapResponse,
     OpportunityMapItem,
     AssetProfileResponse,
+    AssetIntelligenceResponse,
     EconomicHeatmapResponse,
     EconomyHeatmapRow
 )
@@ -141,6 +142,54 @@ async def get_asset_profile(symbol: str) -> AssetProfileResponse:
         cot_sentiment=profile.get("positioning_factor", {}) or {},
         timestamp=profile.get("as_of", datetime.now(timezone.utc).isoformat())
     )
+
+
+@router.get("/asset/{asset}", response_model=AssetIntelligenceResponse)
+async def get_asset_intelligence(
+    asset: str,
+    as_of: Optional[str] = Query(
+        None,
+        description="ISO-8601 UTC instant for a historical (as-of) snapshot. "
+        "Omit for a live snapshot. The result is reproducible from information "
+        "available by this timestamp only.",
+    ),
+    timeframe: Optional[str] = Query(None, description="Optional timeframe hint, e.g. '4H'."),
+) -> AssetIntelligenceResponse:
+    """
+    Unified Evidence Fusion (Phase 67) — the single canonical, timestamp-correct,
+    evidence-backed context object for one asset.
+
+    Read-only. Category scores are contextual intelligence, never an execution
+    signal. Missing evidence (INSUFFICIENT_EVIDENCE), a provider outage
+    (PROVIDER_UNAVAILABLE) and neutral evidence are all distinct states. Cross-
+    category disagreement is represented explicitly, never averaged away.
+    """
+    from api.evidence_fusion import (
+        get_asset_intelligence as _fuse,
+        is_supported_asset,
+        normalise_asset,
+    )
+
+    sym = normalise_asset(asset)
+    if not sym or not sym.isalnum() or len(sym) > 12:
+        raise HTTPException(status_code=422, detail=f"Invalid asset symbol '{asset}'.")
+    if not is_supported_asset(sym):
+        raise HTTPException(status_code=404, detail=f"Asset '{sym}' is not covered by the evidence fusion layer.")
+
+    as_of_dt: Optional[datetime] = None
+    if as_of:
+        raw = as_of.strip()
+        if raw.endswith("Z"):
+            raw = raw[:-1] + "+00:00"
+        try:
+            as_of_dt = datetime.fromisoformat(raw)
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"Invalid as_of timestamp '{as_of}'.")
+        if as_of_dt.tzinfo is None:
+            as_of_dt = as_of_dt.replace(tzinfo=timezone.utc)
+
+    snapshot = _fuse(sym, as_of=as_of_dt, timeframe=timeframe)
+    return AssetIntelligenceResponse(**snapshot.to_dict())
 
 
 @router.get("/heatmap", response_model=EconomicHeatmapResponse)

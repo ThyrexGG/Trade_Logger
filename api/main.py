@@ -55,6 +55,7 @@ def _warm_up() -> None:
         "/api/operations/audit",
         "/api/operations/system",
         "/api/command-center/overview",
+        "/api/intelligence/asset/XAUUSD",
     ):
         try:
             client.get(path)

@@ -85,6 +85,107 @@ export interface AssetProfile {
   timestamp: string
 }
 
+/* ------------------------------------------------------------------------ *
+ * Unified Evidence Fusion (Phase 67) — GET /api/intelligence/asset/{asset}
+ * One canonical, timestamp-correct evidence object per asset. Category scores
+ * are contextual intelligence, never an execution signal. INSUFFICIENT_EVIDENCE
+ * (a source exists but not enough data) and PROVIDER_UNAVAILABLE (no source) are
+ * distinct states and neither means "neutral".
+ * ------------------------------------------------------------------------ */
+export type EvidenceStateValue =
+  | 'AVAILABLE'
+  | 'INSUFFICIENT_EVIDENCE'
+  | 'PROVIDER_UNAVAILABLE'
+  | 'STALE'
+  | 'CONFLICT'
+  | 'NOT_APPLICABLE'
+
+export type EvidenceDirectionValue = 'BULLISH' | 'BEARISH' | 'NEUTRAL' | 'UNKNOWN'
+
+export type CrossCategoryStateValue =
+  | 'AGREEMENT'
+  | 'MIXED'
+  | 'CONFLICT'
+  | 'INSUFFICIENT_EVIDENCE'
+
+export interface EvidenceItem {
+  asset: string
+  category: string
+  metric: string
+  state: EvidenceStateValue
+  value: number | null
+  unit: string | null
+  direction: EvidenceDirectionValue
+  strength: number | null
+  confidence: number | null
+  source: string | null
+  source_id: string | null
+  provenance: string | null
+  as_of: string | null
+  available_timestamp: string | null
+  release_timestamp: string | null
+  observation_timestamp: string | null
+  vintage_timestamp: string | null
+  age_seconds: number | null
+  note: string | null
+}
+
+export interface EvidenceCategory {
+  category: string
+  state: EvidenceStateValue
+  direction: EvidenceDirectionValue
+  score: number | null
+  confidence: number | null
+  coverage: number | null
+  freshness: string | null
+  age_seconds: number | null
+  evidence_count: number
+  sources: string[]
+  provenance: string | null
+  reason: string | null
+  next_dependency: string | null
+  evidence: EvidenceItem[]
+}
+
+export interface CrossCategoryAssessment {
+  state: CrossCategoryStateValue
+  supporting_categories: string[]
+  opposing_categories: string[]
+  neutral_categories: string[]
+  conflicting_categories: string[]
+  dominant_direction: EvidenceDirectionValue
+  agreement_ratio: number | null
+  note: string | null
+}
+
+export interface EvidenceCoverage {
+  per_category: Record<string, EvidenceStateValue>
+  available_categories: number
+  provider_unavailable_categories: number
+  insufficient_categories: number
+  total_categories: number
+  coverage_ratio: number | null
+}
+
+export interface AssetIntelligence {
+  asset: string
+  as_of: string
+  generated_at: string
+  mode: 'LIVE' | 'HISTORICAL'
+  timeframe: string | null
+  categories: EvidenceCategory[]
+  cross_category_state: CrossCategoryStateValue
+  cross_category: CrossCategoryAssessment
+  coverage: EvidenceCoverage
+  conflicts: Record<string, unknown>[]
+  data_gaps: Record<string, unknown>[]
+  provenance: Record<string, unknown>[]
+  provider_health: Record<string, unknown>
+  model_version: string
+  disclaimer: string
+  safety_barrier: Record<string, unknown>
+}
+
 /** One economic-indicator cell in the heatmap matrix. */
 export interface HeatmapIndicator {
   indicator_code?: string

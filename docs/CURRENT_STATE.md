@@ -27,6 +27,7 @@ power-user workflows not yet migrated.
 
 | Area | State |
 | :-- | :-- |
+| Unified Evidence Fusion (Phase 67) — `GET /api/intelligence/asset/{asset}`, one canonical timestamp-correct evidence object per asset; Asset Deep Dive `EvidenceFusionPanel`; AI `asset_evidence` context | **production-safe**, read-only. Orchestrates existing engines; `MACRO`+`COT` are as-of-correct, live-only categories honestly marked. See `docs/PHASE_67_EVIDENCE_FUSION.md`. |
 | Trading Workspace — watchlist, market snapshot, MTF/SMC context | **production-safe**, live data |
 | Risk Gateway — position sizing / pre-trade risk preview (currency-aware FX) | **production-safe**, calc only |
 | Positions — open paper/shadow positions + excursion metrics | **production-safe**, live data |
@@ -100,7 +101,10 @@ code-splitting. See `PERFORMANCE_REPORT.md`. All warm API p50 ≤ 40 ms.
 - `app.py` (Streamlit) and `server.py` (legacy engine) — leave untouched.
 - The macro seed/provenance/`INSUFFICIENT_EVIDENCE` behaviour — do not "fill in"
   demo data.
-- Lookahead protection (`release_timestamp <= as_of`) anywhere.
+- Lookahead protection (`release_timestamp <= as_of`) anywhere — including the
+  Phase-67 fusion layer's independent `_enforce_timestamps` guard.
+- The Phase-67 evidence model's state distinctions — `PROVIDER_UNAVAILABLE` ≠
+  `INSUFFICIENT_EVIDENCE` ≠ neutral; no blended composite; conflicts not averaged.
 
 ## Recommended next development area
 

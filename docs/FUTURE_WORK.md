@@ -18,6 +18,16 @@ assistant with an allowlisted context (incl. bounded macro snapshot).
 
 ## DONE
 
+- **Unified Evidence Fusion (Phase 67)** — `api/evidence_model.py` +
+  `api/evidence_fusion.py` + `GET /api/intelligence/asset/{asset}`. One canonical,
+  timestamp-correct, evidence-backed asset context object orchestrating the
+  existing Phase-55/56/57/64/66 engines (reimplements none). Categories
+  `TECHNICAL/SMC/MACRO/COT/REGIME/SEASONALITY/SENTIMENT`; explicit states
+  (`PROVIDER_UNAVAILABLE` ≠ `INSUFFICIENT_EVIDENCE` ≠ neutral); no blended
+  composite; cross-category conflict represented not averaged; independent
+  backend look-ahead guard; historical `as_of` mode (MACRO+COT reconstructable).
+  Asset Deep Dive `EvidenceFusionPanel` + AI `asset_evidence` context.
+  `docs/PHASE_67_EVIDENCE_FUSION.md`. +49 tests (1226 passing).
 - **Performance phase (Phase 62)** — DB connection pooling, TTL caches on
   `/api/operations/{audit,system}` and command-centre sections, FastAPI startup
   warm-up, frontend route-level code splitting. All warm API p50 ≤ 40 ms; cold
@@ -38,6 +48,16 @@ assistant with an allowlisted context (incl. bounded macro snapshot).
 - **Import / lint tidy** with `ruff` across `api/` (P2-2).
 
 ## LATER (bigger, needs its own design + regression)
+
+- **Timestamp-correct market-structure factors** (`TECHNICAL_DEBT.md` P2-7/P2-8)
+  — back the Phase-55 `TECHNICAL`/`SMC`/`SEASONALITY` factor engines and the
+  cross-asset regime engine with real, as-of-aware inputs so Phase-67 historical
+  mode can include them. Then a defensible cross-category weighting framework
+  becomes possible (currently the layer deliberately exposes an evidence matrix,
+  not a composite).
+- **Register a retail-sentiment provider** under the Phase-66 registry
+  (`Capability.RETAIL_SENTIMENT`) so the `SENTIMENT` category stops being
+  `PROVIDER_UNAVAILABLE`.
 
 - **`database.py` split** into `db/` submodules (the pool now lives at the top
   of it; a `db/connection.py` is the natural first slice).

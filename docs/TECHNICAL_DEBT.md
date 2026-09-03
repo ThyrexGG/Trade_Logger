@@ -140,6 +140,40 @@ P2 improvement · P3 nice-to-have. Nothing here is a safety-invariant risk.*
 
 ---
 
+## Phase 67 — items logged by the Unified Evidence Fusion layer
+
+### P2-7 · Phase-55 factor engines use symbol-keyed model priors
+- **Location:** `asset_edge_intelligence.py` — `TechnicalStructureFactorEngine`,
+  `SmartMoneyStructureFactorEngine`, `SeasonalityFactorEngine` (and others)
+  branch on the symbol string and return fixed deterministic scores rather than
+  analysing live candles for most instruments.
+- **Impact:** the Phase-67 `TECHNICAL` / `SMC` / `SEASONALITY` categories report
+  `provenance: "derived"` (faithful to the engine) but are **not**
+  as-of-reconstructable, so historical fusion mode omits them with a stated
+  reason. Live values do not change with `as_of`.
+- **Recommended solution:** back these factor engines with real MTF market-
+  structure analysis (the `strategies/` SMC/MTF utilities already exist); then
+  they become timestamp-correct and historical mode can include them.
+
+### P2-8 · Cross-asset regime is live-only
+- **Location:** `cross_asset_regime_engine.py` reads `market_data.get_latest_*`
+  with no as-of path.
+- **Impact:** Phase-67 historical mode returns `REGIME = INSUFFICIENT_EVIDENCE`
+  with a reason rather than a reconstructed regime.
+- **Recommended solution:** an as-of cross-asset price/return store for regime
+  replay.
+
+### P3-6 · `GET /api/intelligence/asset/{asset}` cold ≈ 2.5 s (first process hit)
+- **Impact:** one-off per-process cost — first-time init of the Edge / Regime /
+  Macro engines, the same cost any intelligence page pays. Warm is ~6 ms.
+- **Mitigation in place:** `api/main.py` `_warm_up()` primes `…/asset/XAUUSD` at
+  startup, so the first real navigation is warm.
+- **Recommended solution:** none needed unless a benchmark shows a real user
+  hitting it cold; would otherwise chase the shared Phase-56 macro-scorecard
+  ~446 ms path, which the phase brief explicitly says not to rewrite.
+
+---
+
 ## Phase 63 verification (no code changes)
 
 Phase 62's pooling / caching / code-splitting were re-measured and confirmed
