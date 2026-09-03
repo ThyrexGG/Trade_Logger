@@ -96,7 +96,7 @@ api/
 | Area | Router | Authoritative engine(s) |
 | :-- | :-- | :-- |
 | Watchlist / market snapshot | `watchlist`, `market` | `trading_workspace_cockpit.TradingWorkspaceCockpit` |
-| Market intelligence | `intelligence` | `market_intelligence_command_center.UnifiedMarketIntelligenceAggregator`, `market_intelligence_scanner`, `economic_heatmap`; **Phase 67** `…/asset/{asset}` → `api.evidence_fusion.get_asset_intelligence` (orchestrates the Edge / Macro-scorecard / Regime / registry engines — reimplements none) |
+| Market intelligence | `intelligence` | `market_intelligence_command_center.UnifiedMarketIntelligenceAggregator`, `market_intelligence_scanner`, `economic_heatmap`; **Phase 67** `…/asset/{asset}` → `api.evidence_fusion.get_asset_intelligence` (orchestrates Macro-scorecard / registry / **Phase 68 `market_evidence_engine`** — reimplements none) |
 | Risk preview / sizing | `risk` | `risk_gateway.calculate_pre_trade_risk_preview` (currency-aware FX fix in `9.1`) |
 | Positions | `positions` | `database.get_open_positions` |
 | Analytics | `analytics` | `analytics.calculate_performance_metrics` (byte-parity verified) |
@@ -159,6 +159,7 @@ Key tables: `raw_deals`, `closed_trades`, `open_positions`, `account_metadata`,
 | PAPER system-health gate | `api/system_health_cache.py`, shared by `get_system` + command-centre `_safety` (Phase 62) | 8s, `invalidate()` |
 | Command-centre research notes | module TTL cache in `api/routers/command_center.py` (Phase 62) | 30s |
 | Evidence-fusion snapshot | module TTL cache in `api/evidence_fusion.py` (Phase 67), same idiom as the regime cache; `live::` keys 4s, `hist::…::{as_of}` keys immutable for the process; `invalidate()` | 4s / ∞ |
+| Candle windows | `market_data._CANDLE_CACHE` (existing, TTL 4s per `sym_tf_count`) reused by Phase-68 `historical_market_data`; a 120s "live feed down" short-circuit avoids repeated socket timeouts when offline | 4s |
 | Startup warm-up | FastAPI `lifespan` primes pool + heavy routes before traffic, incl. `…/intelligence/asset/XAUUSD` (`TL_SKIP_WARMUP=1` to skip) | once at boot |
 
 **Freshness rules that caching must never break:** `release_timestamp <= as_of`
@@ -200,6 +201,34 @@ server-side system instruction the user cannot override. Unset key → graceful
 (Phase 67) — the canonical evidence-fusion snapshot for the current watchlist
 highlights, timestamp-correct by construction (no future information reaches the
 model through it).
+
+### 9b. Historical Market Evidence (Phase 68)
+
+`historical_market_data.py` — canonical **as-of candle window** interface:
+`get_candle_window(asset, timeframe, as_of, lookback)` returns candles truncated
+to `candle_close <= as_of` (drops the still-forming candle). Live path wraps
+`market_data.get_candles_with_source` (new; also reports which upstream served);
+the **synthetic offline fallback is never treated as real data** and trips a
+120 s "feed down" short-circuit. Historical path dispatches to
+`HISTORICAL_OHLCV_PROVIDER` (Phase-66-style registry) — the repo ships **no**
+historical OHLCV store, so the default resolves to `None`; tests install a
+deterministic in-process provider via `set_test_provider`.
+
+`market_evidence_engine.py` — real, timestamp-safe evidence from a candle
+window: EMA20/50/200 + RSI(14) + MACD + ATR(14) + MTF EMA bias (technical);
+reuses `market_data.detect_fvgs / detect_order_blocks / calculate_market_structure
+/ calculate_liquidity_zones` (SMC); day-of-week / month return tendency with an
+explicit `sample_size` (seasonality); per-benchmark as-of windows with
+`MISSING_INPUT` for absent series (regime). Emits canonical
+`api.evidence_model.EvidenceItem` (Phase-67 model, reused — no parallel class),
+each with `timeframe` / `latest_input_timestamp` / `calculation_window`.
+
+`api/evidence_fusion.py` — `TECHNICAL / SMC / SEASONALITY / REGIME` now prefer
+`market_evidence_engine`. A Phase-55 deterministic prior is used **only** in live
+mode when no candle window resolves, and only as a `NOT_APPLICABLE` context item
+tagged `provenance="deterministic_prior"`, `source="model_prior"` — never
+`historical_ohlcv`, never driving direction/score/cross-category. Full reference:
+`docs/PHASE_68_HISTORICAL_MARKET_EVIDENCE.md`.
 
 ### 9a. Unified Evidence Fusion (Phase 67)
 
@@ -245,7 +274,7 @@ historical holdout** (N=82, E[R]=+0.637R) is never pooled with forward data.
 ## 12. Testing
 
 `tests/` — run with `pytest tests/ -p no:randomly`.
-Baseline: **1226 passed, 6 skipped, 0 failed (~133s)** (Phase 67; was 1177/4 at Phase 66).
+Baseline: **1281 passed, 6 skipped, 0 failed (~169s)** (Phase 68; was 1226/6 at Phase 67).
 
 Naming: `test_phaseNN_*` = the Streamlit-era feature phases (still the bulk of
 coverage); `test_stageNN_*` = the React-migration stages; `test_*_safety.py` /

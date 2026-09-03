@@ -140,34 +140,57 @@ P2 improvement · P3 nice-to-have. Nothing here is a safety-invariant risk.*
 
 ---
 
-## Phase 67 — items logged by the Unified Evidence Fusion layer
+## Phase 68 — Historical Market Evidence
 
-### P2-7 · Phase-55 factor engines use symbol-keyed model priors
-- **Location:** `asset_edge_intelligence.py` — `TechnicalStructureFactorEngine`,
-  `SmartMoneyStructureFactorEngine`, `SeasonalityFactorEngine` (and others)
-  branch on the symbol string and return fixed deterministic scores rather than
-  analysing live candles for most instruments.
-- **Impact:** the Phase-67 `TECHNICAL` / `SMC` / `SEASONALITY` categories report
-  `provenance: "derived"` (faithful to the engine) but are **not**
-  as-of-reconstructable, so historical fusion mode omits them with a stated
-  reason. Live values do not change with `as_of`.
-- **Recommended solution:** back these factor engines with real MTF market-
-  structure analysis (the `strategies/` SMC/MTF utilities already exist); then
-  they become timestamp-correct and historical mode can include them.
+### P1-6 · No persisted historical OHLCV store *(data limitation — the big one)*
+- **Location:** repo-wide. `market_data.get_realtime_candles` is live-only;
+  `backtester` fetches `yfinance` over the network on demand and never persists;
+  there is no `candles` table and no bundled data files.
+- **Impact:** Phase-68 `historical_market_data.get_candle_window(as_of=<past>)`
+  resolves to `None` unless `HISTORICAL_OHLCV_PROVIDER` is configured, so
+  historical `TECHNICAL` / `SMC` / `REGIME` stay `INSUFFICIENT_EVIDENCE` for
+  arbitrary `as_of`. **Live** mode is real (candle-derived) whenever a real
+  upstream is reachable.
+- **Recommended solution:** a `candles` table + an ingestion job, OR a vendor
+  provider with a dated-range API, registered under
+  `historical_market_data.register_provider`.
 
-### P2-8 · Cross-asset regime is live-only
-- **Location:** `cross_asset_regime_engine.py` reads `market_data.get_latest_*`
-  with no as-of path.
-- **Impact:** Phase-67 historical mode returns `REGIME = INSUFFICIENT_EVIDENCE`
-  with a reason rather than a reconstructed regime.
-- **Recommended solution:** an as-of cross-asset price/return store for regime
-  replay.
+### P2-7 · Phase-55 `evaluate_asset_edge` still returns symbol-keyed priors — ⚠️ PARTLY RESOLVED (Phase 68)
+- **Was:** `TechnicalStructureFactorEngine` / `SmartMoneyStructureFactorEngine` /
+  `SeasonalityFactorEngine` / `MarketRegimeFactorEngine` return fixed
+  deterministic scores.
+- **Phase 68:** the Phase-67 fusion `TECHNICAL` / `SMC` / `SEASONALITY` / `REGIME`
+  categories now come from `market_evidence_engine` (real EMA/RSI/MACD/ATR,
+  candle-derived SMC, sample-sized seasonality, per-benchmark regime). The
+  Phase-55 prior is used **only** in live mode when no candle window resolves,
+  and only as a `NOT_APPLICABLE` context item tagged
+  `provenance="deterministic_prior"`, `source="model_prior"` — never as observed
+  evidence, never in historical mode.
+- **Remaining:** `asset_edge_intelligence.evaluate_asset_edge` itself is
+  unchanged (still serves `/api/intelligence/asset-profile` for back-compat).
+  Delete the prior code once P1-6 lands.
 
-### P3-6 · `GET /api/intelligence/asset/{asset}` cold ≈ 2.5 s (first process hit)
-- **Impact:** one-off per-process cost — first-time init of the Edge / Regime /
-  Macro engines, the same cost any intelligence page pays. Warm is ~6 ms.
+### P2-8 · Cross-asset regime historical reconstruction — ⚠️ PARTLY RESOLVED (Phase 68)
+- **Phase 68:** `market_evidence_engine.regime_evidence(as_of)` pulls a
+  per-benchmark as-of candle window and classifies with the same signals /
+  thresholds as `CrossAssetRegimeEngine`; a missing benchmark is `MISSING_INPUT`,
+  never zero. Works whenever candle windows resolve (see P1-6).
+- **Remaining:** `CrossAssetRegimeEngine` live path (`/api/intelligence/summary`)
+  is unchanged — still live 24h-change only.
+
+### P3-4 · Seasonality needs multi-year daily history *(data limitation)*
+- `market_evidence_engine.seasonality_evidence` computes a real day-of-week /
+  month tendency with an explicit `sample_size`, but the live feed only supplies
+  ~30 daily bars → almost always `INSUFFICIENT_EVIDENCE`. Honest, not fabricated.
+- **Recommended solution:** a multi-year daily OHLCV provider.
+
+### P3-6 · `GET /api/intelligence/asset/{asset}` cold ≈ 1–2.5 s (first process hit)
+- **Impact:** one-off per-process cost — first-time init of the Edge / Macro
+  engines **plus** (Phase 68) the live candle fetch for the asset + 7 regime
+  benchmarks. Warm is ~6–8 ms; historical-with-provider cold ≈ 46 ms.
 - **Mitigation in place:** `api/main.py` `_warm_up()` primes `…/asset/XAUUSD` at
-  startup, so the first real navigation is warm.
+  startup; `historical_market_data` trips a 120 s "live feed down" short-circuit
+  when offline so it does not repeat socket timeouts.
 - **Recommended solution:** none needed unless a benchmark shows a real user
   hitting it cold; would otherwise chase the shared Phase-56 macro-scorecard
   ~446 ms path, which the phase brief explicitly says not to rewrite.

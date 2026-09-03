@@ -126,6 +126,10 @@ export interface EvidenceItem {
   release_timestamp: string | null
   observation_timestamp: string | null
   vintage_timestamp: string | null
+  /** candle-derived evidence (Phase 68) */
+  timeframe: string | null
+  latest_input_timestamp: string | null
+  calculation_window: string | null
   age_seconds: number | null
   note: string | null
 }

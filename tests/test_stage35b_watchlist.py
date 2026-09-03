@@ -89,6 +89,10 @@ def test_watchlist_warm_cache_performance():
 
 def test_watchlist_unavailable_price_fallback():
     """Verify fallback handling when a symbol price returns None."""
+    # Evict any fresh cached price so this exercises the fallback path and not a
+    # sub-100ms cache hit from a preceding test (the 0.1s TTL below is a race
+    # otherwise — surfaced once Phase 68 added market-data work to the intel path).
+    market_data._PRICE_CACHE.pop("XAUUSD", None)
     with patch("market_data.get_latest_price", return_value=None):
         prices = market_data.get_batch_prices(["XAUUSD", "UNKNOWN_XYZ"], ttl_sec=0.1)
         assert "XAUUSD" in prices

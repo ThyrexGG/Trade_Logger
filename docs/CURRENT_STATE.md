@@ -27,7 +27,8 @@ power-user workflows not yet migrated.
 
 | Area | State |
 | :-- | :-- |
-| Unified Evidence Fusion (Phase 67) — `GET /api/intelligence/asset/{asset}`, one canonical timestamp-correct evidence object per asset; Asset Deep Dive `EvidenceFusionPanel`; AI `asset_evidence` context | **production-safe**, read-only. Orchestrates existing engines; `MACRO`+`COT` are as-of-correct, live-only categories honestly marked. See `docs/PHASE_67_EVIDENCE_FUSION.md`. |
+| Historical Market Evidence (Phase 68) — `historical_market_data` (as-of candle window) + `market_evidence_engine` (real EMA/RSI/MACD/ATR, candle-derived SMC, sample-sized seasonality, per-benchmark regime) feeding Phase-67 `TECHNICAL/SMC/SEASONALITY/REGIME` | **production-safe**, read-only. Real market evidence whenever a candle window resolves; otherwise `INSUFFICIENT_EVIDENCE`. Deterministic priors are demoted to labelled context only. **Repo ships no historical OHLCV store** — historical `as_of` needs `HISTORICAL_OHLCV_PROVIDER`. See `docs/PHASE_68_HISTORICAL_MARKET_EVIDENCE.md`. |
+| Unified Evidence Fusion (Phase 67) — `GET /api/intelligence/asset/{asset}`, one canonical timestamp-correct evidence object per asset; Asset Deep Dive `EvidenceFusionPanel`; AI `asset_evidence` context | **production-safe**, read-only. Orchestrates existing engines; `MACRO`+`COT` are as-of-correct. See `docs/PHASE_67_EVIDENCE_FUSION.md`. |
 | Trading Workspace — watchlist, market snapshot, MTF/SMC context | **production-safe**, live data |
 | Risk Gateway — position sizing / pre-trade risk preview (currency-aware FX) | **production-safe**, calc only |
 | Positions — open paper/shadow positions + excursion metrics | **production-safe**, live data |
@@ -105,6 +106,9 @@ code-splitting. See `PERFORMANCE_REPORT.md`. All warm API p50 ≤ 40 ms.
   Phase-67 fusion layer's independent `_enforce_timestamps` guard.
 - The Phase-67 evidence model's state distinctions — `PROVIDER_UNAVAILABLE` ≠
   `INSUFFICIENT_EVIDENCE` ≠ neutral; no blended composite; conflicts not averaged.
+- Phase 68: a deterministic prior is never labelled `historical_ohlcv` / real
+  market evidence; the synthetic offline candle fallback is never used as
+  evidence; candle windows are truncated to `close <= as_of`.
 
 ## Recommended next development area
 

@@ -168,7 +168,8 @@ def _enforce_timestamps(
     kept: List[EvidenceItem] = []
     dropped: List[EvidenceItem] = []
     for it in items:
-        tss = [parse_ts(it.available_timestamp), parse_ts(it.release_timestamp)]
+        tss = [parse_ts(it.available_timestamp), parse_ts(it.release_timestamp),
+               parse_ts(it.latest_input_timestamp)]
         known = [t for t in tss if t is not None]
         future = any(t > ceiling for t in known)
         if future:
@@ -200,68 +201,105 @@ def _unavailable_category(cat: str, reason: str, next_dep: Optional[str] = None,
     )
 
 
-def _edge_factor_category(
-    cat: str, factor_name_needles: Tuple[str, ...], edge_snap: Dict[str, Any],
-    asset: str, as_of: datetime, as_of_iso: str,
-) -> CategoryEvidence:
-    """Build a category from one factor family inside an Asset Edge snapshot.
-    The factor's own score/direction/evidence is reused verbatim."""
-    factors = edge_snap.get("factor_breakdown", []) or []
-    match = None
-    for f in factors:
-        name = str(f.get("factor_name", ""))
-        if any(n.lower() in name.lower() for n in factor_name_needles):
-            match = f
-            break
-    if match is None:
-        return _unavailable_category(cat, f"No {cat.lower()} factor in the edge snapshot for {asset}.")
+# ---------------------------------------------------------------------------
+# Phase 68 — real market evidence (technical / SMC / seasonality / regime)
+# ---------------------------------------------------------------------------
+def _from_market_result(res: Any) -> CategoryEvidence:
+    """Convert a market_evidence_engine.MarketEvidenceResult into a canonical
+    CategoryEvidence. Real, candle-derived — provenance is live_ohlcv /
+    historical_ohlcv."""
+    from api.evidence_model import EvidenceState as _ES
 
-    if not match.get("data_available", False):
-        return _unavailable_category(
-            cat, f"The {match.get('factor_name', cat)} factor engine reported no data for {asset}."
+    if res.state != _ES.AVAILABLE.value:
+        ce = _unavailable_category(
+            res.category, res.reason or "Insufficient market data for this category.",
+            res.next_dependency or "a deeper as-of candle history",
         )
-
-    src = match.get("source", {}) or {}
-    provider = src.get("provider")
-    src_ts = src.get("timestamp")
-    age = src.get("age_sec")
-    avail_ts = src_ts or as_of_iso
-    score = match.get("score")
-    direction = normalise_direction(match.get("direction"))
-    if direction == EvidenceDirection.UNKNOWN:
-        direction = direction_from_score(score)
-
-    items: List[EvidenceItem] = []
-    for ev in match.get("evidence", []) or []:
-        pts = ev.get("points")
-        items.append(EvidenceItem(
-            asset=asset, category=cat, metric=str(ev.get("reason", "factor evidence"))[:180],
-            state=EvidenceState.AVAILABLE.value,
-            value=float(pts) if isinstance(pts, (int, float)) else None,
-            direction=normalise_direction(ev.get("impact")),
-            source=provider, source_id=match.get("factor_name"),
-            provenance="derived",
-            as_of=as_of_iso, available_timestamp=avail_ts,
-        ))
-
-    conf_txt = str(match.get("confidence", "")).upper()
-    confidence = {"VERY HIGH": 0.95, "HIGH": 0.8, "MODERATE": 0.6, "LOW": 0.4,
-                  "NONE": None, "": None}.get(conf_txt, None)
+        # keep any per-input items (e.g. regime MISSING_INPUT rows) for traceability
+        if res.items:
+            ce.evidence = list(res.items)
+            ce.sources = list(res.sources)
+            ce.provenance = res.provenance
+        return ce
 
     cat_ev = CategoryEvidence(
-        category=cat,
-        state=EvidenceState.AVAILABLE.value,
-        direction=direction.value,
-        score=float(score) if isinstance(score, (int, float)) else None,
-        confidence=confidence,
-        coverage=1.0 if items else 0.5,
-        sources=[provider] if provider else [],
-        provenance="derived",
-        evidence=items,
+        category=res.category,
+        state=_ES.AVAILABLE.value,
+        direction=res.direction,
+        score=res.score,
+        confidence=res.confidence,
+        coverage=res.coverage,
+        sources=list(res.sources),
+        provenance=res.provenance,
+        evidence=list(res.items),
+        reason=res.reason,
     )
-    cat_ev.age_seconds = float(age) if isinstance(age, (int, float)) else _agg_age(items, as_of)
+    cat_ev.age_seconds = _agg_age(res.items, _now())
     cat_ev.freshness = _freshness_label(cat_ev.age_seconds)
     return cat_ev
+
+
+def _prior_context_category(
+    cat: str, factor_name_needles: Tuple[str, ...], edge_snap: Dict[str, Any],
+    asset: str, as_of_iso: str, base_reason: str,
+) -> CategoryEvidence:
+    """Live-mode fallback when no real candle window is available. The Phase-55
+    deterministic prior is attached for CONTEXT ONLY — explicitly tagged
+    ``provenance="deterministic_prior"`` / ``source="model_prior"`` and a
+    ``NOT_APPLICABLE`` state so it never drives direction, score or the
+    cross-category assessment, and never appears as observed market evidence."""
+    ce = _unavailable_category(
+        cat,
+        base_reason + " A non-market-derived model prior is attached for context only.",
+        "a reachable candle feed (live) or a historical OHLCV provider (as-of)",
+    )
+    factors = (edge_snap or {}).get("factor_breakdown", []) or []
+    match = next((f for f in factors
+                  if any(n.lower() in str(f.get("factor_name", "")).lower()
+                         for n in factor_name_needles)), None)
+    if match is not None:
+        score = match.get("score")
+        ce.evidence = [EvidenceItem(
+            asset=asset, category=cat,
+            metric=f"Model prior: {match.get('factor_name', cat)} = {match.get('direction', 'n/a')}",
+            state=EvidenceState.NOT_APPLICABLE.value,
+            value=float(score) if isinstance(score, (int, float)) else None,
+            direction=normalise_direction(match.get("direction")).value,
+            source="model_prior", source_id=f"phase55:{match.get('factor_name')}",
+            provenance="deterministic_prior",
+            as_of=as_of_iso,
+            note="DETERMINISTIC PRIOR — not derived from market data; shown for context, "
+                 "excluded from direction / score / cross-category assessment.",
+        )]
+        ce.provenance = "deterministic_prior"
+    return ce
+
+
+def _market_category(
+    cat: str, builder, asset: str, as_of: datetime, as_of_iso: str, live: bool,
+    edge_snap: Dict[str, Any], factor_needles: Tuple[str, ...],
+    timeframe: Optional[str] = None,
+) -> CategoryEvidence:
+    """Try real market evidence first; on INSUFFICIENT fall back (live only) to an
+    explicitly-labelled prior-context category."""
+    try:
+        import market_evidence_engine as mee
+        if cat == EvidenceCategory.REGIME.value:
+            res = mee.regime_evidence(asset, as_of=None if live else as_of)
+        else:
+            res = builder(asset, as_of=None if live else as_of, timeframe=timeframe)
+    except Exception as exc:  # pragma: no cover - defensive
+        return _unavailable_category(cat, f"Market evidence engine raised {type(exc).__name__}.")
+
+    ce = _from_market_result(res)
+    if ce.state == EvidenceState.AVAILABLE.value:
+        return ce
+
+    if live and cat != EvidenceCategory.REGIME.value and edge_snap:
+        return _prior_context_category(
+            cat, factor_needles, edge_snap, asset, as_of_iso,
+            res.reason or "No real market data available for this category right now.")
+    return ce
 
 
 def _macro_category(asset: str, as_of: datetime, as_of_iso: str, live: bool) -> CategoryEvidence:
@@ -436,63 +474,26 @@ def _cot_category(asset: str, as_of: datetime, as_of_iso: str, live: bool) -> Ca
 
 
 def _regime_category(asset: str, as_of: datetime, as_of_iso: str, live: bool) -> CategoryEvidence:
-    if not live:
-        return _unavailable_category(
-            EvidenceCategory.REGIME.value,
-            "Cross-asset regime cannot be reconstructed historically — the regime "
-            "engine reads live-only market data (no as-of candle store).",
-            "a historical cross-asset price store for regime replay",
-        )
-    try:
-        from cross_asset_regime_engine import CrossAssetRegimeEngine
-        snap = CrossAssetRegimeEngine.evaluate_regime()
-    except Exception as exc:  # pragma: no cover - defensive
-        return _unavailable_category(
-            EvidenceCategory.REGIME.value, f"Regime engine raised {type(exc).__name__}.")
+    """Cross-asset regime from per-benchmark as-of candle windows (Phase 68). A
+    missing benchmark series is a MISSING_INPUT item, never a silent zero."""
+    ce = _market_category(
+        EvidenceCategory.REGIME.value, None, asset, as_of, as_of_iso, live, {}, ())
+    if ce.state != EvidenceState.AVAILABLE.value:
+        return ce
 
-    primary = getattr(snap, "primary_regime", "INSUFFICIENT_DATA")
-    if primary == "INSUFFICIENT_DATA":
-        return _unavailable_category(
-            EvidenceCategory.REGIME.value,
-            "The regime engine returned INSUFFICIENT_DATA (multi-asset consensus not met).",
-        )
-    conf = getattr(snap, "confidence_pct", None)
-    dq = getattr(snap, "data_quality_score", None)
-
-    items = [EvidenceItem(
-        asset=asset, category=EvidenceCategory.REGIME.value,
-        metric=f"Primary regime: {primary}",
-        state=EvidenceState.AVAILABLE.value,
-        direction=_regime_direction(primary, asset).value,
-        source="Cross-Asset Regime Engine", source_id=getattr(snap, "snapshot_id", None),
-        provenance="derived",
-        as_of=as_of_iso, available_timestamp=getattr(snap, "timestamp", as_of_iso),
-        note=f"secondary {getattr(snap, 'secondary_regime', 'n/a')}",
-    )]
-    for cf in (getattr(snap, "confirming_factors", []) or [])[:4]:
-        items.append(EvidenceItem(
-            asset=asset, category=EvidenceCategory.REGIME.value, metric=str(cf)[:180],
-            state=EvidenceState.AVAILABLE.value, direction=EvidenceDirection.NEUTRAL.value,
-            source="Cross-Asset Regime Engine", provenance="derived",
-            as_of=as_of_iso, available_timestamp=getattr(snap, "timestamp", as_of_iso),
-        ))
-
-    cat_ev = CategoryEvidence(
-        category=EvidenceCategory.REGIME.value,
-        state=EvidenceState.AVAILABLE.value,
-        direction=_regime_direction(primary, asset).value,
-        score=None,
-        confidence=round(conf / 100.0, 2) if isinstance(conf, (int, float)) else None,
-        coverage=round(dq / 100.0, 2) if isinstance(dq, (int, float)) else None,
-        sources=["Cross-Asset Regime Engine"],
-        provenance="derived",
-        evidence=items,
-        reason=f"{primary} (secondary {getattr(snap, 'secondary_regime', 'n/a')}), "
-               f"conflicting factors: {len(getattr(snap, 'conflicting_factors', []) or [])}",
-    )
-    cat_ev.age_seconds = 0.0
-    cat_ev.freshness = "FRESH"
-    return cat_ev
+    # map the classified regime string -> a directional lean for this asset
+    primary = None
+    for it in ce.evidence:
+        if it.metric.startswith("Cross-asset regime: "):
+            primary = it.metric.split(": ", 1)[1]
+            break
+    if primary:
+        d = _regime_direction(primary, asset)
+        ce.direction = d.value
+        for it in ce.evidence:
+            if it.metric.startswith("Cross-asset regime: "):
+                it.direction = d.value
+    return ce
 
 
 _RISK_ON_REGIMES = {"RISK_ON", "GROWTH_ACCELERATION", "USD_WEAKNESS", "RATE_FALL", "DISINFLATIONARY"}
@@ -733,7 +734,8 @@ def get_asset_intelligence(
 
     generated_at = _now()
 
-    # --- edge snapshot (live only — the factor engines are not as-of aware) ---
+    # --- Phase-55 edge snapshot — used ONLY as an explicitly-labelled model
+    #     prior when no real candle window is available (live mode). ------------
     edge_snap: Dict[str, Any] = {}
     if live:
         try:
@@ -745,25 +747,19 @@ def get_asset_intelligence(
     # --- build each category -------------------------------------------------
     raw: Dict[str, CategoryEvidence] = {}
 
-    if live and edge_snap:
-        raw[EvidenceCategory.TECHNICAL.value] = _edge_factor_category(
-            EvidenceCategory.TECHNICAL.value, ("Technical Structure",), edge_snap, asset,
-            effective_as_of, as_of_iso)
-        raw[EvidenceCategory.SMC.value] = _edge_factor_category(
-            EvidenceCategory.SMC.value, ("Smart Money", "Liquidity"), edge_snap, asset,
-            effective_as_of, as_of_iso)
-        raw[EvidenceCategory.SEASONALITY.value] = _edge_factor_category(
-            EvidenceCategory.SEASONALITY.value, ("Seasonality",), edge_snap, asset,
-            effective_as_of, as_of_iso)
-    else:
-        for cat in (EvidenceCategory.TECHNICAL.value, EvidenceCategory.SMC.value,
-                    EvidenceCategory.SEASONALITY.value):
-            raw[cat] = _unavailable_category(
-                cat,
-                "No timestamp-correct historical reconstruction is available for this "
-                "category (its factor engine is live-only).",
-                "an as-of-aware market-structure store",
-            )
+    # TECHNICAL / SMC / SEASONALITY — real candle-derived market evidence
+    # (Phase 68). Works in both live and historical mode when a candle window
+    # resolves; otherwise INSUFFICIENT_EVIDENCE (+ a labelled prior in live mode).
+    import market_evidence_engine as _mee
+    raw[EvidenceCategory.TECHNICAL.value] = _market_category(
+        EvidenceCategory.TECHNICAL.value, _mee.technical_evidence, asset,
+        effective_as_of, as_of_iso, live, edge_snap, ("Technical Structure",), timeframe)
+    raw[EvidenceCategory.SMC.value] = _market_category(
+        EvidenceCategory.SMC.value, _mee.smc_evidence, asset,
+        effective_as_of, as_of_iso, live, edge_snap, ("Smart Money", "Liquidity"), timeframe)
+    raw[EvidenceCategory.SEASONALITY.value] = _market_category(
+        EvidenceCategory.SEASONALITY.value, _mee.seasonality_evidence, asset,
+        effective_as_of, as_of_iso, live, edge_snap, ("Seasonality",), None)
 
     raw[EvidenceCategory.MACRO.value] = _macro_category(asset, effective_as_of, as_of_iso, live)
     raw[EvidenceCategory.COT.value] = _cot_category(asset, effective_as_of, as_of_iso, live)
@@ -837,6 +833,11 @@ def ai_snapshot(asset: str, as_of: Optional[datetime] = None) -> Dict[str, Any]:
             "state": c.state,
             "direction": c.direction,
             "score": c.score,
+            # lightweight evidence reference (§27): where the reading came from and
+            # whether it is real market data vs a labelled model prior.
+            "provenance": c.provenance,
+            "sources": c.sources[:3],
+            "latest_input": (c.evidence[0].latest_input_timestamp if c.evidence else None),
         }
         for c in snap.categories
     }

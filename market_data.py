@@ -9,6 +9,26 @@ from typing import Optional, Dict, Any, List
 _CANDLE_CACHE: Dict[str, Any] = {}
 _TICK_CACHE: Dict[str, Any] = {}
 
+# Records which upstream last served a given candle cache_key: one of
+# "mt5" | "binance" | "yahoo" | "synthetic_fallback". Lets the Phase-68 historical
+# market-evidence layer refuse to treat the offline synthetic fallback as real
+# market data. Best-effort, in-memory, never affects the returned candles.
+_CANDLE_SOURCE: Dict[str, str] = {}
+
+
+def get_candles_with_source(symbol="XAUUSD", timeframe="15m", count=250, ttl_sec=4):
+    """Like :func:`get_realtime_candles` but also returns the upstream that served
+    it: ``(candles, source)`` where ``source`` is
+    ``"mt5" | "binance" | "yahoo" | "synthetic_fallback" | "unknown"``.
+
+    Read-only. Used by ``historical_market_data`` to keep the synthetic fallback
+    out of real-evidence calculations."""
+    sym = symbol.upper().replace("/", "").replace(":", "").strip()
+    cache_key = f"{sym}_{timeframe}_{count}"
+    candles = get_realtime_candles(symbol, timeframe, count, ttl_sec)
+    return candles, _CANDLE_SOURCE.get(cache_key, "unknown")
+
+
 def get_realtime_candles(symbol="XAUUSD", timeframe="15m", count=250, ttl_sec=4):
     """
     Fetches real-time OHLC candlestick data with in-memory TTL caching.
@@ -24,11 +44,12 @@ def get_realtime_candles(symbol="XAUUSD", timeframe="15m", count=250, ttl_sec=4)
         if now_t - cached_time < ttl_sec and cached_data:
             return cached_data
 
-    def _save_and_return(data):
+    def _save_and_return(data, source="unknown"):
         if data:
             _CANDLE_CACHE[cache_key] = (data, time.time())
+            _CANDLE_SOURCE[cache_key] = source
         return data
-    
+
     # 1. Try MetaTrader 5
     try:
         import mt5_sync
@@ -66,7 +87,7 @@ def get_realtime_candles(symbol="XAUUSD", timeframe="15m", count=250, ttl_sec=4)
                             "close": round(float(r['close']), 5),
                             "volume": float(r['tick_volume'])
                         })
-                    return _save_and_return(candles)
+                    return _save_and_return(candles, "mt5")
     except Exception as e:
         pass
 
@@ -90,7 +111,7 @@ def get_realtime_candles(symbol="XAUUSD", timeframe="15m", count=250, ttl_sec=4)
                         "volume": round(float(k[5]), 2)
                     })
                 if candles:
-                    return _save_and_return(candles)
+                    return _save_and_return(candles, "binance")
         except Exception:
             pass
 
@@ -149,7 +170,7 @@ def get_realtime_candles(symbol="XAUUSD", timeframe="15m", count=250, ttl_sec=4)
                         "volume": float(v)
                     })
             if candles:
-                return _save_and_return(candles[-count:])
+                return _save_and_return(candles[-count:], "yahoo")
     except Exception as e:
         pass
 
@@ -170,7 +191,7 @@ def get_realtime_candles(symbol="XAUUSD", timeframe="15m", count=250, ttl_sec=4)
             "close": c_p,
             "volume": 100.0
         })
-    return _save_and_return(fallback_candles)
+    return _save_and_return(fallback_candles, "synthetic_fallback")
 
 _PRICE_CACHE: Dict[str, Any] = {}
 

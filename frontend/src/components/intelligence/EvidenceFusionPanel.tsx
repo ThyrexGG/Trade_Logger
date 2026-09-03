@@ -50,6 +50,26 @@ function fmtScore(v: number | null): string {
   return `${v > 0 ? '+' : ''}${v.toFixed(1)}`
 }
 
+/**
+ * Provenance badge — a deterministic prior must never look like real market
+ * evidence (Phase 68). Real candle-derived / released data is neutral-toned;
+ * a model prior is warning-toned and explicitly labelled.
+ */
+const PROVENANCE_LABEL: Record<string, { text: string; tone: IntelTone }> = {
+  historical_ohlcv: { text: 'historical candles', tone: 'neutral' },
+  live_ohlcv: { text: 'live candles', tone: 'positive' },
+  live: { text: 'live provider', tone: 'neutral' },
+  seed_demo: { text: 'seed / demo data', tone: 'warning' },
+  derived: { text: 'derived', tone: 'neutral' },
+  deterministic_prior: { text: 'model prior — not market data', tone: 'warning' },
+}
+
+function ProvenanceBadge({ provenance }: { provenance: string | null }) {
+  if (!provenance) return null
+  const meta = PROVENANCE_LABEL[provenance] ?? { text: provenance, tone: 'neutral' as IntelTone }
+  return <IntelTag value={meta.text} tone={meta.tone} />
+}
+
 function CrossCategoryBanner({ snap }: { snap: AssetIntelligence }) {
   const s = snap.cross_category_state
   const tone: IntelTone =
@@ -147,6 +167,7 @@ function CategoryCard({ cat }: { cat: EvidenceCategory }) {
           {populated && cat.direction !== 'UNKNOWN' ? (
             <IntelTag value={cat.direction} tone={toneForIntel(cat.direction)} />
           ) : null}
+          <ProvenanceBadge provenance={cat.provenance} />
         </span>
         <span className="flex items-center gap-2 font-mono text-xs tabular-nums text-muted">
           {cat.score !== null ? fmtScore(cat.score) : ''}
@@ -179,15 +200,28 @@ function CategoryCard({ cat }: { cat: EvidenceCategory }) {
               {age ? ` · released ${timeAgo(age) ?? age}` : ''}
             </p>
           ) : null}
+          {cat.evidence[0]?.calculation_window ? (
+            <p className="mb-2 text-[11px] text-muted">
+              Window: {cat.evidence[0].calculation_window}
+              {cat.evidence[0].latest_input_timestamp
+                ? ` · latest input ${cat.evidence[0].latest_input_timestamp.slice(0, 16).replace('T', ' ')}Z`
+                : ''}
+            </p>
+          ) : null}
           {cat.evidence.length > 0 ? (
             <ul className="space-y-1">
               {cat.evidence.slice(0, 8).map((e, i) => (
                 <li key={i} className="flex items-baseline justify-between gap-2 text-[11px]">
-                  <span className="text-secondary">{e.metric}</span>
+                  <span className="text-secondary">
+                    {e.metric}
+                    {e.provenance === 'deterministic_prior' ? (
+                      <span className="ml-1 text-warning">(model prior)</span>
+                    ) : null}
+                  </span>
                   <span className="shrink-0 font-mono tabular-nums text-muted">
                     {e.value !== null ? e.value : ''}
                     {e.unit ? ` ${e.unit}` : ''}
-                    {e.source ? ` · ${e.source}` : ''}
+                    {e.timeframe ? ` · ${e.timeframe}` : e.source ? ` · ${e.source}` : ''}
                   </span>
                 </li>
               ))}

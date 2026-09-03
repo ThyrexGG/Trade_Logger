@@ -18,6 +18,18 @@ assistant with an allowlisted context (incl. bounded macro snapshot).
 
 ## DONE
 
+- **Historical Market Evidence (Phase 68)** — `historical_market_data.py`
+  (as-of candle window, `close <= as_of` truncation, provider registry) +
+  `market_evidence_engine.py` (real EMA/RSI/MACD/ATR + MTF EMA bias; candle-
+  derived SMC via the existing `market_data` functions; sample-sized seasonality;
+  per-benchmark cross-asset regime with `MISSING_INPUT`). Wired into Phase-67
+  `TECHNICAL/SMC/SEASONALITY/REGIME`; Phase-55 priors demoted to labelled
+  `deterministic_prior` context (live-only, never historical, never scoring).
+  `EvidenceItem` gained `timeframe`/`latest_input_timestamp`/`calculation_window`;
+  `AssetIntelligenceSnapshot.from_dict` added for research storage / audit replay.
+  **Data limitation:** repo ships no historical OHLCV — historical `as_of` needs
+  `HISTORICAL_OHLCV_PROVIDER`. `docs/PHASE_68_HISTORICAL_MARKET_EVIDENCE.md`.
+  +54 tests.
 - **Unified Evidence Fusion (Phase 67)** — `api/evidence_model.py` +
   `api/evidence_fusion.py` + `GET /api/intelligence/asset/{asset}`. One canonical,
   timestamp-correct, evidence-backed asset context object orchestrating the

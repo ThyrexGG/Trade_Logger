@@ -202,6 +202,11 @@ class EvidenceItem:
     observation_timestamp: Optional[str] = None # economic release: the period observed
     vintage_timestamp: Optional[str] = None     # economic release: data vintage
 
+    # candle-derived evidence (Phase 68) — populated only for market evidence
+    timeframe: Optional[str] = None             # e.g. "15m", "1h", "4h", "1d"
+    latest_input_timestamp: Optional[str] = None  # close time of the newest candle used
+    calculation_window: Optional[str] = None      # human description of the window analysed
+
     note: Optional[str] = None
 
     # ------------------------------------------------------------------
@@ -217,7 +222,8 @@ class EvidenceItem:
         boundary IS visible (``<=``). An item with no knowable timestamp is
         treated as visible only in live mode — the fusion engine decides that;
         here we answer purely on the timestamps we hold."""
-        for ts in (self.available_timestamp, self.release_timestamp):
+        for ts in (self.available_timestamp, self.release_timestamp,
+                   self.latest_input_timestamp):
             dt = parse_ts(ts)
             if dt is not None and dt > as_of:
                 return False
@@ -227,6 +233,11 @@ class EvidenceItem:
         d = asdict(self)
         d["age_seconds"] = self.age_seconds()
         return d
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "EvidenceItem":
+        fields = {f for f in cls.__dataclass_fields__}  # type: ignore[attr-defined]
+        return cls(**{k: v for k, v in d.items() if k in fields})
 
 
 # ---------------------------------------------------------------------------
@@ -284,6 +295,25 @@ class CategoryEvidence:
             "next_dependency": self.next_dependency,
             "evidence": [e.to_dict() for e in self.evidence],
         }
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "CategoryEvidence":
+        ce = cls(
+            category=d["category"],
+            state=d.get("state", EvidenceState.INSUFFICIENT_EVIDENCE.value),
+            direction=d.get("direction", EvidenceDirection.UNKNOWN.value),
+            score=d.get("score"),
+            confidence=d.get("confidence"),
+            coverage=d.get("coverage"),
+            freshness=d.get("freshness"),
+            sources=list(d.get("sources", [])),
+            provenance=d.get("provenance"),
+            evidence=[EvidenceItem.from_dict(e) for e in d.get("evidence", [])],
+            reason=d.get("reason"),
+            next_dependency=d.get("next_dependency"),
+        )
+        ce.age_seconds = d.get("age_seconds")
+        return ce
 
 
 # ---------------------------------------------------------------------------
@@ -385,6 +415,50 @@ class AssetIntelligenceSnapshot:
             "disclaimer": self.disclaimer,
             "safety_barrier": dict(self.safety_barrier),
         }
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "AssetIntelligenceSnapshot":
+        """Reconstruct a snapshot from :meth:`to_dict` output. Round-trip safe for
+        every field that carries evidence meaning — timestamps, states,
+        provenance, sources, confidence, conflicts, evidence values. Supports
+        research storage / audit replay."""
+        cc = d.get("cross_category", {}) or {}
+        cov = d.get("coverage", {}) or {}
+        return cls(
+            asset=d["asset"],
+            as_of=d["as_of"],
+            generated_at=d.get("generated_at", d["as_of"]),
+            mode=d.get("mode", "LIVE"),
+            timeframe=d.get("timeframe"),
+            categories=[CategoryEvidence.from_dict(c) for c in d.get("categories", [])],
+            cross_category=CrossCategoryAssessment(
+                state=cc.get("state", d.get("cross_category_state",
+                                            CrossCategoryState.INSUFFICIENT_EVIDENCE.value)),
+                supporting_categories=list(cc.get("supporting_categories", [])),
+                opposing_categories=list(cc.get("opposing_categories", [])),
+                neutral_categories=list(cc.get("neutral_categories", [])),
+                conflicting_categories=list(cc.get("conflicting_categories", [])),
+                dominant_direction=cc.get("dominant_direction", EvidenceDirection.UNKNOWN.value),
+                agreement_ratio=cc.get("agreement_ratio"),
+                note=cc.get("note"),
+            ),
+            coverage=CoverageSummary(
+                per_category=dict(cov.get("per_category", {})),
+                available_categories=cov.get("available_categories", 0),
+                provider_unavailable_categories=cov.get("provider_unavailable_categories", 0),
+                insufficient_categories=cov.get("insufficient_categories", 0),
+                total_categories=cov.get("total_categories", 0),
+                coverage_ratio=cov.get("coverage_ratio"),
+            ),
+            conflicts=list(d.get("conflicts", [])),
+            data_gaps=list(d.get("data_gaps", [])),
+            provenance=list(d.get("provenance", [])),
+            provider_health=dict(d.get("provider_health", {})),
+            model_version=d.get("model_version", "phase67-evidence-fusion-1"),
+            disclaimer=d.get("disclaimer", ""),
+            safety_barrier=dict(d.get("safety_barrier", {
+                "live_automation_enabled": False, "live_broker_transmission": "BLOCKED"})),
+        )
 
 
 __all__ = [
