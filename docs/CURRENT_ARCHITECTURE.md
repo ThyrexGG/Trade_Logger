@@ -79,7 +79,7 @@ non-GET verbs are: `POST /api/risk/preview` (calc only), `POST /api/research/bac
 
 ```
 api/
-  main.py               FastAPI app; registers 16 routers; CORS allows GET/POST/PUT/PATCH/DELETE
+  main.py               FastAPI app; registers 16 routers (strategy_research carries Phase 69 + 70)
   schemas.py            all Pydantic request/response models (numbered sections 1..15 + Phase 67/69)
   routers/
     health, watchlist, market, preferences, intelligence, risk, positions,
@@ -284,10 +284,19 @@ execution-stress, expectancy drift), `ml_trainer.py`, `strategies/` (registry +
 SMC / MTF utilities), `true_mtf_engine.py`, `usdjpy_*.py` labs. Exposed via
 `/api/research/{strategy,backtest,audit}`.
 
-**Phase 69** adds the persistent-data foundation the strategy-discovery work
-(Phase 70+) will sit on: `historical_data_store.py` + `market_data_ingest.py` +
-`research_universe.py` + `gold_strategy_baseline.py`, exposed read-only via
-`/api/research/{historical/coverage,universe,gold-baseline}` (see §9c).
+**Phase 69** adds the persistent-data foundation: `historical_data_store.py` +
+`market_data_ingest.py` + `research_universe.py` + `gold_strategy_baseline.py`,
+exposed read-only via `/api/research/{historical/coverage,universe,gold-baseline}`
+(see §9c).
+
+**Phase 70** adds the discovery engine on top: `strategy_discovery.py`
+(`StrategyDefinition` registry, store→backtester adapter, `discover()`,
+`ResearchRankingScore` — decomposable, not a market score) + `pair_ranking.py`
+(universe × strategies orchestration, walk-forward / Monte Carlo / parameter
+sensitivity / pair-stability, leaderboard artifact + CLI `python -m pair_ranking`).
+Compute is offline-only (§60); `GET /api/research/{strategies,strategies/{id},
+pair-ranking}` read the persisted `research_artifacts` snapshot. Frontend
+`/research/discovery` (`StrategyDiscoveryPage`). `docs/PHASE_70_STRATEGY_DISCOVERY.md`.
 
 ---
 
@@ -304,9 +313,9 @@ historical holdout** (N=82, E[R]=+0.637R) is never pooled with forward data.
 ## 12. Testing
 
 `tests/` — run with `pytest tests/ -p no:randomly`.
-Baseline: **1326 passed, 5 skipped, 0 failed (~150s)** (Phase 69; +44 Phase-69
-tests, +4 macro tests made provider-aware — `TECHNICAL_DEBT.md` P2-9). Was
-1281/6/0 at Phase 68.
+Baseline: **1351 passed, 5 skipped, 0 failed (~120s)** (Phase 70; +25 net
+Phase-70 tests). Phase 69 was 1326/5/0 (+44 Phase-69 tests, +4 macro tests made
+provider-aware — `TECHNICAL_DEBT.md` P2-9); Phase 68 was 1281/6/0.
 
 Naming: `test_phaseNN_*` = the Streamlit-era feature phases (still the bulk of
 coverage); `test_stageNN_*` = the React-migration stages; `test_*_safety.py` /

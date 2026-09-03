@@ -25,7 +25,7 @@ import json
 import threading
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 import database
@@ -169,23 +169,30 @@ def upsert_candles(
             cur = conn.cursor()
             existing = _existing_open_times(cur, conn, asset, timeframe, rep.first_open_time, rep.last_open_time)
             ph = _ph(conn)
+            cols = ("asset,timeframe,open_time,open,high,low,close,volume,"
+                    "source,source_revision,data_quality,ingested_at")
             if database.is_postgres():
-                sql = (
-                    "INSERT INTO historical_candles (asset,timeframe,open_time,open,high,low,close,"
-                    "volume,source,source_revision,data_quality,ingested_at) VALUES "
-                    f"({ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph}) "
-                    "ON CONFLICT (asset,timeframe,open_time) DO UPDATE SET "
+                upsert_tail = (
+                    " ON CONFLICT (asset,timeframe,open_time) DO UPDATE SET "
                     "open=EXCLUDED.open,high=EXCLUDED.high,low=EXCLUDED.low,close=EXCLUDED.close,"
                     "volume=EXCLUDED.volume,source=EXCLUDED.source,source_revision=EXCLUDED.source_revision,"
                     "data_quality=EXCLUDED.data_quality,ingested_at=EXCLUDED.ingested_at"
                 )
+                try:
+                    from psycopg2.extras import execute_values
+                    execute_values(
+                        cur,
+                        f"INSERT INTO historical_candles ({cols}) VALUES %s" + upsert_tail,
+                        clean, page_size=1000,
+                    )
+                except Exception:
+                    cur.executemany(
+                        f"INSERT INTO historical_candles ({cols}) VALUES "
+                        f"({','.join([ph] * 12)})" + upsert_tail, clean)
             else:
-                sql = (
-                    "INSERT OR REPLACE INTO historical_candles (asset,timeframe,open_time,open,high,low,close,"
-                    "volume,source,source_revision,data_quality,ingested_at) VALUES "
-                    f"({ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph})"
-                )
-            cur.executemany(sql, clean)
+                cur.executemany(
+                    f"INSERT OR REPLACE INTO historical_candles ({cols}) VALUES "
+                    f"({','.join([ph] * 12)})", clean)
             conn.commit()
         finally:
             conn.close()
@@ -324,28 +331,66 @@ class Coverage:
         return d
 
 
+def _open_times(asset: str, timeframe: str) -> List[int]:
+    """Just the open_time column, ascending — the cheap primitive behind coverage
+    / gap analysis (avoids pulling every OHLCV column for a multi-thousand-bar
+    series over the wire)."""
+    database.init_db()
+    with _LOCK:
+        conn = database.get_connection()
+        try:
+            cur = conn.cursor()
+            ph = _ph(conn)
+            cur.execute(
+                f"SELECT open_time FROM historical_candles WHERE asset={ph} AND timeframe={ph} "
+                f"ORDER BY open_time ASC",
+                (_norm_asset(asset), (timeframe or "").strip().lower()),
+            )
+            return [int(r[0]) for r in cur.fetchall()]
+        finally:
+            conn.close()
+
+
+def _suspect_and_sources(asset: str, timeframe: str) -> Tuple[int, List[str]]:
+    with _LOCK:
+        conn = database.get_connection()
+        try:
+            cur = conn.cursor()
+            ph = _ph(conn)
+            a, tf = _norm_asset(asset), (timeframe or "").strip().lower()
+            cur.execute(
+                f"SELECT COUNT(*) FROM historical_candles WHERE asset={ph} AND timeframe={ph} "
+                f"AND data_quality<>{ph}", (a, tf, "ok"))
+            suspect = int(cur.fetchone()[0])
+            cur.execute(
+                f"SELECT DISTINCT source FROM historical_candles WHERE asset={ph} AND timeframe={ph}",
+                (a, tf))
+            sources = sorted(r[0] for r in cur.fetchall())
+            return suspect, sources
+        finally:
+            conn.close()
+
+
 def get_coverage(asset: str, timeframe: str) -> Coverage:
     database.init_db()
     asset = _norm_asset(asset)
     timeframe = (timeframe or "").strip().lower()
     tf_sec = tf_seconds(timeframe)
-    rows = get_candles(asset, timeframe)
-    if not rows:
+    times = _open_times(asset, timeframe)
+    if not times:
         return Coverage(asset, timeframe, 0, None, None, None, None, 0, 0, [])
 
-    times = [r["time"] for r in rows]
     first, last = times[0], times[-1]
-    expected = int((last - first) / tf_sec) + 1 if tf_sec else len(rows)
-    missing = max(expected - len(rows), 0)
+    expected = int((last - first) / tf_sec) + 1 if tf_sec else len(times)
+    missing = max(expected - len(times), 0)
 
     largest_gap = 0
     for a, b in zip(times, times[1:]):
         gap = int(round((b - a) / tf_sec)) - 1 if tf_sec else 0
         largest_gap = max(largest_gap, gap)
 
-    suspect = sum(1 for r in rows if r["data_quality"] != "ok")
-    sources = sorted({r["source"] for r in rows})
-    return Coverage(asset, timeframe, len(rows), first, last, expected, missing,
+    suspect, sources = _suspect_and_sources(asset, timeframe)
+    return Coverage(asset, timeframe, len(times), first, last, expected, missing,
                     largest_gap, suspect, sources)
 
 
@@ -353,20 +398,19 @@ def detect_gaps(asset: str, timeframe: str, min_gap_bars: int = 1) -> List[Dict[
     """List runs of missing bars. A weekend on FX is an expected gap — callers
     that care (ingestion validation) apply calendar awareness; this is the raw
     structural view."""
-    asset = _norm_asset(asset)
     timeframe = (timeframe or "").strip().lower()
     tf_sec = tf_seconds(timeframe)
-    rows = get_candles(asset, timeframe)
+    times = _open_times(asset, timeframe)
     gaps: List[Dict[str, Any]] = []
-    for a, b in zip(rows, rows[1:]):
-        missing = int(round((b["time"] - a["time"]) / tf_sec)) - 1 if tf_sec else 0
+    for a, b in zip(times, times[1:]):
+        missing = int(round((b - a) / tf_sec)) - 1 if tf_sec else 0
         if missing >= min_gap_bars:
             gaps.append({
-                "after_open_time": a["time"],
-                "before_open_time": b["time"],
+                "after_open_time": a,
+                "before_open_time": b,
                 "missing_bars": missing,
-                "after_iso": datetime.fromtimestamp(a["time"], tz=timezone.utc).isoformat(),
-                "before_iso": datetime.fromtimestamp(b["time"], tz=timezone.utc).isoformat(),
+                "after_iso": datetime.fromtimestamp(a, tz=timezone.utc).isoformat(),
+                "before_iso": datetime.fromtimestamp(b, tz=timezone.utc).isoformat(),
             })
     return gaps
 
@@ -397,6 +441,66 @@ def list_available() -> List[Dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# Weekend-aware gap analysis
+# ---------------------------------------------------------------------------
+def _saturdays_between(a: int, b: int) -> int:
+    """Number of Saturday 00:00 UTC boundaries in the open interval (a, b)."""
+    da = datetime.fromtimestamp(a, tz=timezone.utc)
+    db = datetime.fromtimestamp(b, tz=timezone.utc)
+    # first Saturday strictly after da
+    days_ahead = (5 - da.weekday()) % 7
+    first_sat = (da + timedelta(days=days_ahead)).replace(hour=0, minute=0, second=0, microsecond=0)
+    if first_sat <= da:
+        first_sat += timedelta(days=7)
+    count = 0
+    t = first_sat
+    while t < db:
+        count += 1
+        t += timedelta(days=7)
+    return count
+
+
+def analyze_gaps(asset: str, timeframe: str) -> Dict[str, Any]:
+    """Classify structural gaps into weekend / holiday / anomalous. FX stops
+    ~Fri 21:00 UTC → Sun 21:00 UTC (~48 h); a gap no larger than the weekends it
+    spans plus a one-day holiday allowance is expected, not a data defect."""
+    timeframe = (timeframe or "").strip().lower()
+    tf_sec = tf_seconds(timeframe)
+    times = _open_times(asset, timeframe)
+    per_bar_day = (24 * 3600) / tf_sec if tf_sec else 1
+    weekend_bars = (49 * 3600) / tf_sec if tf_sec else 1
+    holiday_tol = 1.5 * per_bar_day
+
+    weekend = holiday = anomalous = 0
+    largest_anom = 0
+    anom_list: List[Dict[str, Any]] = []
+    for a, b in zip(times, times[1:]):
+        missing = int(round((b - a) / tf_sec)) - 1 if tf_sec else 0
+        if missing < 1:
+            continue
+        wk = _saturdays_between(a, b)
+        expected = wk * weekend_bars + holiday_tol
+        if missing <= max(expected, per_bar_day * 0.6):
+            if wk:
+                weekend += 1
+            else:
+                holiday += 1
+        else:
+            anomalous += 1
+            largest_anom = max(largest_anom, missing)
+            if len(anom_list) < 20:
+                anom_list.append({
+                    "after_iso": datetime.fromtimestamp(a, tz=timezone.utc).isoformat(),
+                    "before_iso": datetime.fromtimestamp(b, tz=timezone.utc).isoformat(),
+                    "missing_bars": missing, "weekends_spanned": wk,
+                })
+    return {
+        "weekend_gaps": weekend, "holiday_gaps": holiday, "anomalous_gaps": anomalous,
+        "largest_anomalous_bars": largest_anom, "examples": anom_list,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Data sufficiency gate (§9)
 # ---------------------------------------------------------------------------
 def data_sufficiency(asset: str, timeframe: str) -> Dict[str, Any]:
@@ -410,13 +514,19 @@ def data_sufficiency(asset: str, timeframe: str) -> Dict[str, Any]:
             "reason": f"no sufficiency rule for timeframe '{timeframe}'",
             "have_bars": cov.count,
         }
+    gap = analyze_gaps(asset, timeframe) if cov.count else {
+        "anomalous_gaps": 0, "largest_anomalous_bars": 0, "weekend_gaps": 0, "holiday_gaps": 0}
     reasons: List[str] = []
     if cov.count == 0:
         reasons.append("NO_DATA_IN_STORE")
     if cov.count < rule.min_bars:
         reasons.append(f"BELOW_MIN_BARS ({cov.count} < {rule.min_bars})")
-    if cov.largest_gap_bars > rule.max_gap_bars:
-        reasons.append(f"GAP_TOO_LARGE ({cov.largest_gap_bars} > {rule.max_gap_bars} bars)")
+    # Only *anomalous* (non-weekend / non-holiday) gaps beyond tolerance fail the gate.
+    anomalous_budget = max(2, int(cov.count / 4000))
+    if gap["anomalous_gaps"] > anomalous_budget or gap["largest_anomalous_bars"] > rule.max_gap_bars * 8:
+        reasons.append(
+            f"ANOMALOUS_GAPS ({gap['anomalous_gaps']} gaps, largest "
+            f"{gap['largest_anomalous_bars']} bars — beyond weekend/holiday tolerance)")
     state = "AVAILABLE" if not reasons else "INSUFFICIENT_EVIDENCE"
     return {
         "state": state,
@@ -427,6 +537,7 @@ def data_sufficiency(asset: str, timeframe: str) -> Dict[str, Any]:
         "warmup_bars": rule.warmup_bars,
         "usable_decision_bars": max(cov.count - rule.warmup_bars, 0),
         "largest_gap_bars": cov.largest_gap_bars,
+        "gap_analysis": gap,
         "max_gap_bars": rule.max_gap_bars,
         "reasons": reasons,
         "next_dependency": (

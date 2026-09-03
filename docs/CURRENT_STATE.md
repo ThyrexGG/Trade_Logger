@@ -27,6 +27,7 @@ power-user workflows not yet migrated.
 
 | Area | State |
 | :-- | :-- |
+| Strategy Discovery & Pair Ranking (Phase 70) — `strategy_discovery` + `pair_ranking` over the Phase-69 store and the existing `backtester` / `research_engine` | **production-safe**, read-only, research-only. Offline compute (`python -m pair_ranking`); `GET /api/research/{strategies,strategies/{id},pair-ranking}` read the persisted artifact. `ResearchRankingScore` is decomposable and never a trading signal. First 1h verdict: NO ROBUST EDGE FOUND (honest). Frontend `/research/discovery`. See `docs/PHASE_70_STRATEGY_DISCOVERY.md`. |
 | Persistent Historical Data Foundation (Phase 69) — `historical_candles` store + `historical_data_store` + `market_data_ingest` (yfinance) + `research_universe` (11 instruments) + `gold_strategy_baseline` | **production-safe**, read-only. Resolves Phase-68 P1-6 in software; store ships **empty** (populate with `python -m market_data_ingest --universe`). Real depth only for `1h/4h/1d` (yfinance limit). `GET /api/research/{historical/coverage,universe,gold-baseline}`. See `docs/PHASE_69_HISTORICAL_DATA_FOUNDATION.md` + `docs/GOLD_STRATEGY_BASELINE.md`. |
 | Historical Market Evidence (Phase 68) — `historical_market_data` (as-of candle window) + `market_evidence_engine` (real EMA/RSI/MACD/ATR, candle-derived SMC, sample-sized seasonality, per-benchmark regime) feeding Phase-67 `TECHNICAL/SMC/SEASONALITY/REGIME` | **production-safe**, read-only. Real market evidence whenever a candle window resolves; otherwise `INSUFFICIENT_EVIDENCE`. Deterministic priors are demoted to labelled context only. Historical `as_of` now uses the **Phase-69 store** when populated (`HISTORICAL_OHLCV_PROVIDER=auto`). See `docs/PHASE_68_HISTORICAL_MARKET_EVIDENCE.md`. |
 | Unified Evidence Fusion (Phase 67) — `GET /api/intelligence/asset/{asset}`, one canonical timestamp-correct evidence object per asset; Asset Deep Dive `EvidenceFusionPanel`; AI `asset_evidence` context | **production-safe**, read-only. Orchestrates existing engines; `MACRO`+`COT` are as-of-correct. See `docs/PHASE_67_EVIDENCE_FUSION.md`. |
@@ -114,6 +115,11 @@ code-splitting. See `PERFORMANCE_REPORT.md`. All warm API p50 ≤ 40 ms.
   + count); `data_sufficiency` never reports "0 trades / neutral" for missing
   data; the Gold baseline's recovered metrics stay `reconstructable=False`; Gold
   is a protected baseline, not a guaranteed ranking winner.
+- Phase 70: `ResearchRankingScore` stays decomposable and is never a
+  `MarketScore` / `TradeScore` / execution trigger; ranking is by lower-CB /
+  RankingScore, never raw profit; `< 30` OOS trades → not ranked
+  (`INSUFFICIENT_EVIDENCE`); "NO ROBUST EDGE FOUND" is a valid verdict; discovery
+  compute never runs on an API request.
 
 ## Recommended next development area
 

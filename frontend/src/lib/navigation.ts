@@ -136,6 +136,14 @@ export const ZONES: Zone[] = [
         status: 'live',
       },
       {
+        id: 'research.discovery',
+        label: 'Strategy Discovery',
+        description: 'Pair × strategy leaderboard, robustness and the recovered Gold baseline.',
+        path: '/research/discovery',
+        icon: FlaskIcon,
+        status: 'live',
+      },
+      {
         id: 'research.backtest',
         label: 'Backtesting',
         description: 'Historical research backtests, walk-forward and Monte Carlo.',

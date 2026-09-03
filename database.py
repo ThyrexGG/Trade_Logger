@@ -501,10 +501,8 @@ def init_db(force: bool = False):
                 PRIMARY KEY (asset, timeframe, open_time)
             );
         """)
-        cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_hist_candles_lookup
-            ON historical_candles (asset, timeframe, open_time);
-        """)
+        # The PK already provides the (asset, timeframe, open_time) B-tree index
+        # every store query uses — no extra index needed.
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS historical_ingestion_log (
                 id SERIAL PRIMARY KEY,
@@ -707,10 +705,8 @@ def init_db(force: bool = False):
                 PRIMARY KEY (asset, timeframe, open_time)
             )
         """)
-        cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_hist_candles_lookup
-            ON historical_candles (asset, timeframe, open_time)
-        """)
+        # The PK already provides the (asset, timeframe, open_time) index every
+        # store query uses — no extra index needed.
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS historical_ingestion_log (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

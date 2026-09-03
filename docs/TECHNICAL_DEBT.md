@@ -5,6 +5,34 @@ P2 improvement · P3 nice-to-have. Nothing here is a safety-invariant risk.*
 
 ---
 
+## Phase 70 — Strategy Discovery
+
+### P2-10 · `ict_2022_sweep_mss_fvg` backtest is O(n·window) — ~30 s per 17 k-bar run
+- `strategies/ict_2022_model.analyze` runs nested `for` loops (`detect_mss` /
+  `detect_liquidity_sweep`) inside the per-bar backtest loop. The full universe
+  quick ranking is ~8–12 min because of it.
+- **Mitigation in place:** in-process `strategy_discovery._PREP_CACHE` (candle
+  pull + DataFrame build once per `(asset, timeframe)` per ranking run);
+  discovery is offline-only and never on an API path.
+- **Recommended fix:** precompute swing/FVG/MSS arrays once per df (vectorised)
+  and have `analyze` index into them, instead of re-scanning windows each bar.
+
+### P2-11 · Deep-mode Monte Carlo runs on a *synthesised* trade list
+- `pair_ranking._synth_trades` rebuilds a trade list from the stitched
+  walk-forward OOS summary (win rate + expectancy) because the WFO step keeps only
+  an R-summary, not the individual trades. The distribution shape is right but it
+  is not the literal OOS sequence.
+- **Recommended fix:** have `walk_forward` retain the stitched OOS trade dicts and
+  feed those straight to `backtester.run_monte_carlo`.
+
+### P3-8 · Discovery is 1h/4h/1d only
+- Same root cause as P1-6b (no intraday OHLCV). The SMC strategy family is
+  designed for sub-1h structure, so the 1h discovery verdict is "NO ROBUST EDGE
+  FOUND" — honest, but the interesting timeframes are unreachable until an
+  intraday provider exists.
+
+---
+
 ## P2 — Macro test suite assumes no live provider *(surfaced + fixed Phase 69)*
 
 ### P2-9 · 4 macro tests hard-asserted `seed_demo` / `provider_is_live is False` — ✅ RESOLVED (Phase 69)

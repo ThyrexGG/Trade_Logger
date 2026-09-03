@@ -28,6 +28,10 @@ const ForwardEvidencePage = page(() => import('./pages/ForwardEvidencePage'), 'F
 const EvidenceStatisticsPage = page(() => import('./pages/EvidenceStatisticsPage'), 'EvidenceStatisticsPage')
 const EvidenceGovernancePage = page(() => import('./pages/EvidenceGovernancePage'), 'EvidenceGovernancePage')
 const StrategyLabPage = page(() => import('./pages/StrategyLabPage'), 'StrategyLabPage')
+const StrategyDiscoveryPage = page(
+  () => import('./pages/StrategyDiscoveryPage'),
+  'StrategyDiscoveryPage',
+)
 const BacktestWorkspacePage = page(() => import('./pages/BacktestWorkspacePage'), 'BacktestWorkspacePage')
 const ResearchAuditPage = page(() => import('./pages/ResearchAuditPage'), 'ResearchAuditPage')
 const MacroIntelligencePage = page(() => import('./pages/MacroIntelligencePage'), 'MacroIntelligencePage')
@@ -51,6 +55,7 @@ const LIVE_ITEM_PAGES: Record<string, ReactElement> = {
   'workspace.assistant': <AssistantPage />,
   'research.intelligence': <IntelligencePage />,
   'research.strategy': <StrategyLabPage />,
+  'research.discovery': <StrategyDiscoveryPage />,
   'research.backtest': <BacktestWorkspacePage />,
   'research.audit': <ResearchAuditPage />,
   'research.macro': <MacroIntelligencePage />,

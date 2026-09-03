@@ -72,3 +72,58 @@ def get_gold_baseline() -> GoldBaselineResponse:
     d = b.to_dict()
     d["safety_barrier"] = _SAFETY
     return GoldBaselineResponse(**d)
+
+
+# ---------------------------------------------------------------------------
+# Phase 70 — strategy definitions & pair ranking (read the persisted artifact;
+# discovery compute is an offline CLI, never an API request)
+# ---------------------------------------------------------------------------
+@router.get("/strategies")
+def get_strategies() -> Dict[str, Any]:
+    import strategy_discovery
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "strategies": strategy_discovery.list_strategy_definitions(),
+        "timeframe_stack": strategy_discovery.TF_STACK,
+        "execution_assumptions": strategy_discovery._assumptions(0.0, 0.0),
+        "safety_barrier": _SAFETY,
+    }
+
+
+@router.get("/strategies/{strategy_id}")
+def get_strategy(strategy_id: str) -> Dict[str, Any]:
+    import pair_ranking
+    import strategy_discovery
+    sdef = strategy_discovery.get_strategy_definition(strategy_id)
+    if sdef is None:
+        raise HTTPException(status_code=404, detail=f"unknown strategy '{strategy_id}'")
+    ranking = pair_ranking.get_pair_ranking()
+    per_pair = []
+    pair_stability = None
+    if ranking:
+        per_pair = [c for c in ranking.get("candidates", []) if c.get("strategy_id") == strategy_id]
+        pair_stability = ranking.get("pair_stability", {}).get(strategy_id)
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "definition": sdef.to_dict(),
+        "per_pair_results": per_pair,
+        "pair_stability": pair_stability,
+        "ranking_generated_at": ranking.get("generated_at") if ranking else None,
+        "safety_barrier": _SAFETY,
+    }
+
+
+@router.get("/pair-ranking")
+def get_pair_ranking() -> Dict[str, Any]:
+    import pair_ranking
+    ranking = pair_ranking.get_pair_ranking()
+    if not ranking:
+        return {
+            "state": "NOT_COMPUTED",
+            "reason": "no pair-ranking artifact yet — run `python -m pair_ranking --timeframe 1h`",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "leaderboard": [], "candidates": [], "safety_barrier": _SAFETY,
+        }
+    ranking["state"] = "AVAILABLE"
+    ranking["safety_barrier"] = _SAFETY
+    return ranking

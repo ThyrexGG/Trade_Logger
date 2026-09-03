@@ -18,6 +18,18 @@ assistant with an allowlisted context (incl. bounded macro snapshot).
 
 ## DONE
 
+- **Strategy Discovery & Pair Ranking (Phase 70)** — `strategy_discovery.py`
+  (`StrategyDefinition` registry over the existing `strategies/`, store→backtester
+  adapter, `discover()` with IS/OOS split + bootstrap CI + scorecard + session /
+  regime / temporal breakdowns, `ResearchRankingScore` — decomposable, never a
+  market score) + `pair_ranking.py` (universe × strategies, store-based
+  walk-forward, Monte Carlo, parameter sensitivity, pair-stability classification,
+  leaderboard artifact + `python -m pair_ranking` CLI). Compute is offline-only;
+  `GET /api/research/{strategies,strategies/{id},pair-ranking}` read the persisted
+  snapshot. Frontend `/research/discovery`. First 1h run verdict: **NO ROBUST EDGE
+  FOUND** (honest — the SMC strategies need sub-1h structure the data source
+  can't supply). `docs/PHASE_70_STRATEGY_DISCOVERY.md`. +32 tests.
+  **Next: Phase 71 Gold revalidation baseline.**
 - **Persistent Historical Data Foundation (Phase 69)** — `historical_candles`
   table (`database.init_db`) + `historical_data_store.py` (validated duplicate-safe
   upsert, as-of read, coverage / gap detection, `data_sufficiency` gate,
