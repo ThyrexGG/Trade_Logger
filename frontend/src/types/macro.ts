@@ -7,19 +7,83 @@ export interface MacroEnvelope {
   data_provider: string
   provider_is_live: boolean
   provenance: 'live' | 'seed_demo' | 'unavailable' | string
-  provider_state?: 'LIVE' | 'LIVE_STALE' | 'SEED_DEMO' | 'NONE' | 'PROVIDER_UNAVAILABLE' | 'PENDING' | 'NOT_CONFIGURED' | string
+  provider_state?:
+    | 'LIVE' | 'LIVE_STALE' | 'SEED_DEMO' | 'NONE' | 'PROVIDER_UNAVAILABLE'
+    | 'PENDING' | 'NOT_CONFIGURED' | 'CONFLICT' | 'STALE' | string
   provider_status?: {
     provider?: string
     provider_state?: string
     configured?: boolean
     records_registered?: number
-    coverage?: Record<string, string[]>
+    coverage?: Record<string, string[]> | string[]
     series_errors?: Record<string, string>
     last_error?: string | null
     hydrated_age_sec?: number | null
     cache_ttl_sec?: number
   }
+  /** Phase 66 — per-economy × per-category evidence state. */
+  coverage?: Record<string, Record<string, string>>
+  conflicts?: MacroConflict[]
+  cot_status?: ProviderHealth | null
+  forecast_status?: ProviderHealth | null
+  sentiment_status?: ProviderHealth | null
   available: boolean
+  disclaimer?: string | null
+  timestamp: string
+}
+
+export interface MacroConflict {
+  identity: [string, string, string]
+  country: string
+  metric: string
+  period: string
+  field: string
+  state: 'CONFLICT'
+  selected_source: string
+  selected_value: number
+  claims: { source: string; value: number; rank: number }[]
+}
+
+export interface ProviderHealth {
+  provider?: string
+  provider_state?: string
+  configured?: boolean
+  records_registered?: number
+  coverage?: string[] | Record<string, string[]>
+  last_success?: string | null
+  last_failure?: string | null
+  last_error?: string | null
+  latency_ms?: number | null
+  hydrated_age_sec?: number | null
+  cache_ttl_sec?: number
+  backoff_until_sec?: number | null
+  reason?: string
+  forecasts?: number
+  observations?: number
+}
+
+export interface ProviderInfo {
+  key: string
+  name: string
+  capabilities: string[]
+  configured: boolean
+  is_live: boolean
+  health: ProviderHealth
+}
+
+export interface MacroProvidersResponse {
+  available: boolean
+  as_of: string
+  base_provider?: string | null
+  provider_state?: string | null
+  providers: ProviderInfo[]
+  capabilities: Record<
+    string,
+    { declared_by: string[]; configured_by: string[]; available: boolean; categories: string[] }
+  >
+  coverage: Record<string, Record<string, string>>
+  conflicts: MacroConflict[]
+  precedence: { rank: number; matches: string[] }[]
   disclaimer?: string | null
   timestamp: string
 }
@@ -92,11 +156,13 @@ export interface MacroSurprisesResponse extends MacroEnvelope {
 }
 
 export interface MacroFactorGroup {
-  score: number
+  score: number | null
   direction: string | null
   confidence: string | null
   supporting: string[]
   conflicting: string[]
+  state?: string
+  reason?: string
 }
 
 export interface MacroCurrency extends MacroEnvelope {

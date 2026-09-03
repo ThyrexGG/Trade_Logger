@@ -10,13 +10,14 @@ import {
 } from '../components/macro/MacroViews'
 import { MacroScorecard } from '../components/macro/MacroScorecard'
 import { MacroHeatmap } from '../components/macro/MacroHeatmap'
+import { MacroProviders } from '../components/macro/MacroProviders'
 import {
   OpsSafetyBanner,
   SectionError,
   SkeletonRows,
 } from '../components/operations/primitives'
 
-type Tab = 'scorecard' | 'heatmap' | 'overview' | 'calendar' | 'currencies' | 'assets'
+type Tab = 'scorecard' | 'heatmap' | 'overview' | 'calendar' | 'currencies' | 'assets' | 'providers'
 const TABS: { id: Tab; label: string }[] = [
   { id: 'scorecard', label: 'Scorecard' },
   { id: 'heatmap', label: 'Economic Heatmap' },
@@ -24,6 +25,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'calendar', label: 'Economic Calendar' },
   { id: 'currencies', label: 'Currency Strength' },
   { id: 'assets', label: 'Asset Macro Context' },
+  { id: 'providers', label: 'Providers & Coverage' },
 ]
 
 /**
@@ -71,8 +73,9 @@ export function MacroIntelligencePage() {
 
         {tab === 'scorecard' && <MacroScorecard />}
         {tab === 'heatmap' && <MacroHeatmap />}
+        {tab === 'providers' && <MacroProviders />}
 
-        {tab !== 'scorecard' && tab !== 'heatmap' ? (
+        {tab !== 'scorecard' && tab !== 'heatmap' && tab !== 'providers' ? (
           state === 'loading' ? (
             <div className="rounded-lg border border-border bg-surface p-4"><SkeletonRows rows={8} /></div>
           ) : state === 'error' ? (

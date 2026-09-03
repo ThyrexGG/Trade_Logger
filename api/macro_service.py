@@ -169,6 +169,21 @@ def _currency_has_data(ccy: str) -> bool:
         return False
 
 
+def _has_cot_release(ccy: str) -> bool:
+    """True only when the registry holds a real COT_NET_POSITIONING release for
+    this economy. The Phase-56 factor engine substitutes a ~238.5k-contract model
+    prior when none exists (Phase 66 §16) — that prior must never be surfaced as
+    an evidence-backed 'Institutional Positioning & COT' reading."""
+    try:
+        from macro_intelligence_engine import EconomicDataRegistry
+        return any(
+            r.metric == "COT_NET_POSITIONING"
+            for r in EconomicDataRegistry.get_releases_as_of(country=ccy)
+        )
+    except Exception:
+        return False
+
+
 def get_currency(ccy: str) -> Dict[str, Any]:
     ccy = ccy.upper().strip()
     meta = _provider_meta()
@@ -187,13 +202,26 @@ def get_currency(ccy: str) -> Dict[str, Any]:
     score = round(float(es["economic_strength_score"]), 1)
     direction = "BULLISH" if score >= 15 else "BEARISH" if score <= -15 else (
         "MIXED" if surp.get("positive_count") and surp.get("negative_count") else "NEUTRAL")
-    groups = {
-        name: {"score": round(float(g.get("score", 0.0)), 1), "direction": g.get("direction"),
-               "confidence": g.get("confidence"),
-               "supporting": g.get("supporting_metrics", [])[:4],
-               "conflicting": g.get("conflicting_metrics", [])[:3]}
-        for name, g in (es.get("factor_groups") or {}).items()
-    }
+    _has_cot = _has_cot_release(ccy)
+    groups = {}
+    for name, g in (es.get("factor_groups") or {}).items():
+        if name == "SENTIMENT_POSITIONING" and not _has_cot:
+            # No COT provider covers this economy — surface the gap, not the
+            # engine's internal model prior.
+            groups[name] = {
+                "score": None, "direction": "INSUFFICIENT_EVIDENCE",
+                "confidence": None, "state": "INSUFFICIENT_EVIDENCE",
+                "reason": "No COT positioning source for this economy "
+                          "(set MACRO_COT_PROVIDER=cftc).",
+                "supporting": [], "conflicting": [],
+            }
+            continue
+        groups[name] = {
+            "score": round(float(g.get("score", 0.0)), 1), "direction": g.get("direction"),
+            "confidence": g.get("confidence"),
+            "supporting": g.get("supporting_metrics", [])[:4],
+            "conflicting": g.get("conflicting_metrics", [])[:3],
+        }
     return {
         **meta,
         "currency": ccy, "available": True, "state": "OK",

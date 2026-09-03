@@ -9,16 +9,7 @@ import type {
 import { SectionCard } from '../intelligence/primitives'
 import { OpsMetric, OpsStatusTag, OpsUnavailable } from '../operations/primitives'
 
-interface ProvEnv extends MacroEnvelope {
-  provider_state?: string
-  provider_status?: {
-    coverage?: Record<string, string[]>
-    series_errors?: Record<string, string>
-    last_error?: string | null
-    hydrated_age_sec?: number | null
-    records_registered?: number
-  }
-}
+type ProvEnv = MacroEnvelope
 
 /** Honest provenance strip — demo/seeded data must never look like real data,
  *  and a provider outage must never look like "no evidence". */
@@ -27,39 +18,50 @@ export function ProvenanceBanner({ env }: { env: ProvEnv | null }) {
   const st = env.provider_state ?? (env.provider_is_live ? 'LIVE' : env.provenance === 'unavailable' ? 'NONE' : 'SEED_DEMO')
   const live = st === 'LIVE' || st === 'LIVE_STALE'
   const outage = st === 'PROVIDER_UNAVAILABLE' || st === 'PENDING'
+  const conflict = st === 'CONFLICT'
+  const stale = st === 'STALE' || st === 'LIVE_STALE'
   const status = env.provider_status
-  const cov = status?.coverage ?? {}
+  const covRaw = status?.coverage ?? {}
+  const cov = Array.isArray(covRaw) ? {} : (covRaw as Record<string, string[]>)
   const covCount = Object.values(cov).reduce((n, m) => n + (m?.length ?? 0), 0)
   const age = status?.hydrated_age_sec
+  const nConflicts = env.conflicts?.length ?? 0
 
-  const tone = live
+  const tone = live && !conflict
     ? 'border-positive/30 bg-positive/10 text-positive'
-    : outage
+    : outage || st === 'NONE'
       ? 'border-negative/30 bg-negative/10 text-negative'
-      : st === 'NONE'
-        ? 'border-negative/30 bg-negative/10 text-negative'
-        : 'border-warning/30 bg-warning/10 text-warning'
+      : 'border-warning/30 bg-warning/10 text-warning'
 
-  const label = live
-    ? st === 'LIVE_STALE'
-      ? 'Live provider data (stale — refresh pending)'
-      : 'Live provider data'
-    : outage
-      ? 'Provider temporarily unavailable'
-      : st === 'NONE'
-        ? 'No data provider configured'
-        : 'Demo / seeded data'
+  const label = conflict
+    ? 'Sources disagree (conflict)'
+    : live
+      ? stale
+        ? 'Live provider data (stale — refresh pending)'
+        : 'Live provider data'
+      : outage
+        ? 'Provider temporarily unavailable'
+        : st === 'NONE'
+          ? 'No data provider configured'
+          : 'Demo / seeded data'
 
   return (
     <div className={`rounded-lg border px-3 py-2 text-[11px] ${tone}`}>
       <span className="font-mono font-semibold uppercase">{label}</span>
       <span className="ml-2 text-secondary">
         provider <code>{env.data_provider}</code>
-        {live ? (
+        {conflict ? (
+          <>
+            {' '}— {nConflicts} indicator{nConflicts === 1 ? '' : 's'} where two sources disagree.
+            Showing the higher-precedence source; see the Providers panel. Nothing is averaged.
+          </>
+        ) : live ? (
           <>
             {' '}· {covCount} live series across {Object.keys(cov).length} economies
             {age != null ? ` · updated ${Math.round(age / 60)} min ago` : ''}
-            {' '}· no consensus forecast from this source (surprise = n/a)
+            {' '}· consensus forecast{env.forecast_status?.configured ? '' : ' not configured'} (surprise
+            {env.forecast_status?.configured ? '' : ' = n/a'})
+            {env.cot_status?.provider_state === 'LIVE' ? ' · COT: CFTC live' : ''}
           </>
         ) : outage ? (
           <> — last-good data shown where available; this is NOT "insufficient evidence".{status?.last_error ? ` (${status.last_error})` : ''}</>
@@ -299,11 +301,11 @@ export function MacroCurrencies({ data }: { data: MacroCurrenciesResponse }) {
                     <div key={name} className="rounded border border-border-subtle bg-surface-elevated/30 px-2.5 py-2 text-[11px]">
                       <div className="flex justify-between">
                         <span className="font-mono text-muted">{name}</span>
-                        <span className={g.score > 5 ? 'text-positive' : g.score < -5 ? 'text-negative' : 'text-secondary'}>{num(g.score)}</span>
+                        <span className={(g.score ?? 0) > 5 ? 'text-positive' : (g.score ?? 0) < -5 ? 'text-negative' : 'text-secondary'}>{num(g.score)}</span>
                       </div>
-                      <p className="mt-1 text-muted">{g.direction} · {g.confidence}</p>
-                      {g.supporting.slice(0, 2).map((s, i) => <p key={i} className="text-positive/80">+ {s}</p>)}
-                      {g.conflicting.slice(0, 1).map((s, i) => <p key={i} className="text-negative/80">− {s}</p>)}
+                      <p className="mt-1 text-muted">{g.state === 'INSUFFICIENT_EVIDENCE' ? (g.reason ?? 'Insufficient evidence') : `${g.direction} · ${g.confidence}`}</p>
+                      {(g.supporting ?? []).slice(0, 2).map((s, i) => <p key={i} className="text-positive/80">+ {s}</p>)}
+                      {(g.conflicting ?? []).slice(0, 1).map((s, i) => <p key={i} className="text-negative/80">− {s}</p>)}
                     </div>
                   ))}
                 </div>

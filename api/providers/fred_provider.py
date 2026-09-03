@@ -256,6 +256,17 @@ class FredMacroProvider:
     name = "fred"
     is_live = True
 
+    # Phase 66 — explicit capability declaration for the provider registry.
+    KEY = "fred"
+    try:  # avoid a hard import cycle at module load
+        from api.providers.registry import Capability as _Cap
+        CAPABILITIES = frozenset({
+            _Cap.OBSERVATIONS, _Cap.RELEASE_TIMESTAMPS, _Cap.REVISIONS, _Cap.HISTORICAL,
+        })
+        del _Cap
+    except Exception:  # pragma: no cover - defensive
+        CAPABILITIES = frozenset()
+
     def __init__(self) -> None:
         self._api_key = (os.getenv("FRED_API_KEY") or "").strip()
         self._timeout = float(_cfg_int("FRED_TIMEOUT_SEC", 10))

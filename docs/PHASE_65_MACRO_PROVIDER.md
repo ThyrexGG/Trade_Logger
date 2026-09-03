@@ -64,6 +64,12 @@ api/macro_service.py  ·  api/macro_scorecard.py       ← UNCHANGED logic;
 The scoring layer never learns which vendor supplied the data. Swapping FRED for
 another provider = one class + `MACRO_DATA_PROVIDER`.
 
+> **Phase 66 update:** FRED is now one of several capability-declared providers
+> behind `api/providers/registry.py`. `api/macro_evidence.ensure_evidence()`
+> orchestrates the base observation provider **plus** the CFTC COT provider,
+> merges consensus forecasts, runs conflict detection and builds a per-economy
+> coverage matrix. See `docs/PHASE_66_MACRO_EVIDENCE.md`.
+
 ### Consumer changes (minimal)
 
 | File | Change |

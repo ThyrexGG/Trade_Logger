@@ -1305,3 +1305,24 @@ class MacroHeatmapResponse(_MacroEnvelope):
 
 class MacroHeatmapIndexResponse(_MacroEnvelope):
     countries: List[Dict[str, Any]] = []
+
+
+# -------------------------------------------------------------------------
+# 17. Multi-Provider Macro Evidence Schemas (Phase 66) — provider registry,
+#     capability declarations, per-economy coverage matrix and conflict state.
+#     Read-only diagnostics. `provider_state` may now also be CONFLICT / STALE.
+#     No secret (API key / token) is ever included in a provider `health` block.
+# -------------------------------------------------------------------------
+class MacroProvidersResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    available: bool
+    as_of: str
+    base_provider: Optional[str] = None
+    provider_state: Optional[str] = None
+    providers: List[Dict[str, Any]] = []
+    capabilities: Dict[str, Any] = {}
+    coverage: Dict[str, Any] = {}
+    conflicts: List[Dict[str, Any]] = []
+    precedence: List[Dict[str, Any]] = []
+    disclaimer: Optional[str] = None
+    timestamp: str

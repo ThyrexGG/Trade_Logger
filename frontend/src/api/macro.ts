@@ -4,6 +4,7 @@ import type {
   MacroCurrenciesResponse,
   MacroEventsResponse,
   MacroOverviewResponse,
+  MacroProvidersResponse,
   MacroSurprisesResponse,
 } from '../types/macro'
 
@@ -61,4 +62,8 @@ export function getMacroHeatmap(country: string, signal?: AbortSignal) {
 
 export function getMacroHeatmapIndex(signal?: AbortSignal) {
   return apiGet<import('../types/macro').MacroHeatmapIndexResponse>('/api/macro/heatmap', { signal })
+}
+
+export function getMacroProviders(signal?: AbortSignal): Promise<MacroProvidersResponse> {
+  return apiGet<MacroProvidersResponse>('/api/macro/providers', { signal })
 }

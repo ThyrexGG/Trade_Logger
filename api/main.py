@@ -73,6 +73,14 @@ def _warm_up() -> None:
         except Exception:
             pass
 
+    # Phase 66 — prime the CFTC COT provider on the same terms if selected.
+    if (_os.getenv("MACRO_COT_PROVIDER") or "").strip().lower() == "cftc":
+        try:
+            from api.providers.cftc_provider import CftcCotProvider
+            CftcCotProvider().hydrate_registry()
+        except Exception:
+            pass
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):

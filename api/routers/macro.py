@@ -26,6 +26,7 @@ from api.schemas import (
     MacroHeatmapResponse,
     MacroOverviewResponse,
     MacroPairsResponse,
+    MacroProvidersResponse,
     MacroScorecardHistoryResponse,
     MacroScorecardListResponse,
     MacroScorecardResponse,
@@ -162,6 +163,14 @@ def macro_scorecard_one(instrument: str) -> MacroScorecardResponse:
     if payload.get("available"):
         macro_scorecard.record_scorecard_snapshot(instrument)
     return MacroScorecardResponse(**payload)
+
+
+@router.get("/providers", response_model=MacroProvidersResponse)
+def macro_providers() -> MacroProvidersResponse:
+    """Read-only provider registry + capability declarations + per-economy
+    coverage matrix + conflict state (Phase 66). No secret is ever returned."""
+    from api.macro_evidence import providers_report
+    return MacroProvidersResponse(**providers_report())
 
 
 @router.get("/heatmap", response_model=MacroHeatmapIndexResponse)

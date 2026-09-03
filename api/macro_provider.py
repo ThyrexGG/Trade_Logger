@@ -228,34 +228,28 @@ def get_provider() -> MacroDataProvider:
 
 
 def ensure_macro_data() -> Dict[str, Any]:
-    """Called at the top of every macro read. For a real provider this triggers
-    a TTL-guarded hydrate of `EconomicDataRegistry`; for seed_demo / none it is a
-    cheap no-op. Returns a provenance/status dict.
+    """Called at the top of every macro read. Thin shim over the Phase-66
+    multi-provider evidence orchestrator (`api.macro_evidence.ensure_evidence`):
+    it hydrates the base observation provider (seed_demo / none / FRED), the COT
+    provider (CFTC), merges consensus forecasts, runs conflict detection, and
+    returns one provenance/status dict — the same required keys as before plus
+    `providers` / `capabilities` / `coverage` / `conflicts` (the response
+    envelope allows extra keys, so shapers pass them through).
 
-    A provider failure never raises — the registry keeps its last-good (or
-    seeded) contents and `provider_state` reports `PROVIDER_UNAVAILABLE`.
+    Never raises — a provider failure leaves the registry's last-good (or
+    seeded) contents in place and `provider_state` reports `PROVIDER_UNAVAILABLE`.
     """
-    key = _provider_key()
-    if key == "fred":
-        try:
-            from api.providers.fred_provider import FredMacroProvider
-            p = FredMacroProvider()
-            st = p.hydrate_registry()
-            return {
-                "data_provider": "fred",
-                "provider_is_live": True,
-                "provenance": "live" if st.get("records_registered", 0) > 0 else "unavailable",
-                "provider_state": st.get("provider_state", "PENDING"),
-                "provider_status": st,
-            }
-        except Exception as exc:  # pragma: no cover - defensive
-            return {
-                "data_provider": "fred", "provider_is_live": True,
-                "provenance": "unavailable", "provider_state": "PROVIDER_UNAVAILABLE",
-                "provider_status": {"last_error": f"{type(exc).__name__}"},
-            }
-    if key == "none":
-        return {"data_provider": "none", "provider_is_live": False,
-                "provenance": "unavailable", "provider_state": "NONE"}
-    return {"data_provider": "seed_demo", "provider_is_live": False,
-            "provenance": "seed_demo", "provider_state": "SEED_DEMO"}
+    try:
+        from api.macro_evidence import ensure_evidence
+        return ensure_evidence()
+    except Exception as exc:  # pragma: no cover - defensive
+        key = _provider_key()
+        if key == "fred":
+            return {"data_provider": "fred", "provider_is_live": True,
+                    "provenance": "unavailable", "provider_state": "PROVIDER_UNAVAILABLE",
+                    "provider_status": {"last_error": type(exc).__name__}}
+        if key == "none":
+            return {"data_provider": "none", "provider_is_live": False,
+                    "provenance": "unavailable", "provider_state": "NONE"}
+        return {"data_provider": "seed_demo", "provider_is_live": False,
+                "provenance": "seed_demo", "provider_state": "SEED_DEMO"}
