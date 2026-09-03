@@ -22,11 +22,18 @@ assistant with an allowlisted context (incl. bounded macro snapshot).
   `/api/operations/{audit,system}` and command-centre sections, FastAPI startup
   warm-up, frontend route-level code splitting. All warm API p50 ≤ 40 ms; cold
   data path −85–99%. See `PERFORMANCE_REPORT.md` + `PHASE_62_REPORT.md`.
+- **Performance verification (Phase 63)** — re-measured Phase 62 (stable, no
+  regression), verified pool reuse + cache correctness, measured real browser
+  navigation. No P1 bottleneck; next lever is P2-5 (load-test first) or the
+  managed-DB RTT (infra). `PHASE_63_REPORT.md`. No code changed.
 
 ## NEXT (small, well-scoped, low risk)
 
-- **Command-centre per-section timeout** (`TECHNICAL_DEBT.md` P3-2) — lower risk
-  now that the I/O-heavy sections are cached, but still worth doing.
+- **Command-centre fan-out concurrency** (`TECHNICAL_DEBT.md` P2-5) — Phase 63
+  found the 8-way `ThreadPoolExecutor` multiplies pool checkouts under
+  concurrent cache-miss. Do a real `uvicorn` + `wrk`/`locust` load test first,
+  then pick: sequential build / `max_workers` cap / per-request budget. Folds in
+  P3-2 (per-section timeout).
 - **Combine the `/api/operations/audit` cold queries** (`TECHNICAL_DEBT.md` P3-4).
 - **Import / lint tidy** with `ruff` across `api/` (P2-2).
 

@@ -67,6 +67,23 @@ P2 improvement · P3 nice-to-have. Nothing here is a safety-invariant risk.*
   pre-existing and harmless. The two imports *introduced* during recent stages
   were removed this pass.
 
+### P2-5 · Command-centre overview fans out to ~8 concurrent pool checkouts
+- **Location:** `api/routers/command_center.py :: get_overview`
+- **Impact:** the 8 section builders run in a `ThreadPoolExecutor`, so one
+  *cold* overview request can check out up to ~8 pooled connections at once.
+  Phase 63 pool-stress (unreliable TestClient harness) showed
+  `/api/command-center/overview` degrading non-linearly past ~pool size while
+  `/api/positions` scaled cleanly. `overflow_direct` fires under concurrent
+  cache-miss → slow ~400 ms direct connects (no errors, no leaks). Warm cost is
+  ~15 ms and single-user is unaffected; this is a **concurrency** soft spot.
+- **Recommended solution:** measure first with a real `uvicorn` + `wrk`/`locust`
+  load test. Then one of: build the (now mostly cached) sections sequentially;
+  cap `max_workers`; or give each request a small connection budget. Phase 63
+  tried "sequential" — marginal single-user gain (~4 ms), inconsistent
+  concurrent result under TestClient — and reverted it pending a real test.
+- **Why deferred:** does not affect the current single-instance deployment;
+  needs a trustworthy load generator to size the fix.
+
 ### P2-3 · `database.py` is a 900-line grab-bag
 - **Location:** `database.py`
 - **Impact:** schema init, per-feature CRUD, caching and the dual-backend
@@ -122,6 +139,15 @@ P2 improvement · P3 nice-to-have. Nothing here is a safety-invariant risk.*
 - **Recommended solution:** keep as the fallback contract; no action.
 
 ---
+
+## Phase 63 verification (no code changes)
+
+Phase 62's pooling / caching / code-splitting were re-measured and confirmed
+stable and reproducible (`docs/PHASE_63_REPORT.md`). Steady-state DB checkout is
+0.036 ms (was ~406 ms); warm navigation endpoints make **zero** DB round-trips;
+initial load is ~500 ms / 309 kB JS. No application-level P1 bottleneck found.
+The remaining limit is the managed-Postgres ~85–125 ms query RTT
+(infrastructure). New item logged: **P2-5** (command-centre fan-out concurrency).
 
 ## Resolved in Phase 62 (performance engineering)
 
