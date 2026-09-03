@@ -482,6 +482,55 @@ def init_db(force: bool = False):
                 PRIMARY KEY (symbol_1, symbol_2, time_window)
             );
         """)
+
+        # Phase 69 — persistent historical OHLCV foundation.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS historical_candles (
+                asset TEXT NOT NULL,
+                timeframe TEXT NOT NULL,
+                open_time BIGINT NOT NULL,
+                open DOUBLE PRECISION NOT NULL,
+                high DOUBLE PRECISION NOT NULL,
+                low DOUBLE PRECISION NOT NULL,
+                close DOUBLE PRECISION NOT NULL,
+                volume DOUBLE PRECISION DEFAULT 0,
+                source TEXT NOT NULL,
+                source_revision TEXT DEFAULT NULL,
+                data_quality TEXT DEFAULT 'ok',
+                ingested_at TEXT NOT NULL,
+                PRIMARY KEY (asset, timeframe, open_time)
+            );
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_hist_candles_lookup
+            ON historical_candles (asset, timeframe, open_time);
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS historical_ingestion_log (
+                id SERIAL PRIMARY KEY,
+                asset TEXT NOT NULL,
+                timeframe TEXT NOT NULL,
+                source TEXT NOT NULL,
+                mode TEXT NOT NULL,
+                inserted INTEGER DEFAULT 0,
+                updated INTEGER DEFAULT 0,
+                rejected INTEGER DEFAULT 0,
+                first_open_time BIGINT DEFAULT NULL,
+                last_open_time BIGINT DEFAULT NULL,
+                report TEXT DEFAULT NULL,
+                ran_at TEXT NOT NULL
+            );
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS research_artifacts (
+                artifact_key TEXT PRIMARY KEY,
+                kind TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                content_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+        """)
     else:
         # SQLite Schema
         cursor.execute("""
@@ -637,6 +686,55 @@ def init_db(force: bool = False):
                 execution_price REAL,
                 error_msg TEXT,
                 reject_reason TEXT
+            )
+        """)
+
+        # Phase 69 — persistent historical OHLCV foundation.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS historical_candles (
+                asset TEXT NOT NULL,
+                timeframe TEXT NOT NULL,
+                open_time INTEGER NOT NULL,
+                open REAL NOT NULL,
+                high REAL NOT NULL,
+                low REAL NOT NULL,
+                close REAL NOT NULL,
+                volume REAL DEFAULT 0,
+                source TEXT NOT NULL,
+                source_revision TEXT DEFAULT NULL,
+                data_quality TEXT DEFAULT 'ok',
+                ingested_at TEXT NOT NULL,
+                PRIMARY KEY (asset, timeframe, open_time)
+            )
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_hist_candles_lookup
+            ON historical_candles (asset, timeframe, open_time)
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS historical_ingestion_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                asset TEXT NOT NULL,
+                timeframe TEXT NOT NULL,
+                source TEXT NOT NULL,
+                mode TEXT NOT NULL,
+                inserted INTEGER DEFAULT 0,
+                updated INTEGER DEFAULT 0,
+                rejected INTEGER DEFAULT 0,
+                first_open_time INTEGER DEFAULT NULL,
+                last_open_time INTEGER DEFAULT NULL,
+                report TEXT DEFAULT NULL,
+                ran_at TEXT NOT NULL
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS research_artifacts (
+                artifact_key TEXT PRIMARY KEY,
+                kind TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                content_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
             )
         """)
 

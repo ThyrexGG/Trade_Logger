@@ -79,11 +79,12 @@ non-GET verbs are: `POST /api/risk/preview` (calc only), `POST /api/research/bac
 
 ```
 api/
-  main.py               FastAPI app; registers 15 routers; CORS allows GET/POST/PUT/PATCH/DELETE
-  schemas.py            all Pydantic request/response models (numbered sections 1..15)
+  main.py               FastAPI app; registers 16 routers; CORS allows GET/POST/PUT/PATCH/DELETE
+  schemas.py            all Pydantic request/response models (numbered sections 1..15 + Phase 67/69)
   routers/
     health, watchlist, market, preferences, intelligence, risk, positions,
-    evidence, research, operations, alerts, analytics, command_center, ai, macro
+    evidence, research, operations, alerts, analytics, command_center, ai, macro,
+    strategy_research  (Phase 69 — GET /api/research/{historical/coverage,universe,gold-baseline})
   ai_context.py         Stage 15C — allowlisted read-only snapshot handed to Gemini
   gemini_client.py      Stage 15C — server-side Gemini wrapper (key from env, never returned)
   macro_provider.py     Stage 18A — MacroDataProvider abstraction + normalizer
@@ -202,6 +203,29 @@ server-side system instruction the user cannot override. Unset key → graceful
 highlights, timestamp-correct by construction (no future information reaches the
 model through it).
 
+### 9c. Persistent Historical Data Foundation (Phase 69)
+
+`historical_candles` table (`database.init_db`, dialect-safe, PK
+`asset,timeframe,open_time` epoch-seconds UTC) is the persistent OHLCV store that
+resolves Phase-68 P1-6 in software.
+
+- `historical_data_store.py` — validated duplicate-safe `upsert_candles`
+  (OHLC-consistency gate; bad candles rejected + counted, never repaired),
+  `get_candles(as_of=…)` (close ≤ as_of), `get_coverage` / `detect_gaps`,
+  `data_sufficiency` (`AVAILABLE` / `INSUFFICIENT_EVIDENCE`, never "0 trades"),
+  `store_provider` adapter + `research_artifacts` persistence. Registered as the
+  Phase-68 `auto` historical provider, so an empty store = the same honest gap,
+  a populated store lights up Phase-67 historical `TECHNICAL/SMC/REGIME`.
+- `market_data_ingest.py` — yfinance backfill / incremental / tz-normalised;
+  4h resampled from 1h; CLI `python -m market_data_ingest --universe`. Only
+  `1h/4h/1d` have real multi-year depth (`research_universe.timeframe_is_data_capable`).
+- `research_universe.py` — the 11-instrument research universe (FX majors + JPY
+  crosses + XAUUSD), pip sizes, yf tickers, per-timeframe sufficiency rules.
+- `gold_strategy_baseline.py` — machine-readable recovery of the Phases 14–21
+  Gold discovery (= the frozen contract); `EdgeStatus` objective rules;
+  `edge_status = INSUFFICIENT_EVIDENCE` until Phase 71. See
+  `docs/GOLD_STRATEGY_BASELINE.md` + `docs/PHASE_69_HISTORICAL_DATA_FOUNDATION.md`.
+
 ### 9b. Historical Market Evidence (Phase 68)
 
 `historical_market_data.py` — canonical **as-of candle window** interface:
@@ -210,9 +234,10 @@ to `candle_close <= as_of` (drops the still-forming candle). Live path wraps
 `market_data.get_candles_with_source` (new; also reports which upstream served);
 the **synthetic offline fallback is never treated as real data** and trips a
 120 s "feed down" short-circuit. Historical path dispatches to
-`HISTORICAL_OHLCV_PROVIDER` (Phase-66-style registry) — the repo ships **no**
-historical OHLCV store, so the default resolves to `None`; tests install a
-deterministic in-process provider via `set_test_provider`.
+`HISTORICAL_OHLCV_PROVIDER` (Phase-66-style registry); the default `auto` now
+resolves to the **Phase-69 persistent store** (empty → `None`, the documented
+gap, closeable by ingestion). Tests install a deterministic in-process provider
+via `set_test_provider`.
 
 `market_evidence_engine.py` — real, timestamp-safe evidence from a candle
 window: EMA20/50/200 + RSI(14) + MACD + ATR(14) + MTF EMA bias (technical);
@@ -259,6 +284,11 @@ execution-stress, expectancy drift), `ml_trainer.py`, `strategies/` (registry +
 SMC / MTF utilities), `true_mtf_engine.py`, `usdjpy_*.py` labs. Exposed via
 `/api/research/{strategy,backtest,audit}`.
 
+**Phase 69** adds the persistent-data foundation the strategy-discovery work
+(Phase 70+) will sit on: `historical_data_store.py` + `market_data_ingest.py` +
+`research_universe.py` + `gold_strategy_baseline.py`, exposed read-only via
+`/api/research/{historical/coverage,universe,gold-baseline}` (see §9c).
+
 ---
 
 ## 11. Evidence (forward validation / governance)
@@ -274,7 +304,11 @@ historical holdout** (N=82, E[R]=+0.637R) is never pooled with forward data.
 ## 12. Testing
 
 `tests/` — run with `pytest tests/ -p no:randomly`.
-Baseline: **1281 passed, 6 skipped, 0 failed (~169s)** (Phase 68; was 1226/6 at Phase 67).
+Baseline: **1322 passed, 5 skipped, 4 failed (~117s)** (Phase 69; +44 Phase-69
+tests). The 4 failures are pre-existing/environmental — `test_stage18_macro` /
+`test_phase64_macro_scorecard` assert `seed_demo` unconditionally and break when a
+live FRED provider is configured in `.env` (reproduce on clean `HEAD`; see
+`TECHNICAL_DEBT.md` P2-9). Was 1281/6/0 at Phase 68.
 
 Naming: `test_phaseNN_*` = the Streamlit-era feature phases (still the bulk of
 coverage); `test_stageNN_*` = the React-migration stages; `test_*_safety.py` /

@@ -18,6 +18,19 @@ assistant with an allowlisted context (incl. bounded macro snapshot).
 
 ## DONE
 
+- **Persistent Historical Data Foundation (Phase 69)** — `historical_candles`
+  table (`database.init_db`) + `historical_data_store.py` (validated duplicate-safe
+  upsert, as-of read, coverage / gap detection, `data_sufficiency` gate,
+  `research_artifacts` persistence, Phase-68 `auto` provider adapter) +
+  `market_data_ingest.py` (yfinance backfill / incremental, 4h←1h resample, CLI) +
+  `research_universe.py` (11 instruments, pip sizes, sufficiency rules,
+  intraday-depth honesty) + `gold_strategy_baseline.py` (recovered Phases 14–21
+  Gold discovery = the frozen contract; `EdgeStatus` objective rules;
+  `INSUFFICIENT_EVIDENCE` until Phase 71). Read-only `GET
+  /api/research/{historical/coverage,universe,gold-baseline}`. Resolves P1-6 in
+  software; real depth only for 1h/4h/1d (yfinance). Store ships empty.
+  `docs/PHASE_69_HISTORICAL_DATA_FOUNDATION.md` + `docs/GOLD_STRATEGY_BASELINE.md`.
+  +44 tests. **Next: Phase 70 strategy-discovery framework.**
 - **Historical Market Evidence (Phase 68)** — `historical_market_data.py`
   (as-of candle window, `close <= as_of` truncation, provider registry) +
   `market_evidence_engine.py` (real EMA/RSI/MACD/ATR + MTF EMA bias; candle-

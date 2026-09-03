@@ -17,9 +17,11 @@ Rules
     fallback** served, this returns ``None`` — the fallback is never treated as
     real market data.
   * Historical path (``as_of`` in the past): dispatches to the provider named by
-    ``HISTORICAL_OHLCV_PROVIDER``. The repo ships **no** historical OHLCV store,
-    so the default resolves to ``None`` (documented gap). Tests install a
-    deterministic in-process provider via ``set_test_provider``.
+    ``HISTORICAL_OHLCV_PROVIDER``. The default ``auto`` resolves to the Phase-69
+    persistent store (``historical_data_store``); when that store is empty it
+    yields ``None`` for every request (the documented gap, now closeable by
+    ``python -m market_data_ingest``). Tests install a deterministic in-process
+    provider via ``set_test_provider``.
   * Read-only. No import of / path to any execution module.
 """
 from __future__ import annotations
@@ -160,8 +162,23 @@ def _historical_provider() -> Optional[HistoricalProviderFn]:
     if _TEST_PROVIDER is not None:
         return _TEST_PROVIDER
     key = historical_provider_key()
-    if key in ("", "none", "auto"):
-        return None  # the repo ships no historical OHLCV store — honest gap
+    if key in ("", "none"):
+        return None
+    if key == "auto":
+        # Phase 69: the persistent OHLCV store (``historical_data_store``) is the
+        # default provider. When it is empty it yields ``None`` for every request
+        # — the same honest gap as before, now closeable by ingestion.
+        with _LOCK:
+            prov = _PROVIDERS.get("store")
+        if prov is None:
+            try:
+                import historical_data_store
+                historical_data_store.register_with_phase68()
+            except Exception:
+                return None
+            with _LOCK:
+                prov = _PROVIDERS.get("store")
+        return prov
     with _LOCK:
         return _PROVIDERS.get(key)
 
@@ -267,7 +284,13 @@ def get_candle_window(
             return None
         raw = hist
         provenance = "historical_ohlcv"
-        source_id = f"provider:{'test' if _TEST_PROVIDER is not None else historical_provider_key()}"
+        if _TEST_PROVIDER is not None:
+            _pkey = "test"
+        else:
+            _pkey = historical_provider_key()
+            if _pkey == "auto":
+                _pkey = "store"
+        source_id = f"provider:{_pkey}"
 
     kept = _truncate(raw, as_of_epoch, tf_sec)
     if len(kept) < _MIN_CANDLES:

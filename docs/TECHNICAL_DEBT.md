@@ -5,6 +5,39 @@ P2 improvement · P3 nice-to-have. Nothing here is a safety-invariant risk.*
 
 ---
 
+## P2 — Macro test suite assumes no live provider *(surfaced Phase 69)*
+
+### P2-9 · 4 macro tests hard-assert `seed_demo` / `provider_is_live is False`
+- **Tests:** `test_stage18_macro.py::{test_macro_responses_carry_provenance,
+  test_ai_context_includes_bounded_macro_section}`,
+  `test_phase64_macro_scorecard.py::{test_scorecard_response_shape,
+  test_every_response_carries_provenance}`.
+- **Symptom:** once a real macro provider is configured in `.env`
+  (`MACRO_DATA_PROVIDER=fred` + `FRED_API_KEY`), these fail because macro
+  responses correctly report `provenance="live"` / `provider_is_live=True`.
+  `database.py` loads `.env` with `override=True`, so a shell
+  `MACRO_DATA_PROVIDER=none` does not defeat it — the key must be absent from
+  `.env` for a green run, or the tests must become provider-aware.
+- **Not a regression:** reproduces on clean `HEAD` (`04d43c9`) with the key set.
+- **Recommended fix:** gate the `is False` assertions on
+  `os.getenv("MACRO_DATA_PROVIDER")` (assert shape + `provenance in {...}` always;
+  assert `seed_demo` only when no provider is configured), mirroring the Phase-67
+  COT fixture pattern.
+
+### P3-7 · `test_phase68_invariants.py::test_invariant_no_evidence_after_as_of` is order-dependent
+- Run **alone** it fails 8/19 with `ValueError: Invalid isoformat string: '2025-01'`
+  when the live yfinance feed is reachable — a seasonality/window timestamp is a
+  `YYYY-MM` label rather than ISO in some live-data path. In the **full suite** it
+  passes (earlier tests warm `market_data` caches / trip the feed-down
+  short-circuit first). Pre-existing — reproduces on clean `HEAD` (`04d43c9`),
+  unrelated to Phase 69.
+- **Recommended fix:** make the test parse defensively (skip non-ISO) or, better,
+  fix `market_evidence_engine` to only ever emit ISO timestamps on evidence
+  items; add `historical_market_data.set_test_provider` isolation to the file's
+  autouse fixture so it no longer depends on live reachability.
+
+---
+
 ## P1 — Important
 
 > **All P1 items below were RESOLVED in Phase 62** (`perf: database pooling,
@@ -142,18 +175,21 @@ P2 improvement · P3 nice-to-have. Nothing here is a safety-invariant risk.*
 
 ## Phase 68 — Historical Market Evidence
 
-### P1-6 · No persisted historical OHLCV store *(data limitation — the big one)*
-- **Location:** repo-wide. `market_data.get_realtime_candles` is live-only;
-  `backtester` fetches `yfinance` over the network on demand and never persists;
-  there is no `candles` table and no bundled data files.
-- **Impact:** Phase-68 `historical_market_data.get_candle_window(as_of=<past>)`
-  resolves to `None` unless `HISTORICAL_OHLCV_PROVIDER` is configured, so
-  historical `TECHNICAL` / `SMC` / `REGIME` stay `INSUFFICIENT_EVIDENCE` for
-  arbitrary `as_of`. **Live** mode is real (candle-derived) whenever a real
-  upstream is reachable.
-- **Recommended solution:** a `candles` table + an ingestion job, OR a vendor
-  provider with a dated-range API, registered under
-  `historical_market_data.register_provider`.
+### P1-6 · Persisted historical OHLCV store — ✅ SOFTWARE RESOLVED (Phase 69) / ⚠️ DATA DEPTH REMAINS
+- **Phase 69:** `historical_candles` table (in `database.init_db`, dialect-safe) +
+  `historical_data_store.py` (validated duplicate-safe upsert, as-of read,
+  coverage, gap detection, sufficiency gate) + `market_data_ingest.py`
+  (`python -m market_data_ingest --universe`). The store is registered as the
+  Phase-68 `auto` historical provider, so `get_candle_window(as_of=<past>)` and
+  Phase-67 historical `TECHNICAL` / `SMC` / `REGIME` light up **wherever the store
+  has coverage**. An empty store still returns `None` — the honest gap, now
+  closeable by ingestion rather than by a vendor.
+- **Data depth remains (P1-6b):** the only wired source is yfinance, whose
+  intraday depth is shallow — real multi-year coverage exists for **1h / 4h / 1d**
+  only. `15m`/`5m` (~60 d) and `1m` (~7 d, the frozen Gold contract's native TF)
+  stay `INSUFFICIENT_EVIDENCE`. FX comes only as Yahoo `=X` synthetic spot (no real
+  volume). Closing this needs an intraday OHLCV vendor registered via
+  `historical_market_data.register_provider` or bundled candle files.
 
 ### P2-7 · Phase-55 `evaluate_asset_edge` still returns symbol-keyed priors — ⚠️ PARTLY RESOLVED (Phase 68)
 - **Was:** `TechnicalStructureFactorEngine` / `SmartMoneyStructureFactorEngine` /

@@ -1393,3 +1393,32 @@ class AssetIntelligenceResponse(BaseModel):
     model_version: str
     disclaimer: str
     safety_barrier: Dict[str, Any] = {}
+
+
+# -------------------------------------------------------------------------
+# Phase 69 — Historical Data Foundation & Gold Baseline
+# -------------------------------------------------------------------------
+class HistoricalCoverageResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    generated_at: str
+    universe: List[str] = []
+    timeframes: List[str] = []
+    data_capable_timeframes: List[str] = []
+    available: List[Dict[str, Any]] = []
+    sufficiency: List[Dict[str, Any]] = []
+    notes: Dict[str, str] = {}
+    safety_barrier: Dict[str, Any] = {}
+
+
+class GoldBaselineResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    strategy_id: str
+    strategy_version: str
+    frozen_contract_hash: str
+    contract_hash_matches_canonical: bool
+    edge_status: str
+    edge_status_reason: str
+    previous_discovery: Dict[str, Any] = {}
+    revalidated_metrics: Optional[Dict[str, Any]] = None
+    generated_at: str
+    safety_barrier: Dict[str, Any] = {}
