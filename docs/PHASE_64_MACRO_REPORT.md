@@ -251,7 +251,7 @@ palette + keyboard shortcuts working.
 ## 12. Git
 
 ```
-commit:        <filled on commit>
+commit:        2a8e11f
 working tree:  CLEAN
 files:         6 modified (api/ai_context.py, api/routers/macro.py, api/schemas.py,
                frontend/src/{api/macro.ts, pages/MacroIntelligencePage.tsx, types/macro.ts})
