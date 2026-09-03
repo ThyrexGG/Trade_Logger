@@ -250,7 +250,7 @@ JSON + console output. `docs/performance_baseline.json` regenerated with the
 ## Git
 
 - Branch: `main`
-- Commit: **`<filled on commit>`** — `perf: database pooling, API latency, cold-load & bundle (Phase 62)`
+- Commit: **`a24cca7`** — `perf: database pooling, API latency, cold-load & bundle (Phase 62)`
 - Files: 8 modified (`database.py`, `api/main.py`,
   `api/routers/{operations,command_center}.py`, `performance_benchmark.py`,
   `frontend/src/App.tsx`, `frontend/vite.config.ts`,
