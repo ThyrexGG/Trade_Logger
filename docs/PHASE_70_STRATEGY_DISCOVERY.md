@@ -145,8 +145,30 @@ This is the honest §69 outcome. XAUUSD leads the *unvalidated* candidates —
 consistent with the historical Gold finding — but every candidate is `UNCERTAIN`
 or `FAILED` on 1h data. The frozen Gold contract executes on **1-minute**
 structure with tight structural stops, which yfinance cannot supply; 1h with
-fixed ATR stops is a different, weaker strategy. Phase 71 will report this
+fixed ATR stops is a different, weaker strategy. Phase 71 reports this
 timeframe substitution explicitly rather than claim equivalence.
+
+### 8b. Deep run (`--deep --deep-top 8`, artifact `96608cc81da6`)
+
+WFO / Monte Carlo / parameter-sensitivity on the 8 top candidates:
+
+| Asset | Strategy | WFO stability | Overfit risk | MC ruin |
+|---|---|---|---|---|
+| **XAUUSD** | **ict_2022_sweep_mss_fvg** | **1.0 (ROBUST)** | **LOW** (nbhd 1.0) | 0% |
+| XAUUSD | smc_continuation_bos_fvg | 0.67 (FRAGILE) | LOW (nbhd 0.9) | 0% |
+| USDJPY | ict_2022_sweep_mss_fvg | 1.0 (ROBUST) | HIGH (nbhd 0.0) | 0% |
+| USDCAD | smc_continuation_bos_fvg | 0.67 (FRAGILE) | HIGH | 0% |
+| others | trend / ict | 0.33 (UNSTABLE) | HIGH | 0% |
+
+Verdict unchanged: **NO ROBUST EDGE FOUND**. But the deep pass isolates **XAUUSD
+`ict_2022_sweep_mss_fvg`** as the single most robust candidate — WFO-stable across
+all windows *and* parameter-insensitive (profitable across the full ±20%
+neighbourhood) *and* zero Monte-Carlo ruin. It is held back from `VALIDATED`
+only by sample size (OOS N=46 < 50) and a bootstrap CI that still crosses zero
+([−0.137R, +0.351R]). This is consistent with the historical Gold discovery and
+points at exactly what would confirm it: more trades, i.e. a lower timeframe with
+real intraday depth. `pair_stability` for every strategy is `NO_EDGE_ANYWHERE`
+(no candidate has a positive OOS lower confidence bound).
 
 ---
 
