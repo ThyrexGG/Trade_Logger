@@ -12,10 +12,11 @@ reimplemented here — every number comes from:
   * ``research_engine.ScorecardClassifier`` — objective STRONG/PROMISING/…/FAILED
   * ``research_engine.ThreeLayerDataSplitter`` semantics (train / OOS)
 
-Discovery runs against store data only (no per-request network). Data-capable
-timeframes are 1h / 4h / 1d (`research_universe.timeframe_is_data_capable`);
-anything else returns ``INSUFFICIENT_EVIDENCE`` with a named dependency — never a
-"0 trades" verdict.
+Discovery runs against store data only (no per-request network). A timeframe is
+usable when ``historical_data_store.data_sufficiency`` says ``AVAILABLE`` for that
+``(asset, timeframe)`` — which now includes intraday timeframes wherever a
+provider (Phase 74: MT5) has supplied real depth. Anything below the bar returns
+``INSUFFICIENT_EVIDENCE`` with a named dependency — never a "0 trades" verdict.
 
 Read-only: no import of / path to any execution / broker / risk module.
 """
@@ -234,17 +235,16 @@ def prepare_data(asset: str, timeframe: str, as_of: Optional[datetime] = None,
         return _cache((None, {"state": "NOT_APPLICABLE",
                               "reason": f"timeframe '{timeframe}' not in the discovery stack"}))
 
+    # Data capability is now decided by what the STORE actually holds (Phase 74 —
+    # MT5 can supply real intraday depth), not a static per-timeframe flag.
     suf = store.data_sufficiency(asset, timeframe)
-    capable = research_universe.timeframe_is_data_capable(timeframe)
     tier = "SUFFICIENT"
 
-    if not (capable and suf["state"] == "AVAILABLE"):
+    if suf["state"] != "AVAILABLE":
         if not allow_partial:
-            reason = suf.get("reason") or (
-                f"{timeframe} has no multi-year depth on the wired data source"
-                if not capable else str(suf.get("reasons")))
+            reason = suf.get("reason") or str(suf.get("reasons"))
             return _cache((None, {"state": "INSUFFICIENT_EVIDENCE", "reason": reason,
-                                  "next_dependency": "an intraday OHLCV provider",
+                                  "next_dependency": "ingest deeper history for this timeframe",
                                   "coverage": suf.get("coverage")}))
         tier = "PARTIAL"
 

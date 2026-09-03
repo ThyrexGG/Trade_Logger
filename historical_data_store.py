@@ -440,6 +440,43 @@ def list_available() -> List[Dict[str, Any]]:
     ]
 
 
+def series_sources(asset: str, timeframe: str) -> List[str]:
+    with _LOCK:
+        conn = database.get_connection()
+        try:
+            cur = conn.cursor()
+            ph = _ph(conn)
+            cur.execute(
+                f"SELECT DISTINCT source FROM historical_candles WHERE asset={ph} AND timeframe={ph}",
+                (_norm_asset(asset), (timeframe or "").strip().lower()))
+            return sorted(r[0] for r in cur.fetchall())
+        finally:
+            conn.close()
+
+
+def clear_series(asset: str, timeframe: str, only_source: Optional[str] = None) -> int:
+    """Delete a stored series (optionally only rows from ``only_source``). Used
+    when switching providers so two vendors' candles are never silently merged
+    on the same (asset, timeframe, open_time) key (§9/§10). Returns rows deleted."""
+    database.init_db()
+    with _LOCK:
+        conn = database.get_connection()
+        try:
+            cur = conn.cursor()
+            ph = _ph(conn)
+            params = [_norm_asset(asset), (timeframe or "").strip().lower()]
+            sql = f"DELETE FROM historical_candles WHERE asset={ph} AND timeframe={ph}"
+            if only_source is not None:
+                sql += f" AND source={ph}"
+                params.append(only_source)
+            cur.execute(sql, tuple(params))
+            n = cur.rowcount
+            conn.commit()
+            return int(n or 0)
+        finally:
+            conn.close()
+
+
 # ---------------------------------------------------------------------------
 # Weekend-aware gap analysis
 # ---------------------------------------------------------------------------

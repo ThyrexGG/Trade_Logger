@@ -21,6 +21,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 from dataclasses import dataclass, field
@@ -62,6 +63,7 @@ class IngestResult:
     error: Optional[str] = None
     coverage: Optional[Dict[str, Any]] = None
     gaps: List[Dict[str, Any]] = field(default_factory=list)
+    provider_meta: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -150,8 +152,45 @@ def _yf_download(yf_symbol: str, interval: str, period: str,
     return df if df is not None else pd.DataFrame()
 
 
+def _provider_ingest(asset: str, timeframe: str, provider_name: str,
+                     incremental: bool, res: "IngestResult") -> "IngestResult":
+    """Phase 74 — ingest through a registered ``historical_provider`` (e.g. mt5)."""
+    import historical_provider
+    prov = historical_provider.get_provider(provider_name)
+    start = None
+    if incremental:
+        cov = store.get_coverage(asset, timeframe)
+        if cov.last_open_time:
+            start = datetime.fromtimestamp(
+                cov.last_open_time - 5 * store.tf_seconds(timeframe), tz=timezone.utc)
+    fr = prov.fetch(asset, timeframe, start=start)
+    res.source = prov.name
+    res.fetched = len(fr.candles)
+    res.provider_meta = fr.to_meta()
+    if fr.error and not fr.candles:
+        res.error = fr.error
+        return res
+    # §9/§10 — never silently merge two vendors on the same key. If the series
+    # holds candles from a different source, a non-incremental run replaces them.
+    if not incremental:
+        existing = store.series_sources(asset, timeframe)
+        stale = [s for s in existing if s and s != prov.name]
+        if stale:
+            for s in stale:
+                store.clear_series(asset, timeframe, only_source=s)
+            res.provider_meta["replaced_sources"] = stale
+    rep = store.upsert_candles(asset, timeframe, fr.candles,
+                               source=prov.name, source_revision=fr.source_id)
+    res.stored_report = rep.to_dict()
+    cov = store.get_coverage(asset, timeframe)
+    res.coverage = cov.to_dict()
+    res.gaps = store.detect_gaps(asset, timeframe, min_gap_bars=2)
+    res.ok = rep.rejected < rep.received or rep.received == 0
+    return res
+
+
 def ingest(asset: str, timeframe: str, incremental: bool = False,
-           lookback_pad_bars: int = 5) -> IngestResult:
+           lookback_pad_bars: int = 5, provider: Optional[str] = None) -> IngestResult:
     asset = research_universe.normalise(asset)
     timeframe = (timeframe or "").strip().lower()
     inst = research_universe.get_instrument(asset)
@@ -161,6 +200,12 @@ def ingest(asset: str, timeframe: str, incremental: bool = False,
     if inst is None:
         res.error = f"{asset} is not in the research universe"
         return res
+
+    prov_name = provider or os.getenv("HISTORICAL_OHLCV_PROVIDER") or ""
+    prov_name = prov_name.strip().lower()
+    if prov_name and prov_name not in ("", "none", "auto", "store", "yfinance", "yahoo"):
+        return _provider_ingest(asset, timeframe, prov_name, incremental, res)
+
     if yf is None:
         res.error = "yfinance unavailable in this environment"
         return res
@@ -214,12 +259,13 @@ def ingest(asset: str, timeframe: str, incremental: bool = False,
 
 
 def ingest_universe(timeframes: Optional[List[str]] = None, incremental: bool = False,
-                    pause_sec: float = 0.6) -> List[IngestResult]:
+                    pause_sec: float = 0.6, provider: Optional[str] = None
+                    ) -> List[IngestResult]:
     tfs = timeframes or ["1d", "1h", "4h"]
     results: List[IngestResult] = []
     for inst in research_universe.universe():
         for tf in tfs:
-            results.append(ingest(inst.symbol, tf, incremental=incremental))
+            results.append(ingest(inst.symbol, tf, incremental=incremental, provider=provider))
             time.sleep(pause_sec)
     return results
 
@@ -246,15 +292,19 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--universe", action="store_true", help="ingest the whole research universe")
     p.add_argument("--timeframes", default="1d,1h,4h", help="comma list for --universe")
     p.add_argument("--incremental", action="store_true", help="only fetch since last stored candle")
+    p.add_argument("--provider", help="override HISTORICAL_OHLCV_PROVIDER (e.g. mt5, yfinance)")
     args = p.parse_args(argv)
 
     store.register_with_phase68()
+    if (args.provider or os.getenv("HISTORICAL_OHLCV_PROVIDER") or "").strip().lower() == "mt5":
+        import mt5_provider  # registers itself
 
     if args.universe:
         tfs = [t.strip().lower() for t in args.timeframes.split(",") if t.strip()]
-        results = ingest_universe(tfs, incremental=args.incremental)
+        results = ingest_universe(tfs, incremental=args.incremental, provider=args.provider)
     elif args.asset and args.timeframe:
-        results = [ingest(args.asset, args.timeframe, incremental=args.incremental)]
+        results = [ingest(args.asset, args.timeframe, incremental=args.incremental,
+                          provider=args.provider)]
     else:
         p.error("supply --universe, or both --asset and --timeframe")
         return 2

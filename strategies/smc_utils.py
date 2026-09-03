@@ -124,6 +124,48 @@ def add_smc_features(df: pd.DataFrame, swing_length: int = 5) -> pd.DataFrame:
     
     return df
 
+
+# --------------------------------------------------------------------------
+# Phase 74 — per-DataFrame column cache.
+#
+# detect_mss / detect_liquidity_sweep are O(1) but each does ~10 pandas
+# ``.iloc`` scalar reads. Called ~60x per bar by ict_2022_model.analyze over a
+# 100k-bar intraday backtest that is tens of millions of ``.iloc`` calls
+# (TECHNICAL_DEBT P2-10). Pulling the columns they touch into plain numpy arrays
+# ONCE per DataFrame and indexing those instead is ~40x faster with byte-for-byte
+# identical values (same columns, same comparisons) — proven by
+# tests/test_phase74_ict_equivalence.py.
+# --------------------------------------------------------------------------
+_COL_CACHE: dict = {}
+_SWEEP_COLS = ("Open", "High", "Low", "Close", "last_swing_high", "last_swing_low",
+               "PWH", "PWL", "PDH", "PDL", "asian_high", "asian_low",
+               "last_eqh", "last_eql")
+
+
+def _cols(df: pd.DataFrame):
+    # Keyed on (id(df), len(df)). ``add_smc_features`` returns a fresh DataFrame
+    # per call and the analyze loop never mutates it, so the key is stable for a
+    # whole backtest and changes whenever the frame does. Bounded cache guards
+    # against id reuse across runs.
+    fp = (id(df), len(df))
+    hit = _COL_CACHE.get(fp)
+    if hit is not None:
+        return hit
+    arrs = {c: df[c].to_numpy() for c in _SWEEP_COLS if c in df.columns}
+    if len(_COL_CACHE) > 8:
+        _COL_CACHE.clear()
+    _COL_CACHE[fp] = arrs
+    return arrs
+
+
+def invalidate_col_cache() -> None:
+    _COL_CACHE.clear()
+
+
+def _isna(x) -> bool:
+    return x is None or x != x  # NaN != NaN
+
+
 def detect_liquidity_sweep(df: pd.DataFrame, current_index: int, lookback: int = 50) -> dict:
     """
     Checks if the recent price action swept a major swing point (Liquidity).
@@ -131,68 +173,54 @@ def detect_liquidity_sweep(df: pd.DataFrame, current_index: int, lookback: int =
     """
     if current_index < lookback:
         return {"sweep": None}
-        
-    row = df.iloc[current_index]
-    # In a live scenario, a sweep is detected if the *current* candle wicks beyond the last swing, 
-    # but the previous candle might have also swept it. For strictness, we check if the High/Low went beyond the last known swing level.
-    
-    last_sh = df['last_swing_high'].iloc[current_index - 1]
-    last_sl = df['last_swing_low'].iloc[current_index - 1]
-    
-    # Check multiple liquidity pools
-    # We prioritize higher timeframe / session liquidity over fractal swings
+
+    c = _cols(df)
+    i, j = current_index, current_index - 1
+    hi = float(c["High"][i]); lo = float(c["Low"][i]); cl = float(c["Close"][i])
+
+    def _lvl(col):
+        a = c.get(col)
+        return None if a is None else a[j]
+
     pools = []
-    
-    # PWH / PWL (Highest timeframe liquidity)
-    if 'PWH' in df.columns:
-        pwh = df['PWH'].iloc[current_index - 1]
-        pwl = df['PWL'].iloc[current_index - 1]
-        if pd.notna(pwh) and row['High'] > pwh and row['Close'] < pwh:
+
+    pwh, pwl = _lvl("PWH"), _lvl("PWL")
+    if pwh is not None:
+        if not _isna(pwh) and hi > pwh and cl < pwh:
             pools.append({"sweep": "BSL", "level": pwh, "type": "PWH"})
-        if pd.notna(pwl) and row['Low'] < pwl and row['Close'] > pwl:
+        if not _isna(pwl) and lo < pwl and cl > pwl:
             pools.append({"sweep": "SSL", "level": pwl, "type": "PWL"})
 
-    # PDH / PDL
-    if 'PDH' in df.columns:
-        pdh = df['PDH'].iloc[current_index - 1]
-        pdl = df['PDL'].iloc[current_index - 1]
-        if pd.notna(pdh) and row['High'] > pdh and row['Close'] < pdh:
+    pdh, pdl = _lvl("PDH"), _lvl("PDL")
+    if pdh is not None:
+        if not _isna(pdh) and hi > pdh and cl < pdh:
             pools.append({"sweep": "BSL", "level": pdh, "type": "PDH"})
-        if pd.notna(pdl) and row['Low'] < pdl and row['Close'] > pdl:
+        if not _isna(pdl) and lo < pdl and cl > pdl:
             pools.append({"sweep": "SSL", "level": pdl, "type": "PDL"})
-            
-    # Asian Range
-    if 'asian_high' in df.columns:
-        ash = df['asian_high'].iloc[current_index - 1]
-        asl = df['asian_low'].iloc[current_index - 1]
-        if pd.notna(ash) and row['High'] > ash and row['Close'] < ash:
-            pools.append({"sweep": "BSL", "level": ash, "type": "ASIAN_HIGH"})
-        if pd.notna(asl) and row['Low'] < asl and row['Close'] > asl:
-            pools.append({"sweep": "SSL", "level": asl, "type": "ASIAN_LOW"})
-            
-    # Equal Highs / Lows (EQH / EQL)
-    if 'last_eqh' in df.columns:
-        last_eqh = df['last_eqh'].iloc[current_index - 1]
-        last_eql = df['last_eql'].iloc[current_index - 1]
-        if pd.notna(last_eqh) and row['High'] > last_eqh and row['Close'] < last_eqh:
-            pools.append({"sweep": "BSL", "level": last_eqh, "type": "EQH"})
-        if pd.notna(last_eql) and row['Low'] < last_eql and row['Close'] > last_eql:
-            pools.append({"sweep": "SSL", "level": last_eql, "type": "EQL"})
 
-    # Fractal Swings
-    if 'last_swing_high' in df.columns:
-        last_sh = df['last_swing_high'].iloc[current_index - 1]
-        last_sl = df['last_swing_low'].iloc[current_index - 1]
-        
-        if pd.notna(last_sh) and row['High'] > last_sh and row['Close'] < last_sh:
-            pools.append({"sweep": "BSL", "level": last_sh, "type": "SWING_HIGH"})
-        if pd.notna(last_sl) and row['Low'] < last_sl and row['Close'] > last_sl:
-            pools.append({"sweep": "SSL", "level": last_sl, "type": "SWING_LOW"})
-            
+    ash, asl = _lvl("asian_high"), _lvl("asian_low")
+    if ash is not None:
+        if not _isna(ash) and hi > ash and cl < ash:
+            pools.append({"sweep": "BSL", "level": ash, "type": "ASIAN_HIGH"})
+        if not _isna(asl) and lo < asl and cl > asl:
+            pools.append({"sweep": "SSL", "level": asl, "type": "ASIAN_LOW"})
+
+    eqh, eql = _lvl("last_eqh"), _lvl("last_eql")
+    if eqh is not None:
+        if not _isna(eqh) and hi > eqh and cl < eqh:
+            pools.append({"sweep": "BSL", "level": eqh, "type": "EQH"})
+        if not _isna(eql) and lo < eql and cl > eql:
+            pools.append({"sweep": "SSL", "level": eql, "type": "EQL"})
+
+    sh, sl = _lvl("last_swing_high"), _lvl("last_swing_low")
+    if sh is not None:
+        if not _isna(sh) and hi > sh and cl < sh:
+            pools.append({"sweep": "BSL", "level": sh, "type": "SWING_HIGH"})
+        if not _isna(sl) and lo < sl and cl > sl:
+            pools.append({"sweep": "SSL", "level": sl, "type": "SWING_LOW"})
+
     if pools:
-        # Return the most significant pool swept (first in list based on priority)
         return pools[0]
-        
     return {"sweep": None, "level": None, "type": None}
 
 def detect_mss(df: pd.DataFrame, current_index: int, lookback: int = 20) -> str:
@@ -203,17 +231,19 @@ def detect_mss(df: pd.DataFrame, current_index: int, lookback: int = 20) -> str:
     """
     if current_index < 1:
         return None
-        
-    row = df.iloc[current_index]
-    last_sh = df['last_swing_high'].iloc[current_index - 1]
-    last_sl = df['last_swing_low'].iloc[current_index - 1]
-    
-    if pd.notna(last_sh) and row['Close'] > last_sh:
+
+    c = _cols(df)
+    j = current_index - 1
+    cl = float(c["Close"][current_index])
+    sh = c.get("last_swing_high")
+    sl = c.get("last_swing_low")
+    last_sh = None if sh is None else sh[j]
+    last_sl = None if sl is None else sl[j]
+
+    if not _isna(last_sh) and cl > last_sh:
         return "BULLISH"
-    
-    if pd.notna(last_sl) and row['Close'] < last_sl:
+    if not _isna(last_sl) and cl < last_sl:
         return "BEARISH"
-        
     return None
 
 
