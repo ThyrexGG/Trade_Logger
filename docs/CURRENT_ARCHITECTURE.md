@@ -304,11 +304,9 @@ historical holdout** (N=82, E[R]=+0.637R) is never pooled with forward data.
 ## 12. Testing
 
 `tests/` — run with `pytest tests/ -p no:randomly`.
-Baseline: **1322 passed, 5 skipped, 4 failed (~117s)** (Phase 69; +44 Phase-69
-tests). The 4 failures are pre-existing/environmental — `test_stage18_macro` /
-`test_phase64_macro_scorecard` assert `seed_demo` unconditionally and break when a
-live FRED provider is configured in `.env` (reproduce on clean `HEAD`; see
-`TECHNICAL_DEBT.md` P2-9). Was 1281/6/0 at Phase 68.
+Baseline: **1326 passed, 5 skipped, 0 failed (~150s)** (Phase 69; +44 Phase-69
+tests, +4 macro tests made provider-aware — `TECHNICAL_DEBT.md` P2-9). Was
+1281/6/0 at Phase 68.
 
 Naming: `test_phaseNN_*` = the Streamlit-era feature phases (still the bulk of
 coverage); `test_stageNN_*` = the React-migration stages; `test_*_safety.py` /

@@ -5,24 +5,20 @@ P2 improvement · P3 nice-to-have. Nothing here is a safety-invariant risk.*
 
 ---
 
-## P2 — Macro test suite assumes no live provider *(surfaced Phase 69)*
+## P2 — Macro test suite assumes no live provider *(surfaced + fixed Phase 69)*
 
-### P2-9 · 4 macro tests hard-assert `seed_demo` / `provider_is_live is False`
-- **Tests:** `test_stage18_macro.py::{test_macro_responses_carry_provenance,
-  test_ai_context_includes_bounded_macro_section}`,
+### P2-9 · 4 macro tests hard-asserted `seed_demo` / `provider_is_live is False` — ✅ RESOLVED (Phase 69)
+- **Was:** `test_stage18_macro.py::{test_macro_responses_carry_provenance,
+  test_ai_context_includes_bounded_macro_section}` and
   `test_phase64_macro_scorecard.py::{test_scorecard_response_shape,
-  test_every_response_carries_provenance}`.
-- **Symptom:** once a real macro provider is configured in `.env`
-  (`MACRO_DATA_PROVIDER=fred` + `FRED_API_KEY`), these fail because macro
-  responses correctly report `provenance="live"` / `provider_is_live=True`.
-  `database.py` loads `.env` with `override=True`, so a shell
-  `MACRO_DATA_PROVIDER=none` does not defeat it — the key must be absent from
-  `.env` for a green run, or the tests must become provider-aware.
-- **Not a regression:** reproduces on clean `HEAD` (`04d43c9`) with the key set.
-- **Recommended fix:** gate the `is False` assertions on
-  `os.getenv("MACRO_DATA_PROVIDER")` (assert shape + `provenance in {...}` always;
-  assert `seed_demo` only when no provider is configured), mirroring the Phase-67
-  COT fixture pattern.
+  test_every_response_carries_provenance}` failed once `.env` configured a live
+  FRED provider (`MACRO_DATA_PROVIDER=fred`) — the responses correctly reported
+  `provenance="live"` but the tests asserted `seed_demo` unconditionally.
+  Reproduced on clean `HEAD` (`04d43c9`); not a Phase-69 code regression.
+- **Fix:** module-level `_LIVE_MACRO` flag (evaluated after `api.main` import so
+  `.env` is loaded); the `seed_demo` / `provider_is_live is False` assertions are
+  now gated on `not _LIVE_MACRO`, while shape + `provenance in {...}` is asserted
+  unconditionally.
 
 ### P3-7 · `test_phase68_invariants.py::test_invariant_no_evidence_after_as_of` is order-dependent
 - Run **alone** it fails 8/19 with `ValueError: Invalid isoformat string: '2025-01'`

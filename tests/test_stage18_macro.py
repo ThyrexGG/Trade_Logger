@@ -8,6 +8,7 @@ or risk_gateway, and never fabricates economic data: missing stays missing,
 unsupported currencies return INSUFFICIENT_EVIDENCE, demo data is tagged
 `provenance="seed_demo"`.
 """
+import os
 import types
 
 import pytest
@@ -18,6 +19,12 @@ from api import surprise_engine as se
 from api.macro_provider import normalize_event
 
 client = TestClient(app)
+
+# A real macro provider may be configured in the environment (.env
+# MACRO_DATA_PROVIDER=fred + FRED_API_KEY). When it is, macro responses correctly
+# report provenance="live" / provider_is_live=True; the seed_demo assertions only
+# hold when no live provider is wired.
+_LIVE_MACRO = (os.getenv("MACRO_DATA_PROVIDER") or "").strip().lower() not in ("", "none", "seed_demo")
 
 
 # --- 18A: provider normalization ------------------------------------
@@ -104,7 +111,8 @@ def test_macro_responses_carry_provenance():
                "/api/macro/events/upcoming", "/api/macro/surprises"):
         d = client.get(ep).json()
         assert d["data_provider"] and "provider_is_live" in d and d["provenance"] in ("live", "seed_demo", "unavailable")
-        assert d["provider_is_live"] is False  # default provider is the seed_demo one
+        if not _LIVE_MACRO:
+            assert d["provider_is_live"] is False  # default provider is the seed_demo one
         assert "disclaimer" in d
 
 
@@ -199,7 +207,9 @@ def test_ai_context_includes_bounded_macro_section():
     ctx = build_context()
     macro = ctx["snapshot"].get("macro_intelligence")
     assert macro is not None
-    assert macro["is_live_data"] is False and macro["provenance"] == "seed_demo"
+    assert macro["provenance"] in ("live", "seed_demo", "unavailable")
+    if not _LIVE_MACRO:
+        assert macro["is_live_data"] is False and macro["provenance"] == "seed_demo"
     # bounded — no raw calendar dump
     assert len(macro["upcoming_high_impact_events"]) <= 5
     assert len(macro["recent_important_surprises"]) <= 5

@@ -8,6 +8,7 @@ lookahead protection, per-country heatmap isolation, snapshot persistence +
 ordering (no synthetic history), provenance labelling, API validation, and
 that no macro surface has an execution side effect.
 """
+import os
 from datetime import datetime, timezone
 
 import pytest
@@ -18,6 +19,11 @@ from api import macro_scorecard as ms
 from api.main import app
 
 client = TestClient(app)
+
+# When a real macro provider is wired (.env MACRO_DATA_PROVIDER=fred + FRED_API_KEY)
+# macro payloads correctly report provenance="live"; the seed_demo labelling
+# assertions only hold with no live provider configured.
+_LIVE_MACRO = (os.getenv("MACRO_DATA_PROVIDER") or "").strip().lower() not in ("", "none", "seed_demo")
 
 
 @pytest.fixture(autouse=True)
@@ -244,9 +250,12 @@ def test_every_response_carries_provenance():
         ms.get_country_heatmap("CAD"),
         ms.get_heatmap_index(),
     ):
-        assert payload["data_provider"] == "seed_demo"
-        assert payload["provider_is_live"] is False
-        assert payload["provenance"] == "seed_demo"
+        assert "data_provider" in payload and "provider_is_live" in payload
+        assert payload["provenance"] in ("live", "seed_demo", "unavailable")
+        if not _LIVE_MACRO:
+            assert payload["data_provider"] == "seed_demo"
+            assert payload["provider_is_live"] is False
+            assert payload["provenance"] == "seed_demo"
 
 
 # --- API layer ----------------------------------------------------
@@ -271,7 +280,9 @@ def test_api_rejects_unsupported():
 def test_scorecard_response_shape():
     d = client.get("/api/macro/scorecard/XAUUSD").json()
     assert d["available"] is True
-    assert d["provenance"] == "seed_demo"
+    assert d["provenance"] in ("live", "seed_demo", "unavailable")
+    if not _LIVE_MACRO:
+        assert d["provenance"] == "seed_demo"
     assert len(d["categories"]) == 6
     assert "disclaimer" in d
 

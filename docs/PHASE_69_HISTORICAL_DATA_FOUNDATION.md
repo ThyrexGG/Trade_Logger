@@ -134,12 +134,11 @@ the repo.
 - `test_phase69_safety.py` (7) — no execution imports, GET-only, safety barrier,
   health invariants, no secrets, frozen hash + holdout intact.
 
-**Full regression:** `pytest tests/ -p no:randomly` → **1322 passed, 5 skipped,
-4 failed**. The 4 failures (`test_stage18_macro`, `test_phase64_macro_scorecard`)
-are **pre-existing and environmental** — they reproduce on clean `HEAD` when a
-live FRED provider is configured in `.env`; they assert `seed_demo`
-unconditionally. Tracked as `TECHNICAL_DEBT.md` P2-9. No Phase-69 module touches
-macro.
+**Full regression:** `pytest tests/ -p no:randomly` → **1326 passed, 5 skipped,
+0 failed**. Includes a fix to 4 macro tests (`test_stage18_macro`,
+`test_phase64_macro_scorecard`) that asserted `seed_demo` unconditionally and
+broke once a live FRED provider was configured in `.env` — now provider-aware
+(`TECHNICAL_DEBT.md` P2-9). No Phase-69 module touches macro.
 
 `npx tsc --noEmit` clean · `npm run build` clean (frontend untouched — UI lands
 in Phase 71/72).
