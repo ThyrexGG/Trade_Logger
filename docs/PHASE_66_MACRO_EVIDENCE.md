@@ -1,8 +1,8 @@
 # Phase 66 — Multi-Provider Macro Evidence Layer
 
 ```text
-commit:        <filled on commit>
-working tree:  clean after commit
+commit:        f599ff9
+working tree:  clean
 pushed:        origin/main
 ```
 
@@ -317,7 +317,7 @@ is untouched.
 ## 14. Git
 
 ```text
-commit:        <filled on commit>
+commit:        f599ff9
 working tree:  clean
 pushed:        origin/main
 ```
