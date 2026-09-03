@@ -1,8 +1,28 @@
 # Local credentials and database
+# Ignore every .env variant (.env, .env.local, .env.bak, .env.fred, .env.2, …)
 .env
-.env.local
-.env.*.local
-.env.production
+.env.*
+# …but keep the checked-in templates
+!.env.example
+!.env.sample
+!.env.template
+
+# Other secret-bearing files — never commit
+*.pem
+*.key
+*.p12
+*.pfx
+*_rsa
+*_ed25519
+id_rsa*
+secrets.json
+secrets.yaml
+secrets.yml
+.secrets
+credentials.json
+service-account*.json
+*.env.enc
+
 *.db
 
 # Temporary test and migration scripts in root
