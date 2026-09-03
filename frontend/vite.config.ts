@@ -27,6 +27,16 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       sourcemap: false,
+      rollupOptions: {
+        output: {
+          // Keep the rarely-changing framework runtime in its own chunk so it
+          // stays cached across app deploys; route chunks are emitted
+          // automatically from the React.lazy() imports in App.tsx.
+          manualChunks: {
+            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          },
+        },
+      },
     },
   }
 })

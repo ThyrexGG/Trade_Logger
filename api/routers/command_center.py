@@ -24,6 +24,8 @@ The heavy XAUUSD news / economic-calendar engine
 migrated here — that macro layer stays in Streamlit pending the separately
 specified macro-intelligence stage.
 """
+import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Any, Dict, List
@@ -212,14 +214,33 @@ def _research_state() -> CCResearchState:
     return CCResearchState(decision_state=state, sample_n=n, headline=headline)
 
 
+# `DailyResearchJournal.get_notes` re-runs its schema bootstrap (several DDL
+# round-trips) on every call — ~290 ms, and after the safety-gate cache this is
+# the slowest section of the overview fan-out. The notes are authored by hand in
+# the Streamlit journal and change on the order of minutes, so a short snapshot
+# cache is correct here.
+_NOTES_CACHE: Dict[str, tuple] = {}
+_NOTES_CACHE_LOCK = threading.Lock()
+_NOTES_CACHE_TTL = 30.0
+
+
 def _research_notes() -> List[CCNote]:
+    now_m = time.monotonic()
+    with _NOTES_CACHE_LOCK:
+        hit = _NOTES_CACHE.get("notes")
+        if hit and (now_m - hit[0]) < _NOTES_CACHE_TTL:
+            return hit[1]
+
     from xauusd_daily_command_center import DailyResearchJournal
     notes = DailyResearchJournal.get_notes(limit=5) or []
-    return [CCNote(
+    built = [CCNote(
         note_id=str(nt.get("note_id", "")), created_at=str(nt.get("created_at", "")),
         category=str(nt.get("category", "")), note_text=str(nt.get("note_text", "")),
         session_context=str(nt.get("session_context")) if nt.get("session_context") else None,
     ) for nt in notes]
+    with _NOTES_CACHE_LOCK:
+        _NOTES_CACHE["notes"] = (time.monotonic(), built)
+    return built
 
 
 def _watchlist_highlights() -> List[CCWatchHighlight]:
@@ -240,8 +261,8 @@ def _watchlist_highlights() -> List[CCWatchHighlight]:
 
 def _safety() -> CCSafety:
     try:
-        import system_health
-        gate = system_health.evaluate_system_health(broker="MT5", mode="PAPER") or {}
+        from api.system_health_cache import cached_paper_system_health
+        gate = cached_paper_system_health(broker="MT5") or {}
         checks = gate.get("checks", {}) or {}
         return CCSafety(
             automation_enabled=False, live_broker_transmission="BLOCKED",

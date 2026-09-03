@@ -30,7 +30,7 @@ power-user workflows not yet migrated.
 | Trading Workspace — watchlist, market snapshot, MTF/SMC context | **production-safe**, live data |
 | Risk Gateway — position sizing / pre-trade risk preview (currency-aware FX) | **production-safe**, calc only |
 | Positions — open paper/shadow positions + excursion metrics | **production-safe**, live data |
-| Daily Command Center — "what matters today" aggregate | **production-safe**, live data (slow — see perf) |
+| Daily Command Center — "what matters today" aggregate | **production-safe**, live data (warm p50 ~26 ms since Phase 62) |
 | Price Alerts — CRUD; evaluation by the `auto_sync` daemon | **production-safe** |
 | Analytics — filtered performance over the closed-trade journal | **production-safe**, byte-parity with canonical engine |
 | AI Assistant — read-only analytical chat (Gemini) | **production-safe when `GEMINI_API_KEY` is set**; graceful "not configured" otherwise |
@@ -84,10 +84,10 @@ evidence. 1043 tests pass.
 - **Streamlit-only workflows** — AI Market Context (Ollama), notification-rules
   engine, daily-command-center note/snapshot *writing*, some USDJPY/True-MTF
   research labs, adversarial audits.
-- **DB connection pooling** — every request opens a fresh Postgres connection
-  (~340 ms). Biggest performance lever. See `TECHNICAL_DEBT.md` P1.
-- **`/api/operations/audit` and `/api/operations/system` caching** — Stage 11
-  deferred; warm p50 ~1.3 s / ~0.7 s.
+
+**Done in Phase 62** (was here as incomplete): DB connection pooling,
+`/api/operations/{audit,system}` caching, command-centre latency, frontend
+code-splitting. See `PERFORMANCE_REPORT.md`. All warm API p50 ≤ 40 ms.
 
 ## What should NOT be changed
 
@@ -104,11 +104,11 @@ evidence. 1043 tests pass.
 
 ## Recommended next development area
 
-1. **Performance phase** — DB connection pooling + cache the 2–3 remaining slow
-   endpoints. The measured baseline is in `docs/performance_baseline.json`.
-2. **Macro real-provider + scorecard** — only after (1), and with the reference
-   screenshots the user will supply.
-3. **Streamlit workflow migration** — notification-rules engine and daily-command-centre
-   writes are the smallest remaining units.
+1. ~~**Performance phase**~~ — **done (Phase 62).** DB pooling, endpoint caches,
+   startup warm-up, frontend code-splitting. `PERFORMANCE_REPORT.md`.
+2. **Macro real-provider + scorecard** — with the reference screenshots the
+   user will supply. Still PARKED (`FUTURE_WORK.md`).
+3. **Streamlit workflow migration** — notification-rules engine and
+   daily-command-centre writes are the smallest remaining units.
 
-Decide separately; this pass does not start any of them.
+Decide separately; this phase does not start any of them.

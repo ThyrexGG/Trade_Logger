@@ -4,9 +4,12 @@ TradeLogger FastAPI Primary Application Entry Point (Stage 2 Read-Only Vertical 
 Provides high-speed, typed, read-only adapter endpoints directly invoking
 authoritative Python calculation engines without logic duplication.
 """
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+import database
 from api.routers import (
     health,
     watchlist,
@@ -25,11 +28,63 @@ from api.routers import (
     macro
 )
 
+def _warm_up() -> None:
+    """Best-effort startup warm-up.
+
+    The first request to several pages otherwise pays a one-off ~1 s cost:
+    lazy engine imports inside the route plus the initial (uncached) DB read.
+    Priming them here moves that cost to process start, before uvicorn accepts
+    traffic, so the first real user navigation is as fast as a warm one. Every
+    step is guarded — a slow or unreachable dependency must never stop boot.
+    """
+    try:
+        conn = database.get_connection()   # builds + primes the pg pool
+        conn.close()
+    except Exception:
+        pass
+
+    # A bare TestClient (no `with`) does not re-enter this lifespan; it just
+    # lets us exercise the read routes to trigger their lazy imports + cache fill.
+    from fastapi.testclient import TestClient
+
+    client = TestClient(app)
+    for path in (
+        "/api/watchlist",
+        "/api/positions",
+        "/api/analytics/performance",
+        "/api/operations/audit",
+        "/api/operations/system",
+        "/api/command-center/overview",
+    ):
+        try:
+            client.get(path)
+        except Exception:
+            pass
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    import os
+
+    if os.getenv("TL_SKIP_WARMUP", "").strip() not in ("1", "true", "True"):
+        try:
+            _warm_up()
+        except Exception:
+            pass
+    yield
+    # Return every pooled socket cleanly on shutdown.
+    try:
+        database.close_all_pools()
+    except Exception:
+        pass
+
+
 # Initialize FastAPI App
 app = FastAPI(
     title="TradeLogger Fast Terminal API",
     description="High-speed read-only adapter layer for TradeLogger quantitative trading & research terminal",
-    version="2.0.0"
+    version="2.0.0",
+    lifespan=lifespan,
 )
 
 # Enable CORS for React SPA (Vite dev port 5173, preview 4173)

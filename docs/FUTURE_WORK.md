@@ -16,18 +16,27 @@ assistant with an allowlisted context (incl. bounded macro snapshot).
 
 ---
 
+## DONE
+
+- **Performance phase (Phase 62)** — DB connection pooling, TTL caches on
+  `/api/operations/{audit,system}` and command-centre sections, FastAPI startup
+  warm-up, frontend route-level code splitting. All warm API p50 ≤ 40 ms; cold
+  data path −85–99%. See `PERFORMANCE_REPORT.md` + `PHASE_62_REPORT.md`.
+
 ## NEXT (small, well-scoped, low risk)
 
-- **Performance phase** — DB connection pooling (`TECHNICAL_DEBT.md` P1-1) +
-  cache `/api/operations/audit` and `/api/operations/system` (P1-2, P1-3). This
-  is the highest-value next step; the measured baseline is ready.
-- **Command-centre per-section timeout** (`TECHNICAL_DEBT.md` P3-2).
+- **Command-centre per-section timeout** (`TECHNICAL_DEBT.md` P3-2) — lower risk
+  now that the I/O-heavy sections are cached, but still worth doing.
+- **Combine the `/api/operations/audit` cold queries** (`TECHNICAL_DEBT.md` P3-4).
 - **Import / lint tidy** with `ruff` across `api/` (P2-2).
 
 ## LATER (bigger, needs its own design + regression)
 
-- **`database.py` split** into `db/` submodules (only with the pooling change).
-- **Frontend route-level code splitting** (`TECHNICAL_DEBT.md` P2-1).
+- **`database.py` split** into `db/` submodules (the pool now lives at the top
+  of it; a `db/connection.py` is the natural first slice).
+- **Co-located Postgres / read replica** — the pool removed the connect
+  handshake but not the ~125 ms/query RTT to the managed instance. This is an
+  infra decision, and the only structural fix left for DB-bound endpoints.
 - **Migrate the remaining Streamlit workflows:** notification-rules engine
   (`alerts.get_alert_rules` / `save_alert_rules`), daily-command-centre note /
   snapshot *writing*, AI Market Context (Ollama), USDJPY / True-MTF research

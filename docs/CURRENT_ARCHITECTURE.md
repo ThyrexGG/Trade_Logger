@@ -42,9 +42,12 @@ frontend/src/
   api/client.ts             apiGet / apiPost / apiPatch / apiDelete (native fetch, typed)
   api/<feature>.ts          typed endpoint wrappers
   types/<feature>.ts        response contracts
-  pages/<Feature>Page.tsx   one page per route (24 pages)
+  pages/<Feature>Page.tsx   one page per route (24 pages); all but the landing +
+                            zone/overview pages are React.lazy() -> own JS chunk,
+                            loaded on first navigation behind one <Suspense>
   components/
-    shell/                  AppShell, Sidebar, TopBar, Breadcrumbs, CommandPalette, PageContainer
+    shell/                  AppShell, Sidebar, TopBar, Breadcrumbs, CommandPalette,
+                            PageContainer, RouteFallback (Suspense fallback)
     <feature>/              feature components; operations/primitives.tsx + intelligence/primitives.tsx
                             + research/primitives.tsx hold the shared cards / metrics / tags / Sparkline
   styles/tokens.css         design tokens (derived from ui_components.py TOKENS)
@@ -123,10 +126,19 @@ api/
 
 `database.py` — dual backend: **PostgreSQL** (cloud, when `DATABASE_URL` is set)
 with **SQLite fallback** (`trades.db`, used automatically under pytest via
-`PYTEST_CURRENT_TEST`). `get_connection()` opens a **fresh connection per call**
-(no pool — see `TECHNICAL_DEBT.md` P1). Schema is created idempotently by
-`init_db()` and per-feature `_ensure_*_tables()` helpers. `_DB_CACHE` is a
-process-level dict used by the short-TTL read caches.
+`PYTEST_CURRENT_TEST`). Schema is created idempotently by `init_db()` and
+per-feature `_ensure_*_tables()` helpers. `_DB_CACHE` is a process-level dict
+used by the short-TTL read caches.
+
+**Connection pool (Phase 62).** For the Postgres backend `get_connection()`
+hands out a connection from a process-wide `psycopg2.pool.ThreadedConnectionPool`
+(lazy, fork-safe) wrapped in a `_PooledConnection` proxy — callers use it
+exactly as before, and `.close()` returns it to the pool. Idle connections are
+re-validated (`SELECT 1`) past `DB_POOL_IDLE_PING` s; pool exhaustion falls back
+to a direct connect. Config: `DB_POOL_{ENABLED,MIN,MAX,IDLE_PING}`. The SQLite
+path is unpooled (connect is free). The FastAPI `lifespan` primes the pool +
+hot routes at startup and calls `close_all_pools()` on shutdown.
+`database.pool_stats()` exposes reuse / ping / fallback counters.
 
 Key tables: `raw_deals`, `closed_trades`, `open_positions`, `account_metadata`,
 `price_alerts`, `app_settings`, `execution_orders`, `execution_audit_log`,
@@ -143,7 +155,10 @@ Key tables: `raw_deals`, `closed_trades`, `open_positions`, `account_metadata`,
 | React data hooks | in-hook `useState` + module-level `Map` cache (`useOperations.ts`) | mount-reuse 12s, interval refresh 20–120s (paused when hidden) |
 | Forward-evidence read | `Phase49MonitoringFacade.get_cached_forward_state_snapshot` (Stage 3.5D bounded snapshot cache) | thread-safe internal |
 | Strategy-lab config | module-scope cache in `useStrategyLab.ts` (static for a session) | session |
-| **Not cached (slow)** | `/api/operations/audit`, `/api/operations/system` (Stage 11 deferred), and the market-intelligence aggregator | — |
+| Operations audit response | module TTL cache in `api/routers/operations.py`, keyed by `limit` (Phase 62) | 12s, `invalidate_audit_cache()` |
+| PAPER system-health gate | `api/system_health_cache.py`, shared by `get_system` + command-centre `_safety` (Phase 62) | 8s, `invalidate()` |
+| Command-centre research notes | module TTL cache in `api/routers/command_center.py` (Phase 62) | 30s |
+| Startup warm-up | FastAPI `lifespan` primes pool + heavy routes before traffic (`TL_SKIP_WARMUP=1` to skip) | once at boot |
 
 **Freshness rules that caching must never break:** `release_timestamp <= as_of`
 (macro / evidence lookahead protection), research reproducibility (fixed seeds),

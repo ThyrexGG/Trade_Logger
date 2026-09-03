@@ -7,63 +7,54 @@ P2 improvement · P3 nice-to-have. Nothing here is a safety-invariant risk.*
 
 ## P1 — Important
 
-### P1-1 · No database connection pooling
-- **Location:** `database.py :: get_connection()`
-- **Impact:** with the cloud Postgres backend, every call opens a fresh
-  `psycopg2.connect()` — **~340 ms** measured. Every uncached endpoint pays it
-  once; cold page loads pay it several times. This is the dominant cause of the
-  "feels slow when navigating" report. Warm latencies are fine because the
-  routers cache, but *first* visit to each area stalls.
-- **Recommended solution:** a `psycopg2.pool.ThreadedConnectionPool` (or
-  SQLAlchemy engine with `pool_pre_ping`) created once at process start, handed
-  out via a context manager; SQLite path unchanged. Requires a thread-safety
-  review of the ~40 `get_connection()` call sites and the reconciliation worker.
-- **Why deferred:** touches the shared persistence layer used by every engine
-  and the sync daemons — needs its own focused change + full regression, not a
-  cleanup-pass edit. The stabilization pass added short-TTL caches to the worst
-  read paths instead (`price_alerts` 8 s).
+> **All P1 items below were RESOLVED in Phase 62** (`perf: database pooling,
+> API latency, cold-load & bundle`). Kept here for history; see
+> `PERFORMANCE_REPORT.md` for the full write-up and measurements.
 
-### P1-2 · `/api/operations/audit` uncached — warm p50 ≈ 1.3 s
-- **Location:** `api/routers/operations.py :: get_audit`
-- **Impact:** every call runs `SELECT COUNT(*)` + 2 `GROUP BY` + a 200-row
-  `SELECT` on `execution_orders` (335 rows) over Postgres, **plus**
-  `_decision_ledger_count()` → `ResearchDecisionAuditEngine.get_audit_history(limit=1000)`.
-  No cache. Slowest endpoint in the app.
-- **Recommended solution:** a bounded-TTL snapshot cache (Stage 3.5-style, e.g.
-  15–30 s) keyed by `limit`; skip `_decision_ledger_count` unless requested.
-- **Why deferred:** explicitly parked at Stage 11 for the performance phase.
+### P1-1 · No database connection pooling — ✅ RESOLVED (Phase 62)
+- **Was:** `database.get_connection()` opened a fresh `psycopg2.connect()` every
+  call — **~280 ms handshake** measured — on ~150 call sites. Dominant cause of
+  navigation slowness.
+- **Fix:** `psycopg2.pool.ThreadedConnectionPool` in `database.py`, lazy +
+  fork-safe, handed out via a transparent `_PooledConnection` proxy whose
+  `.close()` returns the socket to the pool. Idle connections re-validated
+  (`SELECT 1`) past `DB_POOL_IDLE_PING` s; pool exhaustion falls back to a
+  direct connection. SQLite path unchanged. No new dependency. Config:
+  `DB_POOL_{ENABLED,MIN,MAX,IDLE_PING}`.
+- Covered by `tests/test_db_pool.py` (10 tests: reuse, return-not-close,
+  double-close, delegation, idle revalidation, dead-connection discard,
+  exhaustion fallback, shutdown).
 
-### P1-3 · `/api/operations/system` uncached — warm p50 ≈ 0.7 s
-- **Location:** `api/routers/operations.py :: get_system` → `system_health.evaluate_system_health`
-- **Impact:** re-runs the full PAPER-mode diagnostic gate (kill-switch, DB
-  connectivity, reconciliation worker heartbeat, unresolved-order scan) on every
-  request. Also the largest single contributor to `/api/command-center/overview`
-  (~0.7 s) because `_safety()` calls it.
-- **Recommended solution:** short-TTL cache (10 s) on `evaluate_system_health`
-  output, or expose a lighter "flags-only" fast path for the command centre.
-- **Why deferred:** same as P1-2.
+### P1-2 · `/api/operations/audit` uncached (~1.3 s) — ✅ RESOLVED (Phase 62)
+- **Fix:** 12 s snapshot cache keyed by `limit` in
+  `api/routers/operations.py` (`invalidate_audit_cache()` for any writer).
+  `execution_orders` is append-only and broker transmission is BLOCKED, so it
+  barely changes. Warm p50 1420 → 2.8 ms.
 
-### P1-4 · Cold-load cache miss + connection cost stacks
-- **Location:** `/api/watchlist` (cold 814 ms), `/api/positions` (411 ms),
-  `/api/analytics/performance` (369 ms)
-- **Impact:** first visit to a Workspace page is noticeably slow; warm is <5 ms.
-- **Recommended solution:** subsumed by P1-1 (pooling removes most of it). A
-  cheap partial mitigation: a startup warm-up task that primes the hot read
-  caches after the app boots.
-- **Why deferred:** depends on P1-1.
+### P1-3 · `/api/operations/system` uncached (~0.7 s) — ✅ RESOLVED (Phase 62)
+- **Fix:** 8 s cache on the PAPER system-health gate in the new
+  `api/system_health_cache.py`, shared by `get_system` and the command-centre
+  `_safety` section. **Not** placed inside `system_health.py` — real
+  execution-gating still calls the authoritative evaluator directly. Warm p50
+  760 → 2.0 ms; also removes ~250 ms from the command-centre fan-out.
+
+### P1-4 · Cold-load cache miss + connection cost stacks — ✅ RESOLVED (Phase 62)
+- **Fix:** pooling (P1-1) plus a best-effort startup warm-up in the FastAPI
+  `lifespan` (`api/main.py`) that primes the heavy routes before uvicorn
+  accepts traffic (`TL_SKIP_WARMUP=1` to disable). Cold `/api/watchlist`
+  1056 → ~1 ms in the deployed process.
 
 ---
 
 ## P2 — Improvement
 
-### P2-1 · Frontend bundle is one 510 kB chunk
-- **Location:** `frontend/` Vite build (chunk-size warning).
-- **Impact:** whole SPA JS downloaded up front (~137 kB gzip). Acceptable today,
-  grows with each feature.
-- **Recommended solution:** route-level `React.lazy` + `manualChunks` for the
-  heavy areas (research, macro, evidence).
-- **Why deferred:** not a correctness or perceived-latency problem yet;
-  unrelated to this pass's scope.
+### P2-1 · Frontend bundle is one 510 kB chunk — ✅ RESOLVED (Phase 62)
+- **Fix:** route-level `React.lazy` for all ~20 non-landing pages + a
+  `react-vendor` `manualChunks` split (`frontend/src/App.tsx`,
+  `frontend/vite.config.ts`). Initial JS 510 kB → 264 kB `index` + 51 kB
+  `react-vendor` (~97 kB gzip vs ~137 kB); route chunks 0.4–22 kB each, loaded
+  on first visit. Chunk-size warning gone. `index.js` at 264 kB is the
+  remaining shared core — split further only if it grows.
 
 ### P2-2 · Inconsistent `typing` imports / minor unused imports across routers
 - **Location:** `api/routers/intelligence.py` (`Dict, Any, Optional, List` unused),
@@ -111,6 +102,18 @@ P2 improvement · P3 nice-to-have. Nothing here is a safety-invariant risk.*
   timeout (sections are `ThreadPoolExecutor` futures with no `timeout=`).
 - **Recommended solution:** `fut.result(timeout=5)` per section → degrade that
   section.
+- **Note (Phase 62):** still open, but much lower risk now — the two sections
+  that made real DB round-trips (`_safety`, `_research_notes`) are cached, so
+  the common path no longer blocks on I/O.
+
+### P3-4 · Cold `/api/operations/audit` first hit ≈ 570 ms
+- **Location:** `api/routers/operations.py :: get_audit` +
+  `xauusd_research_decision_audit.ResearchDecisionAuditEngine.get_audit_history`
+- **Impact:** the very first request (before the 12 s cache fills / outside the
+  startup warm-up) does a `LIMIT 1000` ledger read + 4 sequential
+  `execution_orders` queries. Warm is 3 ms.
+- **Recommended solution:** one combined query for the counts + rows; smaller
+  ledger limit or a dedicated count query.
 
 ### P3-3 · `PlaceholderPage` / `ZoneOverviewPage` are dead-ish
 - **Location:** `frontend/src/pages/`
@@ -120,7 +123,18 @@ P2 improvement · P3 nice-to-have. Nothing here is a safety-invariant risk.*
 
 ---
 
-## Resolved during this stabilization pass
+## Resolved in Phase 62 (performance engineering)
+
+| Was | Fix | Result |
+| :-- | :-- | :-- |
+| P1-1 no DB connection pooling (~280 ms/connect × ~150 sites) | `psycopg2` `ThreadedConnectionPool` + transparent proxy in `database.py` | connect handshake eliminated; full reuse, no leaks |
+| P1-2 `/api/operations/audit` uncached (~1.4 s) | 12 s snapshot cache keyed by `limit` | warm p50 → 2.8 ms |
+| P1-3 `/api/operations/system` uncached (~0.8 s) | 8 s PAPER system-health cache (`api/system_health_cache.py`) | warm p50 → 2.0 ms |
+| P1-4 cold-load stacking | pooling + FastAPI `lifespan` startup warm-up | cold `/api/watchlist` 1056 → ~1 ms |
+| P2-1 one 510 kB JS chunk | route-level `React.lazy` + `react-vendor` split | initial JS −28% gzip; 20 route chunks |
+| command-centre overview warm p50 804 ms (p99 3.5 s) | pooling + the two caches above | warm p50 26 ms (p99 137 ms) |
+
+## Resolved during the earlier stabilization pass
 
 | Was | Fix |
 | :-- | :-- |

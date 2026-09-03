@@ -14,6 +14,8 @@ broker. `sqlite3` placeholders are handled for both SQLite and Postgres.
 """
 import math
 import sqlite3
+import threading
+import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Mapping, Optional
 
@@ -207,6 +209,22 @@ _AUDIT_COLUMNS = [
 ]
 
 
+# The audit trail is an append-only operational log (`execution_orders`,
+# currently ~335 rows) plus a decision-ledger record count. Building the
+# response is several sequential Postgres round-trips (~0.5-1.4 s). It changes
+# only when a signal is processed — and live broker transmission is BLOCKED — so
+# a short snapshot cache removes the repeated per-navigation stall without
+# hiding real activity. Any write path can call `invalidate_audit_cache()`.
+_AUDIT_CACHE: Dict[int, tuple] = {}
+_AUDIT_CACHE_LOCK = threading.Lock()
+_AUDIT_CACHE_TTL = 12.0
+
+
+def invalidate_audit_cache() -> None:
+    with _AUDIT_CACHE_LOCK:
+        _AUDIT_CACHE.clear()
+
+
 @router.get("/audit", response_model=AuditResponse)
 def get_audit(limit: int = Query(default=200, ge=1, le=1000)) -> AuditResponse:
     """
@@ -214,6 +232,12 @@ def get_audit(limit: int = Query(default=200, ge=1, le=1000)) -> AuditResponse:
     Every row is an immutable historical record of an execution attempt with its
     authoritative mode / state / reject reason. `signal_payload` is not exposed.
     """
+    now_m = time.monotonic()
+    with _AUDIT_CACHE_LOCK:
+        hit = _AUDIT_CACHE.get(limit)
+        if hit and (now_m - hit[0]) < _AUDIT_CACHE_TTL:
+            return hit[1]
+
     conn = database.get_connection()
     is_sq = isinstance(conn, sqlite3.Connection) or type(conn).__module__.startswith("sqlite3")
     ph = "?" if is_sq else "%s"
@@ -270,7 +294,7 @@ def get_audit(limit: int = Query(default=200, ge=1, le=1000)) -> AuditResponse:
 
     decision_ledger = _decision_ledger_count()
 
-    return AuditResponse(
+    response = AuditResponse(
         events=events,
         total_returned=len(events),
         total_records=total_records,
@@ -283,6 +307,9 @@ def get_audit(limit: int = Query(default=200, ge=1, le=1000)) -> AuditResponse:
         live_broker_transmission="BLOCKED",
         timestamp=datetime.now(timezone.utc).isoformat(),
     )
+    with _AUDIT_CACHE_LOCK:
+        _AUDIT_CACHE[limit] = (time.monotonic(), response)
+    return response
 
 
 def _decision_ledger_count() -> int:
@@ -305,8 +332,8 @@ def get_system() -> OperationsSystemResponse:
     """
     gate_raw: Dict[str, Any] = {}
     try:
-        import system_health
-        gate_raw = system_health.evaluate_system_health(broker="MT5", mode="PAPER") or {}
+        from api.system_health_cache import cached_paper_system_health
+        gate_raw = cached_paper_system_health(broker="MT5") or {}
     except Exception as exc:  # pragma: no cover - defensive
         gate_raw = {
             "overall_status": "UNKNOWN",

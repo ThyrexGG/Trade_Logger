@@ -1,5 +1,6 @@
 import os
 import time
+import threading
 import sqlite3
 from datetime import datetime, timezone
 import pandas as pd
@@ -56,11 +57,214 @@ def get_sql_placeholder(conn=None):
         return "%s"
     return "%s" if is_postgres() else "?"
 
+# ----------------- PostgreSQL Connection Pool (Phase 62) -----------------
+#
+# Every call to ``get_connection()`` used to open a brand-new ``psycopg2``
+# connection to the cloud Postgres backend. Measured cost of a fresh connect +
+# TLS handshake to the managed instance is ~400 ms, and it is paid by every
+# uncached endpoint (and several times over by the operations / command-centre
+# aggregates). A process-wide pool reuses a handful of warm connections instead.
+#
+# Semantics are deliberately unchanged for callers:
+#   * ``get_connection()`` still returns an object with ``.cursor()`` /
+#     ``.commit()`` / ``.rollback()`` / ``.close()``.
+#   * Callers still call ``.close()`` when done — that now returns the
+#     connection to the pool instead of tearing down the socket.
+#   * On return, psycopg2's pool rolls back any open transaction, so an
+#     uncommitted write is discarded exactly as an old ``.close()`` would.
+#   * The SQLite path (tests, ``USE_LOCAL_SQLITE=1``) is untouched — SQLite
+#     ``connect()`` is essentially free and needs the per-connection PRAGMAs.
+#
+# Configuration (env, all optional):
+#   DB_POOL_ENABLED     "1" (default) / "0" to fall back to connect-per-call
+#   DB_POOL_MIN         minimum idle connections kept open   (default 1)
+#   DB_POOL_MAX         hard ceiling on pooled connections    (default 12)
+#   DB_POOL_IDLE_PING   seconds before a checked-out connection is validated
+#                       with `SELECT 1` to survive server-side idle drops
+#                       (default 25; managed Postgres often closes at 60-300s)
+
+_PG_POOL = None
+_PG_POOL_PID = None
+_POOL_LOCK = threading.RLock()
+_POOL_LAST_RELEASED = {}   # id(raw_conn) -> time.monotonic() when last returned
+_POOL_STATS = {
+    "checkouts": 0, "reused": 0, "created": 0, "pings": 0,
+    "ping_failures": 0, "overflow_direct": 0, "returned": 0, "discarded": 0,
+}
+
+
+def _pool_enabled() -> bool:
+    return os.getenv("DB_POOL_ENABLED", "1").strip() not in ("0", "false", "False", "no")
+
+
+def _raw_pg_connect():
+    import psycopg2
+    return psycopg2.connect(get_db_url())
+
+
+def _get_pg_pool():
+    """Lazily build the process-wide ThreadedConnectionPool (fork-safe)."""
+    global _PG_POOL, _PG_POOL_PID
+    pid = os.getpid()
+    if _PG_POOL is not None and _PG_POOL_PID == pid:
+        return _PG_POOL
+    with _POOL_LOCK:
+        if _PG_POOL is not None and _PG_POOL_PID == pid:
+            return _PG_POOL
+        # A pool inherited across a fork holds sockets owned by the parent —
+        # drop it without touching those sockets and build a fresh one.
+        if _PG_POOL is not None and _PG_POOL_PID != pid:
+            _PG_POOL = None
+            _POOL_LAST_RELEASED.clear()
+        from psycopg2 import pool as _pg_pool_mod
+        pmin = max(0, int(os.getenv("DB_POOL_MIN", "1") or 1))
+        pmax = max(pmin + 1, int(os.getenv("DB_POOL_MAX", "12") or 12))
+        _PG_POOL = _pg_pool_mod.ThreadedConnectionPool(pmin, pmax, dsn=get_db_url())
+        _PG_POOL_PID = pid
+        return _PG_POOL
+
+
+def _idle_ping_sec() -> float:
+    try:
+        return float(os.getenv("DB_POOL_IDLE_PING", "25") or 25)
+    except (TypeError, ValueError):
+        return 25.0
+
+
+class _PooledConnection:
+    """Transparent proxy that returns its connection to the pool on ``close()``.
+
+    Everything except ``close()`` (and context-manager use) is delegated to the
+    real psycopg2 connection, so ``cursor()``, ``commit()``, ``rollback()`` and
+    ``pandas.read_sql_query`` all behave exactly as before.
+    """
+
+    __slots__ = ("_conn", "_pool", "_released")
+
+    def __init__(self, conn, pg_pool):
+        object.__setattr__(self, "_conn", conn)
+        object.__setattr__(self, "_pool", pg_pool)
+        object.__setattr__(self, "_released", False)
+
+    def close(self):
+        if object.__getattribute__(self, "_released"):
+            return
+        object.__setattr__(self, "_released", True)
+        conn = object.__getattribute__(self, "_conn")
+        pg_pool = object.__getattribute__(self, "_pool")
+        _POOL_STATS["returned"] += 1
+        try:
+            if getattr(conn, "closed", 0):
+                pg_pool.putconn(conn, close=True)
+                _POOL_STATS["discarded"] += 1
+                return
+            _POOL_LAST_RELEASED[id(conn)] = time.monotonic()
+            pg_pool.putconn(conn)
+        except Exception:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    def __getattr__(self, name):
+        return getattr(object.__getattribute__(self, "_conn"), name)
+
+    def __setattr__(self, name, value):
+        setattr(object.__getattribute__(self, "_conn"), name, value)
+
+    def __enter__(self):
+        # psycopg2 `with conn:` manages a transaction, not the socket. Preserve
+        # that: the caller still owns closing (returning) the connection.
+        object.__getattribute__(self, "_conn").__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return object.__getattribute__(self, "_conn").__exit__(exc_type, exc, tb)
+
+
+def _checkout_pooled():
+    """Get a validated connection from the pool, wrapped in the proxy."""
+    pg_pool = _get_pg_pool()
+    ping_after = _idle_ping_sec()
+    _POOL_STATS["checkouts"] += 1
+    for _ in range(6):
+        try:
+            conn = pg_pool.getconn()
+        except Exception:  # pool exhausted / unusable -> direct fallback
+            break
+        raw_id = id(conn)
+        released_at = _POOL_LAST_RELEASED.pop(raw_id, None)
+        is_recycled = released_at is not None
+        if is_recycled:
+            _POOL_STATS["reused"] += 1
+        else:
+            _POOL_STATS["created"] += 1
+        # Fresh pool connections are live; only validate ones that have been
+        # sitting idle long enough for the server to have dropped them.
+        needs_ping = bool(getattr(conn, "closed", 0)) or (
+            is_recycled and (time.monotonic() - released_at) >= ping_after
+        )
+        if not needs_ping:
+            return _PooledConnection(conn, pg_pool)
+        try:
+            if getattr(conn, "closed", 0):
+                raise RuntimeError("connection already closed")
+            _POOL_STATS["pings"] += 1
+            cur = conn.cursor()
+            cur.execute("SELECT 1")
+            cur.fetchone()
+            cur.close()
+            conn.rollback()
+            return _PooledConnection(conn, pg_pool)
+        except Exception as exc:
+            last_err = exc
+            _POOL_STATS["ping_failures"] += 1
+            try:
+                pg_pool.putconn(conn, close=True)
+            except Exception:
+                pass
+            # loop and try another connection
+    # Could not get a healthy pooled connection — never fail the caller: hand
+    # back a plain direct connection (it will simply be closed on `.close()`).
+    _POOL_STATS["overflow_direct"] += 1
+    if last_err is not None:
+        pass
+    return _raw_pg_connect()
+
+
+def close_all_pools():
+    """Close every pooled connection. Safe to call on shutdown / in tests."""
+    global _PG_POOL, _PG_POOL_PID
+    with _POOL_LOCK:
+        if _PG_POOL is not None:
+            try:
+                _PG_POOL.closeall()
+            except Exception:
+                pass
+        _PG_POOL = None
+        _PG_POOL_PID = None
+        _POOL_LAST_RELEASED.clear()
+
+
+def pool_stats() -> dict:
+    """Diagnostic snapshot of pool activity (used by the perf benchmark/tests)."""
+    with _POOL_LOCK:
+        stats = dict(_POOL_STATS)
+        stats["enabled"] = _pool_enabled() and is_postgres()
+        stats["pool_open"] = _PG_POOL is not None
+        return stats
+
+
 def get_connection():
     db_url = get_db_url()
     if db_url:
-        import psycopg2
-        return psycopg2.connect(db_url)
+        if _pool_enabled():
+            try:
+                return _checkout_pooled()
+            except Exception:
+                # Absolute last resort: behave exactly like the old code path.
+                return _raw_pg_connect()
+        return _raw_pg_connect()
     else:
         db_file = os.path.join(os.path.dirname(__file__), "trades.db")
         conn = sqlite3.connect(db_file, timeout=60.0)
