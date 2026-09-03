@@ -9,6 +9,7 @@ import type {
 import { SectionCard } from '../intelligence/primitives'
 import { OpsMetric, OpsStatusTag, OpsUnavailable } from '../operations/primitives'
 import { Gauge } from './Gauge'
+import { ProvenanceBanner } from './MacroViews'
 
 const INSTRUMENTS = ['XAUUSD', 'USD', 'EUR', 'GBP', 'JPY', 'EURUSD', 'GBPUSD', 'USDJPY', 'EURJPY', 'GBPJPY']
 const CATEGORY_LABEL: Record<string, string> = {
@@ -218,6 +219,8 @@ export function MacroScorecard() {
           </button>
         ))}
       </div>
+
+      {scorecard ? <ProvenanceBanner env={scorecard} /> : null}
 
       {state === 'loading' ? (
         <div className="rounded-lg border border-border bg-surface p-6 text-center text-xs text-muted">

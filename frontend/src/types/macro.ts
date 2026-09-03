@@ -7,6 +7,18 @@ export interface MacroEnvelope {
   data_provider: string
   provider_is_live: boolean
   provenance: 'live' | 'seed_demo' | 'unavailable' | string
+  provider_state?: 'LIVE' | 'LIVE_STALE' | 'SEED_DEMO' | 'NONE' | 'PROVIDER_UNAVAILABLE' | 'PENDING' | 'NOT_CONFIGURED' | string
+  provider_status?: {
+    provider?: string
+    provider_state?: string
+    configured?: boolean
+    records_registered?: number
+    coverage?: Record<string, string[]>
+    series_errors?: Record<string, string>
+    last_error?: string | null
+    hydrated_age_sec?: number | null
+    cache_ttl_sec?: number
+  }
   available: boolean
   disclaimer?: string | null
   timestamp: string

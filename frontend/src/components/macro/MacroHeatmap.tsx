@@ -3,6 +3,7 @@ import { useMacroHeatmap } from '../../lib/useMacroScorecard'
 import type { MacroHeatmapResponse } from '../../types/macro'
 import { SectionCard } from '../intelligence/primitives'
 import { OpsMetric, OpsUnavailable } from '../operations/primitives'
+import { ProvenanceBanner } from './MacroViews'
 
 const COUNTRIES = ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'NZD', 'CHF', 'CNY']
 
@@ -53,6 +54,8 @@ export function MacroHeatmap() {
           )
         })}
       </div>
+
+      {heatmap ? <ProvenanceBanner env={heatmap} /> : null}
 
       {state === 'loading' ? (
         <div className="rounded-lg border border-border bg-surface p-6 text-center text-xs text-muted">

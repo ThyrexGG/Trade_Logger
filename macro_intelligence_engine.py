@@ -314,6 +314,10 @@ class EconomicDataRegistry:
 
     _RELEASES: List[MacroReleaseRecord] = []
     _INITIALIZED: bool = False
+    # When a real data provider (Phase 65) owns the registry, the seeded
+    # canonical dataset must never be auto-loaded — a provider outage should
+    # surface as INSUFFICIENT_EVIDENCE, not silently fall back to demo data.
+    _PROVIDER_MANAGED: bool = False
 
     @classmethod
     def reset_registry(cls):
@@ -342,6 +346,8 @@ class EconomicDataRegistry:
     @classmethod
     def seed_canonical_registry(cls):
         """Seeds the registry with verified, realistic, lookahead-free historical and current economic releases."""
+        if cls._PROVIDER_MANAGED:
+            return  # a real provider owns the registry — never load demo data
         if cls._INITIALIZED and len(cls._RELEASES) > 0:
             return
 
@@ -625,22 +631,34 @@ class EconomicSurpriseEngine:
     def evaluate_release_surprise(cls, release: MacroReleaseRecord) -> Dict[str, Any]:
         """Calculates granular surprise metrics for a single macroeconomic release."""
         if release.actual is None or release.forecast is None:
+            # Incomplete-data path (e.g. a provider like FRED that supplies real
+            # actuals but no consensus forecast). Return the SAME key set as the
+            # scored path so downstream consumers never KeyError — every
+            # surprise-derived field is simply neutralised, not fabricated.
+            meta = INDICATOR_METADATA.get(release.metric, {})
             return {
                 "indicator": release.metric,
+                "display_name": meta.get("display_name", release.metric),
                 "country": release.country,
                 "period": release.period,
                 "forecast": release.forecast,
                 "actual": release.actual,
                 "previous": release.previous,
+                "unit": release.unit,
                 "raw_surprise": 0.0,
+                "z_score": 0.0,
                 "normalized_surprise": 0.0,
                 "surprise_state": "UNAVAILABLE",
                 "direction": "NEUTRAL",
                 "market_implication": "INCOMPLETE_DATA",
                 "magnitude": "NONE",
+                "family": meta.get("family", "GROWTH"),
                 "freshness": release.freshness_state,
                 "source": release.source,
-                "release_time": release.release_timestamp
+                "release_time": release.release_timestamp,
+                "revision_status": release.revision_status,
+                "initial_actual": release.initial_actual,
+                "revision_delta": release.revision_delta,
             }
 
         raw_surprise = round(release.actual - release.forecast, 4)

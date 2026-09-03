@@ -39,12 +39,17 @@ def _now() -> str:
 
 
 def _provider_meta() -> Dict[str, Any]:
-    p = get_provider()
-    return {
-        "data_provider": p.name,
-        "provider_is_live": bool(p.is_live),
-        "provenance": "live" if p.is_live else ("unavailable" if p.name == "none" else "seed_demo"),
-    }
+    """Provenance for every macro response. For a real provider this also
+    triggers a TTL-guarded hydrate of the canonical registry (never raises)."""
+    from api.macro_provider import ensure_macro_data
+    try:
+        return ensure_macro_data()
+    except Exception:
+        p = get_provider()
+        return {
+            "data_provider": p.name, "provider_is_live": bool(p.is_live),
+            "provenance": "live" if p.is_live else ("unavailable" if p.name == "none" else "seed_demo"),
+        }
 
 
 # --- events ------------------------------------------------------------

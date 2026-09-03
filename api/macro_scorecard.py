@@ -69,20 +69,18 @@ def _now() -> str:
 
 
 def _provenance() -> Dict[str, Any]:
+    """Provenance + (for a real provider) a TTL-guarded registry hydrate."""
     try:
-        from api.macro_provider import get_provider
-        p = get_provider()
-        return {
-            "data_provider": getattr(p, "name", "seed_demo"),
-            "provider_is_live": bool(getattr(p, "is_live", False)),
-            "provenance": "live" if getattr(p, "is_live", False) else "seed_demo",
-            "model_version": MODEL_VERSION,
-            "as_of": _now(),
-        }
+        from api.macro_provider import ensure_macro_data
+        meta = ensure_macro_data()
+        meta["model_version"] = MODEL_VERSION
+        meta["as_of"] = _now()
+        return meta
     except Exception:
         return {
             "data_provider": "seed_demo", "provider_is_live": False,
-            "provenance": "seed_demo", "model_version": MODEL_VERSION, "as_of": _now(),
+            "provenance": "seed_demo", "provider_state": "SEED_DEMO",
+            "model_version": MODEL_VERSION, "as_of": _now(),
         }
 
 
@@ -238,6 +236,12 @@ def _sentiment_stub() -> Dict[str, Any]:
 # public: single-instrument scorecard
 # --------------------------------------------------------------------------
 
+def _provider_unavailable(meta: Dict[str, Any]) -> bool:
+    """A real provider is configured but has no data (outage / never hydrated).
+    We must NOT silently fall back to the seeded canonical dataset."""
+    return meta.get("provider_is_live") and meta.get("provenance") == "unavailable"
+
+
 def get_scorecard(instrument: str, as_of: Optional[datetime] = None) -> Dict[str, Any]:
     inst = instrument.upper().strip()
     meta = _provenance()
@@ -247,6 +251,15 @@ def get_scorecard(instrument: str, as_of: Optional[datetime] = None) -> Dict[str
             **meta, "instrument": inst, "available": False, "state": "UNSUPPORTED",
             "reason": f"Supported: {', '.join(SUPPORTED_INSTRUMENTS)}",
             "disclaimer": _DISCLAIMER, "timestamp": _now(),
+        }
+
+    if _provider_unavailable(meta):
+        return {
+            **meta, "instrument": inst, "available": False, "state": "PROVIDER_UNAVAILABLE",
+            "reason": "The configured macro data provider is unavailable. Seeded data is "
+                      "not shown in its place.",
+            "composite_score": None, "gauge": None, "bias": None,
+            "categories": [], "disclaimer": _DISCLAIMER, "timestamp": _now(),
         }
 
     from macro_intelligence_engine import (
@@ -532,6 +545,12 @@ def get_country_heatmap(country: str, as_of: Optional[datetime] = None) -> Dict[
     if ccy not in HEATMAP_COUNTRIES:
         return {**meta, "country": ccy, "available": False, "state": "UNSUPPORTED",
                 "reason": f"Supported: {', '.join(HEATMAP_COUNTRIES)}", "timestamp": _now()}
+
+    if _provider_unavailable(meta):
+        return {**meta, "country": ccy, "available": False, "state": "PROVIDER_UNAVAILABLE",
+                "reason": "The configured macro data provider is unavailable. Seeded data is "
+                          "not shown in its place.",
+                "indicators": [], "categories": [], "timestamp": _now()}
 
     from macro_intelligence_engine import EconomicDataRegistry
     try:

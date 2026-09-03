@@ -9,31 +9,65 @@ import type {
 import { SectionCard } from '../intelligence/primitives'
 import { OpsMetric, OpsStatusTag, OpsUnavailable } from '../operations/primitives'
 
-/** Honest provenance strip — demo/seeded data must never look like real data. */
-export function ProvenanceBanner({ env }: { env: MacroEnvelope | null }) {
+interface ProvEnv extends MacroEnvelope {
+  provider_state?: string
+  provider_status?: {
+    coverage?: Record<string, string[]>
+    series_errors?: Record<string, string>
+    last_error?: string | null
+    hydrated_age_sec?: number | null
+    records_registered?: number
+  }
+}
+
+/** Honest provenance strip — demo/seeded data must never look like real data,
+ *  and a provider outage must never look like "no evidence". */
+export function ProvenanceBanner({ env }: { env: ProvEnv | null }) {
   if (!env) return null
-  const demo = env.provenance === 'seed_demo'
-  const unavailable = env.provenance === 'unavailable'
+  const st = env.provider_state ?? (env.provider_is_live ? 'LIVE' : env.provenance === 'unavailable' ? 'NONE' : 'SEED_DEMO')
+  const live = st === 'LIVE' || st === 'LIVE_STALE'
+  const outage = st === 'PROVIDER_UNAVAILABLE' || st === 'PENDING'
+  const status = env.provider_status
+  const cov = status?.coverage ?? {}
+  const covCount = Object.values(cov).reduce((n, m) => n + (m?.length ?? 0), 0)
+  const age = status?.hydrated_age_sec
+
+  const tone = live
+    ? 'border-positive/30 bg-positive/10 text-positive'
+    : outage
+      ? 'border-negative/30 bg-negative/10 text-negative'
+      : st === 'NONE'
+        ? 'border-negative/30 bg-negative/10 text-negative'
+        : 'border-warning/30 bg-warning/10 text-warning'
+
+  const label = live
+    ? st === 'LIVE_STALE'
+      ? 'Live provider data (stale — refresh pending)'
+      : 'Live provider data'
+    : outage
+      ? 'Provider temporarily unavailable'
+      : st === 'NONE'
+        ? 'No data provider configured'
+        : 'Demo / seeded data'
+
   return (
-    <div
-      className={`rounded-lg border px-3 py-2 text-[11px] ${
-        env.provider_is_live
-          ? 'border-positive/30 bg-positive/10 text-positive'
-          : unavailable
-            ? 'border-negative/30 bg-negative/10 text-negative'
-            : 'border-warning/30 bg-warning/10 text-warning'
-      }`}
-    >
-      <span className="font-mono font-semibold uppercase">
-        {env.provider_is_live ? 'Live data' : unavailable ? 'No data provider' : 'Demo / seeded data'}
-      </span>
+    <div className={`rounded-lg border px-3 py-2 text-[11px] ${tone}`}>
+      <span className="font-mono font-semibold uppercase">{label}</span>
       <span className="ml-2 text-secondary">
         provider <code>{env.data_provider}</code>
-        {demo
-          ? ' — realistic shape, NOT live market data. Connect a real macro feed via MACRO_DATA_PROVIDER.'
-          : unavailable
-            ? ' — every macro response is unavailable until a provider is configured.'
-            : ''}
+        {live ? (
+          <>
+            {' '}· {covCount} live series across {Object.keys(cov).length} economies
+            {age != null ? ` · updated ${Math.round(age / 60)} min ago` : ''}
+            {' '}· no consensus forecast from this source (surprise = n/a)
+          </>
+        ) : outage ? (
+          <> — last-good data shown where available; this is NOT "insufficient evidence".{status?.last_error ? ` (${status.last_error})` : ''}</>
+        ) : st === 'NONE' ? (
+          ' — every macro response is unavailable until a provider is configured.'
+        ) : (
+          ' — realistic shape, NOT live market data. Set MACRO_DATA_PROVIDER=fred + FRED_API_KEY for real data.'
+        )}
       </span>
     </div>
   )

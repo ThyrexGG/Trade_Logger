@@ -27,6 +27,7 @@ def _canonical_registry():
     before every test here for deterministic, order-independent assertions."""
     from macro_intelligence_engine import EconomicDataRegistry
 
+    EconomicDataRegistry._PROVIDER_MANAGED = False
     EconomicDataRegistry._RELEASES = []
     EconomicDataRegistry._INITIALIZED = False
     EconomicDataRegistry.seed_canonical_registry()

@@ -206,12 +206,56 @@ class SeedDemoProvider:
         return out
 
 
+def _fred_provider():
+    from api.providers.fred_provider import FredMacroProvider
+    return FredMacroProvider()
+
+
 _PROVIDERS = {
     "seed_demo": SeedDemoProvider,
     "none": NullProvider,
+    "fred": _fred_provider,
 }
 
 
+def _provider_key() -> str:
+    return (os.getenv("MACRO_DATA_PROVIDER") or "seed_demo").strip().lower()
+
+
 def get_provider() -> MacroDataProvider:
-    key = (os.getenv("MACRO_DATA_PROVIDER") or "seed_demo").strip().lower()
-    return _PROVIDERS.get(key, SeedDemoProvider)()
+    factory = _PROVIDERS.get(_provider_key(), SeedDemoProvider)
+    return factory()
+
+
+def ensure_macro_data() -> Dict[str, Any]:
+    """Called at the top of every macro read. For a real provider this triggers
+    a TTL-guarded hydrate of `EconomicDataRegistry`; for seed_demo / none it is a
+    cheap no-op. Returns a provenance/status dict.
+
+    A provider failure never raises — the registry keeps its last-good (or
+    seeded) contents and `provider_state` reports `PROVIDER_UNAVAILABLE`.
+    """
+    key = _provider_key()
+    if key == "fred":
+        try:
+            from api.providers.fred_provider import FredMacroProvider
+            p = FredMacroProvider()
+            st = p.hydrate_registry()
+            return {
+                "data_provider": "fred",
+                "provider_is_live": True,
+                "provenance": "live" if st.get("records_registered", 0) > 0 else "unavailable",
+                "provider_state": st.get("provider_state", "PENDING"),
+                "provider_status": st,
+            }
+        except Exception as exc:  # pragma: no cover - defensive
+            return {
+                "data_provider": "fred", "provider_is_live": True,
+                "provenance": "unavailable", "provider_state": "PROVIDER_UNAVAILABLE",
+                "provider_status": {"last_error": f"{type(exc).__name__}"},
+            }
+    if key == "none":
+        return {"data_provider": "none", "provider_is_live": False,
+                "provenance": "unavailable", "provider_state": "NONE"}
+    return {"data_provider": "seed_demo", "provider_is_live": False,
+            "provenance": "seed_demo", "provider_state": "SEED_DEMO"}

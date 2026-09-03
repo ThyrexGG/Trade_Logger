@@ -61,6 +61,18 @@ def _warm_up() -> None:
         except Exception:
             pass
 
+    # If a real macro provider is configured (Phase 65), prime its data now —
+    # budget-bounded and fully guarded — so the first macro request is fast and
+    # a broken provider degrades before it ever reaches a user.
+    import os as _os
+
+    if (_os.getenv("MACRO_DATA_PROVIDER") or "").strip().lower() == "fred":
+        try:
+            from api.providers.fred_provider import FredMacroProvider
+            FredMacroProvider().hydrate_registry()
+        except Exception:
+            pass
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
