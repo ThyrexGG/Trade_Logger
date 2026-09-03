@@ -8,14 +8,18 @@ import {
   MacroOverview,
   ProvenanceBanner,
 } from '../components/macro/MacroViews'
+import { MacroScorecard } from '../components/macro/MacroScorecard'
+import { MacroHeatmap } from '../components/macro/MacroHeatmap'
 import {
   OpsSafetyBanner,
   SectionError,
   SkeletonRows,
 } from '../components/operations/primitives'
 
-type Tab = 'overview' | 'calendar' | 'currencies' | 'assets'
+type Tab = 'scorecard' | 'heatmap' | 'overview' | 'calendar' | 'currencies' | 'assets'
 const TABS: { id: Tab; label: string }[] = [
+  { id: 'scorecard', label: 'Scorecard' },
+  { id: 'heatmap', label: 'Economic Heatmap' },
   { id: 'overview', label: 'Overview' },
   { id: 'calendar', label: 'Economic Calendar' },
   { id: 'currencies', label: 'Currency Strength' },
@@ -29,7 +33,7 @@ const TABS: { id: Tab; label: string }[] = [
  */
 export function MacroIntelligencePage() {
   const { overview, currencies, assets, events, state, error, refreshing, refetch } = useMacroIntelligence()
-  const [tab, setTab] = useState<Tab>('overview')
+  const [tab, setTab] = useState<Tab>('scorecard')
 
   const env = overview ?? currencies ?? assets ?? events
 
@@ -50,41 +54,45 @@ export function MacroIntelligencePage() {
         <OpsSafetyBanner />
         <ProvenanceBanner env={env} />
 
-        {state === 'loading' ? (
-          <div className="rounded-lg border border-border bg-surface p-4"><SkeletonRows rows={8} /></div>
-        ) : state === 'error' ? (
-          <div className="rounded-lg border border-border bg-surface p-4">
-            <SectionError message={error ?? 'The macro service could not be reached.'} onRetry={refetch} />
-          </div>
-        ) : (
-          <>
-            {error ? (
-              <p className="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[11px] text-warning">
-                Some sections failed to refresh: {error}
-              </p>
-            ) : null}
+        <div className="flex flex-wrap gap-1 border-b border-border-subtle">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              className={`rounded-t border-b-2 px-3 py-1.5 text-xs ${
+                tab === t.id ? 'border-accent text-accent' : 'border-transparent text-secondary hover:text-primary'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
 
-            <div className="flex flex-wrap gap-1 border-b border-border-subtle">
-              {TABS.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setTab(t.id)}
-                  className={`rounded-t border-b-2 px-3 py-1.5 text-xs ${
-                    tab === t.id ? 'border-accent text-accent' : 'border-transparent text-secondary hover:text-primary'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
+        {tab === 'scorecard' && <MacroScorecard />}
+        {tab === 'heatmap' && <MacroHeatmap />}
+
+        {tab !== 'scorecard' && tab !== 'heatmap' ? (
+          state === 'loading' ? (
+            <div className="rounded-lg border border-border bg-surface p-4"><SkeletonRows rows={8} /></div>
+          ) : state === 'error' ? (
+            <div className="rounded-lg border border-border bg-surface p-4">
+              <SectionError message={error ?? 'The macro service could not be reached.'} onRetry={refetch} />
             </div>
-
-            {tab === 'overview' && (overview ? <MacroOverview data={overview} /> : <SkeletonRows rows={6} />)}
-            {tab === 'calendar' && (events ? <MacroCalendar data={events} /> : <SkeletonRows rows={6} />)}
-            {tab === 'currencies' && (currencies ? <MacroCurrencies data={currencies} /> : <SkeletonRows rows={6} />)}
-            {tab === 'assets' && (assets ? <MacroAssets data={assets} /> : <SkeletonRows rows={6} />)}
-          </>
-        )}
+          ) : (
+            <>
+              {error ? (
+                <p className="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[11px] text-warning">
+                  Some sections failed to refresh: {error}
+                </p>
+              ) : null}
+              {tab === 'overview' && (overview ? <MacroOverview data={overview} /> : <SkeletonRows rows={6} />)}
+              {tab === 'calendar' && (events ? <MacroCalendar data={events} /> : <SkeletonRows rows={6} />)}
+              {tab === 'currencies' && (currencies ? <MacroCurrencies data={currencies} /> : <SkeletonRows rows={6} />)}
+              {tab === 'assets' && (assets ? <MacroAssets data={assets} /> : <SkeletonRows rows={6} />)}
+            </>
+          )
+        ) : null}
 
         <p className="border-t border-border-subtle pt-3 text-[11px] text-muted">
           Macro intelligence is deterministic context, not a forecast and never an execution

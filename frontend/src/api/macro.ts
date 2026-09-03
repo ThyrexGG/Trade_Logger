@@ -37,3 +37,28 @@ export function getMacroAssets(signal?: AbortSignal): Promise<MacroAssetsRespons
 export function getMacroSurprises(signal?: AbortSignal): Promise<MacroSurprisesResponse> {
   return apiGet<MacroSurprisesResponse>('/api/macro/surprises', { signal })
 }
+
+export function getMacroScorecard(instrument: string, signal?: AbortSignal) {
+  return apiGet<import('../types/macro').MacroScorecardResponse>(
+    `/api/macro/scorecard/${encodeURIComponent(instrument)}`,
+    { signal },
+  )
+}
+
+export function getMacroScorecardHistory(instrument: string, limit = 90, signal?: AbortSignal) {
+  return apiGet<import('../types/macro').MacroScorecardHistoryResponse>(
+    `/api/macro/scorecard/${encodeURIComponent(instrument)}/history?limit=${limit}`,
+    { signal },
+  )
+}
+
+export function getMacroHeatmap(country: string, signal?: AbortSignal) {
+  return apiGet<import('../types/macro').MacroHeatmapResponse>(
+    `/api/macro/heatmap/${encodeURIComponent(country)}`,
+    { signal },
+  )
+}
+
+export function getMacroHeatmapIndex(signal?: AbortSignal) {
+  return apiGet<import('../types/macro').MacroHeatmapIndexResponse>('/api/macro/heatmap', { signal })
+}

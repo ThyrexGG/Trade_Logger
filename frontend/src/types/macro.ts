@@ -139,3 +139,103 @@ export interface MacroOverviewResponse extends MacroEnvelope {
   data_freshness?: { as_of: string; note?: string | null }
   confidence?: number
 }
+
+// --- Macro Scorecard (Phase 64) ---------------------------------------
+export interface MacroScorecardIndicator {
+  indicator: string
+  name: string
+  family: string
+  actual: number | null
+  forecast: number | null
+  previous: number | null
+  unit?: string | null
+  surprise: number | null
+  z_score?: number | null
+  surprise_state?: string
+  direction?: string
+  implication?: string
+  release_time?: string | null
+  freshness?: string
+  currency_impact?: string
+  equity_impact?: string
+}
+
+export interface MacroScorecardCategory {
+  category: string
+  score: number | null
+  gauge: number | null
+  direction: string
+  state: string
+  reason?: string
+  next_dependency?: string
+  model_prior?: number | null
+  engine_direction?: string | null
+  confidence?: string | null
+  basis?: string
+  base?: { economy: string; score: number; direction: string } | null
+  quote?: { economy: string; score: number; direction: string } | null
+  supporting?: string[]
+  conflicting?: string[]
+  context?: string[]
+  indicators?: MacroScorecardIndicator[]
+}
+
+export interface MacroScorecardResponse extends MacroEnvelope {
+  instrument: string
+  state: string
+  model_version?: string
+  composite_score: number | null
+  gauge: number | null
+  bias: string | null
+  direction?: string | null
+  confidence?: number | null
+  economic_strength?: number | null
+  surprise_score?: number | null
+  surprise_momentum?: string | null
+  scope_note?: string | null
+  primary_country?: string
+  categories: MacroScorecardCategory[]
+  strongest_category?: string | null
+  weakest_category?: string | null
+  sub_scores?: Record<string, number | null>
+  reason?: string | null
+  next_dependency?: string | null
+  release_count?: number
+}
+
+export interface MacroScorecardHistoryPoint {
+  timestamp: string
+  composite_score: number | null
+  direction?: string
+  growth?: number | null
+  inflation?: number | null
+  jobs?: number | null
+  cot?: number | null
+  data_quality?: number | null
+  fingerprint?: string
+}
+
+export interface MacroScorecardHistoryResponse extends MacroEnvelope {
+  instrument: string
+  state: string
+  points: MacroScorecardHistoryPoint[]
+  count: number
+  note?: string | null
+}
+
+export interface MacroHeatmapResponse extends MacroEnvelope {
+  country: string
+  country_name?: string
+  central_bank?: string | null
+  state: string
+  aggregate_score: number | null
+  aggregate_direction?: string | null
+  indicators: MacroScorecardIndicator[]
+  categories: { category: string; score: number | null; gauge: number | null; direction: string; state?: string }[]
+  reason?: string | null
+  next_dependency?: string | null
+}
+
+export interface MacroHeatmapIndexResponse extends MacroEnvelope {
+  countries: { country: string; release_count: number; state: string }[]
+}

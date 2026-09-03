@@ -12,8 +12,9 @@ from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Query
 
-from api import macro_service
+from api import macro_scorecard, macro_service
 from api.macro_provider import IMPACT_LEVELS, SUPPORTED_CURRENCIES
+from api.macro_scorecard import HEATMAP_COUNTRIES, SUPPORTED_INSTRUMENTS
 from api.macro_service import SUPPORTED_ASSETS
 from api.schemas import (
     MacroAssetResponse,
@@ -21,8 +22,13 @@ from api.schemas import (
     MacroCurrenciesResponse,
     MacroCurrencyResponse,
     MacroEventsResponse,
+    MacroHeatmapIndexResponse,
+    MacroHeatmapResponse,
     MacroOverviewResponse,
     MacroPairsResponse,
+    MacroScorecardHistoryResponse,
+    MacroScorecardListResponse,
+    MacroScorecardResponse,
     MacroSurprisesResponse,
 )
 
@@ -119,3 +125,55 @@ def macro_asset(asset: str) -> MacroAssetResponse:
 @router.get("/overview", response_model=MacroOverviewResponse)
 def macro_overview() -> MacroOverviewResponse:
     return MacroOverviewResponse(**macro_service.get_overview())
+
+
+# --- Macro Scorecard (Phase 64) --------------------------------------------
+# EdgeFinder-style composite bias + 6-category scorecard + score history +
+# per-country economic heatmap. Read-only shaper over the Phase-56 engines.
+
+@router.get("/scorecard", response_model=MacroScorecardListResponse)
+def macro_scorecard_list() -> MacroScorecardListResponse:
+    return MacroScorecardListResponse(**macro_scorecard.get_scorecard_list())
+
+
+@router.get("/scorecard/{instrument}/history", response_model=MacroScorecardHistoryResponse)
+def macro_scorecard_history(
+    instrument: str,
+    limit: int = Query(default=60, ge=1, le=365),
+) -> MacroScorecardHistoryResponse:
+    if instrument.upper() not in SUPPORTED_INSTRUMENTS:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unsupported instrument. Supported: {SUPPORTED_INSTRUMENTS}",
+        )
+    return MacroScorecardHistoryResponse(**macro_scorecard.get_scorecard_history(instrument, limit=limit))
+
+
+@router.get("/scorecard/{instrument}", response_model=MacroScorecardResponse)
+def macro_scorecard_one(instrument: str) -> MacroScorecardResponse:
+    if instrument.upper() not in SUPPORTED_INSTRUMENTS:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unsupported instrument. Supported: {SUPPORTED_INSTRUMENTS}",
+        )
+    payload = macro_scorecard.get_scorecard(instrument)
+    # Best-effort: persist an immutable snapshot so the score history genuinely
+    # accumulates over time (de-duplicated to ~hourly, never fabricated).
+    if payload.get("available"):
+        macro_scorecard.record_scorecard_snapshot(instrument)
+    return MacroScorecardResponse(**payload)
+
+
+@router.get("/heatmap", response_model=MacroHeatmapIndexResponse)
+def macro_heatmap_index() -> MacroHeatmapIndexResponse:
+    return MacroHeatmapIndexResponse(**macro_scorecard.get_heatmap_index())
+
+
+@router.get("/heatmap/{country}", response_model=MacroHeatmapResponse)
+def macro_heatmap_country(country: str) -> MacroHeatmapResponse:
+    if country.upper() not in HEATMAP_COUNTRIES:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unsupported country. Supported: {HEATMAP_COUNTRIES}",
+        )
+    return MacroHeatmapResponse(**macro_scorecard.get_country_heatmap(country))

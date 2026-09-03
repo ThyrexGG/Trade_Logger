@@ -1250,3 +1250,58 @@ class MacroOverviewResponse(_MacroEnvelope):
     insufficient_currencies: List[str] = []
     upcoming_high_impact: List[Dict[str, Any]] = []
     latest_surprises: List[Dict[str, Any]] = []
+
+
+# -------------------------------------------------------------------------
+# 16. Macro Scorecard Schemas (Phase 64) — EdgeFinder-style composite bias +
+#     6-category scorecard + score history + per-country economic heatmap.
+#     Read-only shaper over the Phase-56 engines. Categories with no
+#     authoritative source return state INSUFFICIENT_EVIDENCE, never a number.
+# -------------------------------------------------------------------------
+class MacroScorecardResponse(_MacroEnvelope):
+    instrument: str
+    state: str  # OK | PARTIAL | INSUFFICIENT_EVIDENCE | UNSUPPORTED
+    model_version: Optional[str] = None
+    as_of: Optional[str] = None
+    composite_score: Optional[float] = None
+    gauge: Optional[int] = None
+    bias: Optional[str] = None
+    direction: Optional[str] = None
+    confidence: Optional[int] = None
+    scope_note: Optional[str] = None
+    categories: List[Dict[str, Any]] = []
+    strongest_category: Optional[str] = None
+    weakest_category: Optional[str] = None
+    sub_scores: Dict[str, Any] = {}
+    reason: Optional[str] = None
+    next_dependency: Optional[str] = None
+
+
+class MacroScorecardListResponse(_MacroEnvelope):
+    instruments: List[Dict[str, Any]] = []
+    ranked: List[Dict[str, Any]] = []
+
+
+class MacroScorecardHistoryResponse(_MacroEnvelope):
+    instrument: str
+    state: str  # OK | NO_HISTORY | UNSUPPORTED
+    points: List[Dict[str, Any]] = []
+    count: int = 0
+    note: Optional[str] = None
+
+
+class MacroHeatmapResponse(_MacroEnvelope):
+    country: str
+    country_name: Optional[str] = None
+    central_bank: Optional[str] = None
+    state: str  # OK | PARTIAL | INSUFFICIENT_EVIDENCE | UNSUPPORTED
+    aggregate_score: Optional[float] = None
+    aggregate_direction: Optional[str] = None
+    indicators: List[Dict[str, Any]] = []
+    categories: List[Dict[str, Any]] = []
+    reason: Optional[str] = None
+    next_dependency: Optional[str] = None
+
+
+class MacroHeatmapIndexResponse(_MacroEnvelope):
+    countries: List[Dict[str, Any]] = []

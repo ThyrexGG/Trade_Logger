@@ -66,8 +66,32 @@ def _macro_context() -> Optional[Dict[str, Any]]:
              "score": a.get("score"), "state": a.get("state")}
             for a in assets.get("assets", []) if a.get("available")
         ],
+        "scorecards": _scorecard_context(),
         "disclaimer": ov.get("disclaimer"),
     }
+
+
+def _scorecard_context() -> list:
+    """Bounded EdgeFinder-style scorecard summary (Phase 64): composite bias +
+    the category scores + strongest/weakest driver per supported instrument.
+    Structured summary only — no per-indicator dump."""
+    try:
+        from api import macro_scorecard
+        out = []
+        for row in macro_scorecard.get_scorecard_list().get("ranked", [])[:6]:
+            out.append({
+                "instrument": row.get("instrument"),
+                "composite_score": row.get("composite_score"),
+                "gauge": row.get("gauge"),
+                "bias": row.get("bias"),
+                "state": row.get("state"),
+                "category_scores": {
+                    k: v for k, v in (row.get("sub_scores") or {}).items() if v is not None
+                },
+            })
+        return out
+    except Exception:
+        return []
 
 
 def build_context() -> Dict[str, Any]:
