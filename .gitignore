@@ -1,5 +1,8 @@
 # Local credentials and database
 .env
+.env.local
+.env.*.local
+.env.production
 *.db
 
 # Temporary test and migration scripts in root
