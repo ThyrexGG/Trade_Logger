@@ -70,11 +70,17 @@ export interface GoldBaselineResponse {
     native_verdict: string
     edge_status: string
     caveat: string
+    dataset_manifest_id?: string | null
+    approximation_note?: string
     per_timeframe: {
       timeframe: string
       role: 'NATIVE' | 'NEAR_NATIVE' | 'PROXY'
       state: string
+      data_tier?: string | null
       stored_span_days: number | null
+      stored_bars?: number | null
+      provider_state?: string | null
+      vendor_symbol?: string | null
       oos_metrics?: { expectancy_r?: number | null; total_trades?: number | null } | null
     }[]
   } | null

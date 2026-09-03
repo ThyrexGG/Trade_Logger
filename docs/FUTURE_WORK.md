@@ -18,6 +18,22 @@ assistant with an allowlisted context (incl. bounded macro snapshot).
 
 ## DONE
 
+- **Real Intraday Provider (MT5), Native Gold Revalidation & Multi-Market (Phase 74)** —
+  `mt5_provider.MT5Provider` (`HistoricalIntradayProvider` over the local MT5
+  terminal — server-time→UTC conversion, chunked `copy_rates_range` with retries,
+  capability depth-probe, import-safe off-Windows, credentials env-only) +
+  `dataset_manifest.py` (provenance / vendor symbol / licensing / holdout-isolation
+  manifest, deterministic hash) + `native_gold_revalidation.py` rewritten for real
+  data (objective `_classify`, independent-dataset comparison never a delta) +
+  `strategies/smc_utils.py` §33 optimisation (per-DataFrame numpy column cache;
+  `detect_mss` / `detect_liquidity_sweep` **≈105× faster, 0 mismatches**).
+  Ingested real broker XAUUSD spot (1m ≈ 3.4 mo / 100 k-bar cap, 5m ≈ 17 mo,
+  15m ≈ 4.2 y, 1h ≈ 10 y) + FX universe M15. **Native 1m revalidation ran on the
+  independent MT5 dataset → `EDGE STATUS: INVALIDATED` / NO NATIVE EDGE
+  (−0.092R / N=1 067, PF 0.82).** Frozen forward-validation untouched and unread.
+  Final research answer unchanged: **NO_VALIDATED_EDGE**. `GET /api/research/dataset-manifest`.
+  `docs/PHASE_74_INTRADAY_PROVIDER.md`. +2 test modules.
+  *Remaining:* MT5 caps 1m at ~100 k bars — 6–12 mo native 1m needs a commercial vendor.
 - **Intraday Data Foundation & Native Gold Revalidation (Phase 73)** —
   `historical_provider.py` (formal `HistoricalIntradayProvider` protocol +
   `ProviderCapability` deciding `INSUFFICIENT_HISTORICAL_DEPTH` *before* ingestion

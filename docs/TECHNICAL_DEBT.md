@@ -7,15 +7,20 @@ P2 improvement · P3 nice-to-have. Nothing here is a safety-invariant risk.*
 
 ## Phase 70 — Strategy Discovery
 
-### P2-10 · `ict_2022_sweep_mss_fvg` backtest is O(n·window) — ~30 s per 17 k-bar run
+### P2-10 · `ict_2022_sweep_mss_fvg` backtest is O(n·window) — ⚠️ PARTLY MITIGATED (Phase 74)
 - `strategies/ict_2022_model.analyze` runs nested `for` loops (`detect_mss` /
-  `detect_liquidity_sweep`) inside the per-bar backtest loop. The full universe
-  quick ranking is ~8–12 min because of it.
-- **Mitigation in place:** in-process `strategy_discovery._PREP_CACHE` (candle
-  pull + DataFrame build once per `(asset, timeframe)` per ranking run);
+  `detect_liquidity_sweep`) inside the per-bar backtest loop.
+- **Phase 74 (§33):** `detect_mss` / `detect_liquidity_sweep` rewritten to read a
+  per-DataFrame numpy column cache (`smc_utils._cols`, keyed `(id(df), len(df))`,
+  bounded 8) instead of ~10 `.iloc` scalar reads per call. **≈105× faster
+  (5.8 µs vs 610 µs per bar), 0 signal mismatches** vs the pre-Phase-74 logic —
+  pinned by `tests/test_phase74_ict_equivalence.py`. This made the Phase 74
+  native 1m revalidation (100 k bars + double WFO) feasible.
+- **Mitigation also in place:** in-process `strategy_discovery._PREP_CACHE`;
   discovery is offline-only and never on an API path.
-- **Recommended fix:** precompute swing/FVG/MSS arrays once per df (vectorised)
-  and have `analyze` index into them, instead of re-scanning windows each bar.
+- **Remaining:** the FVG/OB *extraction* loops in `smc_utils` are still O(lookback)
+  per bar. A full vectorised swing/FVG/MSS precompute is the end-state if routine
+  deep 1m discovery becomes normal.
 
 ### P2-11 · Deep-mode Monte Carlo ran on a *synthesised* trade list — ✅ RESOLVED (Phase 73)
 - **Fix:** `pair_ranking.walk_forward()` now returns `stitched_oos_r` (the real
@@ -207,17 +212,17 @@ P2 improvement · P3 nice-to-have. Nothing here is a safety-invariant risk.*
   Phase-67 historical `TECHNICAL` / `SMC` / `REGIME` light up **wherever the store
   has coverage**. An empty store still returns `None` — the honest gap, now
   closeable by ingestion rather than by a vendor.
-- **Data depth remains (P1-6b/c):** the only wired source is yfinance —
-  probed 2026-09 (GC=F): **1h/4h/1d** real multi-year; **5m/15m ~70 d** (`PARTIAL`);
-  **1m ~8 d** (`INSUFFICIENT_HISTORICAL_DEPTH` — the frozen Gold contract's native
-  TF). FX comes only as Yahoo `=X` synthetic spot (no real volume). Native Gold
-  revalidation and real intraday discovery are **BLOCKED BY DATA AVAILABILITY**.
-- **Phase 73 built the provider architecture for either fix:**
-  `historical_provider.HistoricalIntradayProvider` protocol + `ProviderCapability`
-  (decides `INSUFFICIENT_HISTORICAL_DEPTH` before ingestion) + `EnvKeyVendorProvider`
-  (`HISTORICAL_OHLCV_PROVIDER` / `HISTORICAL_OHLCV_API_KEY`, env-only, ships
-  disabled). Add a vendor adapter + `historical_provider.register(...)`. See
-  `docs/PHASE_73_INTRADAY_DATA.md`.
+- **Phase 74 — real broker data wired (P1-6b largely resolved for research):**
+  `mt5_provider.MT5Provider` pulls the account's own MT5 terminal (credentials
+  already in the environment). Real broker XAUUSD **spot** depth: **1m ≈ 3.4 mo
+  (100 k-bar terminal cap)**, 5m ≈ 17 mo, 15m ≈ 4.2 y, 1h ≈ 10 y. FX universe
+  M15 ingested. Native Gold revalidation **ran** — verdict **NO NATIVE EDGE**
+  (−0.092R / N=1 067 independent). See `docs/PHASE_74_INTRADAY_PROVIDER.md`.
+- **P1-6b remainder:** the MT5 terminal caps 1-minute history at ~100 000 bars.
+  6–12 months of native 1m (§17) needs a commercial minute/tick vendor or
+  exported terminal files. The provider architecture
+  (`historical_provider.HistoricalIntradayProvider` + `register()`) takes either;
+  `HISTORICAL_OHLCV_PROVIDER` / `HISTORICAL_OHLCV_API_KEY` are env-only.
 
 ### P2-7 · Phase-55 `evaluate_asset_edge` still returns symbol-keyed priors — ⚠️ PARTLY RESOLVED (Phase 68)
 - **Was:** `TechnicalStructureFactorEngine` / `SmartMoneyStructureFactorEngine` /

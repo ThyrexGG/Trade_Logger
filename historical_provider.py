@@ -270,7 +270,16 @@ def get_provider(name: Optional[str] = None) -> "HistoricalIntradayProvider":
         if p:
             return p
     configured = (os.getenv("HISTORICAL_OHLCV_PROVIDER") or "").strip().lower()
-    if configured in _PROVIDERS and configured not in ("auto", "store", "none", ""):
+    if configured in ("auto", "store", "none", "", "yfinance", "yahoo"):
+        return _PROVIDERS["yfinance"]
+    if configured not in _PROVIDERS and configured == "mt5":
+        # honour an explicit HISTORICAL_OHLCV_PROVIDER=mt5 regardless of import
+        # order — never silently fall through to yfinance for a named provider.
+        try:
+            import mt5_provider  # noqa: F401 - registers itself on import
+        except Exception:
+            pass
+    if configured in _PROVIDERS:
         return _PROVIDERS[configured]
     return _PROVIDERS["yfinance"]
 

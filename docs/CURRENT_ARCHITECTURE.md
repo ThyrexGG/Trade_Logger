@@ -327,6 +327,26 @@ gained `allow_partial` + `DiscoveryResult.data_tier`. P2-11 fixed (Monte Carlo o
 real WFO OOS trades). `GET /api/research/{data-coverage, historical/providers,
 gold-revalidation/native}`. `docs/PHASE_73_INTRADAY_DATA.md`.
 
+**Phase 74** — `mt5_provider.py` (`MT5Provider` implementing
+`HistoricalIntradayProvider` over the local MetaTrader 5 terminal: broker
+server-time → UTC conversion, chunked `copy_rates_range` with download retries,
+capability depth-probe, import-safe off-Windows, credentials env-only and never
+returned) + `dataset_manifest.py` (`DatasetManifest` — provider / vendor symbol /
+asset type / date range / candle count / coverage ratio / anomalous gaps /
+suspect candles / sufficiency / licensing / holdout-isolation statement +
+deterministic `content_hash`) + `native_gold_revalidation.py` rewritten for real
+data (objective `_classify`; independent-dataset comparison, never a delta).
+`historical_provider.get_provider` honours `HISTORICAL_OHLCV_PROVIDER=mt5`
+regardless of import order. `market_data_ingest --provider mt5` +
+`_provider_ingest` (clears a stale vendor's rows on a key, never merges vendors).
+`strategies/smc_utils.py` §33: per-DataFrame numpy column cache
+(`_cols`, `_COL_CACHE`); `detect_mss` / `detect_liquidity_sweep` ≈105× faster,
+0 signal mismatches (`tests/test_phase74_ict_equivalence.py`). Real broker XAUUSD
+spot: 1m ≈ 3.4 mo (100 k-bar cap), 5m ≈ 17 mo, 15m ≈ 4.2 y, 1h ≈ 10 y; FX
+universe M15 ingested. **Native 1m Gold revalidation ran → `EDGE STATUS:
+INVALIDATED` / NO NATIVE EDGE (−0.092R / N=1 067).** `GET
+/api/research/dataset-manifest`. `docs/PHASE_74_INTRADAY_PROVIDER.md`.
+
 ---
 
 ## 11. Evidence (forward validation / governance)

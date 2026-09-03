@@ -147,7 +147,17 @@ export function StrategyDiscoveryPage() {
           {gold?.native_revalidation ? (
             <div className="mb-3 space-y-2 rounded border border-border-subtle bg-surface-elevated/30 p-2 text-xs">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-                Native / near-native attempt (Phase 73)
+                Native / near-native revalidation — real broker data (Phase 74)
+              </p>
+              <p className="flex flex-wrap items-center gap-2 text-[10px]">
+                <span className="rounded bg-surface-elevated px-1.5 py-0.5 font-mono uppercase text-secondary">
+                  edge: {gold.native_revalidation.edge_status}
+                </span>
+                {gold.native_revalidation.dataset_manifest_id ? (
+                  <span className="font-mono text-muted">
+                    dataset {gold.native_revalidation.dataset_manifest_id}
+                  </span>
+                ) : null}
               </p>
               <p className="text-[10px] text-warning">{gold.native_revalidation.native_verdict}</p>
               <div className="overflow-x-auto">
@@ -157,7 +167,8 @@ export function StrategyDiscoveryPage() {
                       <th className="py-0.5 pr-2">TF</th>
                       <th className="py-0.5 pr-2">Role</th>
                       <th className="py-0.5 pr-2">State</th>
-                      <th className="py-0.5 pr-2 text-right">Span d</th>
+                      <th className="py-0.5 pr-2 text-right">Depth</th>
+                      <th className="py-0.5 pr-2 text-right">Bars</th>
                       <th className="py-0.5 pr-2 text-right">OOS E[R]</th>
                       <th className="py-0.5 text-right">N</th>
                     </tr>
@@ -180,7 +191,16 @@ export function StrategyDiscoveryPage() {
                           </span>
                         </td>
                         <td className="py-0.5 pr-2">{r.state}</td>
-                        <td className="py-0.5 pr-2 text-right">{r.stored_span_days ?? '—'}</td>
+                        <td className="py-0.5 pr-2 text-right">
+                          {r.stored_span_days == null
+                            ? '—'
+                            : r.stored_span_days >= 60
+                              ? `${(r.stored_span_days / 30.4).toFixed(1)} mo`
+                              : `${r.stored_span_days.toFixed(0)} d`}
+                        </td>
+                        <td className="py-0.5 pr-2 text-right tabular-nums">
+                          {r.stored_bars?.toLocaleString() ?? '—'}
+                        </td>
                         <td className="py-0.5 pr-2 text-right">
                           {r.oos_metrics?.expectancy_r ?? '—'}
                         </td>

@@ -74,6 +74,24 @@ def get_historical_providers() -> Dict[str, Any]:
     }
 
 
+@router.get("/dataset-manifest")
+def get_dataset_manifest(symbol: str = "XAUUSD") -> Dict[str, Any]:
+    """Phase 74 — provenance manifest for a research dataset: which provider,
+    which vendor symbol, date range, candle count, quality, licensing, and an
+    explicit holdout-isolation statement. `NOT_BUILT` until
+    `python -m dataset_manifest <SYMBOL>` has run."""
+    import dataset_manifest
+    m = dataset_manifest.get_manifest(symbol)
+    if not m:
+        return {"state": "NOT_BUILT", "symbol": symbol,
+                "reason": f"run `python -m dataset_manifest {symbol}`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    m["state"] = "AVAILABLE"
+    m["safety_barrier"] = _SAFETY
+    return m
+
+
 @router.get("/gold-revalidation/native")
 def get_native_gold_revalidation() -> Dict[str, Any]:
     """Phase 73 — native / near-native XAUUSD revalidation (1m/5m/15m), each
@@ -123,9 +141,12 @@ def get_gold_baseline() -> GoldBaselineResponse:
             d["native_revalidation"] = {
                 "native_verdict": nat.get("native_verdict"),
                 "edge_status": nat.get("edge_status"),
+                "dataset_manifest_id": nat.get("dataset_manifest_id"),
+                "approximation_note": nat.get("approximation_note"),
                 "per_timeframe": [
-                    {k: r.get(k) for k in ("timeframe", "role", "state", "stored_span_days",
-                                           "oos_metrics")}
+                    {k: r.get(k) for k in ("timeframe", "role", "state", "data_tier",
+                                           "stored_span_days", "stored_bars", "provider_state",
+                                           "vendor_symbol", "oos_metrics")}
                     for r in nat.get("per_timeframe", [])
                 ],
                 "caveat": nat.get("caveat"),
