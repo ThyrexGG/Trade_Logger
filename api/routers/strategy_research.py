@@ -113,6 +113,24 @@ def get_strategy(strategy_id: str) -> Dict[str, Any]:
     }
 
 
+@router.get("/gold-revalidation")
+def get_gold_revalidation() -> Dict[str, Any]:
+    """The Phase-71 XAUUSD revalidation artifact (1h/1d proxy for the frozen 1m
+    contract). `NOT_COMPUTED` until `python -m gold_revalidation` has run."""
+    import gold_revalidation
+    reval = gold_revalidation.get_revalidation()
+    if not reval:
+        return {
+            "state": "NOT_COMPUTED",
+            "reason": "no revalidation artifact yet — run `python -m gold_revalidation`",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "safety_barrier": _SAFETY,
+        }
+    reval["state"] = "AVAILABLE"
+    reval["safety_barrier"] = _SAFETY
+    return reval
+
+
 @router.get("/pair-ranking")
 def get_pair_ranking() -> Dict[str, Any]:
     import pair_ranking

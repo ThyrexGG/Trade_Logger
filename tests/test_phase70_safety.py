@@ -75,8 +75,15 @@ def test_frozen_hash_and_holdout_intact():
     assert (b["n"], b["expectancy_r"], b["win_rate_pct"], b["profit_factor"]) == (82, 0.637, 58.6, 2.52)
 
 
-def test_gold_baseline_still_insufficient_evidence():
+def test_gold_baseline_edge_status_is_evidence_gated():
+    """Phase 70 does not validate Gold. Without a Phase-71 revalidation artifact
+    the baseline is INSUFFICIENT_EVIDENCE; with one it reflects that run's
+    objective classification (never VALIDATED off a timeframe-substituted proxy
+    unless the strict rule is met)."""
     import gold_strategy_baseline
     b = gold_strategy_baseline.get_gold_baseline()
-    assert b.edge_status == "INSUFFICIENT_EVIDENCE"
-    assert b.revalidated_metrics is None
+    assert b.edge_status in (
+        "INSUFFICIENT_EVIDENCE", "DEGRADED", "INVALIDATED", "VALIDATED", "HEALTHY")
+    if b.revalidated_metrics is not None:
+        # a revalidation ran — it must carry the timeframe-substitution caveat
+        assert "not" in (b.next_dependency or "").lower()

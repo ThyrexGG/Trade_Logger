@@ -66,7 +66,23 @@ export interface GoldBaselineResponse {
     unverifiable: string[]
     metrics: GoldMetric[]
   }
-  revalidated_metrics: Record<string, unknown> | null
+  revalidated_metrics: {
+    timeframe_substitution?: string
+    approximation_strategy_id?: string
+    '1h'?: Record<string, number> | null
+    '1h_bootstrap_ci'?: Record<string, unknown> | null
+    '1h_scorecard'?: string | null
+    '1d'?: Record<string, number> | null
+    '1d_scorecard'?: string | null
+    comparison?: {
+      metric: string
+      old: number | null
+      new: number | null
+      unit: string
+      difference: number | null
+      interpretation: string
+    }[]
+  } | null
   wfo_status: string
   monte_carlo_status: string
   parameter_robustness: string

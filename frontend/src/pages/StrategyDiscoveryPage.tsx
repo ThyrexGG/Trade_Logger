@@ -145,9 +145,36 @@ export function StrategyDiscoveryPage() {
 
         <SectionCard title="XAUUSD — current revalidation">
           {gold?.revalidated_metrics ? (
-            <pre className="overflow-x-auto text-[11px] text-secondary">
-              {JSON.stringify(gold.revalidated_metrics, null, 2)}
-            </pre>
+            <div className="space-y-3 text-xs">
+              <p className="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[10px] text-warning">
+                {gold.revalidated_metrics.timeframe_substitution}
+              </p>
+              <p className="text-[11px] text-muted">{gold.wfo_status}</p>
+              {gold.revalidated_metrics.comparison?.length ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-[11px]">
+                    <thead className="text-muted">
+                      <tr>
+                        <th className="py-1 pr-2">Metric</th>
+                        <th className="py-1 pr-2 text-right">Old (1m holdout)</th>
+                        <th className="py-1 pr-2 text-right">New (1h proxy)</th>
+                        <th className="py-1">Interpretation</th>
+                      </tr>
+                    </thead>
+                    <tbody className="font-mono">
+                      {gold.revalidated_metrics.comparison.map((c) => (
+                        <tr key={c.metric} className="border-t border-border-subtle/50">
+                          <td className="py-1 pr-2">{c.metric}</td>
+                          <td className="py-1 pr-2 text-right tabular-nums">{c.old ?? '—'}</td>
+                          <td className="py-1 pr-2 text-right tabular-nums">{c.new ?? '—'}</td>
+                          <td className="py-1 text-muted">{c.interpretation}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+            </div>
           ) : (
             <ResearchUnavailable>
               Not revalidated yet (Phase 71). {gold?.next_dependency}

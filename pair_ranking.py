@@ -45,7 +45,8 @@ _PROMISING_MIN_OOS_EXPECTANCY = 0.0
 # Robustness layers
 # ==========================================================================
 def walk_forward(asset: str, strategy_id: str, timeframe: str = "1h",
-                 windows: int = 4, oos_frac: float = 0.25) -> Dict[str, Any]:
+                 windows: int = 3, oos_frac: float = 0.30,
+                 coarse: bool = True) -> Dict[str, Any]:
     """Store-based walk-forward: split the base series into `windows` chronological
     slices; for each, grid-search sl/tp on the in-sample head and apply the best
     to the out-of-sample tail; stitch the OOS trades. A strategy that only works
@@ -64,8 +65,13 @@ def walk_forward(asset: str, strategy_id: str, timeframe: str = "1h",
     inst = research_universe.get_instrument(asset)
     fixed_spread = inst.pip_size * disc.SPREAD_PIPS
     slippage = inst.pip_size * disc.SLIPPAGE_PIPS
-    grid = [(s, t) for s in sdef.parameter_schema["sl_atr"]["grid"]
-            for t in sdef.parameter_schema["tp_atr"]["grid"]]
+    if coarse:
+        # 4 corner + centre combos instead of the full 3x3 — keeps a --deep run
+        # tractable on the O(n*window) SMC strategies (TECHNICAL_DEBT P2-10).
+        grid = [(1.0, 2.0), (1.5, 2.5), (2.0, 3.0), (1.0, 3.0), (2.0, 4.0)]
+    else:
+        grid = [(s, t) for s in sdef.parameter_schema["sl_atr"]["grid"]
+                for t in sdef.parameter_schema["tp_atr"]["grid"]]
 
     per_window: List[Dict[str, Any]] = []
     stitched_r: List[float] = []
@@ -220,7 +226,7 @@ class RankingRun:
 def compute_pair_ranking(instruments: Optional[List[str]] = None,
                          strategy_ids: Optional[List[str]] = None,
                          timeframe: str = "1h", deep: bool = False,
-                         param_grid: bool = True) -> RankingRun:
+                         param_grid: bool = True, deep_top: int = 8) -> RankingRun:
     instruments = instruments or list(research_universe.RESEARCH_UNIVERSE)
     strategy_ids = strategy_ids or list(disc.STRATEGY_DEFINITIONS.keys())
     disc.clear_prepare_cache()  # fresh candle pulls for this run
@@ -271,28 +277,38 @@ def compute_pair_ranking(instruments: Optional[List[str]] = None,
                 "temporal_breakdown": best_result.temporal_breakdown,
             }
 
-            promising = (
+            cand["_promising"] = (
                 best_result.state == "AVAILABLE"
                 and best_result.oos_metrics.get("total_trades", 0) >= _PROMISING_MIN_OOS_TRADES
                 and best_result.oos_metrics.get("expectancy_r", -9) > _PROMISING_MIN_OOS_EXPECTANCY
             )
-            wfo_stab = None
-            if promising and deep:
-                wfo = walk_forward(asset, sid, timeframe)
-                cand["walk_forward"] = wfo
-                wfo_stab = wfo.get("stability")
-                # Monte Carlo on the stitched walk-forward OOS distribution
-                cand["monte_carlo"] = monte_carlo(
-                    _synth_trades(wfo.get("stitched_oos", {})), iterations=3000)
-                cand["parameter_sensitivity"] = parameter_sensitivity(
-                    asset, sid, timeframe, base_result_params(best_result))
-            cand["research_ranking_score"] = disc.research_ranking_score(best_result, wfo_stab)
+            cand["research_ranking_score"] = disc.research_ranking_score(best_result, None)
             run.candidates.append(cand)
 
     # pair stability per strategy
     run.pair_stability = {
         sid: classify_pair_stability(assets) for sid, assets in per_strategy_assets.items()
     }
+
+    # Deep robustness (§25-§27) on only the top `deep_top` promising candidates by
+    # the preliminary RankingScore — a full-universe deep run is hours (P2-10).
+    if deep:
+        promising = [c for c in run.candidates if c.pop("_promising", False)
+                     and c["research_ranking_score"].get("score") is not None]
+        promising.sort(key=lambda c: c["research_ranking_score"]["score"], reverse=True)
+        for cand in promising[:deep_top]:
+            asset, sid = cand["asset"], cand["strategy_id"]
+            wfo = walk_forward(asset, sid, timeframe)
+            cand["walk_forward"] = wfo
+            wfo_stab = wfo.get("stability")
+            cand["monte_carlo"] = monte_carlo(
+                _synth_trades(wfo.get("stitched_oos", {})), iterations=3000)
+            cand["parameter_sensitivity"] = parameter_sensitivity(
+                asset, sid, timeframe, cand["params"])
+            best = disc.discover(asset, sid, timeframe, params=cand["params"])
+            cand["research_ranking_score"] = disc.research_ranking_score(best, wfo_stab)
+    for c in run.candidates:
+        c.pop("_promising", None)
 
     # leaderboard — only scored candidates, sorted by ResearchRankingScore desc
     scored = [c for c in run.candidates
@@ -368,6 +384,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p = argparse.ArgumentParser(description="TradeLogger pair x strategy ranking (Phase 70)")
     p.add_argument("--timeframe", default="1h")
     p.add_argument("--deep", action="store_true", help="also run WFO / Monte Carlo / sensitivity")
+    p.add_argument("--deep-top", type=int, default=8, help="deep robustness on the top-N candidates")
     p.add_argument("--assets", help="comma list; default = whole universe")
     p.add_argument("--strategies", help="comma list of strategy ids; default = all")
     p.add_argument("--no-grid", action="store_true", help="default params only (fast)")
@@ -378,6 +395,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         instruments=[s.strip().upper() for s in args.assets.split(",")] if args.assets else None,
         strategy_ids=[s.strip() for s in args.strategies.split(",")] if args.strategies else None,
         timeframe=args.timeframe, deep=args.deep, param_grid=not args.no_grid,
+        deep_top=args.deep_top,
     )
     h = persist(run)
     print(f"\n=== PAIR x STRATEGY LEADERBOARD ({args.timeframe}, "

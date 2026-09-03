@@ -42,7 +42,9 @@ def test_frozen_contract_hash_unchanged_and_canonical():
     assert b.contract_hash_matches_canonical is True
 
 
-def test_edge_status_is_insufficient_evidence_in_phase69():
+def test_edge_status_is_insufficient_evidence_without_revalidation(monkeypatch):
+    # the Phase 69/70 baseline (no persisted gold_revalidation artifact)
+    monkeypatch.setattr(gsb, "_load_revalidation", lambda: None)
     b = gsb.get_gold_baseline()
     assert b.edge_status == gsb.EdgeStatus.INSUFFICIENT_EVIDENCE.value
     assert b.revalidated_metrics is None

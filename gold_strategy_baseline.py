@@ -24,7 +24,7 @@ UNVERIFIABLE rather than filled.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
@@ -119,7 +119,6 @@ class PreviousDiscovery:
 def _previous_discovery() -> PreviousDiscovery:
     locked = HistoricalVsForwardComparator.LOCKED_HISTORICAL_BASELINE
     P20 = "PHASE_20_XAUUSD_FINAL_AUDIT.md"
-    P21 = "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md"
     return PreviousDiscovery(
         strategy_name="XAUUSD True Multi-Timeframe ICT/SMC",
         strategy_version="Phase-21 frozen contract (Model D: 1M FVG Limit Entry)",
@@ -194,11 +193,27 @@ class GoldStrategyBaseline:
         return d
 
 
+def _load_revalidation() -> Optional[Dict[str, Any]]:
+    """Phase 71: the persisted ``gold_revalidation`` artifact, if a revalidation
+    run has been done. Kept optional so Phase 69/70 behaviour is unchanged when
+    it is absent."""
+    try:
+        import historical_data_store
+        art = historical_data_store.load_artifact("gold_revalidation")
+        return art["payload"] if art else None
+    except Exception:
+        return None
+
+
 def get_gold_baseline() -> GoldStrategyBaseline:
-    """Return the baseline artifact. In Phase 69 the revalidation fields are
-    explicitly empty / INSUFFICIENT_EVIDENCE — they are filled by Phase 71."""
+    """Return the baseline artifact. The revalidation fields are empty /
+    INSUFFICIENT_EVIDENCE until a Phase-71 ``gold_revalidation`` run persists a
+    result, after which they reflect it."""
     prev = _previous_discovery()
     hash_ok = FROZEN_CONTRACT_HASH == CANONICAL_CONTRACT_HASH
+    reval = _load_revalidation()
+    if reval:
+        return _with_revalidation(prev, hash_ok, reval)
     return GoldStrategyBaseline(
         strategy_id="xauusd_true_mtf_ict_smc",
         strategy_version=prev.strategy_version,
@@ -229,6 +244,50 @@ def get_gold_baseline() -> GoldStrategyBaseline:
         next_dependency=(
             "Phase 71: run the frozen contract through the Phase 70 discovery/robustness pipeline "
             "on 1h/1d data; native 1M revalidation needs an intraday OHLCV provider."
+        ),
+    )
+
+
+def _with_revalidation(prev: PreviousDiscovery, hash_ok: bool,
+                       reval: Dict[str, Any]) -> GoldStrategyBaseline:
+    """Merge a persisted Phase-71 ``gold_revalidation`` payload into the baseline."""
+    h1 = (reval.get("per_timeframe") or {}).get("1h", {})
+    d1 = (reval.get("per_timeframe") or {}).get("1d", {})
+    wfo = reval.get("walk_forward", {}) or {}
+    return GoldStrategyBaseline(
+        strategy_id="xauusd_true_mtf_ict_smc",
+        strategy_version=prev.strategy_version,
+        discovery_phase_range=prev.discovery_phase_range,
+        frozen_contract_hash=FROZEN_CONTRACT_HASH,
+        contract_hash_matches_canonical=hash_ok,
+        previous_discovery=prev,
+        original_metrics={m.name: m.value for m in prev.metrics},
+        revalidated_metrics={
+            "timeframe_substitution": reval.get("timeframe_substitution_note"),
+            "approximation_strategy_id": reval.get("strategy_id"),
+            "1h": h1.get("oos_metrics"),
+            "1h_bootstrap_ci": h1.get("bootstrap_ci"),
+            "1h_scorecard": (h1.get("scorecard") or {}).get("status"),
+            "1d": d1.get("oos_metrics"),
+            "1d_scorecard": (d1.get("scorecard") or {}).get("status"),
+            "comparison": reval.get("comparison"),
+        },
+        latest_oos_metrics=h1.get("oos_metrics"),
+        wfo_status=f"REVALIDATED (1h proxy): stability {wfo.get('stability')} — {wfo.get('verdict')}",
+        monte_carlo_status="see gold_revalidation artifact (Monte Carlo on stitched WFO OOS)",
+        parameter_robustness="see gold_revalidation per_timeframe / pair_ranking parameter_sensitivity",
+        regime_compatibility=(
+            "1h proxy session breakdown: " + str({k: v.get("total_trades")
+             for k, v in (h1.get("session_breakdown") or {}).items()})
+        ),
+        edge_status=reval.get("edge_status", EdgeStatus.INSUFFICIENT_EVIDENCE.value),
+        edge_status_reason=reval.get("edge_status_reason", ""),
+        edge_status_rules=edge_status_rules(),
+        last_validated_at=reval.get("generated_at"),
+        generated_at=datetime.now(timezone.utc).isoformat(),
+        next_dependency=(
+            "Native 1-minute revalidation of the frozen contract needs an intraday OHLCV "
+            "provider. The 1h/1d result is a timeframe-substituted proxy, not the frozen holdout."
         ),
     )
 

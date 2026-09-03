@@ -18,6 +18,18 @@ assistant with an allowlisted context (incl. bounded macro snapshot).
 
 ## DONE
 
+- **Gold Revalidation Baseline (Phase 71)** — `gold_revalidation.py` runs the
+  frozen contract's closest approximation (`ict_2022_sweep_mss_fvg` = sweep → MSS
+  → FVG) through the Phase-70 pipeline on **1h + 1d** (the frozen contract's
+  native **1m** is not testable on yfinance — stated up front, not buried),
+  produces the old-vs-new comparison, and classifies `EdgeStatus` by objective
+  rules. `gold_strategy_baseline.get_gold_baseline()` reflects a persisted
+  `gold_revalidation` artifact (`revalidated_metrics` / `wfo_status` /
+  `last_validated_at` / `edge_status`). `GET /api/research/gold-revalidation`;
+  the Gold detail panel gets an old-vs-new table. `python -m gold_revalidation`.
+  Verdict: **DEGRADED / UNVERIFIABLE** — the 1h proxy shows at best a weak
+  positive; the native contract can't be tested here. Holdout untouched.
+  `docs/PHASE_71_GOLD_REVALIDATION.md`. +10 tests. **Next: Phase 72 Trade Setup engine.**
 - **Strategy Discovery & Pair Ranking (Phase 70)** — `strategy_discovery.py`
   (`StrategyDefinition` registry over the existing `strategies/`, store→backtester
   adapter, `discover()` with IS/OOS split + bootstrap CI + scorecard + session /

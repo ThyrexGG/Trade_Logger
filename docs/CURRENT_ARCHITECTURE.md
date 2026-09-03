@@ -298,6 +298,13 @@ Compute is offline-only (§60); `GET /api/research/{strategies,strategies/{id},
 pair-ranking}` read the persisted `research_artifacts` snapshot. Frontend
 `/research/discovery` (`StrategyDiscoveryPage`). `docs/PHASE_70_STRATEGY_DISCOVERY.md`.
 
+**Phase 71** — `gold_revalidation.py`: runs the frozen Gold contract's closest
+approximation (`ict_2022_sweep_mss_fvg`) through the Phase-70 pipeline on 1h/1d
+(the native 1m contract is not testable on yfinance) and produces the
+old-vs-new comparison + an objective `EdgeStatus`. `gold_strategy_baseline`
+merges a persisted `gold_revalidation` artifact into `get_gold_baseline()`.
+`GET /api/research/gold-revalidation`. `docs/PHASE_71_GOLD_REVALIDATION.md`.
+
 ---
 
 ## 11. Evidence (forward validation / governance)
