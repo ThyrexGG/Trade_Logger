@@ -269,7 +269,7 @@ Contract SHA-256          = 7f135a1269626a21dba769b7f0173c8a5428dcb7b47a88976045
 ## 12. Git
 
 ```
-commit:        <filled on commit>
+commit:        d77734b
 working tree:  CLEAN
 ```
 
