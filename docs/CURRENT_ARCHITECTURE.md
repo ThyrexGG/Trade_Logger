@@ -13,9 +13,9 @@ adapter) and two legacy surfaces kept for reference.
 
 | Surface | Entry point | Port | Status |
 | :-- | :-- | :-- | :-- |
-| **React SPA + FastAPI adapter** (the current product) | frontend: `frontend/` (Vite) · backend: `api/main.py` (`api.main:app`) | dev: 5173 (Vite) → proxy → 8010/8000 (uvicorn) | **ACTIVE** — all new work goes here |
+| **React SPA + FastAPI adapter** (the current product) | frontend: `frontend/` (Vite) · backend: `api/main.py` (`api.main:app`) | dev: 5173 (Vite) → proxy → **8010** (uvicorn); `VITE_DEV_API_PROXY_TARGET` in `frontend/.env.development` | **ACTIVE** — all new work goes here |
 | **Streamlit app** (`app.py`) | `streamlit run app.py` | 8501 | **LEGACY / golden reference** — kept, untouched. Power-user workflows not yet migrated (manual paper entry, AI Market Context/Ollama, notification-rules engine, daily-command-center writes, some research labs). See `STAGE_11_STREAMLIT_RETIREMENT_EVALUATION.md`. |
-| **`server.py`** ("Trade Logger Pro Engine API") | `python -m uvicorn server:app` | 8000 | **LEGACY** — Flutter-era engine that also serves the old Flutter web build. Not part of the React SPA. `start_flutter.bat` / `start_silent.vbs` launch it. Do not extend. |
+| **`server.py`** ("Trade Logger Pro Engine API") | `python -m uvicorn server:app` | 8000 | **LEGACY** — Flutter-era engine that also serves the old Flutter web build. Not part of the React SPA (which now proxies to :8010, so no collision). Still load-bearing: `tests/test_{execution_safety,failure_injection,paper_execution}.py` exercise it. `start_flutter.bat` launches it for the Flutter desktop app; `start_silent.vbs` is the old silent-autostart (its Startup-folder shortcut was removed — it was squatting :8000 and starving the React proxy). Do not extend. |
 
 > The React SPA talks **only** to `api.main:app`. `api.main:app` is a *thin
 > adapter* — it never re-implements trading/research/analytics logic; it calls

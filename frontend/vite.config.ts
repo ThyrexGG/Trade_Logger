@@ -7,7 +7,7 @@ import tailwindcss from '@tailwindcss/vite'
 // so the browser never needs CORS in development.
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const apiProxyTarget = env.VITE_DEV_API_PROXY_TARGET || 'http://127.0.0.1:8000'
+  const apiProxyTarget = env.VITE_DEV_API_PROXY_TARGET || 'http://127.0.0.1:8010'
 
   return {
     plugins: [react(), tailwindcss()],
