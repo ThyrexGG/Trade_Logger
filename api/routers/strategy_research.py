@@ -425,6 +425,35 @@ def get_v1_compression_expansion() -> Dict[str, Any]:
     return r
 
 
+@router.get("/conditional-interaction-discovery")
+def get_conditional_interaction_discovery() -> Dict[str, Any]:
+    """Phase 83 — conditional market structure & regime interaction
+    discovery: 5 pre-registered interaction candidates (volatility x trend,
+    volatility x session, momentum x volatility, location x trend,
+    structure x volatility) tested against a fixed strong-context baseline
+    (volatility + session/time + trend + momentum + location + structure)
+    across ALL bars of the 6-instrument universe -- NOT reopening V1/V2's
+    event-conditioned targets. Reports a discovery/confirmation temporal
+    split (confirmation touched once), Benjamini-Hochberg multiple-testing
+    correction across the 5 candidates, cross-asset and leave-one-out
+    breakdowns, regime/horizon stability, shuffled-target and wrong-context
+    placebo controls, temporal-shift diagnostics, block-bootstrap CIs, and
+    one of the master prompt's standardized verdicts per candidate.
+    `NOT_COMPUTED` until
+    `python -m phase83_conditional_interaction_discovery` has run. Research
+    only: no trading signal, no execution."""
+    import phase83_conditional_interaction_discovery
+    r = phase83_conditional_interaction_discovery.get_result()
+    if not r:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m phase83_conditional_interaction_discovery`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    r["state"] = "AVAILABLE"
+    r["safety_barrier"] = _SAFETY
+    return r
+
+
 @router.get("/market-behavior")
 def get_market_behavior_discovery() -> Dict[str, Any]:
     """Phase 76 — literature-guided market behavior discovery: the phenomenon
