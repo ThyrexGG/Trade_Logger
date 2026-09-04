@@ -37,7 +37,7 @@ import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 _FRED_BASE = "https://api.stlouisfed.org/fred/series/observations"
@@ -72,7 +72,8 @@ _SERIES: Dict[str, Dict[str, Tuple[str, str, str]]] = {
         "CPI":           ("GBRCPIALLMINMEI", "pc1", "%"),
         "GDP":           ("CLVMNACSCAB1GQUK", "pc1", "%"),
         "UNEMPLOYMENT":  ("LRHUTTTTGBM156S", "lin", "%"),
-        "INTEREST_RATE": ("IRSTCB01GBM156N", "lin", "%"),
+        # IRSTCB01GBM156N was discontinued by FRED — 3-month interbank rate instead
+        "INTEREST_RATE": ("IR3TIB01GBM156N", "lin", "%"),
     },
     "JPY": {
         "CPI":           ("JPNCPIALLMINMEI", "pc1", "%"),
@@ -96,8 +97,9 @@ _SERIES: Dict[str, Dict[str, Tuple[str, str, str]]] = {
     },
     "CHF": {
         "CPI":           ("CHECPIALLMINMEI", "pc1", "%"),
-        "UNEMPLOYMENT":  ("LRHUTTTTCHM156S", "lin", "%"),
-        "INTEREST_RATE": ("IRSTCB01CHM156N", "lin", "%"),
+        # LRHUTTTTCHM156S (monthly) and IRSTCB01CHM156N were discontinued by FRED
+        "UNEMPLOYMENT":  ("LRHUTTTTCHQ156S", "lin", "%"),   # quarterly harmonised rate
+        "INTEREST_RATE": ("IR3TIB01CHM156N", "lin", "%"),   # 3-month interbank rate
     },
 }
 
@@ -155,42 +157,65 @@ def _parse_num(v: Any) -> Optional[float]:
 
 def _fetch_series(series_id: str, units: str, api_key: str, timeout: float,
                   history_start: str) -> Optional[List[Dict[str, Any]]]:
-    """One ALFRED call — full vintage history so first-print date + revisions
-    are real. Returns the raw observation rows, or None on any failure."""
-    params = {
+    """One FRED/ALFRED call. Returns the raw observation rows, or None on any
+    failure.
+
+    First try a bounded ALFRED real-time window (first-print date + recent
+    revisions). FRED rejects that with HTTP 400 in several cases:
+      * ``units`` is a transform (``pc1`` / ``chg`` / ...) and
+        ``realtime_start != realtime_end``;
+      * the window spans more vintage dates than FRED allows (~2000) — hits
+        daily series like ``DGS2`` / ``DFEDTARU``;
+      * the series has no ALFRED vintage history at all.
+    On a 400 we retry once **without** any real-time window — latest vintage
+    only (accurate current value + short history, no first-print/revision
+    split). A genuinely missing series still 400s and is recorded as an error."""
+    base = {
         "series_id": series_id,
         "api_key": api_key,
         "file_type": "json",
         "units": units,
         "observation_start": history_start,
-        "realtime_start": "2000-01-01",
-        "realtime_end": "9999-12-31",
         "sort_order": "asc",
     }
-    try:
-        r = _http_get(params, timeout)
-    except Exception as exc:  # timeout / connection / DNS
-        _STATE["series_errors"][series_id] = f"{type(exc).__name__}"
-        return None
-    if r.status_code == 429:
-        _STATE["series_errors"][series_id] = "rate_limited_429"
-        return None
-    if r.status_code == 404:
-        _STATE["series_errors"][series_id] = "not_found_404"
-        return None
-    if r.status_code >= 400:
-        _STATE["series_errors"][series_id] = f"http_{r.status_code}"
-        return None
-    try:
-        body = r.json()
-    except ValueError:
-        _STATE["series_errors"][series_id] = "malformed_json"
-        return None
-    obs = body.get("observations")
-    if not isinstance(obs, list):
-        _STATE["series_errors"][series_id] = "no_observations_field"
-        return None
-    return obs
+    # bounded vintage window: ~4y keeps daily series under the ~2000-vintage cap
+    # while preserving first-print/revision for anything the engine reports (-6)
+    rt_start = (date.today() - timedelta(days=4 * 366)).isoformat()
+    attempts = []
+    if units == "lin":
+        attempts.append({**base, "realtime_start": rt_start, "realtime_end": "9999-12-31"})
+    attempts.append(base)  # latest-vintage-only fallback / default
+
+    last_status = None
+    for params in attempts:
+        try:
+            r = _http_get(params, timeout)
+        except Exception as exc:  # timeout / connection / DNS
+            _STATE["series_errors"][series_id] = f"{type(exc).__name__}"
+            return None
+        last_status = r.status_code
+        if r.status_code == 429:
+            _STATE["series_errors"][series_id] = "rate_limited_429"
+            return None
+        if r.status_code == 404:
+            _STATE["series_errors"][series_id] = "not_found_404"
+            return None
+        if r.status_code >= 400:
+            continue  # try the next (narrower) attempt
+        try:
+            body = r.json()
+        except ValueError:
+            _STATE["series_errors"][series_id] = "malformed_json"
+            return None
+        obs = body.get("observations")
+        if not isinstance(obs, list):
+            _STATE["series_errors"][series_id] = "no_observations_field"
+            return None
+        _STATE["series_errors"].pop(series_id, None)
+        return obs
+
+    _STATE["series_errors"][series_id] = f"http_{last_status}"
+    return None
 
 
 def _records_from_series(country: str, metric: str, series_id: str, unit_label: str,
