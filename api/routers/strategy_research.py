@@ -364,6 +364,35 @@ def get_ml_volatility_regime_pilot() -> Dict[str, Any]:
     return r
 
 
+@router.get("/v2-information-decomposition")
+def get_v2_information_decomposition() -> Dict[str, Any]:
+    """Phase 81 — V2 incremental information / context decomposition: an
+    interpretable nested decomposition (current-state -> volatility ->
+    time/session -> +price -> +candle/regime -> full) of the Phase 78/79 V2
+    target, isolating whether ML's apparent predictive value (Phase 80) is
+    genuinely new information or mostly deterministic intraday/session
+    seasonality and current volatility state. Logistic regression is the
+    primary (interpretable) model throughout; HistGradientBoosting is a
+    secondary reference back to Phase 80. Reports conditional-probability
+    tables, train-only time/volatility neutralization, cross-asset/cross-
+    year/leave-one-out/horizon breakdowns, the corrected population-matched
+    placebo (and why the original population-decoupled version was
+    confounded), shuffled-target and future-shock/temporal-shift controls,
+    block-bootstrap CIs, gates, and one of four controlled verdicts.
+    `NOT_COMPUTED` until `python -m phase81_v2_information_decomposition`
+    has run. Research only: no trading signal, no execution."""
+    import phase81_v2_information_decomposition
+    r = phase81_v2_information_decomposition.get_result()
+    if not r:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m phase81_v2_information_decomposition`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    r["state"] = "AVAILABLE"
+    r["safety_barrier"] = _SAFETY
+    return r
+
+
 @router.get("/market-behavior")
 def get_market_behavior_discovery() -> Dict[str, Any]:
     """Phase 76 — literature-guided market behavior discovery: the phenomenon
