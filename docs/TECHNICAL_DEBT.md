@@ -53,12 +53,13 @@ P2 improvement · P3 nice-to-have. Nothing here is a safety-invariant risk.*
   unconditionally.
 
 ### P3-7 · `test_phase68_invariants.py::test_invariant_no_evidence_after_as_of` is order-dependent
-- Run **alone** it fails 8/19 with `ValueError: Invalid isoformat string: '2025-01'`
-  when the live yfinance feed is reachable — a seasonality/window timestamp is a
-  `YYYY-MM` label rather than ISO in some live-data path. In the **full suite** it
-  passes (earlier tests warm `market_data` caches / trip the feed-down
-  short-circuit first). Pre-existing — reproduces on clean `HEAD` (`04d43c9`),
-  unrelated to Phase 69.
+- Run **alone** it fails 8/12 with `ValueError: Invalid isoformat string: '<YYYY-MM>'`
+  (the month label tracks whatever historical data is reachable — `'2025-01'` on
+  yfinance, `'2022-08'` once MT5 history is ingested) — a seasonality/window
+  timestamp is a `YYYY-MM` label rather than ISO in some historical-data path. In
+  the **full suite** it passes (earlier tests warm `market_data` caches / trip the
+  feed-down short-circuit first). Pre-existing — reproduces on clean `612e1de`
+  with the working tree stashed, unrelated to Phase 69/74.
 - **Recommended fix:** make the test parse defensively (skip non-ISO) or, better,
   fix `market_evidence_engine` to only ever emit ISO timestamps on evidence
   items; add `historical_market_data.set_test_provider` isolation to the file's

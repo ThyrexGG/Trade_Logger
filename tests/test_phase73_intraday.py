@@ -47,8 +47,11 @@ def _series(n, tf_sec, start=BASE, p0=1.10):
 
 
 # --- provider capability (§4, §5) --------------------------------------
+# These pin the yfinance provider explicitly — Phase 74 lets
+# HISTORICAL_OHLCV_PROVIDER select a real vendor (mt5), so get_provider() is no
+# longer necessarily yfinance.
 def test_capability_declares_insufficient_depth_for_intraday():
-    prov = hp.get_provider()
+    prov = hp.YFinanceProvider()
     for tf in ("1m", "5m", "15m"):
         cap = prov.capability("XAUUSD", tf)
         assert cap.state == hp.ProviderCapabilityState.INSUFFICIENT_HISTORICAL_DEPTH
@@ -58,7 +61,7 @@ def test_capability_declares_insufficient_depth_for_intraday():
 
 
 def test_capability_flags_fx_synthetic_spot():
-    cap = hp.get_provider().capability("EURUSD", "15m")
+    cap = hp.YFinanceProvider().capability("EURUSD", "15m")
     assert any("synthetic spot" in x for x in cap.limitations)
 
 

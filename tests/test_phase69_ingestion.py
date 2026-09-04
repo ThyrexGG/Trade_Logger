@@ -67,10 +67,12 @@ def test_ingest_rejects_symbol_outside_universe():
     assert "universe" in res.error
 
 
+# Phase 74: HISTORICAL_OHLCV_PROVIDER may select a real vendor (mt5); these tests
+# exercise the yfinance ingest path, so pin provider="yfinance" explicitly.
 def test_ingest_stores_via_monkeypatched_source(monkeypatch):
     monkeypatch.setattr(ing, "yf", object())  # presence check only
     monkeypatch.setattr(ing, "_yf_download", lambda *a, **k: _fake_frame(300))
-    res = ing.ingest("XAUUSD", "1h")
+    res = ing.ingest("XAUUSD", "1h", provider="yfinance")
     assert res.ok
     assert res.stored_report["inserted"] == 300
     assert store.get_coverage("XAUUSD", "1h").count == 300
@@ -80,10 +82,10 @@ def test_ingest_stores_via_monkeypatched_source(monkeypatch):
 def test_ingest_incremental_only_adds_new(monkeypatch):
     monkeypatch.setattr(ing, "yf", object())
     monkeypatch.setattr(ing, "_yf_download", lambda *a, **k: _fake_frame(100))
-    ing.ingest("XAUUSD", "1h")
+    ing.ingest("XAUUSD", "1h", provider="yfinance")
     # a longer frame starting at the same point
     monkeypatch.setattr(ing, "_yf_download", lambda *a, **k: _fake_frame(150))
-    res = ing.ingest("XAUUSD", "1h", incremental=True)
+    res = ing.ingest("XAUUSD", "1h", incremental=True, provider="yfinance")
     assert res.mode == "incremental"
     assert store.get_coverage("XAUUSD", "1h").count == 150
 
@@ -91,7 +93,7 @@ def test_ingest_incremental_only_adds_new(monkeypatch):
 def test_ingest_4h_resampled_from_1h(monkeypatch):
     monkeypatch.setattr(ing, "yf", object())
     monkeypatch.setattr(ing, "_yf_download", lambda *a, **k: _fake_frame(400))
-    res = ing.ingest("XAUUSD", "4h")
+    res = ing.ingest("XAUUSD", "4h", provider="yfinance")
     assert res.ok
     assert res.stored_report["source"] == "yahoo"
     cov = store.get_coverage("XAUUSD", "4h")
@@ -101,7 +103,7 @@ def test_ingest_4h_resampled_from_1h(monkeypatch):
 
 def test_ingest_reports_missing_yfinance(monkeypatch):
     monkeypatch.setattr(ing, "yf", None)
-    res = ing.ingest("EURUSD", "1d")
+    res = ing.ingest("EURUSD", "1d", provider="yfinance")
     assert not res.ok
     assert "yfinance" in res.error
 

@@ -19,8 +19,10 @@ credentials were already in the environment.*
 - The frozen Gold contract's `sweep → MSS → FVG` logic was revalidated at its
   native timeframes on this **independent** dataset. Result: **NO NATIVE EDGE**
   — see §5. This does **not** touch the frozen forward-validation apparatus.
-- Multi-market: MT5 M15 ingested for the FX universe; a native-timeframe pair
-  ranking was run — see §6.
+- Multi-market: MT5 ingested for the **full 11-instrument universe** (15m/1h/4h/1d;
+  XAUUSD also 1m/5m) — every series `AVAILABLE`, 0 anomalous gaps, 0 suspect bars,
+  `providers=['mt5']`. Fully-native 15m pair ranking → **NO ROBUST EDGE FOUND**
+  (see §6). Answer to §36: **`NO_VALIDATED_EDGE`**.
 - The documented limitation: the MT5 terminal caps 1-minute history at ~100 000
   bars (~3.4 months of 24×5 trading), below the 6–12 months §17 asks for. The
   contract's *literal* 5-frame form (1D→4H→15M→5M→1M) is still approximated by a
@@ -39,13 +41,16 @@ credentials were already in the environment.*
 | Native revalidation | `native_gold_revalidation.py` | rewritten for real data — objective `_classify` (negative native with N ≥ 150 → `INVALIDATED`/`NO_EDGE`; strong positive + CI>0 + N ≥ 50 + WFO ≥ 0.5 → `VALIDATED`), independent-dataset comparison table (never a delta) |
 | SMC detector optimisation (§33) | `strategies/smc_utils.py` | per-DataFrame numpy column cache; `detect_mss` / `detect_liquidity_sweep` rewritten to read arrays not `.iloc` scalars — **≈105× faster (5.8 µs vs 610 µs per bar), 0 signal mismatches** vs the pre-Phase-74 logic |
 | API | `api/routers/strategy_research.py` | `GET /api/research/dataset-manifest?symbol=` added; `data-coverage` / `historical/providers` / `gold-revalidation/native` are provider-agnostic and reflect MT5 when it is the active provider |
-| Tests | `tests/test_phase74_ict_equivalence.py`, `tests/test_phase74_provider_and_data.py` | detector equivalence (synthetic + real), provider contract, credential hygiene, data-quality gates, manifest provenance, frozen hash + holdout untouched, no execution imports |
-| Docs | this file + `CURRENT_STATE` / `TECHNICAL_DEBT` / `FUTURE_WORK` | |
+| Phase-68 evidence path | `historical_market_data.py` | `_historical_provider` / `source_id` fall back to the persistent store when `HISTORICAL_OHLCV_PROVIDER` names an *ingestion vendor* (mt5 / yfinance / …) with no dedicated hmd provider — previously that silently returned `None` |
+| AI context | `api/ai_context.py` | SYSTEM_INSTRUCTION: the native MT5 revalidation is an independent test, never a delta vs the frozen forward-validation |
+| Tests | `tests/test_phase74_ict_equivalence.py`, `tests/test_phase74_provider_and_data.py` (+6 Phase-69/73 tests pinned to their intended provider) | detector equivalence (synthetic + real), provider contract, credential hygiene, data-quality gates, manifest provenance, frozen hash + holdout untouched, no execution imports |
+| Docs | this file + `CURRENT_STATE` / `CURRENT_ARCHITECTURE` / `TECHNICAL_DEBT` / `FUTURE_WORK` | |
 
 No execution / broker / risk / reconciliation / forward-validation file was
-modified. The frozen contract hash
-(`7f135a1269626a21dba769b7f0173c8a5428dcb7b47a88976045ea8aff376b76`) and the
-frozen holdout (N=82 / +0.637R) are unchanged and unread by any Phase 74 code.
+modified (`git diff 531d534..HEAD` on those paths is empty). The frozen contract
+hash (`7f135a1269626a21dba769b7f0173c8a5428dcb7b47a88976045ea8aff376b76`) and the
+frozen holdout (N=82 / +0.637R) are unchanged and unread by any Phase 74 code
+(`grep LOCKED_HISTORICAL_BASELINE / forward_accumulation` → nothing).
 
 ---
 
@@ -71,16 +76,18 @@ frozen holdout (N=82 / +0.637R) are unchanged and unread by any Phase 74 code.
 
 ### Measured MT5 depth (this account)
 
-| TF | Earliest | Depth | Note |
-|---|---|--:|---|
-| 1m | ~2026-05 | **~3.4 months** | 100 000-bar terminal cap |
-| 5m | ~2025-04 | ~17 months | |
-| 15m | 2022-06 | **~4.2 years** | 100 000-bar cap |
-| 1h | ~2016 | ~10 years | |
-| 4h | ~2020 | ~5.5 years | |
-| 1d | ~2004 | ~20 years | |
+Actual ingested (XAUUSD full stack; FX universe = 15m/1h/4h/1d):
 
-All FX majors + crosses + XAGUSD available under plain symbol names.
+| TF | XAUUSD bars | XAUUSD depth | FX bars (each) | FX depth |
+|---|--:|--:|--:|--:|
+| 1m | 100 000 | ~3.4 months (100k-bar cap) | — | — |
+| 5m | 100 000 | ~17 months (100k-bar cap) | — | — |
+| 15m | 100 004 | ~4.2 years (100k-bar cap) | ~100 000 | ~4.2 years (100k-bar cap) |
+| 1h | 58 971 | ~10 years | ~62 200 | ~7 years |
+| 4h | 15 437 | ~10 years | ~15 565 | ~10 years |
+| 1d | 2 581 | ~10 years | ~2 597 | ~10 years |
+
+All FX majors + crosses available under plain symbol names.
 
 ---
 
@@ -103,8 +110,10 @@ Every ingested series passes through:
   rows on a key before writing MT5 rows; the manifest records the distinct
   `source` values per series.
 
-XAUUSD MT5 ingest result: **0 anomalous gaps, 0 misaligned bars**, latest bar
-UTC-verified against the live feed.
+Result across **all 33 ingested series** (11 instruments × {15m,1h,4h,1d}, plus
+XAUUSD 1m/5m): **0 anomalous gaps, 0 suspect/misaligned bars**, every series
+`data_sufficiency = AVAILABLE`. Weekend gaps present and correctly classified as
+non-anomalous. Latest bars UTC-verified against the live feed.
 
 ---
 
@@ -149,7 +158,42 @@ two are **never compared as a delta**. The frozen forward-validation apparatus
 ## 6. §22 / §23 Multi-market native expansion
 
 <!-- MULTIMARKET_START -->
-*(filled once the M15 FX ingest + native pair ranking complete)*
+MT5 data was ingested for the **full 11-instrument universe** at 15m / 1h / 4h /
+1d (XAUUSD also 1m / 5m). Every series: `data_sufficiency = AVAILABLE`, **0
+anomalous gaps, 0 suspect bars**, `providers = ['mt5']`. `pair_ranking
+--timeframe 15m` was then run with `HISTORICAL_OHLCV_PROVIDER=mt5` — base
+execution frame *and* HTF context frames (1h struct, 4h bias) all native MT5.
+
+Artifact `pair_ranking @ 50e63bbf6a8a` (15m, 11 instruments × 5 strategies, 54
+scored rows). Top of the leaderboard:
+
+| # | Instrument | Strategy | OOS E[R] | PF | WR% | N | RRS | Scorecard |
+|--:|---|---|--:|--:|--:|--:|--:|---|
+| 1 | XAUUSD | smc_continuation_bos_fvg | +0.520R | 1.75 | 31.3 | 83 | 50.4 | UNCERTAIN |
+| 2 | XAUUSD | trend_continuation_ema | +0.158R | 1.23 | 32.6 | 592 | 38.2 | UNCERTAIN |
+| 3 | XAUUSD | ict_2022_sweep_mss_fvg | +0.082R | 1.17 | 54.6 | 482 | 32.7 | UNCERTAIN |
+| 4 | GBPJPY | liquidity_sweep_reversal | +0.017R | 1.02 | 30.8 | 963 | 26.9 | UNCERTAIN |
+| 5–54 | (all others) | — | −0.03R to −0.46R | <1 | — | — | — | FAILED |
+
+Only two candidates have a positive OOS bootstrap **lower** bound — XAUUSD
+`smc_continuation_bos_fvg` (CI lower +0.049) and `trend_continuation_ema` (CI
+lower +0.023). Both are `UNCERTAIN`, positive on **XAUUSD only**
+(`pair_stability = GOLD_SPECIFIC_EDGE`), and neither was confirmed by
+walk-forward. `pair_stability` is `NO_EDGE_ANYWHERE` for
+`ict_2022_sweep_mss_fvg`, `liquidity_sweep_reversal` and `mean_reversion_rsi`.
+
+*WFO note:* a `--quick` ranking carries no walk-forward. A bounded
+`--deep --deep-top 4` 15m pass was started and **stopped for runtime** (deep WFO
++ sensitivity + MC on 100k-bar M15 series is multi-hour). It is not needed for
+the verdict — the frozen-contract strategy's deep robustness is fully covered by
+`native_gold_revalidation` (1m WFO 0.33 UNSTABLE, 15m 0.67), the Phase 70/71 1h
+`--deep` sweep already ran full WFO/MC/sensitivity across all 11×5 (NO ROBUST
+EDGE, `smc_continuation_bos_fvg` top there too, still UNCERTAIN), and the two
+positive-lower-CI 15m candidates are marginal, single-instrument and (for
+`smc_continuation`) N=83.
+
+**VERDICT: NO ROBUST EDGE FOUND** — no instrument × strategy clears
+(positive OOS lower-CI + N ≥ 50 + WFO stability ≥ 0.5).
 <!-- MULTIMARKET_END -->
 
 ---
@@ -201,12 +245,31 @@ HISTORICAL_OHLCV_PROVIDER=mt5           # or a commercial vendor
 # vendor: HISTORICAL_OHLCV_API_KEY            (server-side only)
 ```
 
-`python -m market_data_ingest --provider mt5 --universe` then
-`python -m dataset_manifest XAUUSD`. Keys are read from the environment only.
+`python -m market_data_ingest --provider mt5 --universe --timeframes 15m,1h,4h,1d`
+then `python -m dataset_manifest XAUUSD`. Keys are read from the environment only.
+
+Setting `HISTORICAL_OHLCV_PROVIDER=mt5` also makes `historical_market_data`
+(the Phase-68 as-of evidence path) serve from the persistent store — an
+ingestion-vendor name that has no dedicated hmd candle-window provider now falls
+through to the store rather than returning `None`.
 
 ---
 
-## 10. Browser QA
+## 10. Tests & build
+
+- `pytest tests/ -p no:randomly` → **1 417 passed, 6 skipped, 0 failed** (~161 s).
+  The suite runs against local SQLite (`PYTEST_CURRENT_TEST` ⇒ SQLite in
+  `database.py`), so it checks code paths, not the live Postgres MT5 store.
+- New Phase-74 tests: `test_phase74_ict_equivalence.py` (5) +
+  `test_phase74_provider_and_data.py` (20).
+- 6 Phase-69/73 tests updated to pin the provider they exercise (yfinance) now
+  that `HISTORICAL_OHLCV_PROVIDER=mt5` is configured — **no test weakened**.
+- `npx tsc --noEmit` clean; `npm run build` clean (2.0 s;
+  `StrategyDiscoveryPage` 14.3 kB).
+- Known pre-existing isolation flake: `test_phase68_invariants.py::
+  test_invariant_no_evidence_after_as_of` (P3-7) — passes in full-suite order.
+
+## 10b. Browser QA
 
 **No headless/e2e harness in the repo** — `npx tsc --noEmit` + `npm run build`
 clean; FastAPI TestClient route suites pass. Manual operator checklist:

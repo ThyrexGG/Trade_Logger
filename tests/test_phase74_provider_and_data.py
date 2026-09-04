@@ -20,7 +20,10 @@ import historical_provider as hp
 import mt5_provider
 
 BASE = 1_400_000_000
-ASSET = "NZDUSD"
+# A canonical symbol that is NOT in the MT5 research universe, so real ingested
+# candles can never collide with these fixtures (Phase 74 ingested real data for
+# every universe instrument).
+ASSET = "ZZTESTPAIR"
 
 
 def _clean():
@@ -29,8 +32,7 @@ def _clean():
     try:
         cur = conn.cursor()
         ph = database.get_sql_placeholder(conn)
-        cur.execute(f"DELETE FROM historical_candles WHERE asset={ph} AND open_time<{ph}",
-                    (ASSET, BASE + 500 * 86400))
+        cur.execute(f"DELETE FROM historical_candles WHERE asset={ph}", (ASSET,))
         conn.commit()
     finally:
         conn.close()
@@ -151,7 +153,7 @@ def test_manifest_records_provenance_and_holdout_isolation():
     store.upsert_candles(ASSET, "15m", _series(400, 900), source="mt5")
     store.upsert_candles(ASSET, "1h", _series(200, 3600), source="mt5")
     m = dataset_manifest.build_manifest(ASSET, timeframes=("15m", "1h"))
-    assert m.canonical_symbol == "NZDUSD"
+    assert m.canonical_symbol == ASSET
     assert m.providers == ["mt5"]
     assert len(m.content_hash) == 64
     assert "holdout" in m.holdout_isolation.lower()

@@ -164,23 +164,33 @@ def _historical_provider() -> Optional[HistoricalProviderFn]:
     key = historical_provider_key()
     if key in ("", "none"):
         return None
-    if key == "auto":
-        # Phase 69: the persistent OHLCV store (``historical_data_store``) is the
-        # default provider. When it is empty it yields ``None`` for every request
-        # — the same honest gap as before, now closeable by ingestion.
+
+    # An explicitly-registered hmd candle-window provider (or test double) wins.
+    if key not in ("auto", "store"):
+        with _LOCK:
+            prov = _PROVIDERS.get(key)
+        if prov is not None:
+            return prov
+        # Phase 74: ``HISTORICAL_OHLCV_PROVIDER`` also names an *ingestion vendor*
+        # (``mt5`` / ``yfinance`` / a Phase-73 vendor). Those vendors populate the
+        # persistent store; the as-of candle window always comes from the store,
+        # never from a live vendor call. Fall through to the store rather than
+        # silently returning ``None`` because an ingestion vendor was named.
+
+    # Phase 69: the persistent OHLCV store (``historical_data_store``) is the
+    # default provider. When it is empty it yields ``None`` for every request —
+    # the same honest gap as before, now closeable by ingestion.
+    with _LOCK:
+        prov = _PROVIDERS.get("store")
+    if prov is None:
+        try:
+            import historical_data_store
+            historical_data_store.register_with_phase68()
+        except Exception:
+            return None
         with _LOCK:
             prov = _PROVIDERS.get("store")
-        if prov is None:
-            try:
-                import historical_data_store
-                historical_data_store.register_with_phase68()
-            except Exception:
-                return None
-            with _LOCK:
-                prov = _PROVIDERS.get("store")
-        return prov
-    with _LOCK:
-        return _PROVIDERS.get(key)
+    return prov
 
 
 # ---------------------------------------------------------------------------
@@ -288,7 +298,12 @@ def get_candle_window(
             _pkey = "test"
         else:
             _pkey = historical_provider_key()
-            if _pkey == "auto":
+            # 'auto', 'store', or an ingestion-vendor name (mt5 / yfinance / …)
+            # that has no registered hmd provider all resolve to the persistent
+            # store — report it as such (see _historical_provider).
+            with _LOCK:
+                _is_hmd_provider = _pkey in _PROVIDERS
+            if _pkey in ("auto", "store") or not _is_hmd_provider:
                 _pkey = "store"
         source_id = f"provider:{_pkey}"
 
