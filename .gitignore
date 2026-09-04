@@ -54,3 +54,7 @@ Thumbs.db
 
 # runtime logs (auto_sync daemon etc.)
 sync_log.txt
+
+# Stray local Python install-manager artifacts (PEP 514 / py manager) — not project files
+/Python/
+python_install_*.log

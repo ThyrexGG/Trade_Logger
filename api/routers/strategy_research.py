@@ -267,6 +267,28 @@ def get_orb_vwap_research() -> Dict[str, Any]:
     return r
 
 
+@router.get("/large-bar-reversal")
+def get_large_bar_reversal_validation() -> Dict[str, Any]:
+    """Phase 77 — large-bar reversal candidate validation: the H8 phenomenon from
+    Phase 76 taken to a realistic execution model. Primary hypotheses H8-P1..P4
+    (all pairs / JPY crosses / ranging regime / cost stress) with dev vs OOS
+    metrics, deterministic bootstrap CIs, an ATR cost-sensitivity grid, regime /
+    volatility / session conditioning, a small parameter neighbourhood, the
+    cross-asset class, per-hypothesis candidate gates and the Phase 78 decision.
+    `NOT_COMPUTED` until `python -m phase77_large_bar_reversal` has run.
+    Research only — no candidate here is a validated or deployable trading edge."""
+    import phase77_large_bar_reversal
+    r = phase77_large_bar_reversal.get_result()
+    if not r:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m phase77_large_bar_reversal`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    r["state"] = "AVAILABLE"
+    r["safety_barrier"] = _SAFETY
+    return r
+
+
 @router.get("/market-behavior")
 def get_market_behavior_discovery() -> Dict[str, Any]:
     """Phase 76 — literature-guided market behavior discovery: the phenomenon

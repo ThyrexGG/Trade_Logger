@@ -84,7 +84,10 @@ def test_mt5_provider_never_returns_credentials():
     prov = mt5_provider.get()
     cap = prov.capability("XAUUSD", "15m")
     blob = repr(cap.to_dict()).lower()
-    for tok in ("mt5_password", "password", os.getenv("MT5_PASSWORD", "\x00unlikely\x00").lower()):
+    for tok in ("mt5_password", "password",
+                os.getenv("MT5_PASSWORD", "\x00unlikely\x00").lower()):
+        if not tok:                     # MT5_PASSWORD unset/empty -> nothing to leak
+            continue
         assert tok not in blob
     assert "os.getenv(\"MT5_PASSWORD\")" in src or "os.getenv('MT5_PASSWORD')" in src
 
