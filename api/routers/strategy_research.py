@@ -311,6 +311,33 @@ def get_market_behavior_discovery_ii() -> Dict[str, Any]:
     return r
 
 
+@router.get("/ml-target-integrity")
+def get_ml_target_integrity() -> Dict[str, Any]:
+    """Phase 79 — ML target integrity, leakage audit & pilot readiness: formal
+    versioned target specifications for Phase 78's two ML_TARGET_READY findings
+    (V2 high-volatility regime persistence, V1 15m compression-duration range
+    expansion), feature/target timestamp-ordering audit, a static rolling-
+    window leakage scan, future-shock / past-shift adversarial regression
+    tests, a stable-ATR contamination re-check, rolling-window overlap and
+    effective-sample-size estimates, purge/embargo analysis, placebo-control
+    decoupling (plus the documented mean-invariance-of-permutation finding),
+    leave-one-asset-out and cross-year period stability, and a per-target
+    TARGET_INTEGRITY_READY / TARGET_REQUIRES_REVISION / TARGET_REJECTED gate.
+    `NOT_COMPUTED` until `python -m phase79_ml_target_integrity` has run.
+    Research-integrity only — no model is trained here and no target here is
+    a trading signal."""
+    import phase79_ml_target_integrity
+    r = phase79_ml_target_integrity.get_result()
+    if not r:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m phase79_ml_target_integrity`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    r["state"] = "AVAILABLE"
+    r["safety_barrier"] = _SAFETY
+    return r
+
+
 @router.get("/market-behavior")
 def get_market_behavior_discovery() -> Dict[str, Any]:
     """Phase 76 — literature-guided market behavior discovery: the phenomenon
