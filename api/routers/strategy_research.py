@@ -246,3 +246,22 @@ def get_diagnostic_matrix() -> Dict[str, Any]:
     m["state"] = "AVAILABLE"
     m["safety_barrier"] = _SAFETY
     return m
+
+
+@router.get("/orb-vwap")
+def get_orb_vwap_research() -> Dict[str, Any]:
+    """Phase 75 — ORB v1 + VWAP v1 systematic strategy research: the 6-instrument
+    x 2-strategy results matrix (N / E[R] / PF / win rate / CI / max DD / status),
+    aggregates, multiple-comparison accounting, candidate promotion gate and
+    verdict. `NOT_COMPUTED` until `python -m phase75_orb_vwap` has run.
+    Research only — never a trading recommendation; no candidate is 'validated'."""
+    import phase75_orb_vwap
+    r = phase75_orb_vwap.get_result()
+    if not r:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m phase75_orb_vwap`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    r["state"] = "AVAILABLE"
+    r["safety_barrier"] = _SAFETY
+    return r
