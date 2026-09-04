@@ -338,6 +338,32 @@ def get_ml_target_integrity() -> Dict[str, Any]:
     return r
 
 
+@router.get("/ml-volatility-regime")
+def get_ml_volatility_regime_pilot() -> Dict[str, Any]:
+    """Phase 80 — ML volatility regime prediction pilot: the first phase
+    permitted to train a predictive model. Uses the exact, unchanged Phase
+    78/79 V2 target (rv_rank[i+h] > 0.66 after a currently-HIGH bar). Reports
+    the feature registry, ablation sweep, full horizon matrix, baselines
+    (majority / persistence / simple-volatility / random), walk-forward
+    fold-by-fold metrics (each fold's test window IS a calendar-year OOS
+    period), cross-asset and leave-one-instrument-out results, permutation
+    importance, shuffled-target / placebo / future-shock controls,
+    calibration, determinism, the 8-gate evaluation and final verdict.
+    `NOT_COMPUTED` until `python -m phase80_ml_volatility_regime` has run.
+    Research only: no trading signal, no execution, no model connected to
+    any live system."""
+    import phase80_ml_volatility_regime
+    r = phase80_ml_volatility_regime.get_result()
+    if not r:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m phase80_ml_volatility_regime`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    r["state"] = "AVAILABLE"
+    r["safety_barrier"] = _SAFETY
+    return r
+
+
 @router.get("/market-behavior")
 def get_market_behavior_discovery() -> Dict[str, Any]:
     """Phase 76 — literature-guided market behavior discovery: the phenomenon
