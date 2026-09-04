@@ -454,6 +454,36 @@ def get_conditional_interaction_discovery() -> Dict[str, Any]:
     return r
 
 
+@router.get("/information-frontier-audit")
+def get_information_frontier_audit() -> Dict[str, Any]:
+    """Phase 84 — information frontier & missing signal research audit: an
+    audit/roadmap phase, not a pipeline phase. Reports a repository
+    information inventory (MT5 tick-volume/tick-data/macro/news/AI
+    capabilities, live-verified via `historical_data_store.list_available()`
+    for timeframe coverage), a cumulative existing-data feature-group
+    ablation for both the magnitude (T2) and direction (T1) targets, a
+    small bounded tick-volume ablation with shuffled-target and
+    volume-shuffle placebo controls, a feature redundancy/mutual-information/
+    PCA audit, a live-synthesized predictability-ceiling table across
+    Phases 78/80/81/82/83, an M1/M5 native-resolution feasibility
+    assessment, and the 20-row Information Frontier Matrix with the
+    standardized six-level verdict vocabulary and P0-P3 priorities. Produces
+    NO strategy artifact and NO trading signal -- the deliverable is a
+    research report and a single Phase-85 recommendation.
+    `NOT_COMPUTED` until `python -m phase84_information_frontier_audit` has
+    run. Research only: no trading signal, no execution."""
+    import phase84_information_frontier_audit
+    r = phase84_information_frontier_audit.get_result()
+    if not r:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m phase84_information_frontier_audit`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    r["state"] = "AVAILABLE"
+    r["safety_barrier"] = _SAFETY
+    return r
+
+
 @router.get("/market-behavior")
 def get_market_behavior_discovery() -> Dict[str, Any]:
     """Phase 76 — literature-guided market behavior discovery: the phenomenon
