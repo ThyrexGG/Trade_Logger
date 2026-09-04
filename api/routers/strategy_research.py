@@ -227,3 +227,22 @@ def get_pair_ranking() -> Dict[str, Any]:
     ranking["state"] = "AVAILABLE"
     ranking["safety_barrier"] = _SAFETY
     return ranking
+
+
+@router.get("/diagnostic-matrix")
+def get_diagnostic_matrix() -> Dict[str, Any]:
+    """The research diagnostic matrix: per (instrument x strategy x segmentation
+    dimension x bucket) N / expectancy / bootstrap CI / sample class / status,
+    with multiple-comparison accounting and a candidate promotion gate.
+    `NOT_COMPUTED` until `python -m research_diagnostics 15m` has run.
+    Diagnosis only — never a trading recommendation."""
+    import research_diagnostics
+    m = research_diagnostics.get_matrix()
+    if not m:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m research_diagnostics 15m`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    m["state"] = "AVAILABLE"
+    m["safety_barrier"] = _SAFETY
+    return m
