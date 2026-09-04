@@ -289,6 +289,28 @@ def get_large_bar_reversal_validation() -> Dict[str, Any]:
     return r
 
 
+@router.get("/market-behavior-discovery-ii")
+def get_market_behavior_discovery_ii() -> Dict[str, Any]:
+    """Phase 78 — literature-guided market behavior discovery II: momentum x
+    volatility-expansion x breakout/retest x session-transitions. Hypothesis
+    registry, dev/OOS scorecard with block-bootstrap CIs, null-control
+    placebo effects, multiple-testing tiers, cost sensitivity, candidate gate,
+    ML-readiness scorecard, negative-knowledge registry (carrying Phase 77's
+    large-bar reversal forward) and final verdict.
+    `NOT_COMPUTED` until `python -m phase78_market_behavior_discovery_ii` has
+    run. Research only — no phenomenon here is a validated trading edge."""
+    import phase78_market_behavior_discovery_ii
+    r = phase78_market_behavior_discovery_ii.get_result()
+    if not r:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m phase78_market_behavior_discovery_ii`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    r["state"] = "AVAILABLE"
+    r["safety_barrier"] = _SAFETY
+    return r
+
+
 @router.get("/market-behavior")
 def get_market_behavior_discovery() -> Dict[str, Any]:
     """Phase 76 — literature-guided market behavior discovery: the phenomenon
