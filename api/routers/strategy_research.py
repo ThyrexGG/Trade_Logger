@@ -265,3 +265,23 @@ def get_orb_vwap_research() -> Dict[str, Any]:
     r["state"] = "AVAILABLE"
     r["safety_barrier"] = _SAFETY
     return r
+
+
+@router.get("/market-behavior")
+def get_market_behavior_discovery() -> Dict[str, Any]:
+    """Phase 76 — literature-guided market behavior discovery: the phenomenon
+    scorecard (event studies with dev/OOS block-bootstrap CIs, cross-year and
+    regime dependence), multiple-testing tiers, negative-knowledge registry,
+    promising-research queue, ML-readiness assessment and final verdict.
+    `NOT_COMPUTED` until `python -m phase76_event_study` has run.
+    Research only — no phenomenon here is a validated trading edge."""
+    import phase76_event_study
+    r = phase76_event_study.get_result()
+    if not r:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m phase76_event_study`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    r["state"] = "AVAILABLE"
+    r["safety_barrier"] = _SAFETY
+    return r
