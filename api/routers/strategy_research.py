@@ -393,6 +393,38 @@ def get_v2_information_decomposition() -> Dict[str, Any]:
     return r
 
 
+@router.get("/v1-compression-expansion")
+def get_v1_compression_expansion() -> Dict[str, Any]:
+    """Phase 82 — V1 15m compression -> expansion ML pilot: a nested
+    regression decomposition (constant -> volatility -> compression ->
+    +compression+volatility -> time -> volatility+time -> +compression ->
+    +price/range -> full) of the Phase 78/79 V1 target, asking whether
+    compression DURATION carries predictive information about subsequent
+    range expansion beyond current volatility and time/session structure.
+    Ridge is the primary (interpretable) model; RandomForest and
+    HistGradientBoosting are secondary reference models. Documents a
+    resolved definitional ambiguity (the literal Phase 78 event makes
+    duration a constant; this phase uses a documented, minimal extension)
+    and a target-centering correction found via the future-shock invariance
+    test. Reports duration dose-response, volatility/session/severity/range
+    conditioning, train-only residualization, cross-asset/cross-year/leave-
+    one-out/horizon breakdowns, matched-placebo/shuffled-target/temporal-
+    shift/future-shock controls, block-bootstrap CIs, gates, and one of
+    four controlled verdicts. `NOT_COMPUTED` until
+    `python -m phase82_compression_expansion_ml_pilot` has run. Research
+    only: no trading signal, no execution."""
+    import phase82_compression_expansion_ml_pilot
+    r = phase82_compression_expansion_ml_pilot.get_result()
+    if not r:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m phase82_compression_expansion_ml_pilot`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    r["state"] = "AVAILABLE"
+    r["safety_barrier"] = _SAFETY
+    return r
+
+
 @router.get("/market-behavior")
 def get_market_behavior_discovery() -> Dict[str, Any]:
     """Phase 76 — literature-guided market behavior discovery: the phenomenon
