@@ -686,6 +686,47 @@ def get_magnitude_risk_management() -> Dict[str, Any]:
     return r
 
 
+@router.get("/magnitude-economic-attribution")
+def get_magnitude_economic_attribution() -> Dict[str, Any]:
+    """Phase 91 — magnitude economic divergence & cross-instrument
+    attribution: Phase 90 found `RISK_MANAGEMENT_EDGE_PROMISING` but the
+    economic benefit was positive on only 3 of 6 canonical instruments
+    (GBPJPY, AUDJPY, USDJPY) and negative on the other 3 (EURUSD, GBPUSD,
+    XAUUSD), even though Phase 89's predictive ΔR² was often LARGER on the
+    negative-effect instruments. This phase attributes that gap (never
+    reopening direction, still NOT FOUND) by reconstructing Phase 90's
+    result from its own persisted artifact (never recomputed), then
+    quantifying candidate mechanisms: the correlation between the fixed-
+    direction realized return (T1) and the forward magnitude target (T2)
+    is materially more negative for the positive-effect group (mean
+    ≈-0.17) than the negative-effect group (mean ≈-0.02) — under the
+    frozen Phase 90 inverse/volatility-targeting sizing rule, this
+    explains why sizing down during high-predicted-magnitude periods
+    helps where those periods are disproportionately adverse for the
+    fixed direction, and hurts where magnitude is closer to direction-
+    neutral. Also reports a sizing-vs-eligibility-filter decomposition
+    ablation, per-instrument per-fold temporal consistency, a group-level
+    placebo, cost/trade-count attribution, and an explicit (Spearman,
+    N=6, heavily caveated) test of whether predictive strength correlates
+    with economic utility at all. Produces exactly one of the standardized
+    verdicts (ECONOMIC_DIVERGENCE_EXPLAINED / _PARTIALLY_EXPLAINED /
+    _UNEXPLAINED, PHASE_90_EFFECT_WEAKENED / _INVALIDATED). No new
+    directional signal, no parameter optimization, no live-execution
+    artifact. `NOT_COMPUTED` until
+    `python -m phase91_magnitude_economic_attribution` has run. Research
+    only: no trading signal, no execution."""
+    import phase91_magnitude_economic_attribution
+    r = phase91_magnitude_economic_attribution.get_result()
+    if not r:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m phase91_magnitude_economic_attribution`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    r["state"] = "AVAILABLE"
+    r["safety_barrier"] = _SAFETY
+    return r
+
+
 @router.get("/market-behavior")
 def get_market_behavior_discovery() -> Dict[str, Any]:
     """Phase 76 — literature-guided market behavior discovery: the phenomenon

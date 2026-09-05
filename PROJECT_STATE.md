@@ -645,13 +645,63 @@ phases (see each phase's own `docs/PHASE_*.md` for full detail).*
   never been read by any module in the Phase 76-90 research program.
 - **Live automation: `DISABLED`.** `Broker transmission: BLOCKED`.
   Unchanged throughout the entire research program.
-- **Current research frontier**: proven — tick-volume magnitude
-  information is real and has a preliminary, instrument-concentrated
-  risk-management application. Unproven — why the risk-management benefit
-  concentrates in GBPJPY/AUDJPY/USDJPY rather than the instruments with
-  the strongest raw predictive R² (EURUSD/GBPUSD/XAUUSD); any directional
-  trading strategy; standalone profitability of any construction tested;
+- **Current research frontier (superseded by Phase 91 below)**: see
+  Section 11 for the updated status.
+
+## 11. Research Program Status (Phase 91) — Magnitude Economic Divergence & Cross-Instrument Attribution
+
+- **Research question answered**: why Phase 90's risk-management economic
+  benefit was positive on only 3 of 6 instruments (GBPJPY, AUDJPY,
+  USDJPY), and why that split was the *inverse* of Phase 89's own
+  predictive-strength ranking (the 3 positive instruments had the
+  *weakest* raw `corr(volume_rank, T2)`, 0.34-0.40, while the 3 negative
+  instruments had the strongest, 0.52-0.59 — a perfect, non-overlapping
+  separation).
+- **Mechanism found (quantified, corroborating, but not fully
+  conclusive)**: `corr(T1, T2)` — the correlation between the fixed
+  "always long" realized return and the predicted forward magnitude — is
+  materially more negative for the 3 economically-positive instruments
+  (mean ≈ −0.171) than for the 3 negative ones (mean ≈ −0.019), an 8.8×
+  difference. Decomposing Phase 90's combined treatment further: the
+  eligibility **filter**, not the volatility-targeting **sizing** rule,
+  drives essentially all of the pooled economic benefit (filter-only
+  improves expectancy on 5 of 6 instruments; sizing-only is actively
+  harmful on 5 of 6, including all 3 of the economically-positive
+  instruments in isolation). XAUUSD is the sole instrument where even the
+  filter is counterproductive, plausibly linked to its own unusually
+  large baseline "always long" drift (+0.041, 4-10x the other five
+  instruments) within this sample period. The 3/3 split also maps exactly
+  onto quote currency (JPY-quoted vs. not) — reported as a clean
+  structural correlate, not asserted as the causal mechanism itself.
+- **Verdict: `ECONOMIC_DIVERGENCE_PARTIALLY_EXPLAINED`** (not the
+  strongest `EXPLAINED` category) because per-instrument fold-level sign
+  consistency across the 3 walk-forward folds is imperfect for 4 of 6
+  instruments — only GBPJPY and EURUSD are perfectly consistent fold to
+  fold, even though all 6 instruments' *pooled* sign matches their group.
+- **Status of prior findings**: directional research remains
+  `EXHAUSTED_WITH_CURRENT_INFORMATION_FRONTIER` (unchanged, not
+  reopened). Magnitude signal remains `CONFIRMED` (unchanged). Phase 90's
+  economic status remains `RISK_MANAGEMENT_EDGE_PROMISING` (not upgraded
+  or downgraded by this phase — Phase 91 explains it, does not re-test
+  it). `PROFITABLE_TRADING_EDGE_FOUND = NOT_ESTABLISHED` (unchanged).
+- **Holdout: `UNTOUCHED`.** Frozen Gold holdout hash
+  (`7f135a1269626a21dba769b7f0173c8a5428dcb7b47a88976045ea8aff376b76`)
+  confirmed unchanged; never read by any module in the Phase 76-91
+  research program.
+- **Live automation: `DISABLED`.** `Broker transmission: BLOCKED`.
+  Unchanged throughout the entire research program.
+- **Current research frontier**: proven — the eligibility-filter
+  component of Phase 90's risk-management layer is the actual source of
+  its positive economic contribution; sizing alone is net-harmful in
+  isolation on 5 of 6 instruments; a quantified T1-T2 correlation
+  asymmetry and a clean predictive-strength/economic-benefit inversion
+  both corroborate why the benefit concentrates where it does. Unproven —
+  full period-by-period (fold-level) consistency of the mechanism;
+  whether the JPY-quote structural correlate has any causal role; why the
+  filter itself fails specifically for XAUUSD; any directional trading
+  strategy; standalone profitability of any construction tested;
   production readiness of the risk-management layer. See
-  `docs/PHASE_90_RESEARCH_REPORT.md` §28 for the recommended next step
-  (investigate the instrument-concentration pattern) — directional
+  `docs/PHASE_91_RESEARCH_REPORT.md` §25 for the recommended next step
+  (test the eligibility filter alone, without sizing, as its own,
+  simpler, more precisely targeted risk-management layer) — directional
   discovery is explicitly not to be reopened to pursue it.
