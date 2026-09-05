@@ -518,6 +518,39 @@ def get_tick_volume_confirmation() -> Dict[str, Any]:
     return r
 
 
+@router.get("/aggressive-edge-discovery")
+def get_aggressive_edge_discovery() -> Dict[str, Any]:
+    """Phase 86 — aggressive trading edge discovery: takes Phase 85's
+    confirmed tick-volume magnitude information as an input (never
+    repeated) and asks whether it, or a small set of newly pre-registered
+    conditional-directional-asymmetry cells, can be converted into an
+    actual cost-aware trading edge. Reports a three-way temporal split own
+    to this phase (discovery / confirmation / a NEW final holdout distinct
+    from the frozen Phase-74 Gold contract, which is never touched), an
+    8-cell pre-registered location x regime x volume-state screen for
+    directional asymmetry (promoted only if it replicates unchanged on
+    confirmation), a momentum + volume-filter trading rule (frozen
+    threshold chosen from a predeclared discovery-only grid by a
+    plateau-preferring rule, never by argmax), cross-asset/temporal-
+    quarter/parameter-perturbation/cost-scenario (BASE/ADVERSE/SEVERE)/
+    horizon robustness, a placebo battery, a full research ledger
+    disclosing every hypothesis tested (promoted or killed), and one of the
+    standardized edge-verdict labels. Produces NO live-execution artifact —
+    entries/exits/position-sizing/automation do not exist anywhere in this
+    module. `NOT_COMPUTED` until `python -m phase86_aggressive_edge_discovery`
+    has run. Research only: no trading signal, no execution."""
+    import phase86_aggressive_edge_discovery
+    r = phase86_aggressive_edge_discovery.get_result()
+    if not r:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m phase86_aggressive_edge_discovery`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    r["state"] = "AVAILABLE"
+    r["safety_barrier"] = _SAFETY
+    return r
+
+
 @router.get("/market-behavior")
 def get_market_behavior_discovery() -> Dict[str, Any]:
     """Phase 76 — literature-guided market behavior discovery: the phenomenon
