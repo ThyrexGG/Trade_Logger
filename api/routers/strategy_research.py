@@ -614,6 +614,42 @@ def get_external_information_edge_hunt() -> Dict[str, Any]:
     return r
 
 
+@router.get("/research-integrity-gate")
+def get_research_integrity_gate() -> Dict[str, Any]:
+    """Phase 89 — independent red-team + magnitude edge gate: a research-
+    integrity phase, not a feature-expansion phase. GATE A adversarially
+    re-audits Phases 84-88's key claims by direct code re-inspection (not
+    by trusting prior prose) plus new checks -- a cross-instrument volume
+    placebo (does instrument A's volume 'predict' instrument B's own
+    magnitude, which should be null for a genuinely per-instrument signal)
+    and a from-scratch causal re-derivation of the volume-feature and T2-
+    target windows. GATE B (run only if Gate A does not invalidate the
+    finding) tests whether `volume_rank` adds information beyond a
+    volatility-only baseline (ATR/RV/recent-range/recent-|return|) under
+    GENUINE walk-forward retraining (Phase 80's expanding-window, purge+
+    embargo calendar-year folds, reused unchanged) with its own dedicated
+    within-walk-forward placebo, then asks two direction-neutral economic
+    questions: target-reachability probability calibration and volatility-
+    regime classification -- direction is never touched (Sec.25 of the
+    master prompt: keep magnitude and direction completely separate).
+    Reports one of the standardized Gate A verdicts (PASS / PASS_WITH_
+    REVISIONS / FAIL) and Gate B verdicts (MAGNITUDE_EDGE_CONFIRMED /
+    MAGNITUDE_SIGNAL_PROMISING_NOT_TRADABLE_YET / MAGNITUDE_SIGNAL_
+    INVALIDATED / NO_EDGE_FOUND). Produces NO live-execution artifact.
+    `NOT_COMPUTED` until `python -m phase89_research_integrity_gate` has
+    run. Research only: no trading signal, no execution."""
+    import phase89_research_integrity_gate
+    r = phase89_research_integrity_gate.get_result()
+    if not r:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m phase89_research_integrity_gate`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    r["state"] = "AVAILABLE"
+    r["safety_barrier"] = _SAFETY
+    return r
+
+
 @router.get("/market-behavior")
 def get_market_behavior_discovery() -> Dict[str, Any]:
     """Phase 76 — literature-guided market behavior discovery: the phenomenon
