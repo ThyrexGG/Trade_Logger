@@ -835,6 +835,30 @@ def get_swing_data_foundation() -> Dict[str, Any]:
     return r
 
 
+@router.get("/swing-momentum")
+def get_swing_momentum() -> Dict[str, Any]:
+    """Phase 95 — swing momentum (time-series + cross-sectional) on the
+    Phase-94 daily-bar universe. Frozen, unfitted rules: 13/26/52-week
+    momentum, inverse-vol sizing, weekly rebalance, 10% ex-ante vol target,
+    realistic per-instrument retail costs. Reports a separate verdict for
+    each sleeve (FX+metals, crypto), each sub-strategy (TS, XS, combo) and
+    the combined book — full sample, per calendar year, and first/second
+    half. Read-only: no strategy search, no execution, no signals emitted
+    for trading. `NOT_COMPUTED` until `python -m phase95_swing_momentum`
+    has run. Holdout untouched, live automation disabled, broker
+    transmission blocked."""
+    import phase95_swing_momentum
+    r = phase95_swing_momentum.get_result()
+    if not r:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m phase95_swing_momentum`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    r["state"] = "AVAILABLE"
+    r["safety_barrier"] = _SAFETY
+    return r
+
+
 @router.get("/market-behavior")
 def get_market_behavior_discovery() -> Dict[str, Any]:
     """Phase 76 — literature-guided market behavior discovery: the phenomenon

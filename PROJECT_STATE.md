@@ -894,3 +894,51 @@ phases (see each phase's own `docs/PHASE_*.md` for full detail).*
   edges are hypotheses to be validated, not established results — realistic
   prior is Sharpe ~0.5–0.9 for the diversified program, with the crypto
   sleeves higher-return / higher-variance / higher-uncertainty).
+
+## 15. Research Program Status (Phase 95) — Swing Momentum (TS + XS)
+
+- **Module**: `phase95_swing_momentum.py`. First strategy phase of the
+  swing pivot. Tests **one pre-registered, zero-fitting question**: does a
+  frozen-rule momentum book (time-series + cross-sectional) earn a
+  positive, cost-surviving, OOS risk-adjusted return on the Phase-94
+  daily universe?
+- **Frozen design** (fixed before any result; never tuned or "best-of"
+  selected): weekly `W-FRI` bars; 13/26/52-week lookbacks; TS signal =
+  mean of `sign(trailing return_L)`; XS signal = count-neutral tertiles
+  within each sleeve; inverse-vol sizing gross-normalised to 1, then
+  ex-ante 10%-annualised sleeve vol target (causal), leverage capped
+  (FX 3×, crypto 2×); weekly rebalance; per-instrument one-way retail
+  costs (FX majors 1 bp … other crypto 10 bp) on a
+  ZERO/BASE/ADVERSE/SEVERE = 0/1/2/4× ladder; crypto shorts held as perp
+  shorts and charged/credited **actual Binance funding**, which is
+  tracked **separately** and does **not** count toward the momentum
+  verdict.
+- **OOS framing**: zero fitting ⇒ the whole post-52-week history is OOS;
+  reported full-sample, per calendar year, and first/second half.
+- **Result (BASE costs)**:
+  - **FX + metals**: TS and XS both **negative** Sharpe (~−0.33) over
+    2017–2026 → `SWING_MOMENTUM_EDGE_NEGATIVE`. Costs are not the cause
+    (drag ≈ 0.6%/yr; still negative at ZERO cost) — the raw signal has
+    negative expectancy on this universe/sample (the documented
+    decade-long FX/commodity trend drawdown).
+  - **Crypto**: combo Sharpe ~+0.30 full sample, but does **not** clear
+    the 90th pct of the random-sign placebo (real pct ≈ 0.85) and is
+    front-loaded (1st-half Sharpe ~0.67 → ~0 second half; XS clearly
+    negative recently) → `SWING_MOMENTUM_EDGE_NOT_ESTABLISHED`. The
+    historical crypto trend premium has decayed, as the pre-registered
+    prior warned.
+  - **Combined inv-vol book**: Sharpe ~+0.07, placebo pct ~0.47 →
+    `SWING_MOMENTUM_EDGE_NOT_ESTABLISHED`.
+  - **Overall**: `PROFITABLE_SWING_EDGE_NOT_ESTABLISHED`.
+- **Controls**: random-sign placebo (N=300), XS-shuffle placebo (N=300),
+  vol-matched buy-and-hold benchmark, cost ladder, predeclared
+  lookback/rebalance neighbourhoods (reported, never selected from),
+  per-asset contribution. `determinism.match == True`.
+- **Preview only, not a Phase-95 result**: the separately-tracked crypto
+  funding P&L on short legs is positive (+0.2% to +1.6%/yr) — a hint that
+  Phase 96 (funding carry) is the more promising line.
+- `GET /api/research/swing-momentum`,
+  `docs/PHASE_95_SWING_MOMENTUM.md`, 22 tests. Holdout `UNTOUCHED`; live
+  automation `DISABLED`; broker transmission `BLOCKED`;
+  `PROFITABLE_TRADING_EDGE_FOUND = NOT_ESTABLISHED` (unchanged).
+- **Next**: Phase 96 — crypto funding-rate carry.
