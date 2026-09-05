@@ -942,3 +942,56 @@ phases (see each phase's own `docs/PHASE_*.md` for full detail).*
   automation `DISABLED`; broker transmission `BLOCKED`;
   `PROFITABLE_TRADING_EDGE_FOUND = NOT_ESTABLISHED` (unchanged).
 - **Next**: Phase 96 — crypto funding-rate carry.
+
+## 16. Research Program Status (Phase 96) — Crypto Funding-Rate Carry
+
+- **Module**: `phase96_funding_carry.py`. Delta-neutral carry: long 1u
+  crypto spot, short 1u the coin's perpetual, harvest the funding longs
+  pay shorts. ONE pre-registered, zero-fitting question: does it earn a
+  positive cost-surviving OOS return **and survive an exchange-collapse
+  tail?**
+- **Data added**: `<BASE>PERP` / `1d` daily OHLCV for all 27 Phase-94
+  coins (Binance USD-M `fapi/v1/klines`), Phase-74/94 provenance
+  discipline, idempotent. Only new data; funding history + spot were
+  already in the store.
+- **Frozen design**: weekly bars; per-coin weekly P&L =
+  `(spot_ret − perp_ret) + funding_received − costs` with the basis term
+  MEASURED from real perp prices; signal = trailing 4-week mean funding
+  annualised; enter > +3% ann., exit ≤ 0, hysteresis; positive-carry
+  only (reverse needs spot borrow — excluded); equal-weight eligible,
+  15% per-coin cap, ≤15 positions, no leverage; weekly rebalance;
+  per-leg retail costs on a 0/1/2/4× ladder.
+- **Return stream (BASE costs, 2017–2026, 466 wk)**: Sharpe **+2.94**
+  (ADVERSE +2.61), CAGR +10.1%, ann vol 3.3%, max DD −2.4%; ann funding
+  +10.8%, ann basis **−0.08%** (negligible), ann cost −1.1%; positive
+  **7/10** years; halves Sharpe 3.36 → 2.91 (barely decayed). Controls:
+  beats **every** random-eligibility placebo (pctl 1.00); funding
+  persistence pooled corr **+0.53**, positive 27/27 coins; BTC beta
+  **+0.008** (genuinely delta-neutral).
+- **Tail (exchange-collapse Monte-Carlo, 4000 paths/cell, judged on the
+  LOSS tail not the median)**: reference cell (5%/yr collapse, 50%
+  haircut) → 5th-pct total return still +10%, ~5% ruin. Aggressive cell
+  (10%/yr, total loss) → **48% of paths end in ruin**, 5th pct −100%.
+  Deterministic worst single week = −100%.
+- **Verdicts**: EDGE `FUNDING_CARRY_EDGE_PROMISING` (clears every bar
+  except positive-years 7/10 vs 80% — 2022 compressed funding to ~0;
+  design freeze forbids moving the bar). TAIL
+  `FUNDING_CARRY_SURVIVES_TAIL_MARGINAL` (fine under a modest
+  counterparty tail, ~50% ruin under an aggressive one). **OVERALL
+  `PROFITABLE_SWING_EDGE_PROMISING` — the first non-null verdict in the
+  96-phase program.**
+- **Why even PROMISING is generous**: (1) **survivorship bias** — the
+  27-coin universe is today's survivors; a real 2021 carry book would
+  have collected the (often highest) funding on coins that later
+  collapsed (LUNA/UST etc.); measured Sharpe biased up, measured tail
+  biased thin. (2) perp-margin/liquidation risk modelled only as a proxy.
+  (3) costs optimistic for small alts; historical (pre-crowding) funding.
+  (4) one regime (funding-positive == secular bull).
+- `GET /api/research/funding-carry`, `docs/PHASE_96_FUNDING_CARRY.md`,
+  PROJECT_STATE §16, 21 tests. `determinism.match == True`. Holdout
+  `UNTOUCHED`; live automation `DISABLED`; broker transmission `BLOCKED`.
+  `PROFITABLE_TRADING_EDGE_FOUND` moves from `NOT_ESTABLISHED` to
+  **`PROMISING`** (funding carry, tail-sized).
+- **Next**: Phase 97 FX/rate-differential carry (diversifier) → Phase 98
+  portfolio construction + risk-of-ruin sizing (where the Phase-96 tail
+  is sized explicitly against the Phase-95 momentum sleeves).
