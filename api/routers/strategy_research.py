@@ -650,6 +650,42 @@ def get_research_integrity_gate() -> Dict[str, Any]:
     return r
 
 
+@router.get("/magnitude-risk-management")
+def get_magnitude_risk_management() -> Dict[str, Any]:
+    """Phase 90 — cost-aware magnitude risk-management validation: tests
+    Claim C (does Phase 89's confirmed tick-volume magnitude signal improve
+    a realistic risk-management decision after costs?), never Claim A
+    (direction remains NOT FOUND, unchanged) or a restatement of Claim B.
+    Direction is held FIXED ('always long', a documented non-signal
+    scaffold) and IDENTICAL between a fixed-size/no-filter BASELINE and a
+    MAGNITUDE-AWARE system (volatility-targeting position sizing inverse-
+    scaled by an out-of-fold, train-only-calibrated predicted-magnitude
+    percentile, capped to [0.5x,1.5x], plus a quartile eligibility filter)
+    -- the only difference between them is the risk-management layer.
+    Reports an A0/A1/A2 ablation, genuine walk-forward economics (P&L,
+    expectancy, drawdown, profit factor) under BASE/ADVERSE/SEVERE cost
+    scenarios, a break-even cost sweep, a dedicated within-apparatus
+    placebo, cross-instrument/session/temporal breakdowns, and a
+    direction-neutral target-reachability economic test. Produces exactly
+    one of the standardized verdicts (RISK_MANAGEMENT_EDGE_CONFIRMED /
+    _PROMISING, MAGNITUDE_SIGNAL_CONFIRMED_BUT_NOT_ECONOMICALLY_TRADABLE,
+    MAGNITUDE_SIGNAL_INVALIDATED, NO_MAGNITUDE_EDGE_FOUND). Produces NO
+    live-execution artifact and never touches account-management deletion
+    safeguards. `NOT_COMPUTED` until
+    `python -m phase90_magnitude_risk_management` has run. Research only:
+    no trading signal, no execution."""
+    import phase90_magnitude_risk_management
+    r = phase90_magnitude_risk_management.get_result()
+    if not r:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m phase90_magnitude_risk_management`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    r["state"] = "AVAILABLE"
+    r["safety_barrier"] = _SAFETY
+    return r
+
+
 @router.get("/market-behavior")
 def get_market_behavior_discovery() -> Dict[str, Any]:
     """Phase 76 — literature-guided market behavior discovery: the phenomenon

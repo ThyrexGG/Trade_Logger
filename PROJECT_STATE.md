@@ -597,3 +597,61 @@ refined against reference screenshots.
   (`MacroIntelligenceSnapshotStore` exists, unused), per-country economic
   heatmaps, "Technical Signal" sub-score, dedicated COT / Crowd Sentiment
   panels, and a real macro data provider.
+
+## 10. Research Program Status (Phases 76–90) — Directional & Magnitude Information Discovery
+
+*Note: this section summarizes a separate, parallel research track (a
+sequence of individually documented `docs/PHASE_76..90_*.md` reports) that
+this architectural record had not previously reflected — sections 1-9
+above stop at Stage 18/Phase 57 of the product-feature track. This section
+exists specifically to satisfy the requirement that authoritative
+project-state documentation reflect the current, actual research
+conclusion rather than a full historical rewrite of the intervening
+phases (see each phase's own `docs/PHASE_*.md` for full detail).*
+
+- **Directional discovery: `EXHAUSTED_WITH_CURRENT_INFORMATION_FRONTIER`.**
+  Four independent, methodologically distinct constructions all found no
+  directional edge: Phase 83 (five pre-registered market-structure/regime
+  interactions), Phase 86 (momentum + tick-volume filter, tested across 7
+  thresholds), Phase 87 (a same-feed cross-market USD-strength proxy built
+  from 10 already-owned MT5 instruments), and Phase 88 (a genuinely
+  independent external dataset — DXY, VIX, US10Y yield, COMEX gold
+  futures, WTI crude futures via Yahoo Finance — tested via 6
+  hypothesis-driven candidates). Economic-surprise data and genuine
+  historical order-flow data were both confirmed unavailable in this
+  repository (not fabricated as a substitute). This conclusion should not
+  be reopened without genuinely new, authorized external information.
+- **Magnitude signal: `CONFIRMED`.** MT5 tick-volume (`volume_rank`,
+  loaded since Phase 76, never tested until Phase 84) provides real,
+  causal, walk-forward-validated incremental information about *future
+  price-movement magnitude* (not direction) beyond a volatility-only
+  baseline (Phase 89: pooled ΔR² ≈ +0.0342, positive in every fold, on all
+  6 canonical instruments, surviving a dedicated within-apparatus
+  placebo). Phase 89's own red-team audit found this likely has a partly
+  market-wide (cross-asset volatility-clustering) component, not a purely
+  per-instrument one — a disclosed refinement, not an invalidation.
+- **Phase 90 economic status: `RISK_MANAGEMENT_EDGE_PROMISING`.** A
+  volatility-targeting position-sizing/eligibility rule conditioned on
+  `volume_rank`, applied under a direction held fixed and identical
+  between conditions ("always long" — an explicitly documented non-signal
+  scaffold, never a trading recommendation), improved pooled walk-forward
+  expectancy and drawdown, cleared its own placebo, and was stable across
+  BASE/ADVERSE/SEVERE cost stress — but the benefit was concentrated in 3
+  of 6 instruments (GBPJPY, AUDJPY, USDJPY positive; EURUSD, GBPUSD,
+  XAUUSD flat-to-negative), so it is not yet broad enough to confirm a
+  general edge. `PROFITABLE_TRADING_EDGE_FOUND = NOT_ESTABLISHED`.
+- **Holdout: `UNTOUCHED`.** The frozen Phase-74 Gold holdout
+  (`7f135a1269626a21dba769b7f0173c8a5428dcb7b47a88976045ea8aff376b76`) has
+  never been read by any module in the Phase 76-90 research program.
+- **Live automation: `DISABLED`.** `Broker transmission: BLOCKED`.
+  Unchanged throughout the entire research program.
+- **Current research frontier**: proven — tick-volume magnitude
+  information is real and has a preliminary, instrument-concentrated
+  risk-management application. Unproven — why the risk-management benefit
+  concentrates in GBPJPY/AUDJPY/USDJPY rather than the instruments with
+  the strongest raw predictive R² (EURUSD/GBPUSD/XAUUSD); any directional
+  trading strategy; standalone profitability of any construction tested;
+  production readiness of the risk-management layer. See
+  `docs/PHASE_90_RESEARCH_REPORT.md` §28 for the recommended next step
+  (investigate the instrument-concentration pattern) — directional
+  discovery is explicitly not to be reopened to pursue it.
