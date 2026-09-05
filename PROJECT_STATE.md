@@ -772,8 +772,87 @@ phases (see each phase's own `docs/PHASE_*.md` for full detail).*
   applicability (XAUUSD fails outright); quote-currency causality;
   genuine cost robustness beyond the disclosed structural invariance;
   production readiness or standalone profitability of any construction.
-  See `docs/PHASE_92_STANDALONE_FILTER_VALIDATION.md` §23 for the
-  recommended next step (a direction-neutral volatility-only-vs-volume-
-  informed filter head-to-head, restricted to whether `volume_rank` earns
-  its place beyond GBPJPY) — directional discovery is explicitly not to
-  be reopened to pursue it.
+  See Section 13 below for the follow-up that answered this — directional
+  discovery is explicitly not to be reopened to pursue it.
+
+## 13. Research Program Status (Phase 93) — Magnitude / Volatility / Volume Mechanism Isolation
+
+- **Research question answered**: which information component actually
+  powers the Phase-92 standalone eligibility filter — magnitude,
+  volatility, volume, their interaction, mere exposure reduction, or
+  directional contamination? Answered by information ablation only: eight
+  treatments (baseline / canonical / magnitude-only / volatility-only /
+  volume-only / magnitude+volume / magnitude+volatility / full) run
+  through the SAME frozen Phase-90 machinery, varying ONLY the feature
+  set. Phase 89's frozen Baseline B was partitioned by a predeclared,
+  disclosed criterion into a raw-realized-magnitude group (`atr_ret`,
+  `rv`, `tr_atr`, `abs_ret_1`) and a percentile-rank volatility-regime
+  group (`atr_rank`, `rv_rank`) — a split new to this phase (prior phases
+  treated Baseline B as one atomic block).
+- **Result: `Scenario A` — magnitude-only is the minimum sufficient
+  mechanism; volume is unnecessary.** The magnitude-only filter not only
+  reproduces but EXCEEDS the canonical filter's pooled walk-forward
+  expectancy effect (+0.01883R vs +0.01163R), generalizes BETTER (5 of 6
+  instruments consistent vs 4 of 6 — it is the only treatment that moves
+  EURUSD and GBPUSD off flat/negative to clearly positive), beats its own
+  randomized-retention placebo on more instruments individually (EURUSD
+  0.52→0.84, GBPUSD 0.65→0.86), and produces the LARGEST drawdown
+  improvement of any treatment. Volatility-rank features alone explain a
+  material but non-dominant ~55%. Canonical reproduction was exact
+  (max_abs_diff = 0.0). Determinism confirmed.
+- **Volume finding: `VOLUME_INCREMENTAL_VALUE_NOT_ESTABLISHED`.** Adding
+  `volume_rank` to the magnitude features degrades the pooled effect by
+  −0.00738R, is positive on only 2 of 6 instruments (both JPY-quoted),
+  and SPECIFICALLY DESTROYS the EURUSD/GBPUSD magnitude signal (the exact
+  instruments magnitude-only rescues). A volume-only filter is nearly
+  worthless (pooled −0.00097R, placebo percentile 0.62, 6/6
+  direction-contaminated). This substantially reduces the "volume-
+  informed magnitude" framing that ran from Phase 89 through Phase 92 —
+  the isolable information is MAGNITUDE, not volume.
+- **Hypothesis E (mere exposure reduction) REJECTED**: for every
+  treatment the deterministic same-retention generic-reduction control
+  lands within ~0.0002R of the unfiltered baseline; the information
+  filters beat it by ~0.02R.
+- **Six independent verdicts, none forced**:
+  `MAGNITUDE_EFFECT_CONFIRMED`, `VOLATILITY_EXPLANATION_PARTIAL`,
+  `VOLUME_INCREMENTAL_VALUE_NOT_ESTABLISHED`, `FILTER_MECHANISM_CONFIRMED`,
+  `DIRECTIONALLY_DEPENDENT` (4 of 6 instruments' benefit is
+  direction-correlated Case B/D even under magnitude-only — the JPY-pair
+  benefit is substantially "removing adverse-for-always-long
+  observations", NOT a demonstrated direction-agnostic risk property),
+  `CROSS_INSTRUMENT_PARTIAL` (XAUUSD fails outright in every single
+  treatment — its filter-removed observations are FAVOURABLE for
+  always-long, direct evidence against a universal magnitude-risk
+  hypothesis; XAUUSD kept in every table, never excluded).
+- **Status of prior findings**: directional research remains
+  `EXHAUSTED_WITH_CURRENT_INFORMATION_FRONTIER` (unchanged, not
+  reopened). Magnitude signal remains `CONFIRMED` — and is now the sole
+  isolated information component (volume demoted). Phase 90's
+  `RISK_MANAGEMENT_EDGE_PROMISING`, Phase 91's
+  `ECONOMIC_DIVERGENCE_PARTIALLY_EXPLAINED`, and Phase 92's four verdicts
+  are all unchanged (Phase 93 isolates the mechanism, it does not
+  re-grade prior phases). `PROFITABLE_TRADING_EDGE_FOUND = NOT_ESTABLISHED`
+  (unchanged — no treatment, baseline or filter, is net-profitable in
+  absolute terms).
+- **Holdout: `UNTOUCHED`.** Frozen Gold holdout hash
+  (`7f135a1269626a21dba769b7f0173c8a5428dcb7b47a88976045ea8aff376b76`)
+  confirmed unchanged; never read by any module in the Phase 76-93
+  research program.
+- **Live automation: `DISABLED`.** `Broker transmission: BLOCKED`.
+  Unchanged throughout the entire research program.
+- **Current research frontier**: proven — the Phase-92 filter effect is
+  carried by the raw realized-magnitude features alone; volume is
+  unnecessary and harmful; mere exposure reduction explains none of it.
+  Unproven — direction-neutrality (the mechanism is still
+  direction-dependent for 4 of 6 instruments); universal applicability
+  (XAUUSD fails everywhere); why XAUUSD's high-magnitude periods are
+  favourable for always-long beyond "secular uptrend in-sample";
+  quote-currency causality; genuine cost robustness; standalone
+  profitability; production readiness. See
+  `docs/PHASE_93_MECHANISM_ISOLATION.md` "Next Research Question" for the
+  recommended next step (a direction-neutral re-test restricted to the
+  four magnitude features, evaluated on absolute-movement / adverse-
+  excursion distribution rather than always-long P&L, with XAUUSD's
+  Case-D behaviour as the falsification target) — NOT an escalation
+  toward a trading strategy or risk-management candidate, and directional
+  discovery is explicitly not to be reopened to pursue it.

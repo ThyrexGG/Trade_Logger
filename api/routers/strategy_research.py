@@ -768,6 +768,47 @@ def get_standalone_filter_validation() -> Dict[str, Any]:
     return r
 
 
+@router.get("/mechanism-isolation")
+def get_mechanism_isolation() -> Dict[str, Any]:
+    """Phase 93 — full magnitude / volatility / volume mechanism isolation:
+    determines WHICH information component is actually responsible for the
+    Phase-92 standalone eligibility-filter effect, via information ablation
+    only (never a search for a better filter). Partitions Phase 89's frozen
+    Baseline-B into a magnitude sub-group (raw realized-movement values:
+    atr_ret, rv, tr_atr, abs_ret_1) and a volatility sub-group
+    (percentile-rank regime variables: atr_rank, rv_rank) -- a new,
+    disclosed operational split -- and runs eight treatments through the
+    SAME frozen Phase-90 architecture (Ridge, train-only percentile, 25th-
+    percentile threshold, unit exposure, genuine walk-forward), varying
+    ONLY the feature set: baseline / canonical / magnitude-only /
+    volatility-only / volume-only / magnitude+volume / magnitude+volatility
+    / full. Anchored to an exact reproduction of the Phase-92 canonical
+    result. Reports a core attribution table, controlled information-
+    component contrasts, a per-treatment placebo battery (randomized
+    retention + generic exposure reduction), per-treatment directional-
+    contamination classification, per-treatment fold-level consistency, an
+    XAUUSD first-class failure investigation, a descriptive JPY-vs-non-JPY
+    matrix, temporal stability, a structural cost disclosure, drawdown
+    decomposition, and an explicit minimum-sufficient-mechanism
+    determination (Scenario A–F). Produces six independent, exactly-labeled
+    verdicts: magnitude effect, volatility explanation, volume incremental
+    value, filter mechanism, directional dependence, and cross-instrument
+    generalization. No new directional signal, no parameter optimization,
+    no instrument selection, no live-execution artifact. `NOT_COMPUTED`
+    until `python -m phase93_mechanism_isolation` has run. Research only:
+    no trading signal, no execution."""
+    import phase93_mechanism_isolation
+    r = phase93_mechanism_isolation.get_result()
+    if not r:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m phase93_mechanism_isolation`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    r["state"] = "AVAILABLE"
+    r["safety_barrier"] = _SAFETY
+    return r
+
+
 @router.get("/market-behavior")
 def get_market_behavior_discovery() -> Dict[str, Any]:
     """Phase 76 — literature-guided market behavior discovery: the phenomenon
