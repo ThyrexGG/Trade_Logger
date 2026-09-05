@@ -995,3 +995,52 @@ phases (see each phase's own `docs/PHASE_*.md` for full detail).*
 - **Next**: Phase 97 FX/rate-differential carry (diversifier) → Phase 98
   portfolio construction + risk-of-ruin sizing (where the Phase-96 tail
   is sized explicitly against the Phase-95 momentum sleeves).
+
+## 17. Research Program Status (Phase 97) — Portfolio Construction & Risk-of-Ruin Sizing
+
+- **Module**: `phase97_portfolio_construction.py`. Capstone of the swing
+  pivot's first pass. Re-runs the three tested sleeves (crypto funding
+  carry, crypto momentum COMBO, FX/metals momentum COMBO — pairwise
+  |rho| < 0.10), aligns them weekly (2018-08 → 2026-09, 420 wk), and asks:
+  is there an allocation that is USABLE (positive expected return,
+  tolerable drawdown, small ruin probability once the crypto
+  exchange-collapse tail is priced in)?
+- **Frozen method**: idle capital earns 2%/yr cash; f* = largest grid
+  carry fraction whose worst realistic single event (one exchange venue
+  gone, severity 1.0, carry split across 2 venues) costs <= 12% of the
+  whole book -> **f* = 25%**; a 4000-path risk-of-ruin Monte-Carlo then
+  VALIDATES (never inflates) the drawdown/ruin profile across an
+  annual-prob x severity x venue-count grid; a diversification test checks
+  whether adding a momentum sleeve to the non-carry capital beats cash.
+- **Result**: **Recommended book = 25% delta-neutral funding carry (>=2
+  venues) + 75% cash.** Neither momentum sleeve helped (both cut Sharpe /
+  deepened DD), so the remainder is cash. Historical total-capital CAGR
+  **4.2%** (**+2.2% over cash**), ann vol 0.9%, max realised DD −0.5%.
+  Worst single event (one venue gone) = **−10% of book**. Monte-Carlo
+  P(ruin, final < 0.70x): ~0% at the 4%/yr planning tail, 0.6% at a harsh
+  10%/yr single-venue assumption; 5th-pct CAGR still +1.9%.
+- **VERDICT: `USABLE_EDGE_FOUND`** — the **first non-null, actionable
+  result in 97 phases.** A genuine, survivable, essentially-uncorrelated
+  positive-expectancy allocation; a ~2%/yr enhancement over cash at very
+  low risk. NOT a wealth engine — absolute return is modest and scales
+  with the carry fraction, but so does the exchange tail (the 12%
+  single-venue cap holds f* to 25%).
+- **Honest deductions**: survivorship bias (Phase 96) => real carry Sharpe
+  thinner / tail fatter; backtested carry returns are unrealistically
+  smooth (no squeeze liquidations, no negative-funding forced exits, no
+  withdrawal halts) => 30-50% haircut to the standalone carry Sharpe would
+  be prudent; the tail model is a haircut + instant continuation, real
+  failures freeze funds for months.
+- **FX carry deferred**: needs a multi-country short-rate source (FRED API
+  key / equivalent) not currently configured (`FRED_API_KEY` absent).
+  `fx_carry_status = DEFERRED_NO_RATE_DATA_SOURCE`. Will be added and
+  folded into the allocation as a second uncorrelated sleeve.
+- `GET /api/research/portfolio-construction`,
+  `docs/PHASE_97_PORTFOLIO_CONSTRUCTION.md`, PROJECT_STATE §17, 15 tests.
+  `determinism.match == True`. Holdout `UNTOUCHED`; live automation
+  `DISABLED`; broker transmission `BLOCKED`. **`PROFITABLE_TRADING_EDGE_FOUND`
+  moves from `PROMISING` to `FOUND` (delta-neutral crypto funding carry,
+  ~25% of capital, multi-venue, tail-sized) — modest but real.**
+- **Next**: Phase 98 FX/rate carry (when rate data available) → Phase 99
+  paper-trading harness for the recommended book (6-12 months, no
+  execution).

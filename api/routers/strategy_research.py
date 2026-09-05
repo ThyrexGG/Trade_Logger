@@ -885,6 +885,30 @@ def get_funding_carry() -> Dict[str, Any]:
     return r
 
 
+@router.get("/portfolio-construction")
+def get_portfolio_construction() -> Dict[str, Any]:
+    """Phase 97 — portfolio construction & risk-of-ruin sizing. Combines
+    the tested sleeves (crypto funding carry, crypto momentum, FX/metals
+    momentum — near-uncorrelated), sizes the crypto funding-carry
+    allocation against an exchange-collapse Monte-Carlo (annual-probability
+    x severity x venue-count grid), tests whether a momentum sleeve helps
+    the non-carry capital, and issues a USABLE / MARGINAL / NOT verdict
+    with a concrete allocation. Read-only: no execution, no signals
+    emitted. `NOT_COMPUTED` until `python -m phase97_portfolio_construction`
+    has run. Holdout untouched, live automation disabled, broker
+    transmission blocked."""
+    import phase97_portfolio_construction
+    r = phase97_portfolio_construction.get_result()
+    if not r:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m phase97_portfolio_construction`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    r["state"] = "AVAILABLE"
+    r["safety_barrier"] = _SAFETY
+    return r
+
+
 @router.get("/market-behavior")
 def get_market_behavior_discovery() -> Dict[str, Any]:
     """Phase 76 — literature-guided market behavior discovery: the phenomenon
