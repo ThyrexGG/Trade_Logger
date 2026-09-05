@@ -727,6 +727,47 @@ def get_magnitude_economic_attribution() -> Dict[str, Any]:
     return r
 
 
+@router.get("/standalone-filter-validation")
+def get_standalone_filter_validation() -> Dict[str, Any]:
+    """Phase 92 — standalone magnitude eligibility filter validation: isolates
+    Phase 90's eligibility filter from its sizing rule entirely (sizing is
+    REMOVED, not merely set to a no-op) and re-tests it, under genuine
+    walk-forward (not a single split), as its own standalone treatment:
+    unit-exposure BASELINE vs unit-exposure FILTER-ONLY, with direction held
+    fixed and identical ('always long', the same documented non-signal
+    scaffold as Phase 90/91). The frozen filter itself (train-only
+    calibrated percentile from Baseline-B + volume_rank predicting T2,
+    25th-percentile eligibility threshold) is reproduced exactly from
+    Phase 90's own code, never re-optimized. Challenges the isolated filter
+    with a randomized-retention placebo, an independently-implemented
+    shuffled-filter placebo, a deterministic return-independent generic
+    exposure-reduction control, a volatility-only-filter comparison
+    (isolating whether the effect is specific to tick volume or a
+    volatility restatement), a directional-contamination classification,
+    a direction-neutral distributional diagnostic, and two small
+    predeclared robustness neighborhoods (eligibility quantile
+    0.20/0.25/0.30, target horizon 3/4/5 bars) plus a cost grid
+    (LOWER/BASE/ADVERSE/SEVERE). Produces four independent, exactly-labeled
+    verdicts (filter information effect, risk-management effect, economic
+    effect, and Phase-90 attribution) rather than a single collapsed
+    number, so a filter that helps risk metrics while hurting expectancy
+    (or vice versa) cannot be reported as one undifferentiated result. No
+    new directional signal, no parameter optimization beyond the two
+    predeclared neighborhoods, no live-execution artifact. `NOT_COMPUTED`
+    until `python -m phase92_standalone_filter_validation` has run.
+    Research only: no trading signal, no execution."""
+    import phase92_standalone_filter_validation
+    r = phase92_standalone_filter_validation.get_result()
+    if not r:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m phase92_standalone_filter_validation`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    r["state"] = "AVAILABLE"
+    r["safety_barrier"] = _SAFETY
+    return r
+
+
 @router.get("/market-behavior")
 def get_market_behavior_discovery() -> Dict[str, Any]:
     """Phase 76 — literature-guided market behavior discovery: the phenomenon

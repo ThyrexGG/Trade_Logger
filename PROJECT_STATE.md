@@ -700,8 +700,80 @@ phases (see each phase's own `docs/PHASE_*.md` for full detail).*
   whether the JPY-quote structural correlate has any causal role; why the
   filter itself fails specifically for XAUUSD; any directional trading
   strategy; standalone profitability of any construction tested;
-  production readiness of the risk-management layer. See
-  `docs/PHASE_91_RESEARCH_REPORT.md` §25 for the recommended next step
-  (test the eligibility filter alone, without sizing, as its own,
-  simpler, more precisely targeted risk-management layer) — directional
-  discovery is explicitly not to be reopened to pursue it.
+  production readiness of the risk-management layer. See Section 12 below
+  for the follow-up that directly answered this — directional discovery
+  is explicitly not to be reopened to pursue it.
+
+## 12. Research Program Status (Phase 92) — Standalone Magnitude Eligibility Filter Validation
+
+- **Research question answered**: does the volume-informed magnitude
+  eligibility filter constitute a genuine, standalone risk-management
+  effect, independent of Phase 90's sizing rule? Sizing was removed
+  **completely** (never imported, never applied — verified by a dedicated
+  source-scan test) and the frozen Phase-90 filter alone (unit exposure)
+  was re-tested against a fixed-size/no-filter baseline under **genuine
+  walk-forward** (Phase 80's 3-fold apparatus), not the single 70/30
+  split Phase 91's own decomposition used.
+- **Result**: the isolated filter beats two independently-implemented
+  equal-retention placebo controls (randomized-draw and shuffled-label)
+  at the 100th percentile pooled, beats a deterministic return-independent
+  generic exposure-reduction control on both expectancy and drawdown, and
+  is robust to small predeclared perturbations of both the eligibility
+  threshold (0.20/0.25/0.30) and the target horizon (3/4/5 bars).
+  Drawdown improves in every walk-forward fold; expectancy improves in 2
+  of 3 folds (essentially flat, not negative, in the third).
+- **Important, more conservative findings than Phase 89/90's headline
+  framing, disclosed honestly rather than smoothed over**: (a) the pooled
+  placebo win is disproportionately carried by the JPY-quoted subgroup —
+  individually only GBPJPY decisively beats its own placebo, and
+  XAUUSD's isolated filter falls *below* its own placebo distribution;
+  (b) 3 of 6 instruments' filter benefit is classified as substantially
+  **direction-correlated** under the fixed always-long scaffold (removing
+  observations that are disproportionately adverse for "always long"),
+  not demonstrated to be a direction-agnostic property; (c) an ordinary
+  volatility-only filter (no `volume_rank`) already captures most of the
+  pooled benefit — the volume-specific incremental value beyond
+  volatility is modest and concentrated mainly in GBPJPY; (d) the
+  cost-robustness result is a structural/mechanical property of comparing
+  two per-trade-cost-shifted means (cost cancels exactly in the delta),
+  not deep empirical evidence of survival under increasing real friction
+  — disclosed explicitly as a limitation of the test's own construction.
+- **XAUUSD fails outright** (0/3 folds positive, and its removed
+  observations are actually *better* for the always-long direction than
+  its retained ones) — kept in every table, never discarded.
+- **Verdicts** (four independent classifications, none forced positive):
+  `FILTER_INFORMATION_EFFECT_CONFIRMED`, `RISK_MANAGEMENT_FILTER_CONFIRMED`,
+  `FILTER_ECONOMIC_EDGE_PROMISING` (not CONFIRMED — one fold is flat),
+  `PHASE_90_EFFECT_REDUCED_TO_FILTER` (reproduces Phase 91's core claim
+  that filtering, not sizing, carries Phase 90's benefit).
+- **Status of prior findings**: directional research remains
+  `EXHAUSTED_WITH_CURRENT_INFORMATION_FRONTIER` (unchanged, not
+  reopened). Magnitude signal remains `CONFIRMED` (unchanged). Phase 90's
+  `RISK_MANAGEMENT_EDGE_PROMISING` and Phase 91's
+  `ECONOMIC_DIVERGENCE_PARTIALLY_EXPLAINED` are both unchanged by this
+  phase — Phase 92 isolates and stress-tests the filter component, it
+  does not re-grade the prior verdicts. `PROFITABLE_TRADING_EDGE_FOUND =
+  NOT_ESTABLISHED` (unchanged — neither the baseline nor the isolated
+  filter treatment is net-profitable in absolute terms; the filter
+  narrows, but does not close, that gap).
+- **Holdout: `UNTOUCHED`.** Frozen Gold holdout hash
+  (`7f135a1269626a21dba769b7f0173c8a5428dcb7b47a88976045ea8aff376b76`)
+  confirmed unchanged; never read by any module in the Phase 76-92
+  research program.
+- **Live automation: `DISABLED`.** `Broker transmission: BLOCKED`.
+  Unchanged throughout the entire research program.
+- **Current research frontier**: proven — the eligibility filter alone
+  (no sizing) is a real, placebo-surviving, threshold/horizon-robust
+  effect at the pooled level, and reproduces Phase 91's filter-vs-sizing
+  attribution under genuine walk-forward. Unproven — a uniform,
+  direction-agnostic risk-management property (largely direction-
+  correlated for 3 of 6 instruments); genuine volume-specific information
+  beyond ordinary volatility (established only for GBPJPY); universal
+  applicability (XAUUSD fails outright); quote-currency causality;
+  genuine cost robustness beyond the disclosed structural invariance;
+  production readiness or standalone profitability of any construction.
+  See `docs/PHASE_92_STANDALONE_FILTER_VALIDATION.md` §23 for the
+  recommended next step (a direction-neutral volatility-only-vs-volume-
+  informed filter head-to-head, restricted to whether `volume_rank` earns
+  its place beyond GBPJPY) — directional discovery is explicitly not to
+  be reopened to pursue it.
