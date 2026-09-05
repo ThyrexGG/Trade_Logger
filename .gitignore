@@ -58,3 +58,7 @@ sync_log.txt
 # Stray local Python install-manager artifacts (PEP 514 / py manager) — not project files
 /Python/
 python_install_*.log
+
+# Account export snapshots (account_management.py) — contain real trade/
+# account data, never committed
+/exports/
