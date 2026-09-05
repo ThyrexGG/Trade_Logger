@@ -809,6 +809,32 @@ def get_mechanism_isolation() -> Dict[str, Any]:
     return r
 
 
+@router.get("/swing-data-foundation")
+def get_swing_data_foundation() -> Dict[str, Any]:
+    """Phase 94 — swing-trading data foundation: the coverage report for the
+    daily-bar universe assembled for the swing research pivot (Phases 95+).
+    Reports, per instrument, how many daily bars are held and whether the
+    series is long enough for a 12-month momentum lookback plus a
+    walk-forward test window. Covers the FX majors + gold + silver already
+    in the store, plus a frozen market-cap-ranked crypto universe (Binance
+    spot OHLCV) and per-coin perpetual funding-rate history (Binance USD-M
+    futures, aggregated to a daily summed rate). This endpoint is
+    data-inventory only — it triggers no ingestion, no strategy logic, no
+    backtesting, and no signals. `NOT_COMPUTED` until
+    `python -m phase94_swing_data_foundation` has run. Holdout untouched,
+    live automation disabled, broker transmission blocked."""
+    import phase94_swing_data_foundation
+    r = phase94_swing_data_foundation.get_result()
+    if not r:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m phase94_swing_data_foundation`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    r["state"] = "AVAILABLE"
+    r["safety_barrier"] = _SAFETY
+    return r
+
+
 @router.get("/market-behavior")
 def get_market_behavior_discovery() -> Dict[str, Any]:
     """Phase 76 — literature-guided market behavior discovery: the phenomenon

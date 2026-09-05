@@ -856,3 +856,41 @@ phases (see each phase's own `docs/PHASE_*.md` for full detail).*
   Case-D behaviour as the falsification target) — NOT an escalation
   toward a trading strategy or risk-management candidate, and directional
   discovery is explicitly not to be reopened to pursue it.
+
+## 14. Research Program Direction Change (Phase 94+) — Swing-Trading Pivot
+
+- **Decision**: after Phases 70–93 exhaustively established that intraday
+  directional prediction on the canonical 15m FX/gold universe has no edge
+  (four independent constructions all null; the ICT/SMC gold strategy
+  failed Phase 74 independent revalidation at −0.092R over 1,067 trades),
+  the research program has formally **stopped the intraday directional
+  search** and pivoted to **swing timeframes** (daily bars, days-to-months
+  holds) and the documented, out-of-sample-surviving edge families:
+  time-series momentum, cross-sectional momentum, and — for crypto —
+  perpetual funding-rate carry. The user's tradeable universe is FX +
+  gold + crypto (spot and perps).
+- **Phase 94 (data foundation) — COMPLETE**
+  (`phase94_swing_data_foundation.py`). Acquired, with the same
+  provenance / validation / idempotency discipline as Phase 74:
+  (a) daily OHLCV for a frozen 27-coin market-cap-ranked crypto universe
+  (`CRYPTO_UNIVERSE`; Binance spot; BTC/ETH from 2017, 0 rejected
+  candles); (b) per-coin perpetual funding-rate history aggregated to a
+  daily summed rate (Binance USD-M futures; stored as
+  `phase94_funding_daily__<ASSET>` artifacts); (c) XAGUSD + EURGBP daily
+  (Yahoo Finance) to complete the FX-majors + metals set already in the
+  store from Phase 74. XMR is `CRYPTO_HISTORICAL_ONLY` (Binance delisted
+  spot Feb 2024). **Total swing universe: 40 instruments (13 FX+metals +
+  27 crypto), all momentum-ready (≥400 current daily bars); all 27 crypto
+  funding-ready.** No strategy logic, no backtest, no signals.
+  `GET /api/research/swing-data-foundation`,
+  `docs/PHASE_94_SWING_DATA_FOUNDATION.md`, 12 tests.
+- **Planned sequence**: Phase 95 time-series + cross-sectional momentum
+  (the core edge) → Phase 96 crypto funding-rate carry → Phase 97 FX/gold
+  carry → Phase 98 portfolio construction + risk-of-ruin sizing →
+  Phase 99 paper-trading harness (6–12 months, no execution).
+- **Unchanged**: holdout `UNTOUCHED` (never read Phases 76–94); live
+  automation `DISABLED`; broker transmission `BLOCKED`; no production
+  deployment; `PROFITABLE_TRADING_EDGE_FOUND = NOT_ESTABLISHED` (the swing
+  edges are hypotheses to be validated, not established results — realistic
+  prior is Sharpe ~0.5–0.9 for the diversified program, with the crypto
+  sleeves higher-return / higher-variance / higher-uncertainty).
