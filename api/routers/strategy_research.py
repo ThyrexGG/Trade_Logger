@@ -484,6 +484,40 @@ def get_information_frontier_audit() -> Dict[str, Any]:
     return r
 
 
+@router.get("/tick-volume-confirmation")
+def get_tick_volume_confirmation() -> Dict[str, Any]:
+    """Phase 85 — tick-volume confirmation, generalization & feed-independence
+    study: tries to falsify (not preserve) the Phase 84 screening finding
+    that adding causal MT5 tick-volume features to Phase 83's frozen Strong
+    Context Baseline improves the forward-range magnitude target (T2).
+    Reports the frozen M1-M4 ablation (baseline / +volume_rank /
+    +volume_ret_1 / +both), a per-instrument cross-asset breakdown across
+    all 6 canonical instruments (never reduced post-hoc), leave-one-asset-out
+    generalization, predeclared calendar-quarter temporal stability, the full
+    h={1,2,4,8} horizon profile, a volatility/session confounding
+    decomposition, a five-part placebo battery (target shuffle, global
+    volume shuffle, instrument x session stratified shuffle, predeclared
+    temporal misalignment, a stronger within-instrument/time-stratum
+    placebo), a data-provenance audit of what MT5 tick_volume actually is,
+    a broker/feed-independence feasibility check, and a multiple-testing
+    (Benjamini-Hochberg) audit of the researcher degrees of freedom. Produces
+    exactly one of the standardized verdicts and an explicit claim-hierarchy
+    level (A-D) -- never overclaimed beyond what independent-feed and
+    cross-asset evidence actually support. `NOT_COMPUTED` until
+    `python -m phase85_tick_volume_confirmation` has run. Research only: no
+    trading signal, no execution."""
+    import phase85_tick_volume_confirmation
+    r = phase85_tick_volume_confirmation.get_result()
+    if not r:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m phase85_tick_volume_confirmation`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    r["state"] = "AVAILABLE"
+    r["safety_barrier"] = _SAFETY
+    return r
+
+
 @router.get("/market-behavior")
 def get_market_behavior_discovery() -> Dict[str, Any]:
     """Phase 76 — literature-guided market behavior discovery: the phenomenon
