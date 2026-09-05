@@ -551,6 +551,39 @@ def get_aggressive_edge_discovery() -> Dict[str, Any]:
     return r
 
 
+@router.get("/directional-information-frontier")
+def get_directional_information_frontier() -> Dict[str, Any]:
+    """Phase 87 — directional information frontier: since re-slicing the
+    existing OHLC/context feature space (Phase 86) found no directional
+    edge, this phase hunts for genuinely NEW information instead. Lane A
+    (priority 1) tests a causal trade-weighted USD-strength proxy built
+    entirely from the already-owned 11-instrument MT5 basket (explicitly
+    logged as same-feed, Class A -- not an independent source) against the
+    frozen Phase 83 baseline on the T1 direction target, across all 6
+    canonical instruments, 4 horizons, 5 temporal blocks, and a placebo.
+    Lane B (magnitude tradeability) is attempted only if Lane A clears its
+    promotion gates -- otherwise it is reported as structurally blocked,
+    since Phase 86 already showed `sign(mom_4)` is not a valid directional
+    setup to condition a volume filter on and no other one survived. Also
+    reports live data-availability audits (not experiments) for economic-
+    surprise information (FRED supplies actuals only, no consensus
+    forecast) and order-flow/microstructure information (reused from Phase
+    84/85: no historical tick data, no bid/ask/spread/depth in the schema),
+    plus a full research ledger. Produces NO live-execution artifact.
+    `NOT_COMPUTED` until `python -m phase87_directional_information_frontier`
+    has run. Research only: no trading signal, no execution."""
+    import phase87_directional_information_frontier
+    r = phase87_directional_information_frontier.get_result()
+    if not r:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m phase87_directional_information_frontier`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    r["state"] = "AVAILABLE"
+    r["safety_barrier"] = _SAFETY
+    return r
+
+
 @router.get("/market-behavior")
 def get_market_behavior_discovery() -> Dict[str, Any]:
     """Phase 76 — literature-guided market behavior discovery: the phenomenon
