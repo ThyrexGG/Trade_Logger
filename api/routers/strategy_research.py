@@ -584,6 +584,36 @@ def get_directional_information_frontier() -> Dict[str, Any]:
     return r
 
 
+@router.get("/external-information-edge-hunt")
+def get_external_information_edge_hunt() -> Dict[str, Any]:
+    """Phase 88 — external information acquisition & aggressive directional
+    edge hunt: acquires ONE genuinely new, independent dataset (Yahoo
+    Finance daily DXY / VIX / US 10Y yield / COMEX gold futures / WTI
+    crude futures -- a different vendor than the MT5 broker feed, free, no
+    new credentials, snapshotted once for determinism) and tests six
+    pre-registered, hypothesis-driven candidates against the frozen Phase
+    83 baseline on the T1 direction target, each with its own economically
+    motivated target instrument(s), a causal availability-lag-enforced
+    merge, and a placebo. Also reports live feasibility audits (not
+    experiments) for Tier 1/2 economic-surprise data (confirmed
+    CONSENSUS_DATA_UNAVAILABLE: FRED supplies actuals only, the
+    ForexFactory connector is a stub with no live fetch) and Tier 4
+    order-flow data (reused from Phase 84/85: DATA_SOURCE_UNAVAILABLE).
+    Produces NO live-execution artifact. `NOT_COMPUTED` until
+    `python -m phase88_external_information_edge_hunt` has run. Research
+    only: no trading signal, no execution."""
+    import phase88_external_information_edge_hunt
+    r = phase88_external_information_edge_hunt.get_result()
+    if not r:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m phase88_external_information_edge_hunt`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    r["state"] = "AVAILABLE"
+    r["safety_barrier"] = _SAFETY
+    return r
+
+
 @router.get("/market-behavior")
 def get_market_behavior_discovery() -> Dict[str, Any]:
     """Phase 76 — literature-guided market behavior discovery: the phenomenon
