@@ -131,6 +131,24 @@ export function deleteJournalEntry(
   )
 }
 
+export interface JournalTagStat {
+  tag: string
+  n: number
+  wins: number
+  win_rate: number | null
+  net_total: number
+  expectancy: number | null
+}
+
+export function getJournalTagStats(
+  signal?: AbortSignal,
+): Promise<{ tags: JournalTagStat[]; timestamp: string }> {
+  return apiGet<{ tags: JournalTagStat[]; timestamp: string }>(
+    '/api/operations/journal/tag-stats',
+    { signal },
+  )
+}
+
 /** GET /api/operations/audit — read-only execution audit trail. */
 export function getAudit(
   limit = 200,

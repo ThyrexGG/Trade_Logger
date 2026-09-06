@@ -6,6 +6,7 @@ import { formatUsd, timeAgo } from '../../lib/format'
 import { patchJournalEntry } from '../../api/operations'
 import { ScreenshotStrip } from '../journal/ScreenshotStrip'
 import { StarRating } from '../journal/StarRating'
+import { TagRecord, invalidateTagRecord } from '../journal/TagRecord'
 
 type Outcome = 'all' | 'win' | 'loss'
 const PAGE = 40
@@ -89,6 +90,7 @@ function JournalEditor({
     if (rating !== (entry.rating ?? 0)) body.rating = rating
     try {
       const res = await patchJournalEntry(entry.trade_id, body)
+      if ('setup_tag' in body) invalidateTagRecord()
       onSaved(res.entry)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed')
@@ -114,6 +116,11 @@ function JournalEditor({
               <option key={s} value={s} />
             ))}
           </datalist>
+          {setupTag.trim() ? (
+            <span className="mt-1 block">
+              <TagRecord tag={setupTag} />
+            </span>
+          ) : null}
         </label>
         <label className="block text-[11px] text-muted">
           Chart snapshot URL

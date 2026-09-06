@@ -404,6 +404,42 @@ def journal_entries_delete(
     return {"ok": True, "deleted": entry_id, "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
+# --- Per-setup-tag track record (the journal's own skill read) ----------
+
+@router.get("/journal/tag-stats")
+def journal_tag_stats() -> Dict[str, Any]:
+    """Your realised record on each setup tag, from `closed_trades`. This is the
+    honest 'is this setup working for me' read — win rate + net-P&L expectancy on
+    every trade you tagged. (R-multiple expectancy vs a base rate needs a
+    stop-loss per trade, which closed_trades does not store.)"""
+    df = database.get_closed_trades(ttl_sec=5.0)
+    stats: Dict[str, Dict[str, Any]] = {}
+    if isinstance(df, pd.DataFrame) and not df.empty:
+        for _, r in df.iterrows():
+            tag = (_s(r.get("setup_tag")) or "").strip()
+            if not tag:
+                continue
+            net = _f(r.get("net_profit"))
+            s = stats.setdefault(tag, {"tag": tag, "n": 0, "wins": 0, "net_total": 0.0})
+            s["n"] += 1
+            s["net_total"] += net
+            if net > 0:
+                s["wins"] += 1
+    out = []
+    for s in stats.values():
+        n = s["n"]
+        out.append({
+            "tag": s["tag"],
+            "n": n,
+            "wins": s["wins"],
+            "win_rate": round(s["wins"] / n, 3) if n else None,
+            "net_total": round(s["net_total"], 2),
+            "expectancy": round(s["net_total"] / n, 2) if n else None,
+        })
+    out.sort(key=lambda x: x["n"], reverse=True)
+    return {"tags": out, "timestamp": datetime.now(timezone.utc).isoformat()}
+
+
 # --- Audit ---------------------------------------------------------------
 
 _AUDIT_COLUMNS = [

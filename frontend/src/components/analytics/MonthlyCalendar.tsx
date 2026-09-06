@@ -6,6 +6,7 @@ import { getDayTrades } from '../../api/analytics'
 import { patchJournalEntry } from '../../api/operations'
 import { ScreenshotStrip } from '../journal/ScreenshotStrip'
 import { StarRating } from '../journal/StarRating'
+import { TagRecord, invalidateTagRecord } from '../journal/TagRecord'
 import { formatPercent, formatUsd } from '../../lib/format'
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -70,6 +71,7 @@ function InlineTradeJournal({
     if (rating !== (trade.rating ?? 0)) body.rating = rating
     try {
       const res = await patchJournalEntry(trade.trade_id, body)
+      if ('setup_tag' in body) invalidateTagRecord()
       onSaved({ ...trade, ...res.entry })
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Save failed')
@@ -101,6 +103,7 @@ function InlineTradeJournal({
           Open full entry ↗
         </Link>
       </div>
+      {tag.trim() ? <TagRecord tag={tag} /> : null}
       <textarea
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
