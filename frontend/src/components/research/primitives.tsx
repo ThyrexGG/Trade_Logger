@@ -59,14 +59,14 @@ export function MetricCard({
   sub,
   tone,
 }: {
-  label: string
+  label: ReactNode
   value: ReactNode
   sub?: ReactNode
   tone?: ResearchTone
 }) {
   return (
     <div className="rounded border border-border-subtle bg-surface-elevated/30 px-3 py-2">
-      <p className="text-[10px] uppercase tracking-wider text-muted">{label}</p>
+      <p className="flex items-center text-[10px] uppercase tracking-wider text-muted">{label}</p>
       <p className={`mt-0.5 font-mono text-lg tabular-nums ${tone ? TEXT[tone] : 'text-primary'}`}>
         {value}
       </p>

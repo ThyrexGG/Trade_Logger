@@ -3,12 +3,12 @@ import { PageContainer } from '../components/shell/PageContainer'
 import {
   MetricCard,
   ResearchSafetyBanner,
-  ResearchStatusTag,
   ResearchUnavailable,
   SectionCard,
   SectionError,
   SkeletonRows,
 } from '../components/research/primitives'
+import { SentimentBadge, SentimentText } from '../components/common/Sentiment'
 import { IntradayCopilotPanel } from '../components/research/IntradayCopilotPanel'
 import { useTradeSetup } from '../lib/useTradeSetup'
 import type { SetupState } from '../types/tradeSetup'
@@ -91,15 +91,17 @@ export function TradeSetupPage() {
             <div className="flex flex-wrap items-baseline gap-3">
               <span className="font-mono text-2xl text-primary">{setup.asset}</span>
               {setup.direction ? (
-                <span
-                  className={`font-mono text-lg ${
-                    setup.direction === 'LONG' ? 'text-positive' : 'text-negative'
-                  }`}
-                >
-                  {setup.direction}
-                </span>
+                <SentimentText
+                  value={setup.direction}
+                  hint={setup.direction === 'LONG' ? 'up' : 'down'}
+                  className="font-mono text-lg"
+                />
               ) : null}
-              <ResearchStatusTag value={setup.state.replace(/_/g, ' ')} tone={STATE_TONE[setup.state]} />
+              <SentimentBadge
+                value={setup.state}
+                hint={STATE_TONE[setup.state] === 'positive' ? 'up' : STATE_TONE[setup.state] === 'negative' ? 'down' : 'caution'}
+                size="md"
+              />
             </div>
             <p className="mt-1.5 text-sm text-secondary">{setup.reason}</p>
             {setup.waiting_for ? (

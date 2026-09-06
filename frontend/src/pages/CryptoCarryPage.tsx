@@ -2,14 +2,22 @@ import { PageContainer } from '../components/shell/PageContainer'
 import {
   MetricCard,
   ResearchSafetyBanner,
-  ResearchStatusTag,
   ResearchUnavailable,
   SectionCard,
   SectionError,
   SkeletonRows,
-  researchTone,
 } from '../components/research/primitives'
+import { SentimentBadge } from '../components/common/Sentiment'
+import { InfoTip } from '../components/common/InfoTip'
 import { useCryptoCarry } from '../lib/useCryptoCarry'
+
+const VERDICT_PLAIN: Record<string, string> = {
+  FORWARD_EVIDENCE_INSUFFICIENT: 'Too early to judge — keep accumulating weeks.',
+  FORWARD_EVIDENCE_TRACKING: 'Live returns are tracking the backtest.',
+  FORWARD_EVIDENCE_CONFIRMING: 'Live returns confirm the backtest — edge holding up.',
+  FORWARD_EVIDENCE_DIVERGING: 'Live returns are diverging from the backtest — reassess.',
+  USABLE_EDGE_FOUND: 'Yes — a small, survivable positive-expectancy allocation.',
+}
 
 const pct = (v: number | null | undefined, d = 1) =>
   v === null || v === undefined ? '—' : `${(v * 100).toFixed(d)}%`
@@ -55,10 +63,12 @@ export function CryptoCarryPage() {
           <SectionCard title="Verdict — is this a usable edge?">
             {book.state === 'AVAILABLE' && book.usability_verdict ? (
               <div className="space-y-2">
-                <ResearchStatusTag
-                  value={book.usability_verdict}
-                  tone={book.usability_verdict.includes('USABLE') ? 'positive' : 'warning'}
-                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <SentimentBadge value={book.usability_verdict} size="md" hint="up" />
+                  <span className="text-xs text-secondary">
+                    {VERDICT_PLAIN[book.usability_verdict] ?? ''}
+                  </span>
+                </div>
                 <p className="text-xs leading-relaxed text-secondary">{book.usability_reason}</p>
               </div>
             ) : (
@@ -90,9 +100,20 @@ export function CryptoCarryPage() {
             </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               <MetricCard label="Historical CAGR" value={pct(rb.historical_metrics_no_tail.cagr)} tone="positive" />
-              <MetricCard label="Excess over cash" value={spct(rb.historical_metrics_no_tail.excess_cagr_over_cash)} tone="positive" />
-              <MetricCard label="Max drawdown" value={pct(rb.historical_metrics_no_tail.max_drawdown)} />
-              <MetricCard label="Sharpe (no tail)" value={num(rb.historical_metrics_no_tail.sharpe)} sub="pre tail-risk haircut" />
+              <MetricCard
+                label={<InfoTip text="Annual return above what the cash sits at — the actual enhancement the carry sleeve buys you.">Excess over cash</InfoTip>}
+                value={spct(rb.historical_metrics_no_tail.excess_cagr_over_cash)}
+                tone="positive"
+              />
+              <MetricCard
+                label={<InfoTip text="Largest peak-to-trough drop in the blended book over the backtest.">Max drawdown</InfoTip>}
+                value={pct(rb.historical_metrics_no_tail.max_drawdown)}
+              />
+              <MetricCard
+                label={<InfoTip text="Return above cash ÷ volatility. Higher = smoother path. This is before the tail-risk haircut, so treat it as an upper bound.">Sharpe (no tail)</InfoTip>}
+                value={num(rb.historical_metrics_no_tail.sharpe)}
+                sub="pre tail-risk haircut"
+              />
             </div>
             {book?.fx_carry_status ? (
               <p className="mt-2 text-[10px] text-muted">FX carry sleeve: {book.fx_carry_status}</p>
@@ -105,24 +126,15 @@ export function CryptoCarryPage() {
       <div className="mt-4">
         <SectionCard
           title="Forward evidence tracker"
-          action={
-            forward?.verdict ? (
-              <ResearchStatusTag
-                size="sm"
-                value={forward.verdict}
-                tone={
-                  forward.verdict.includes('CONFIRM') || forward.verdict.includes('TRACKING')
-                    ? 'positive'
-                    : forward.verdict.includes('DIVERG')
-                      ? 'negative'
-                      : 'neutral'
-                }
-              />
-            ) : null
-          }
+          action={forward?.verdict ? <SentimentBadge value={forward.verdict} hint="caution" /> : null}
         >
           {forward?.state === 'AVAILABLE' && led ? (
             <div className="space-y-3">
+              {forward.verdict ? (
+                <p className="text-sm font-medium text-primary">
+                  {VERDICT_PLAIN[forward.verdict] ?? forward.verdict.replace(/_/g, ' ')}
+                </p>
+              ) : null}
               <p className="text-xs text-secondary">{forward.verdict_reason}</p>
 
               {/* progress toward assessment / confirmation */}
@@ -193,7 +205,7 @@ export function CryptoCarryPage() {
                             <td className="py-1 pr-3">{new Date(s.captured_at).toLocaleDateString()}</td>
                             <td className="py-1 pr-3 text-right tabular-nums">{s.forward_weeks}</td>
                             <td className="py-1">
-                              <ResearchStatusTag size="sm" value={s.verdict} tone={researchTone(s.verdict)} />
+                              <SentimentBadge value={s.verdict} hint="caution" />
                             </td>
                           </tr>
                         ))}
