@@ -235,6 +235,24 @@ _TECH_SYMBOL = {
 }
 
 
+# short TTL memo — candle-derived reads only move bar-to-bar, and several
+# callers (UI instrument switching, snapshotting) hit the same symbol in bursts.
+_MARKET_TTL_SEC = 240.0
+_market_cache: Dict[str, tuple] = {}
+
+
+def _memoized(key: str):
+    hit = _market_cache.get(key)
+    if hit and (datetime.now(timezone.utc).timestamp() - hit[0]) < _MARKET_TTL_SEC:
+        return hit[1]
+    return None
+
+
+def _memo_put(key: str, val: Any) -> Any:
+    _market_cache[key] = (datetime.now(timezone.utc).timestamp(), val)
+    return val
+
+
 def _technical_category(instrument: str, as_of: Optional[datetime]) -> Dict[str, Any]:
     """Chart-trend (EMA/RSI/MACD/MTF) + seasonality, from real candles.
 
@@ -245,6 +263,15 @@ def _technical_category(instrument: str, as_of: Optional[datetime]) -> Dict[str,
     sym = _TECH_SYMBOL.get(instrument)
     if not sym:
         return _technical_stub()
+    if as_of is None:
+        cached = _memoized(f"tech:{sym}")
+        if cached is not None:
+            return cached
+    out = _technical_category_compute(sym, as_of)
+    return _memo_put(f"tech:{sym}", out) if as_of is None else out
+
+
+def _technical_category_compute(sym: str, as_of: Optional[datetime]) -> Dict[str, Any]:
     try:
         import market_evidence_engine as mee
 
@@ -301,6 +328,15 @@ def _price_behavior(instrument: str, as_of: Optional[datetime]) -> Optional[Dict
     sym = _TECH_SYMBOL.get(instrument)
     if not sym:
         return None
+    if as_of is None:
+        cached = _memoized(f"pb:{sym}")
+        if cached is not None:
+            return cached
+    out = _price_behavior_compute(sym, as_of)
+    return _memo_put(f"pb:{sym}", out) if as_of is None else out
+
+
+def _price_behavior_compute(sym: str, as_of: Optional[datetime]) -> Optional[Dict[str, Any]]:
     try:
         from historical_market_data import get_candle_window
 
@@ -347,7 +383,18 @@ def _provider_unavailable(meta: Dict[str, Any]) -> bool:
     return meta.get("provider_is_live") and meta.get("provenance") == "unavailable"
 
 
-def get_scorecard(instrument: str, as_of: Optional[datetime] = None) -> Dict[str, Any]:
+def get_scorecard(
+    instrument: str,
+    as_of: Optional[datetime] = None,
+    with_market: bool = True,
+) -> Dict[str, Any]:
+    """Full scorecard for one instrument.
+
+    ``with_market=False`` skips the live candle-derived pieces (the Technical
+    category + the price-behaviour block) — used by list/ranking callers and the
+    AI context builder, which only need the macro composite and would otherwise
+    pay for dozens of network candle fetches.
+    """
     inst = instrument.upper().strip()
     meta = _provenance()
 
@@ -435,7 +482,13 @@ def get_scorecard(instrument: str, as_of: Optional[datetime] = None) -> Dict[str
             if inst == "XAUUSD" else f"{inst} economy macro strength."
         )
 
-    cats["technical"] = _technical_category(inst, as_of)
+    cats["technical"] = (
+        _technical_category(inst, as_of) if with_market
+        else _insufficient_category(
+            "Chart-trend read not loaded in this summary view.",
+            "open the full scorecard for the live technical read",
+        )
+    )
     cats["sentiment"] = _sentiment_stub()
 
     ordered = ["rates", "growth", "jobs", "inflation", "cot", "sentiment", "technical"]
@@ -469,7 +522,7 @@ def get_scorecard(instrument: str, as_of: Optional[datetime] = None) -> Dict[str
             "answer a different, faster question and can point the other way."
         ),
         "primary_country": primary_country,
-        "price_behavior": _price_behavior(inst, as_of),
+        "price_behavior": _price_behavior(inst, as_of) if with_market else None,
         "categories": categories,
         "strongest_category": strongest["category"] if strongest else None,
         "weakest_category": weakest["category"] if weakest else None,
@@ -487,10 +540,21 @@ def get_scorecard(instrument: str, as_of: Optional[datetime] = None) -> Dict[str
 
 
 def get_scorecard_list() -> Dict[str, Any]:
-    """Ranked mini-scorecards for every supported instrument (Top Setups-lite)."""
+    """Ranked mini-scorecards for every supported instrument (Top Setups-lite).
+
+    Cached (short TTL) — it evaluates the factor engine for all 11 instruments
+    and the underlying FRED data only refreshes every few hours.
+    """
+    cached = _memoized("scorecard_list")
+    if cached is not None:
+        return cached
+    return _memo_put("scorecard_list", _get_scorecard_list_compute())
+
+
+def _get_scorecard_list_compute() -> Dict[str, Any]:
     rows = []
     for inst in SUPPORTED_INSTRUMENTS:
-        sc = get_scorecard(inst)
+        sc = get_scorecard(inst, with_market=False)
         if not sc.get("available"):
             rows.append({"instrument": inst, "available": False, "state": sc.get("state")})
             continue
@@ -589,7 +653,7 @@ def record_scorecard_snapshot(instrument: str) -> Optional[str]:
                 except (ValueError, TypeError):
                     pass
 
-        sc = get_scorecard(inst)
+        sc = get_scorecard(inst, with_market=False)
         if not sc.get("available"):
             return None
         snapshot = {

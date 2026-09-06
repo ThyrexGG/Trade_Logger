@@ -181,7 +181,27 @@ def _trade_setup_context(symbols: list) -> list:
     return out
 
 
-def build_context() -> Dict[str, Any]:
+# The snapshot assembly fans out to several candle / evidence / macro engines
+# and costs ~15-20s cold. A short TTL means only the first message of a
+# conversation pays that — every follow-up reuses the same fresh-enough snapshot.
+_CTX_TTL_SEC = 120.0
+_ctx_cache: Dict[str, Any] = {"at": 0.0, "value": None}
+
+
+def build_context(force: bool = False) -> Dict[str, Any]:
+    now_ts = datetime.now(timezone.utc).timestamp()
+    if (
+        not force
+        and _ctx_cache["value"] is not None
+        and (now_ts - _ctx_cache["at"]) < _CTX_TTL_SEC
+    ):
+        return _ctx_cache["value"]
+    value = _build_context_uncached()
+    _ctx_cache.update(at=datetime.now(timezone.utc).timestamp(), value=value)
+    return value
+
+
+def _build_context_uncached() -> Dict[str, Any]:
     """
     Assemble the compact, structured, read-only TradeLogger snapshot handed to
     the model. Bounded size; no raw trade history.

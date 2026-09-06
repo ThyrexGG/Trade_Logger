@@ -110,7 +110,35 @@ async def lifespan(_app: FastAPI):
         sync_service.start_if_enabled()
     except Exception:
         pass
+
+    # Keep the AI-assistant context snapshot warm. Assembling it fans out to the
+    # candle / evidence / macro engines and costs ~20-40s cold; refreshing it in
+    # the background every ~30s means a chat message never waits on that.
+    ai_ctx_task = None
+    if os.getenv("TL_SKIP_WARMUP", "").strip() not in ("1", "true", "True"):
+        import asyncio
+
+        async def _keep_ai_context_warm() -> None:
+            from api.ai_context import build_context
+            from api.gemini_client import is_configured
+
+            while True:
+                try:
+                    if is_configured():
+                        await asyncio.to_thread(build_context, True)
+                except Exception:
+                    pass
+                await asyncio.sleep(60)
+
+        try:
+            ai_ctx_task = asyncio.create_task(_keep_ai_context_warm())
+        except Exception:
+            ai_ctx_task = None
+
     yield
+
+    if ai_ctx_task is not None:
+        ai_ctx_task.cancel()
     # Return every pooled socket cleanly on shutdown.
     try:
         database.close_all_pools()
