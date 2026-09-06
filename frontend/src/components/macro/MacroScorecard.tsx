@@ -9,7 +9,7 @@ import type {
 import { SectionCard } from '../intelligence/primitives'
 import { SentimentBadge, SentimentText } from '../common/Sentiment'
 import { InfoTip } from '../common/InfoTip'
-import { classifySentiment, toneText } from '../../lib/sentiment'
+import { classifySentiment, toneChip, toneText, type SentimentTone } from '../../lib/sentiment'
 import { Gauge } from './Gauge'
 import { ProvenanceBanner } from './MacroViews'
 
@@ -175,17 +175,13 @@ function Rail({
   )
 }
 
-// --- right side: category tables --------------------------------------
+// --- shared indicator helpers ----------------------------------------
 const SHOWN = 6
 
-function CategoryBlock({ cat }: { cat: MacroScorecardCategory }) {
-  const [open, setOpen] = useState(false)
-  const label = CATEGORY_LABEL[cat.category] ?? cat.category
-  const insufficient = cat.state === 'INSUFFICIENT_EVIDENCE'
-
-  // The provider gives the last several monthly prints of each indicator, which
-  // shows up as the same row repeated. Collapse to one row per indicator (the
-  // most recent print); "Previous" already carries the prior month's value.
+// The provider gives the last several monthly prints of each indicator, which
+// shows up as the same row repeated. Collapse to one row per indicator (the
+// most recent print); "Previous" already carries the prior month's value.
+function dedupeIndicators(cat: MacroScorecardCategory): MacroScorecardIndicator[] {
   const byIndicator = new Map<string, MacroScorecardIndicator>()
   for (const r of [...(cat.indicators ?? [])].sort((a, b) =>
     (b.release_time ?? '').localeCompare(a.release_time ?? ''),
@@ -193,22 +189,30 @@ function CategoryBlock({ cat }: { cat: MacroScorecardCategory }) {
     const k = r.indicator || r.name
     if (!byIndicator.has(k)) byIndicator.set(k, r)
   }
-  const rows = [...byIndicator.values()]
+  return [...byIndicator.values()]
+}
+
+// Without a consensus-forecast feed there is no beat/miss, so "NEUTRAL" tells
+// the reader nothing. Show the month-on-month trend instead (rising / falling
+// vs the previous print) — that is what actually feeds the level-and-trend score.
+function trendRead(r: MacroScorecardIndicator): { glyph: string; label: string } | null {
+  if (r.actual == null || r.previous == null) return null
+  const d = r.actual - r.previous
+  const eps = Math.max(1e-9, Math.abs(r.previous) * 0.002)
+  if (d > eps) return { glyph: '↑', label: 'rising' }
+  if (d < -eps) return { glyph: '↓', label: 'falling' }
+  return { glyph: '→', label: 'flat' }
+}
+
+// --- right side: category tables --------------------------------------
+function CategoryBlock({ cat }: { cat: MacroScorecardCategory }) {
+  const [open, setOpen] = useState(false)
+  const label = CATEGORY_LABEL[cat.category] ?? cat.category
+  const insufficient = cat.state === 'INSUFFICIENT_EVIDENCE'
+
+  const rows = dedupeIndicators(cat)
   const hasForecast = rows.some((r) => r.forecast != null)
   const visible = open ? rows : rows.slice(0, SHOWN)
-
-  // Without a consensus-forecast feed there is no beat/miss, so a column of
-  // "→ NEUTRAL" tells the reader nothing. Show the month-on-month trend instead
-  // (rising / falling vs the previous print) — that is what actually feeds the
-  // level-and-trend score.
-  const trendRead = (r: MacroScorecardIndicator): { glyph: string; label: string } | null => {
-    if (r.actual == null || r.previous == null) return null
-    const d = r.actual - r.previous
-    const eps = Math.max(1e-9, Math.abs(r.previous) * 0.002)
-    if (d > eps) return { glyph: '↑', label: 'rising' }
-    if (d < -eps) return { glyph: '↓', label: 'falling' }
-    return { glyph: '→', label: 'flat' }
-  }
 
   return (
     <div className="overflow-hidden rounded-lg border border-border">
@@ -350,28 +354,211 @@ function CategoryBlock({ cat }: { cat: MacroScorecardCategory }) {
   )
 }
 
+// --- EdgeFinder card view -------------------------------------------
+// The same scorecard data, laid out as EdgeFinder-style gauge cards instead of
+// tables — a big composite gauge + one card per category with its own gauge and
+// a couple of indicator sub-rows.
+
+function BiasBar({ text, tone, className }: { text: string; tone: SentimentTone; className?: string }) {
+  const cls =
+    tone === 'up'
+      ? 'bg-positive/15 text-positive border-positive/30'
+      : tone === 'down'
+        ? 'bg-negative/15 text-negative border-negative/30'
+        : tone === 'caution'
+          ? 'bg-warning/15 text-warning border-warning/30'
+          : 'bg-surface-elevated text-secondary border-border-subtle'
+  return (
+    <div
+      className={`rounded border px-2 py-1 text-center text-[11px] font-semibold uppercase tracking-wide ${cls} ${className ?? ''}`}
+    >
+      {text}
+    </div>
+  )
+}
+
+function EdgeSubRow({ r }: { r: MacroScorecardIndicator }) {
+  const forecast = r.forecast != null
+  const dir = forecast ? classifySentiment(r.direction) : null
+  const tr = forecast ? null : trendRead(r)
+  return (
+    <div className="flex items-center justify-between gap-2 text-[11px]">
+      <span className="truncate text-secondary" title={r.name}>
+        {r.name}
+      </span>
+      {dir ? (
+        <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${toneChip(dir.tone)}`}>
+          {(r.direction || '').split(' ')[0]}
+        </span>
+      ) : tr ? (
+        <span className="shrink-0 font-mono text-[10px] text-muted">
+          {tr.glyph} {tr.label}
+        </span>
+      ) : (
+        <span className="shrink-0 text-muted">—</span>
+      )}
+    </div>
+  )
+}
+
+function EdgeCard({ cat }: { cat: MacroScorecardCategory }) {
+  const label = CATEGORY_LABEL[cat.category] ?? cat.category
+  const insufficient = cat.state === 'INSUFFICIENT_EVIDENCE'
+  const rows = dedupeIndicators(cat).slice(0, 4)
+  const s = classifySentiment(insufficient ? undefined : cat.direction)
+
+  return (
+    <div className="flex flex-col rounded-lg border border-border bg-surface">
+      <div className="flex items-center border-b border-border-subtle px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-secondary">
+        {label}
+        {CATEGORY_INFO[cat.category] ? <InfoTip text={CATEGORY_INFO[cat.category]} /> : null}
+      </div>
+      <div className="flex flex-1 flex-col gap-2 p-3">
+        <BiasBar
+          text={insufficient ? 'No data' : cat.direction || 'neutral'}
+          tone={insufficient ? 'flat' : s.tone}
+        />
+        {insufficient ? (
+          <p className="text-[11px] leading-snug text-muted">
+            {cat.reason}
+            {cat.next_dependency ? (
+              <span className="mt-1 block">
+                <span className="text-secondary">To enable:</span> {cat.next_dependency}
+              </span>
+            ) : null}
+          </p>
+        ) : (
+          <>
+            <div className="flex justify-center py-1">
+              <Gauge score={cat.gauge} size={124} />
+            </div>
+            {rows.length ? (
+              <div className="space-y-1">
+                {rows.map((r) => (
+                  <EdgeSubRow key={r.indicator} r={r} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] text-muted">{(cat.context ?? []).join(' · ') || 'No releases in the window.'}</p>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function EdgeHero({
+  sc,
+  history,
+}: {
+  sc: MacroScorecardResponse
+  history: MacroScorecardHistoryResponse | null
+}) {
+  const v = classifySentiment(sc.bias)
+  const liveCats = sc.categories.filter((c) => c.state === 'OK').length
+  const HeroRow = ({ k, val }: { k: string; val: string }) => (
+    <div className="flex items-center justify-between gap-2">
+      <dt className="text-muted">{k}</dt>
+      <dd className="font-mono tabular-nums text-secondary">{val}</dd>
+    </div>
+  )
+  return (
+    <div className="flex flex-col rounded-lg border border-border bg-surface">
+      <div className="border-b border-border-subtle px-3 py-2">
+        <p className="text-[10px] uppercase tracking-wider text-muted">{sc.instrument} · macro bias</p>
+        <p className={`text-2xl font-semibold ${toneText(v.tone)}`}>
+          {sc.bias ? sc.bias.replace(/_/g, ' ') : 'Neutral'}
+        </p>
+      </div>
+      <div className="flex flex-1 flex-col gap-3 p-3">
+        <div className="flex justify-center">
+          <Gauge score={sc.gauge} size={168} />
+        </div>
+        <BiasBar text={sc.bias ? sc.bias.replace(/_/g, ' ') : 'neutral'} tone={v.tone} />
+        <dl className="space-y-1 text-[11px]">
+          <HeroRow k="Confidence" val={sc.confidence != null ? `${sc.confidence}/100` : '—'} />
+          <HeroRow
+            k="Economic strength"
+            val={
+              sc.economic_strength != null
+                ? `${sc.economic_strength > 0 ? '+' : ''}${sc.economic_strength}`
+                : '—'
+            }
+          />
+          <HeroRow k="Recent data" val={momentumText(sc.surprise_momentum)} />
+          <HeroRow k="Categories with data" val={`${liveCats} / ${sc.categories.length}`} />
+        </dl>
+        <div>
+          <p className="mb-1 text-[10px] uppercase tracking-wider text-muted">Macro score over time</p>
+          <MiniHistory data={history} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MacroEdgeFinder({
+  scorecard,
+  history,
+}: {
+  scorecard: MacroScorecardResponse
+  history: MacroScorecardHistoryResponse | null
+}) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <EdgeHero sc={scorecard} history={history} />
+      {scorecard.categories.map((c) => (
+        <EdgeCard key={c.category} cat={c} />
+      ))}
+    </div>
+  )
+}
+
 // --- page -------------------------------------------------------------
+type ScorecardView = 'edgefinder' | 'detailed'
+
 export function MacroScorecard() {
   const [instrument, setInstrument] = useState('XAUUSD')
+  const [view, setView] = useState<ScorecardView>('edgefinder')
   const { scorecard, history, state, error, refetch } = useMacroScorecard(instrument)
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-1">
-        {INSTRUMENTS.map((i) => (
-          <button
-            key={i}
-            type="button"
-            onClick={() => setInstrument(i)}
-            className={`rounded border px-2 py-1 font-mono text-[11px] ${
-              i === instrument
-                ? 'border-accent bg-accent/10 text-accent'
-                : 'border-border text-secondary hover:bg-surface-hover'
-            }`}
-          >
-            {i}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <div className="flex flex-wrap items-center gap-1">
+          {INSTRUMENTS.map((i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setInstrument(i)}
+              className={`rounded border px-2 py-1 font-mono text-[11px] ${
+                i === instrument
+                  ? 'border-accent bg-accent/10 text-accent'
+                  : 'border-border text-secondary hover:bg-surface-hover'
+              }`}
+            >
+              {i}
+            </button>
+          ))}
+        </div>
+        <div className="ml-auto inline-flex overflow-hidden rounded border border-border text-[11px]">
+          {([
+            ['edgefinder', 'EdgeFinder'],
+            ['detailed', 'Detailed'],
+          ] as [ScorecardView, string][]).map(([id, lbl]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setView(id)}
+              className={`px-2.5 py-1 ${
+                view === id ? 'bg-accent/10 text-accent' : 'text-secondary hover:bg-surface-hover'
+              }`}
+            >
+              {lbl}
+            </button>
+          ))}
+        </div>
       </div>
 
       {scorecard ? <ProvenanceBanner env={scorecard} /> : null}
@@ -413,14 +600,18 @@ export function MacroScorecard() {
             </p>
           ) : null}
 
-          <div className="grid gap-3 lg:grid-cols-[300px_1fr] lg:items-start">
-            <Rail sc={scorecard} history={history} />
-            <div className="space-y-3">
-              {scorecard.categories.map((c) => (
-                <CategoryBlock key={c.category} cat={c} />
-              ))}
+          {view === 'edgefinder' ? (
+            <MacroEdgeFinder scorecard={scorecard} history={history} />
+          ) : (
+            <div className="grid gap-3 lg:grid-cols-[300px_1fr] lg:items-start">
+              <Rail sc={scorecard} history={history} />
+              <div className="space-y-3">
+                {scorecard.categories.map((c) => (
+                  <CategoryBlock key={c.category} cat={c} />
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           <p className="border-t border-border-subtle pt-2 text-[10px] text-muted">
             {scorecard.disclaimer} Model {scorecard.model_version}. Surprise interpretation is deterministic
