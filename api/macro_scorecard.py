@@ -193,6 +193,8 @@ def _economy_categories(country: str, as_of: Optional[datetime]) -> Dict[str, Di
                 "model_prior": round(score, 1),
                 "indicators": [], "supporting": [], "conflicting": [],
             }
+            if cat == "cot":
+                out[cat]["next_dependency"] = "MACRO_COT_PROVIDER=cftc — free CFTC feed, no API key"
             continue
         out[cat] = {
             "score": round(score, 1),

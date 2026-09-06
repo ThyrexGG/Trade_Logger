@@ -45,9 +45,14 @@ def _canonical_registry():
 def test_scorecard_is_deterministic():
     a = ms.get_scorecard("USD")
     b = ms.get_scorecard("USD")
-    for k in ("timestamp", "as_of"):
-        a.pop(k, None)
-        b.pop(k, None)
+    # Strip clock-derived fields (wall-clock stamps + provider hydration age),
+    # which are not part of the scoring output under test.
+    for d in (a, b):
+        for k in ("timestamp", "as_of"):
+            d.pop(k, None)
+        ps = d.get("provider_status")
+        if isinstance(ps, dict):
+            ps.pop("hydrated_age_sec", None)
     assert a == b
 
 

@@ -408,12 +408,12 @@ function EdgeCard({ cat }: { cat: MacroScorecardCategory }) {
   const s = classifySentiment(insufficient ? undefined : cat.direction)
 
   return (
-    <div className="flex flex-col rounded-lg border border-border bg-surface">
+    <div className="flex flex-col self-start rounded-lg border border-border bg-surface">
       <div className="flex items-center border-b border-border-subtle px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-secondary">
         {label}
         {CATEGORY_INFO[cat.category] ? <InfoTip text={CATEGORY_INFO[cat.category]} /> : null}
       </div>
-      <div className="flex flex-1 flex-col gap-2 p-3">
+      <div className="flex flex-col gap-2 p-3">
         <BiasBar
           text={insufficient ? 'No data' : cat.direction || 'neutral'}
           tone={insufficient ? 'flat' : s.tone}
@@ -424,6 +424,11 @@ function EdgeCard({ cat }: { cat: MacroScorecardCategory }) {
             {cat.next_dependency ? (
               <span className="mt-1 block">
                 <span className="text-secondary">To enable:</span> {cat.next_dependency}
+              </span>
+            ) : null}
+            {cat.model_prior != null ? (
+              <span className="mt-1 block text-[10px]">
+                Model default without data: {cat.model_prior}/100 — not counted in the score.
               </span>
             ) : null}
           </p>
@@ -506,7 +511,7 @@ function MacroEdgeFinder({
   history: MacroScorecardHistoryResponse | null
 }) {
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
       <EdgeHero sc={scorecard} history={history} />
       {scorecard.categories.map((c) => (
         <EdgeCard key={c.category} cat={c} />
