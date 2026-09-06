@@ -50,6 +50,23 @@ _YF_PLAN: Dict[str, Tuple[str, str]] = {
 # 4h is not offered natively by yfinance — resampled from 1h.
 _RESAMPLE_FROM = {"4h": ("1h", 4)}
 
+# Cross-asset instruments the macro scorecard reads but which are NOT part of the
+# research universe (they must not enter strategy-discovery iteration). Ingestible
+# by explicit --asset only.
+_EXTRA_INSTRUMENTS: Dict[str, str] = {
+    "DXY": "DX-Y.NYB",
+    "US10Y": "^TNX",
+    "JP225": "^N225",
+    "BTCUSD": "BTC-USD",
+    "ETHUSD": "ETH-USD",
+}
+
+
+class _ExtraInstrument:
+    def __init__(self, sym: str, yf_symbol: str) -> None:
+        self.symbol = sym
+        self.yf_symbol = yf_symbol
+
 
 @dataclass
 class IngestResult:
@@ -197,6 +214,8 @@ def ingest(asset: str, timeframe: str, incremental: bool = False,
     res = IngestResult(asset=asset, timeframe=timeframe, ok=False,
                        mode="incremental" if incremental else "backfill")
 
+    if inst is None and asset in _EXTRA_INSTRUMENTS:
+        inst = _ExtraInstrument(asset, _EXTRA_INSTRUMENTS[asset])
     if inst is None:
         res.error = f"{asset} is not in the research universe"
         return res

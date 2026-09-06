@@ -38,8 +38,20 @@ from api.macro_provider import SUPPORTED_CURRENCIES
 # both legs have releases + gold. CAD/AUD/NZD/CHF are accepted but resolve to
 # INSUFFICIENT_EVIDENCE (no seeded releases) rather than UNSUPPORTED.
 _FX_PAIRS = ["EURUSD", "GBPUSD", "USDJPY", "GBPJPY", "EURJPY"]
+# Cross-asset instruments: a dollar index / a benchmark yield / an equity index
+# read against a proxy economy, and crypto read as a risk asset (chart + vol only).
+_PROXY_COUNTRY = {"DXY": "USD", "US10Y": "USD", "JP225": "JPY"}
+_RISK_ASSETS = {"BTCUSD", "ETHUSD"}
+_SCOPE_NOTE = {
+    "DXY": "US Dollar Index — broad USD strength vs a basket. Same drivers as the USD economy read.",
+    "US10Y": "US 10-year Treasury yield — driven by growth + inflation expectations and the Fed path. Bullish here = higher yields.",
+    "JP225": "Nikkei 225 — Japan's macro backdrop. A weaker yen is an additional tailwind for exporters, not scored here.",
+    "BTCUSD": "Bitcoin is a risk asset — this layer is the chart read + volatility. Economic data (growth/jobs/inflation) does not apply; funding-carry analysis is on the Crypto Carry page.",
+    "ETHUSD": "Ether is a risk asset — this layer is the chart read + volatility. Economic data (growth/jobs/inflation) does not apply; funding-carry analysis is on the Crypto Carry page.",
+}
 SUPPORTED_INSTRUMENTS: List[str] = [
     *SUPPORTED_CURRENCIES, *_FX_PAIRS, "XAUUSD",
+    "DXY", "US10Y", "JP225", "BTCUSD", "ETHUSD",
 ]
 
 # EdgeFinder countries (heatmap sidebar). US/EU/UK/JP have seeded releases;
@@ -291,6 +303,8 @@ _TECH_SYMBOL = {
     "XAUUSD": "XAUUSD",
     "EURUSD": "EURUSD", "GBPUSD": "GBPUSD", "USDJPY": "USDJPY",
     "GBPJPY": "GBPJPY", "EURJPY": "EURJPY",
+    "DXY": "DXY", "US10Y": "US10Y", "JP225": "JP225",
+    "BTCUSD": "BTCUSD", "ETHUSD": "ETHUSD",
 }
 
 
@@ -533,12 +547,18 @@ def get_scorecard(
             }
         scope_note = f"Relative: {base} economy vs {quote} economy."
         primary_country = base
+    elif inst in _RISK_ASSETS:
+        # No economy applies — the read is the chart + volatility only.
+        cats = {}
+        primary_country = None
+        scope_note = _SCOPE_NOTE[inst]
     else:
-        primary_country = "USD" if inst == "XAUUSD" else inst
+        primary_country = _PROXY_COUNTRY.get(inst) or ("USD" if inst == "XAUUSD" else inst)
         cats = _economy_categories(primary_country, as_of)
-        scope_note = (
+        scope_note = _SCOPE_NOTE.get(
+            inst,
             "USD macro with safe-haven interpretation (weak growth / dovish policy support gold)."
-            if inst == "XAUUSD" else f"{inst} economy macro strength."
+            if inst == "XAUUSD" else f"{inst} economy macro strength.",
         )
 
     cats["technical"] = (
@@ -549,6 +569,27 @@ def get_scorecard(
         )
     )
     cats["sentiment"] = _sentiment_stub()
+
+    # Cross-asset composite overrides: the Phase-56 engine defaults non-FX / non-
+    # gold symbols to US economic strength, which is only right for DXY. For a
+    # risk asset the read is the chart; for the Nikkei it's Japan's economy.
+    if inst in _RISK_ASSETS:
+        tech = cats.get("technical") or {}
+        composite = float(tech.get("score") or 0.0)
+    elif inst == "JP225":
+        # Japan's growth/jobs/inflation = the earnings backdrop. Yen positioning
+        # (cot) and the rate differential are about the currency, not the index —
+        # they stay visible as context but do not drive the index composite.
+        jp_scored = [
+            cats[k]["score"] for k in ("growth", "jobs", "inflation")
+            if isinstance((cats.get(k) or {}).get("score"), (int, float))
+        ]
+        composite = round(sum(jp_scored) / len(jp_scored), 1) if jp_scored else 0.0
+    elif inst == "US10Y":
+        # a 10Y-yield read leans on the rates category
+        rc = cats.get("rates") or {}
+        if isinstance(rc.get("score"), (int, float)):
+            composite = float(rc["score"])
 
     ordered = ["rates", "growth", "jobs", "inflation", "cot", "sentiment", "technical"]
     categories = [{"category": name, **cats[name]} for name in ordered if name in cats]

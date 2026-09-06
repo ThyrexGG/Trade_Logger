@@ -157,7 +157,12 @@ def get_realtime_candles(symbol="XAUUSD", timeframe="15m", count=250, ttl_sec=4)
             "US500": "ES=F",
             "US30": "YM=F",
             "USOIL": "CL=F",
-            "BTCUSD": "BTC-USD"
+            "BTCUSD": "BTC-USD",
+            "ETHUSD": "ETH-USD",
+            "DXY": "DX-Y.NYB",
+            "JP225": "^N225",
+            "NIKKEI": "^N225",
+            "US10Y": "^TNX",
         }
         yf_ticker = yf_symbol_map.get(sym, f"{sym}=X")
         

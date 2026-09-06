@@ -13,7 +13,11 @@ import { classifySentiment, toneChip, toneText, type SentimentTone } from '../..
 import { Gauge } from './Gauge'
 import { ProvenanceBanner } from './MacroViews'
 
-const INSTRUMENTS = ['XAUUSD', 'USD', 'EUR', 'GBP', 'JPY', 'EURUSD', 'GBPUSD', 'USDJPY', 'EURJPY', 'GBPJPY']
+const INSTRUMENTS = [
+  'XAUUSD', 'USD', 'EUR', 'GBP', 'JPY',
+  'EURUSD', 'GBPUSD', 'USDJPY', 'EURJPY', 'GBPJPY',
+  'DXY', 'US10Y', 'JP225', 'BTCUSD', 'ETHUSD',
+]
 
 const CATEGORY_LABEL: Record<string, string> = {
   rates: 'Rates & policy',
