@@ -2,6 +2,9 @@ import type { AnalyticsPerformanceResponse } from '../../types/analytics'
 import { SectionCard, Sparkline } from '../research/primitives'
 import { OpsMetric, OpsUnavailable } from '../operations/primitives'
 import { formatPercent, formatUsd } from '../../lib/format'
+import { MonthlyCalendar } from './MonthlyCalendar'
+import { RadarChart } from './RadarChart'
+import { SplitBar } from './SplitBar'
 
 function signedUsd(v: number): string {
   return `${v >= 0 ? '+' : ''}${formatUsd(v)}`
@@ -56,6 +59,7 @@ export function AnalyticsView({ data }: { data: AnalyticsPerformanceResponse }) 
   }
 
   const balance = data.official_balance ?? m.final_balance
+  const initialBalance = data.filters_applied.initial_balance || 10000
   const symMax = Math.max(1, ...data.symbol_breakdown.map((r) => Math.abs(r.net_profit)))
   const tagMax = Math.max(1, ...data.tag_breakdown.map((r) => Math.abs(r.net_profit)))
   const dayMax = Math.max(1, ...data.daily_pnl.map((d) => Math.abs(d.net_profit)))
@@ -65,8 +69,10 @@ export function AnalyticsView({ data }: { data: AnalyticsPerformanceResponse }) 
     { label: 'Win rate', v: clamp(m.win_rate) },
     { label: 'Risk / reward', v: clamp(m.profit_factor * 25) },
     { label: 'Capital protection', v: clamp(100 - m.max_drawdown_pct * 3) },
-    { label: 'Consistency (SQN)', v: clamp(m.sqn * 25) },
+    { label: 'Consistency', v: clamp(m.sqn * 25) },
   ]
+  const longN = m.long_stats.trades
+  const shortN = m.short_stats.trades
 
   return (
     <div className="space-y-4">
@@ -123,6 +129,24 @@ export function AnalyticsView({ data }: { data: AnalyticsPerformanceResponse }) 
                 <span className="text-muted">Balance <span className="text-primary">{formatUsd(balance)}</span></span>
                 <span className="text-muted">Peak <span className="text-primary">{formatUsd(m.peak_balance)}</span></span>
               </div>
+              <div className="mt-3 space-y-2 border-t border-border-subtle pt-3">
+                <SplitBar
+                  leftLabel="Avg win"
+                  rightLabel="Avg loss"
+                  left={Math.abs(m.avg_win)}
+                  right={Math.abs(m.avg_loss)}
+                  leftValue={signedUsd(m.avg_win)}
+                  rightValue={signedUsd(-Math.abs(m.avg_loss))}
+                />
+                <SplitBar
+                  leftLabel="Long"
+                  rightLabel="Short"
+                  left={longN}
+                  right={shortN}
+                  leftValue={`${longN}`}
+                  rightValue={`${shortN}`}
+                />
+              </div>
             </div>
           )}
         </SectionCard>
@@ -173,20 +197,30 @@ export function AnalyticsView({ data }: { data: AnalyticsPerformanceResponse }) 
         </SectionCard>
 
         <SectionCard title="Performance index">
-          <div className="space-y-1.5">
+          <div className="text-accent">
+            <RadarChart axes={scores.map((s) => ({ label: s.label, value: s.v }))} />
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px] text-muted sm:grid-cols-3">
             {scores.map((s) => (
-              <div key={s.label} className="flex items-center gap-2 text-[11px]">
-                <span className="w-32 shrink-0 text-secondary">{s.label}</span>
-                <div className="h-2 flex-1 rounded bg-surface-elevated/40">
-                  <div className="h-2 rounded bg-accent/50" style={{ width: `${s.v}%` }} />
-                </div>
-                <span className="w-8 shrink-0 text-right font-mono tabular-nums text-muted">{s.v.toFixed(0)}</span>
-              </div>
+              <span key={s.label} className="tabular-nums">
+                {s.label} <span className="text-secondary">{s.v.toFixed(0)}</span>
+              </span>
             ))}
           </div>
-          <p className="mt-2 text-[10px] text-muted">Presentation-only 0–100 scores derived from the metrics above (the legacy page draws these as a radar).</p>
+          <p className="mt-1 text-[10px] text-muted">Presentation-only 0–100 index scores derived from the metrics above.</p>
         </SectionCard>
       </div>
+
+      <SectionCard
+        title="Monthly calendar"
+        action={<span className="font-mono text-[11px] text-muted">daily P&amp;L</span>}
+      >
+        {data.daily_pnl.length === 0 ? (
+          <OpsUnavailable>No closed trades in range.</OpsUnavailable>
+        ) : (
+          <MonthlyCalendar daily={data.daily_pnl} initialBalance={initialBalance} />
+        )}
+      </SectionCard>
 
       <SectionCard
         title="Daily P&L"

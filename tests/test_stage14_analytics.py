@@ -155,6 +155,20 @@ def test_equity_curve_traces_to_trades():
     assert abs(last - (10000 + d["metrics"]["total_net_pnl"])) < 0.02
 
 
+def test_daily_pnl_carries_wins_and_reconciles():
+    """Each daily bucket exposes `wins` (for the calendar month summary) and the
+    per-day wins/trades/net_profit sum back to the headline totals."""
+    d = client.get("/api/analytics/performance?initial_balance=10000").json()
+    if d["matched_trades"] == 0:
+        pytest.skip("need trades")
+    days = d["daily_pnl"]
+    assert days and all({"date", "net_profit", "trades", "wins"} <= set(x) for x in days)
+    assert all(0 <= x["wins"] <= x["trades"] for x in days)
+    assert sum(x["trades"] for x in days) == d["metrics"]["total_trades"]
+    assert sum(x["wins"] for x in days) == d["metrics"]["winning_trades"]
+    assert abs(sum(x["net_profit"] for x in days) - d["metrics"]["total_net_pnl"]) < 0.05
+
+
 # 10-15. no execution / broker side effects -------------------
 def test_analytics_is_get_only():
     assert client.post("/api/analytics/performance", json={}).status_code == 405

@@ -56,6 +56,7 @@ export interface DailyPnl {
   date: string
   net_profit: number
   trades: number
+  wins: number
 }
 
 export interface SymbolBreakdownRow {

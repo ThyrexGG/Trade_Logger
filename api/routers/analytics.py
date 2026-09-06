@@ -222,14 +222,16 @@ def get_performance(
     equity_curve, sampled = _equity_curve(filtered, initial_balance)
 
     daily = (
-        filtered.groupby(filtered["exit_time"].dt.date)
-        .agg(net_profit=("net_profit", "sum"), trades=("net_profit", "size"))
+        filtered.assign(_win=(filtered["net_profit"] > 0).astype(int))
+        .groupby(filtered["exit_time"].dt.date)
+        .agg(net_profit=("net_profit", "sum"), trades=("net_profit", "size"), wins=("_win", "sum"))
         .reset_index()
         .sort_values(by="exit_time")
     )
     daily_pnl = [
         DailyPnl(date=pd.Timestamp(r["exit_time"]).date().isoformat(),
-                 net_profit=round(float(r["net_profit"]), 2), trades=int(r["trades"]))
+                 net_profit=round(float(r["net_profit"]), 2), trades=int(r["trades"]),
+                 wins=int(r["wins"]))
         for _, r in daily.iterrows()
     ]
 

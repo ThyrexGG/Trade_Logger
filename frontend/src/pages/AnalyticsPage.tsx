@@ -69,11 +69,9 @@ export function AnalyticsPage() {
 
         <p className="border-t border-border-subtle pt-3 text-[11px] text-muted">
           Source: <code>closed_trades</code> via <code>analytics.calculate_performance_metrics</code>.
-          Not migrated here: the month calendar grid (daily P&L is shown as a bar
-          series instead), the radar chart (shown as index bars), and the
-          "Sync MT5 / Sync Capital" data-ingestion buttons (those stay in
-          Streamlit). Research-analytics (R-multiples, execution stress,
-          confluence) is a separate Research Lab workflow.
+          Not included here: the "Sync MT5 / Sync Capital" data-ingestion buttons
+          (those stay in Streamlit) and research-analytics (R-multiples, execution
+          stress, confluence — a separate Research Lab workflow).
         </p>
       </div>
     </PageContainer>

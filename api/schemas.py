@@ -953,6 +953,7 @@ class DailyPnl(BaseModel):
     date: str
     net_profit: float
     trades: int
+    wins: int = 0
 
 
 class SymbolBreakdownRow(BaseModel):
