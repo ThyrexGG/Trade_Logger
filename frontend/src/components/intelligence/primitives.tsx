@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { ageSeconds, timeAgo } from '../../lib/format'
+import { toneArrow } from '../../lib/sentiment'
 
 export type IntelTone = 'positive' | 'negative' | 'warning' | 'neutral'
 
@@ -50,10 +51,12 @@ export function IntelTag({
   className?: string
 }) {
   const t = tone ?? toneForIntel(value)
+  const arrow = toneArrow(t)
   return (
     <span
       className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[11px] leading-none ${TONE_TAG[t]} ${className}`}
     >
+      {arrow ? <span aria-hidden="true">{arrow}</span> : null}
       {label ? <span className="text-muted">{label}</span> : null}
       <span>{value}</span>
     </span>

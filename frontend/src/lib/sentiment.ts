@@ -66,6 +66,20 @@ export function toneText(tone: SentimentTone): string {
         : 'text-muted'
 }
 
+/**
+ * Arrow glyph for any tone string used anywhere in the app — the Sentiment
+ * tones (up/down/flat/caution) and the legacy status tones
+ * (positive/negative/warning/info/neutral). '' when there's no meaningful
+ * direction (info / neutral / flat).
+ */
+export function toneArrow(tone: string | null | undefined): string {
+  const t = (tone || '').toLowerCase()
+  if (t === 'up' || t === 'positive') return '▲'
+  if (t === 'down' || t === 'negative') return '▼'
+  if (t === 'caution' || t === 'warning') return '!'
+  return ''
+}
+
 /** Tailwind border+bg+text classes for a chip. */
 export function toneChip(tone: SentimentTone): string {
   return tone === 'up'

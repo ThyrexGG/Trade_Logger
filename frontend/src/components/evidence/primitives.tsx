@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { toneArrow } from '../../lib/sentiment'
 export {
   SectionCard,
   SectionError,
@@ -103,12 +104,14 @@ export function EvidenceStatusTag({
   size?: 'sm' | 'md'
 }) {
   const t = tone ?? evidenceTone(value)
+  const arrow = toneArrow(t)
   return (
     <span
       className={`inline-flex items-center gap-1 rounded border font-mono leading-none ${
         size === 'sm' ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-1 text-[11px]'
       } ${TAG_CLASS[t]}`}
     >
+      {arrow ? <span aria-hidden="true">{arrow}</span> : null}
       {label ? <span className="text-muted">{label}</span> : null}
       <span>{value}</span>
     </span>

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { toneArrow } from '../../lib/sentiment'
 export { SectionCard, SectionError, SkeletonRows } from '../intelligence/primitives'
 export { HashChip } from '../evidence/primitives'
 
@@ -41,12 +42,14 @@ export function ResearchStatusTag({
   size?: 'sm' | 'md'
 }) {
   const t = tone ?? researchTone(value)
+  const arrow = toneArrow(t)
   return (
     <span
       className={`inline-flex items-center gap-1 rounded border font-mono leading-none ${
         size === 'sm' ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-1 text-[11px]'
       } ${TAG[t]}`}
     >
+      {arrow ? <span aria-hidden="true">{arrow}</span> : null}
       {value}
     </span>
   )
