@@ -117,50 +117,76 @@ export function MonthlyCalendar({
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 text-[10px] uppercase tracking-wider text-muted">
-        {WEEKDAYS.map((w) => (
-          <div key={w} className="px-1 py-0.5 text-center">
-            {w}
-          </div>
-        ))}
-      </div>
-      <div className="mt-1 grid grid-cols-7 gap-1">
-        {cells.map((c) => {
-          if (!c.inMonth) return <div key={c.iso} className="min-h-[54px] rounded bg-surface-elevated/20" />
-          const d = c.data
-          const intensity = d ? Math.min(0.22, 0.05 + (Math.abs(d.net_profit) / dayMax) * 0.17) : 0
-          const bg = d
-            ? d.net_profit >= 0
-              ? `rgba(34,197,94,${intensity})`
-              : `rgba(239,68,68,${intensity})`
-            : undefined
-          return (
-            <div
-              key={c.iso}
-              className="min-h-[54px] rounded border border-border-subtle px-1.5 py-1"
-              style={bg ? { backgroundColor: bg } : undefined}
-              title={d ? `${c.iso}: ${signedUsd(d.net_profit)} · ${d.trades}t · ${d.wins}W` : c.iso}
-            >
-              <div className="text-[10px] text-muted">{c.day}</div>
-              {d ? (
-                <div className="mt-0.5 leading-tight">
-                  <div
-                    className={`font-mono text-[11px] tabular-nums ${
-                      d.net_profit >= 0 ? 'text-positive' : 'text-negative'
-                    }`}
-                  >
-                    {signedUsd(d.net_profit)}
-                  </div>
-                  <div className="font-mono text-[9px] text-muted">
-                    {initialBalance > 0
-                      ? `${d.net_profit >= 0 ? '+' : ''}${((d.net_profit / initialBalance) * 100).toFixed(2)}%`
-                      : `${d.trades}t`}
-                  </div>
-                </div>
-              ) : null}
+      <div className="mx-auto max-w-3xl">
+        <div className="grid grid-cols-7 text-[10px] font-medium uppercase tracking-wider text-muted">
+          {WEEKDAYS.map((w) => (
+            <div key={w} className="px-1 pb-1 text-center">
+              {w}
             </div>
-          )
-        })}
+          ))}
+        </div>
+        <div className="grid grid-cols-7 overflow-hidden rounded-lg border border-border-subtle">
+          {cells.map((c, i) => {
+            const col = i % 7
+            const weekend = col >= 5
+            if (!c.inMonth) {
+              return (
+                <div
+                  key={c.iso}
+                  className={`min-h-[68px] border-b border-r border-border-subtle/60 ${
+                    col === 6 ? 'border-r-0' : ''
+                  } ${weekend ? 'bg-surface-elevated/10' : ''}`}
+                />
+              )
+            }
+            const d = c.data
+            const intensity = d ? Math.min(0.2, 0.06 + (Math.abs(d.net_profit) / dayMax) * 0.14) : 0
+            const bg = d
+              ? d.net_profit >= 0
+                ? `rgba(34,197,94,${intensity})`
+                : `rgba(239,68,68,${intensity})`
+              : undefined
+            const dayPct =
+              d && initialBalance > 0 ? (d.net_profit / initialBalance) * 100 : null
+            return (
+              <div
+                key={c.iso}
+                className={`flex min-h-[68px] flex-col border-b border-r border-border-subtle/60 px-1.5 py-1 ${
+                  col === 6 ? 'border-r-0' : ''
+                } ${!d && weekend ? 'bg-surface-elevated/10' : ''}`}
+                style={bg ? { backgroundColor: bg } : undefined}
+                title={
+                  d
+                    ? `${c.iso}: ${signedUsd(d.net_profit)} · ${d.trades} trade${d.trades === 1 ? '' : 's'} · ${d.wins}W`
+                    : c.iso
+                }
+              >
+                <div
+                  className={`text-right text-[10px] tabular-nums ${
+                    d ? 'text-secondary' : 'text-muted/70'
+                  }`}
+                >
+                  {c.day}
+                </div>
+                {d ? (
+                  <div className="mt-auto leading-tight">
+                    <div
+                      className={`font-mono text-[12px] font-semibold tabular-nums ${
+                        d.net_profit >= 0 ? 'text-positive' : 'text-negative'
+                      }`}
+                    >
+                      {signedUsd(d.net_profit)}
+                    </div>
+                    <div className="flex items-baseline justify-between font-mono text-[9px] text-muted">
+                      <span>{dayPct !== null ? `${dayPct >= 0 ? '+' : ''}${dayPct.toFixed(2)}%` : ''}</span>
+                      <span>{d.trades}t</span>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            )
+          })}
+        </div>
       </div>
     </div>
   )
