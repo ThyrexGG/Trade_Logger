@@ -955,6 +955,30 @@ def get_fx_carry() -> Dict[str, Any]:
     return r
 
 
+@router.get("/intraday-copilot")
+def get_intraday_copilot() -> Dict[str, Any]:
+    """Phase 100 — intraday setup co-pilot. A decision-support tool for
+    discretionary intraday trading on the 11-instrument FX + gold
+    15m/1h/4h universe: it surfaces named structural CONDITIONS on the
+    latest bar and their multi-year forward-outcome base rates, plus a
+    setup journal + skill tracker. It is NOT a signal generator — Phases
+    70–93 found no systematic intraday directional edge, so it never
+    recommends a trade. Read-only: no execution, no orders, no BUY/SELL
+    output. `NOT_COMPUTED` until `python -m phase100_intraday_copilot` has
+    run. Holdout untouched, live automation disabled, broker transmission
+    blocked."""
+    import phase100_intraday_copilot
+    r = phase100_intraday_copilot.get_result()
+    if not r:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m phase100_intraday_copilot`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    r["state"] = "AVAILABLE"
+    r["safety_barrier"] = _SAFETY
+    return r
+
+
 @router.get("/market-behavior")
 def get_market_behavior_discovery() -> Dict[str, Any]:
     """Phase 76 — literature-guided market behavior discovery: the phenomenon

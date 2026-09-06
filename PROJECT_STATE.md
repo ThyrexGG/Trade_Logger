@@ -1111,6 +1111,43 @@ phases (see each phase's own `docs/PHASE_*.md` for full detail).*
   `UNTOUCHED`; live automation `DISABLED`; broker transmission `BLOCKED`.
 - **Swing pivot conclusion**: one usable edge found — delta-neutral crypto
   funding carry, ~25% of capital, multi-venue (Phase 97) — now under
-  weekly forward monitoring (Phase 98). Remaining work is operational:
-  run the Phase-98 harness weekly and let forward evidence accumulate to
-  the 12-week (assess) / 26-week (confirm) marks.
+  weekly forward monitoring (Phase 98, automated via
+  `phase98_forward_daemon.py` + `register_phase98_weekly.ps1`). Remaining
+  work is operational: run the Phase-98 harness weekly and let forward
+  evidence accumulate to the 12-week (assess) / 26-week (confirm) marks.
+
+## 20. Phase 100 — Intraday Setup Co-Pilot (decision-support tool, not an edge)
+
+- **Module**: `phase100_intraday_copilot.py`. A read-only decision-support
+  tool for discretionary intraday trading on the 11-instrument FX+gold
+  15m/1h/4h universe. **Not a signal generator** — Phases 70-93 found no
+  systematic intraday directional edge, so it never recommends a trade.
+- **Four parts**: (1) SCAN — 16 frozen, causal named CONDITIONS on the
+  latest bar (liquidity sweeps, range extremes, vol expansion/
+  contraction, session opens, failed breakouts, prior-day level tests,
+  inside/narrow-range bars, trend state); (2) BASE RATE — the multi-year
+  forward-outcome distribution for any condition set at horizons
+  {1,2,4,8} bars (up_rate, median/quartile return, |move| in ATR, MFE/
+  MAE, verdict NEAR_COIN_FLIP/WEAK_SKEW/NOTABLE_SKEW + LOW_CONFIDENCE if
+  n<120 + a multiple-testing caveat); (3) JOURNAL + SKILL TRACKER —
+  `log_setup`/`log_outcome` compute realised R; `skill_report` verdicts
+  SELECTION_ADDS_EDGE / MATCHES_BASE_RATE / WORSE_THAN_BASE_RATE /
+  INSUFFICIENT_SAMPLE (need ~30 resolved); (4) `evaluate_setup` — the
+  interactive card (conditions + base rate + R:R feasibility + your
+  record + macro status + blunt summary).
+- **Confirms the null**: real sample base rates all NEAR_COIN_FLIP
+  (EURUSD 15m SWEEP_LOW n=2537 up-rate 0.50-0.54 across horizons; GBPUSD
+  1h FAILED_BREAKOUT_UP n=5144 up-rate 0.50). One mild WEAK_SKEW (USDJPY
+  15m SESSION_OPEN_LONDON, up-rate 0.54, n=1043) — a hypothesis, not an
+  edge.
+- **Data**: the shared OHLCV store is a slow remote Postgres, so raw
+  candles are cached to local parquet under `.cache/phase100/`
+  (gitignored), fetched in bounded windows and refreshed incrementally.
+  `python -m phase100_intraday_copilot --refresh` builds it (~3 min for
+  all 33 instrument/tf pairs). `run()`/API use only what is cached;
+  `evaluate_setup` fetches one instrument on demand.
+- `GET /api/research/intraday-copilot`, `docs/PHASE_100_INTRADAY_COPILOT.md`,
+  PROJECT_STATE §20, 18 tests. `determinism.match == True`. NEVER emits
+  BUY/SELL/ENTRY. Holdout `UNTOUCHED`; live automation `DISABLED`; broker
+  transmission `BLOCKED`. `PROFITABLE_TRADING_EDGE_FOUND` unchanged
+  (`FOUND` on crypto funding carry; intraday remains no-edge).
