@@ -529,11 +529,13 @@ function MacroEdgeFinder({
   history: MacroScorecardHistoryResponse | null
 }) {
   return (
-    <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-3 lg:grid-cols-[320px_1fr] lg:items-start">
       <EdgeHero sc={scorecard} history={history} />
-      {scorecard.categories.map((c) => (
-        <EdgeCard key={c.category} cat={c} />
-      ))}
+      <div className="grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {scorecard.categories.map((c) => (
+          <EdgeCard key={c.category} cat={c} />
+        ))}
+      </div>
     </div>
   )
 }
