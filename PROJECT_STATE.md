@@ -1077,3 +1077,40 @@ phases (see each phase's own `docs/PHASE_*.md` for full detail).*
 - **Next**: Phase 99 FX/rate-differential carry (needs `FRED_API_KEY` or
   an equivalent multi-country short-rate source), folded into the Phase-97
   allocation as a second uncorrelated sleeve.
+
+## 19. Research Program Status (Phase 99) — FX / Rate-Differential Carry (G10)
+
+- **Module**: `phase99_fx_carry.py`. The intended second sleeve for the
+  Phase-97 allocation. `FRED_API_KEY` is now configured (`.env`), so G10
+  3-month interbank rates (`IR3TIB01<area>M156N`, OECD, monthly) are
+  fetched and cached as artifact `phase99_g10_rates`.
+- **Frozen design**: 8 currencies (USD/EUR/GBP/JPY/CAD/AUD/NZD/CHF);
+  monthly return per currency vs USD = spot_return + (rate_ccy −
+  rate_USD)/12 (USD leg = 0); signal = sort by rate, long top 3 / short
+  bottom 3 equal-weight, dollar-neutral; monthly rebalance; 1.5 bps
+  one-way per leg, 0/1/2/4x ladder.
+- **Result (BASE, 2017-03 → 2026-06, 112 monthly obs)**: Sharpe **0.35**
+  (unchanged at ADVERSE — G10 spot costs negligible), CAGR +1.7%, ann vol
+  5.2%, max DD −7.9%, positive 6/10 years. **Edge is entirely in the
+  recent half** (halves Sharpe +0.04 → +0.67 — 2021+ policy-rate
+  divergence; 2018-2020 was flat-to-negative). Random-currency placebo:
+  92nd pct. Beats the naive G10 basket (Sharpe −0.23). Cost-insensitive.
+- **Does it help the Phase-97 book?** Correlation with the crypto carry
+  is **+0.07** (genuinely uncorrelated) BUT adding a 15% FX-carry sleeve
+  from cash takes the book from Sharpe 2.68 / DD −0.4% to **Sharpe 2.27 /
+  DD −1.1%** at the same ~4% CAGR — FX carry's low Sharpe (0.35) and high
+  vol (5.2% vs the book's ~1%) mean it dominates the combined risk
+  without adding return. **It drags the book.**
+- **VERDICT: `FX_CARRY_EDGE_NOT_ESTABLISHED`** — weakly positive,
+  recent-half-only, thin sample, does not improve the Phase-97 book.
+  **No change to program status**: `PROFITABLE_TRADING_EDGE_FOUND` stays
+  `FOUND` on the Phase-96/97 crypto funding carry alone. Momentum (Phase
+  95) and FX carry (Phase 99) are both dead ends.
+- `GET /api/research/fx-carry`, `docs/PHASE_99_FX_CARRY.md`,
+  PROJECT_STATE §19, 14 tests. `determinism.match == True`. Holdout
+  `UNTOUCHED`; live automation `DISABLED`; broker transmission `BLOCKED`.
+- **Swing pivot conclusion**: one usable edge found — delta-neutral crypto
+  funding carry, ~25% of capital, multi-venue (Phase 97) — now under
+  weekly forward monitoring (Phase 98). Remaining work is operational:
+  run the Phase-98 harness weekly and let forward evidence accumulate to
+  the 12-week (assess) / 26-week (confirm) marks.

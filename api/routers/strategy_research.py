@@ -932,6 +932,29 @@ def get_funding_carry_forward() -> Dict[str, Any]:
     return r
 
 
+@router.get("/fx-carry")
+def get_fx_carry() -> Dict[str, Any]:
+    """Phase 99 — G10 FX / rate-differential carry. Frozen, unfitted rules:
+    rank 8 currencies by 3-month interbank rate (FRED), long the top 3 /
+    short the bottom 3, dollar-neutral, monthly rebalance. Reports the
+    basket's OOS performance after G10 spot costs, a random-currency
+    placebo, the naive-basket benchmark, and whether adding an FX-carry
+    sleeve improves the Phase-97 book. Read-only: FRED macro data only, no
+    execution, no signals emitted. `NOT_COMPUTED` until
+    `python -m phase99_fx_carry` has run. Holdout untouched, live
+    automation disabled, broker transmission blocked."""
+    import phase99_fx_carry
+    r = phase99_fx_carry.get_result()
+    if not r:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m phase99_fx_carry`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    r["state"] = "AVAILABLE"
+    r["safety_barrier"] = _SAFETY
+    return r
+
+
 @router.get("/market-behavior")
 def get_market_behavior_discovery() -> Dict[str, Any]:
     """Phase 76 — literature-guided market behavior discovery: the phenomenon
