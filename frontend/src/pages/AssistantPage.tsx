@@ -4,11 +4,29 @@ import { useAIChat } from '../lib/useAIChat'
 import { PageContainer } from '../components/shell/PageContainer'
 import { ChatMarkdown } from '../components/assistant/ChatMarkdown'
 import { InfoTip } from '../components/common/InfoTip'
+import type { AIUsage } from '../types/ai'
 
-function fmtTokens(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(n >= 10_000 ? 0 : 1)}K`
-  return String(n)
+/** Basic "messages used today" bar — fills green → amber → red toward the soft daily budget. */
+function UsageBar({ usage }: { usage: AIUsage }) {
+  const used = usage.day_requests
+  const total = Math.max(1, usage.day_budget)
+  const pct = Math.min(100, (used / total) * 100)
+  const tone =
+    pct >= 90 ? 'bg-negative' : pct >= 70 ? 'bg-warning' : 'bg-positive'
+  return (
+    <InfoTip
+      text={`${used} of about ${total} free messages used today (resets at UTC midnight). Roughly ${usage.day_tokens.toLocaleString()} Gemini tokens.`}
+    >
+      <span className="flex items-center gap-1.5 text-muted">
+        <span className="h-1.5 w-16 overflow-hidden rounded-full bg-surface-elevated">
+          <span className={`block h-full rounded-full ${tone}`} style={{ width: `${pct}%` }} />
+        </span>
+        <span className="font-mono text-[10px]">
+          {used}/{total}
+        </span>
+      </span>
+    </InfoTip>
+  )
 }
 
 const SUGGESTIONS = [
@@ -91,22 +109,7 @@ export function AssistantPage() {
                 {disabled ? 'Not configured' : lastMeta?.model ? lastMeta.model : 'Assistant'}
               </span>
             </span>
-            {!disabled && usage ? (
-              <span className="flex items-center gap-1 text-muted">
-                <span aria-hidden="true">⚡</span>
-                <InfoTip
-                  text={`Gemini API usage from this server. Today: ${usage.day_tokens.toLocaleString()} tokens over ${usage.day_requests} message${usage.day_requests === 1 ? '' : 's'}. This session: ${usage.session_tokens.toLocaleString()} tokens / ${usage.session_requests}.${
-                    lastMeta?.turn_usage
-                      ? ` Last reply: ${lastMeta.turn_usage.total_tokens.toLocaleString()} tokens (${lastMeta.turn_usage.prompt_tokens.toLocaleString()} in / ${lastMeta.turn_usage.output_tokens.toLocaleString()} out).`
-                      : ''
-                  } Counters reset on server restart / at UTC midnight.`}
-                >
-                  <span className="font-mono text-secondary">
-                    {fmtTokens(usage.day_tokens)} · {usage.day_requests} msg
-                  </span>
-                </InfoTip>
-              </span>
-            ) : null}
+            {!disabled && usage ? <UsageBar usage={usage} /> : null}
           </span>
           <span className="font-mono uppercase tracking-wider text-blocked">Read-only · no order path</span>
         </div>

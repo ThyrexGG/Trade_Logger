@@ -7,9 +7,21 @@ the counters. Read-only, no bearing on execution.
 """
 from __future__ import annotations
 
+import os
 import threading
 from datetime import datetime, timezone
 from typing import Any, Dict
+
+
+def _daily_budget() -> int:
+    """A soft daily message budget just so the meter has something to fill
+    against. Gemini's real free-tier limits vary by model; override with
+    AI_DAILY_MESSAGE_BUDGET."""
+    try:
+        return max(1, int(os.getenv("AI_DAILY_MESSAGE_BUDGET", "200") or "200"))
+    except (TypeError, ValueError):
+        return 200
+
 
 _LOCK = threading.Lock()
 _STATE: Dict[str, Any] = {
@@ -53,6 +65,7 @@ def snapshot() -> Dict[str, Any]:
             "day": _STATE["day"],
             "day_requests": _STATE["day_requests"],
             "day_tokens": _STATE["day_tokens"],
+            "day_budget": _daily_budget(),
             "session_requests": _STATE["session_requests"],
             "session_tokens": _STATE["session_tokens"],
             "last_request_utc": _STATE["last_request_utc"],

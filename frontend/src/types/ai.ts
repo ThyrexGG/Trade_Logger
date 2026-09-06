@@ -25,6 +25,7 @@ export interface AIUsage {
   day: string
   day_requests: number
   day_tokens: number
+  day_budget: number
   session_requests: number
   session_tokens: number
   last_request_utc: string | null
