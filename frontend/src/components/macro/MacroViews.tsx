@@ -296,6 +296,14 @@ export function MacroCalendar({ data }: { data: MacroEventsResponse }) {
         </label>
       </div>
 
+      {cal?.calendar_source === 'ForexFactory' ? (
+        <p className="mb-2 text-[10px] text-muted">
+          ForexFactory publishes the current week only; past weeks are kept as they roll off
+          (rolling ~75 days). For instant multi-week history with actuals, set{' '}
+          <span className="font-mono text-secondary">FMP_API_KEY</span> in <span className="font-mono">.env</span>.
+        </p>
+      ) : null}
+
       {rows.length === 0 ? (
         <OpsUnavailable>
           {cal?.calendar_state === 'PROVIDER_UNAVAILABLE'
