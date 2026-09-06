@@ -95,17 +95,17 @@ function MiniHistory({ data }: { data: MacroScorecardHistoryResponse | null }) {
       </p>
     )
   }
-  const vals = pts.map((p) => p.composite_score as number)
+  // show on the same −10…+10 scale as the gauges
+  const vals = pts.map((p) => (p.composite_score as number) / 10)
   const W = 240
-  const H = 40
-  // scale symmetrically around 0 with a little headroom so a flat run still reads
-  const span = Math.max(6, ...vals.map(Math.abs)) * 1.15
+  const H = 34
+  const span = Math.max(1, ...vals.map(Math.abs)) * 1.15
   const x = (i: number) => (i / (pts.length - 1)) * W
   const y = (v: number) => H / 2 - (v / span) * (H / 2)
   const line = vals.map((v, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ')
   const area = `${line} L ${W} ${H / 2} L 0 ${H / 2} Z`
   const last = vals[vals.length - 1]
-  const tone = last >= 2 ? 'var(--tl-positive)' : last <= -2 ? 'var(--tl-negative)' : 'var(--tl-text-muted)'
+  const tone = last >= 0.2 ? 'var(--tl-positive)' : last <= -0.2 ? 'var(--tl-negative)' : 'var(--tl-text-muted)'
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" aria-label="macro score history">
@@ -114,8 +114,7 @@ function MiniHistory({ data }: { data: MacroScorecardHistoryResponse | null }) {
         <path d={line} fill="none" stroke={tone} strokeWidth={1.5} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
       </svg>
       <p className="mt-0.5 text-[10px] text-muted">
-        {pts.length} snapshots · {pts[0].timestamp.slice(0, 10)} → {pts[pts.length - 1].timestamp.slice(0, 10)} · now{' '}
-        {last > 0 ? '+' : ''}{Math.round(last)}
+        macro score, {pts.length} snapshots since {pts[0].timestamp.slice(0, 10)}
       </p>
     </div>
   )
@@ -446,18 +445,18 @@ function EdgeCard({ cat }: { cat: MacroScorecardCategory }) {
   const more = all.length - rows.length
 
   return (
-    <div className="flex flex-col self-start rounded-lg border border-border bg-surface">
+    <div className="flex flex-col rounded-lg border border-border bg-surface">
       <div className="flex items-center border-b border-border-subtle px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-secondary">
         {label}
         {CATEGORY_INFO[cat.category] ? <InfoTip text={CATEGORY_INFO[cat.category]} /> : null}
       </div>
-      <div className="flex flex-col gap-2 p-2.5">
+      <div className="flex flex-1 flex-col gap-2 p-2.5">
         <BiasBar
           text={insufficient ? 'No data' : cat.direction || 'neutral'}
           tone={insufficient ? 'flat' : s.tone}
         />
         {insufficient ? (
-          <p className="text-[11px] leading-snug text-muted">
+          <p className="flex-1 text-[11px] leading-snug text-muted">
             {cat.reason}
             {cat.next_dependency ? (
               <span className="mt-1 block">
@@ -467,7 +466,7 @@ function EdgeCard({ cat }: { cat: MacroScorecardCategory }) {
           </p>
         ) : (
           <>
-            <div className="flex items-center justify-center">
+            <div className="flex flex-1 items-center justify-center py-1">
               <Gauge score={cat.gauge} size={104} />
             </div>
             {rows.length ? (
@@ -493,12 +492,12 @@ function EdgeCard({ cat }: { cat: MacroScorecardCategory }) {
 
 function HeroStat({ k, val, tip }: { k: string; val: string; tip?: string }) {
   return (
-    <div className="rounded border border-border-subtle bg-surface-elevated/40 px-2 py-1.5">
-      <p className="flex items-center text-[9px] uppercase tracking-wide text-muted">
+    <div className="flex items-center justify-between gap-2 border-b border-border-subtle/60 py-1 last:border-0">
+      <span className="flex items-center text-muted">
         {k}
         {tip ? <InfoTip text={tip} /> : null}
-      </p>
-      <p className="font-mono text-xs tabular-nums text-secondary">{val}</p>
+      </span>
+      <span className="font-mono tabular-nums text-secondary">{val}</span>
     </div>
   )
 }
@@ -513,37 +512,35 @@ function EdgeHero({
   const v = classifySentiment(sc.bias)
   const liveCats = sc.categories.filter((c) => c.state === 'OK').length
   return (
-    <div className="flex flex-col self-start rounded-lg border border-accent/40 bg-surface">
+    <div className="flex flex-col self-stretch rounded-lg border border-accent/40 bg-surface">
       <div className="flex items-center border-b border-border-subtle px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-accent">
         {sc.instrument} · macro bias
         {sc.read_basis ? <InfoTip text={sc.read_basis} /> : null}
       </div>
-      <div className="flex flex-col gap-2 p-2.5">
-        <p className={`text-center text-xl font-semibold ${toneText(v.tone)}`}>
-          {sc.bias ? sc.bias.replace(/_/g, ' ') : 'Neutral'}
-        </p>
+      <div className="flex flex-1 flex-col gap-2 p-2.5">
+        <BiasBar
+          text={sc.bias ? sc.bias.replace(/_/g, ' ') : 'neutral'}
+          tone={v.tone}
+          className="py-1.5 text-xs"
+        />
         <div className="flex items-center justify-center">
-          <Gauge score={sc.gauge} size={128} />
+          <Gauge score={sc.gauge} size={116} />
         </div>
-        <BiasBar text={sc.bias ? sc.bias.replace(/_/g, ' ') : 'neutral'} tone={v.tone} />
-        <div className="grid grid-cols-2 gap-1.5">
+        <MiniHistory data={history} />
+        <dl className="mt-auto space-y-0 pt-1 text-[11px]">
           <HeroStat
             k="Confidence"
             val={sc.confidence != null ? `${sc.confidence}/100` : '—'}
             tip="How sure the model is, given how much provider data each category actually has."
           />
           <HeroStat
-            k="Econ. strength"
+            k="Economic strength"
             val={sc.economic_strength != null ? `${sc.economic_strength > 0 ? '+' : ''}${sc.economic_strength}` : '—'}
             tip="Composite of growth / jobs / inflation / rates vs trend, −100…+100."
           />
-          <HeroStat k="Data coverage" val={`${liveCats} / ${sc.categories.length} categories`} />
+          <HeroStat k="Data coverage" val={`${liveCats} / ${sc.categories.length}`} />
           <HeroStat k="Recent data" val={momentumText(sc.surprise_momentum)} />
-        </div>
-        <div>
-          <p className="mb-1 text-[9px] uppercase tracking-wide text-muted">Macro score over time</p>
-          <MiniHistory data={history} />
-        </div>
+        </dl>
       </div>
     </div>
   )
@@ -557,7 +554,7 @@ function MacroEdgeFinder({
   history: MacroScorecardHistoryResponse | null
 }) {
   return (
-    <div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       <EdgeHero sc={scorecard} history={history} />
       {scorecard.categories.map((c) => (
         <EdgeCard key={c.category} cat={c} />
