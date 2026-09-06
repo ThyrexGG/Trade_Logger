@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import type { CommandCenterOverviewResponse } from '../../types/commandCenter'
 import { SectionCard } from '../intelligence/primitives'
 import { OpsMetric, OpsStatusTag, OpsUnavailable } from '../operations/primitives'
+import { ColorLegend, SentimentBadge, SentimentText } from '../common/Sentiment'
 import { formatPercent, formatUsd, timeAgo } from '../../lib/format'
 
 function signedUsd(v: number): string {
@@ -179,10 +180,34 @@ export function CommandCenterView({ data }: { data: CommandCenterOverviewRespons
             <Degraded name="market_context" />
           ) : (
             <div className="grid grid-cols-2 gap-2">
-              <OpsMetric label="Primary regime" value={mkt.primary_regime} sub={`${mkt.regime_confidence_pct.toFixed(0)}% confidence`} />
-              <OpsMetric label="USD strength" value={mkt.usd_strength_state} />
-              <OpsMetric label="Breadth" value={`${mkt.breadth_bullish_pct.toFixed(0)}% bull`} sub={`${mkt.breadth_bearish_pct.toFixed(0)}% bear`} />
-              <OpsMetric label="Strong / weak" value={`${mkt.strongest_asset} / ${mkt.weakest_asset}`} sub={`data quality ${mkt.data_quality}`} />
+              <OpsMetric
+                label="Primary regime"
+                value={<SentimentText value={mkt.primary_regime} className="text-lg" />}
+                sub={`${mkt.regime_confidence_pct.toFixed(0)}% confidence`}
+              />
+              <OpsMetric label="USD strength" value={<SentimentText value={mkt.usd_strength_state} className="text-lg" />} />
+              <OpsMetric
+                label="Breadth"
+                value={
+                  <span>
+                    <span className="text-positive">{mkt.breadth_bullish_pct.toFixed(0)}%</span>
+                    <span className="text-muted"> / </span>
+                    <span className="text-negative">{mkt.breadth_bearish_pct.toFixed(0)}%</span>
+                  </span>
+                }
+                sub="bull / bear"
+              />
+              <OpsMetric
+                label="Strong / weak"
+                value={
+                  <span>
+                    <span className="text-positive">{mkt.strongest_asset}</span>
+                    <span className="text-muted"> / </span>
+                    <span className="text-negative">{mkt.weakest_asset}</span>
+                  </span>
+                }
+                sub={`data quality ${mkt.data_quality}`}
+              />
             </div>
           )}
         </SectionCard>
@@ -205,7 +230,9 @@ export function CommandCenterView({ data }: { data: CommandCenterOverviewRespons
                   <tr key={w.symbol} className="border-b border-border-subtle/60">
                     <td className="py-1 font-mono font-semibold text-primary">{w.symbol}</td>
                     <td className="py-1 text-right font-mono tabular-nums text-secondary">{w.last_price != null ? w.last_price : '—'}</td>
-                    <td className="py-1 text-right font-mono text-muted">{w.bias ?? '—'}</td>
+                    <td className="py-1 text-right">
+                      {w.bias ? <SentimentBadge value={w.bias} /> : <span className="font-mono text-muted">—</span>}
+                    </td>
                     <td className="py-1 text-right font-mono tabular-nums text-secondary">{w.score != null ? w.score.toFixed(0) : '—'}</td>
                   </tr>
                 ))}
@@ -252,6 +279,16 @@ export function CommandCenterView({ data }: { data: CommandCenterOverviewRespons
           overview still reflects every source that responded.
         </p>
       ) : null}
+
+      <ColorLegend
+        className="border-t border-border-subtle pt-2"
+        items={[
+          { tone: 'up', label: 'good / bullish / profit' },
+          { tone: 'down', label: 'bad / bearish / loss' },
+          { tone: 'caution', label: 'mixed / watch' },
+          { tone: 'flat', label: 'neutral' },
+        ]}
+      />
     </div>
   )
 }

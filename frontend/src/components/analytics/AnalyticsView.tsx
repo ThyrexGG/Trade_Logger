@@ -1,6 +1,8 @@
 import type { AnalyticsPerformanceResponse } from '../../types/analytics'
 import { SectionCard, Sparkline } from '../research/primitives'
 import { OpsMetric, OpsUnavailable } from '../operations/primitives'
+import { ColorLegend } from '../common/Sentiment'
+import { InfoTip } from '../common/InfoTip'
 import { formatPercent, formatUsd } from '../../lib/format'
 import { MonthlyCalendar } from './MonthlyCalendar'
 import { RadarChart } from './RadarChart'
@@ -99,8 +101,8 @@ export function AnalyticsView({ data }: { data: AnalyticsPerformanceResponse }) 
           sub={`${m.winning_trades}W / ${m.losing_trades}L · ${m.total_trades} total`}
           tone={m.win_rate >= 50 ? 'positive' : 'neutral'}
         />
-        <OpsMetric label="System quality (SQN)" value={m.sqn.toFixed(2)} sub={m.sqn > 2.5 ? 'excellent' : m.sqn > 1.5 ? 'good' : m.sqn > 0 ? 'average' : 'negative edge'} tone={tone(m.sqn)} />
-        <OpsMetric label="Expectancy / trade" value={signedUsd(m.expectancy)} sub={`avg W ${formatUsd(m.avg_win)} · avg L ${formatUsd(m.avg_loss)}`} tone={tone(m.expectancy)} />
+        <OpsMetric label={<InfoTip text="System Quality Number — expectancy ÷ std-dev of results, ×√N. <1 hard to trade, 1.6–2 good, 2.5+ excellent.">System quality (SQN)</InfoTip>} value={m.sqn.toFixed(2)} sub={m.sqn > 2.5 ? 'excellent' : m.sqn > 1.5 ? 'good' : m.sqn > 0 ? 'average' : 'negative edge'} tone={tone(m.sqn)} />
+        <OpsMetric label={<InfoTip text="Average profit (or loss) per trade in account currency. Positive means the strategy makes money on average.">Expectancy / trade</InfoTip>} value={signedUsd(m.expectancy)} sub={`avg W ${formatUsd(m.avg_win)} · avg L ${formatUsd(m.avg_loss)}`} tone={tone(m.expectancy)} />
         <OpsMetric label="Avg holding time" value={holdTime(m.avg_duration_minutes)} sub="per closed trade" />
         <OpsMetric
           label="Best / worst trade"
@@ -211,14 +213,28 @@ export function AnalyticsView({ data }: { data: AnalyticsPerformanceResponse }) 
           <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px] text-muted sm:grid-cols-3">
             {scores.map((s) => (
               <span key={s.label} className="tabular-nums">
-                {s.label} <span className="text-secondary">{s.v.toFixed(0)}</span>
+                {s.label}{' '}
+                <span className={s.v >= 60 ? 'text-positive' : s.v <= 40 ? 'text-negative' : 'text-secondary'}>
+                  {s.v.toFixed(0)}
+                </span>
               </span>
             ))}
           </div>
-          <p className="mt-1 text-[10px] text-muted">Presentation-only 0–100 index scores derived from the metrics above.</p>
+          <p className="mt-1 text-[10px] text-muted">
+            Presentation-only 0–100 index scores. <span className="text-positive">60+ green</span> ·{' '}
+            <span className="text-negative">40− red</span>.
+          </p>
         </SectionCard>
       </div>
 
+      <ColorLegend
+        className="border-t border-border-subtle pt-2"
+        items={[
+          { tone: 'up', label: 'profit / above target' },
+          { tone: 'down', label: 'loss / below target' },
+          { tone: 'flat', label: 'flat / n-a' },
+        ]}
+      />
     </div>
   )
 }
