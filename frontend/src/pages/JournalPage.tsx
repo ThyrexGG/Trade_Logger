@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useJournal } from '../lib/useOperations'
 import { PageContainer } from '../components/shell/PageContainer'
 import { JournalSummary, JournalView } from '../components/operations/JournalView'
@@ -16,6 +16,8 @@ import {
  */
 export function JournalPage() {
   const { state, data, error, refreshing, refetch, applyEntry } = useJournal()
+  const [params] = useSearchParams()
+  const focusTradeId = params.get('trade')
 
   return (
     <PageContainer
@@ -55,15 +57,15 @@ export function JournalPage() {
               </p>
             ) : null}
             <JournalSummary data={data} />
-            <JournalView data={data} onEntryUpdated={applyEntry} />
+            <JournalView data={data} onEntryUpdated={applyEntry} focusTradeId={focusTradeId} />
           </>
         ) : null}
 
         <p className="border-t border-border-subtle pt-3 text-[11px] text-muted">
-          Journal records keep their authoritative account / source. Editable:
-          setup tag, notes, chart-snapshot URL. Not exposed by the current API:
-          journal creation / deletion, star rating, and file-upload screenshots
-          (paste a URL instead). Nothing here can submit or transmit an order.
+          One entry per closed trade (from the authoritative <code>closed_trades</code> table).
+          Editable: setup tag, notes, chart-snapshot URL, and uploaded screenshots
+          (stored in the database, up to 4 MB each — drag-drop or paste). Execution
+          facts are immutable and nothing here can submit or transmit an order.
         </p>
       </div>
     </PageContainer>

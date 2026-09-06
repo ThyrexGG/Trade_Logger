@@ -141,6 +141,7 @@ export interface DayTrade {
   notes: string | null
   rating: number | null
   chart_snapshot_url: string | null
+  screenshot_count?: number
 }
 
 export interface AnalyticsDayTradesResponse {

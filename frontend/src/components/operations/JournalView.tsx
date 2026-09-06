@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { JournalResponse, JournalTradeItem } from '../../types/operations'
 import { OpsMetric, OpsUnavailable, SectionCard } from './primitives'
 import { formatUsd, timeAgo } from '../../lib/format'
 import { patchJournalEntry } from '../../api/operations'
+import { ScreenshotStrip } from '../journal/ScreenshotStrip'
 
 type Outcome = 'all' | 'win' | 'loss'
 const PAGE = 40
@@ -134,6 +135,13 @@ function JournalEditor({
         />
       </label>
 
+      <div>
+        <p className="text-[11px] text-muted">Screenshots</p>
+        <div className="mt-1">
+          <ScreenshotStrip tradeId={entry.trade_id} />
+        </div>
+      </div>
+
       {error ? (
         <p className="rounded border border-negative/30 bg-negative/10 px-2 py-1 text-[11px] text-negative" role="alert">
           {error}
@@ -175,15 +183,31 @@ function JournalEditor({
 export function JournalView({
   data,
   onEntryUpdated,
+  focusTradeId,
 }: {
   data: JournalResponse
   onEntryUpdated?: (entry: JournalTradeItem) => void
+  /** deep-link: open this trade's editor and scroll to it (from the calendar) */
+  focusTradeId?: string | null
 }) {
   const [account, setAccount] = useState('all')
   const [outcome, setOutcome] = useState<Outcome>('all')
   const [query, setQuery] = useState('')
   const [limit, setLimit] = useState(PAGE)
   const [editing, setEditing] = useState<string | null>(null)
+  const focusedRef = useRef<HTMLTableRowElement>(null)
+  const focusHandled = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!focusTradeId || focusHandled.current === focusTradeId) return
+    if (!data.entries.some((e) => e.trade_id === focusTradeId)) return
+    focusHandled.current = focusTradeId
+    setEditing(focusTradeId)
+    // make sure it's within the paged window
+    const idx = data.entries.findIndex((e) => e.trade_id === focusTradeId)
+    if (idx >= 0) setLimit((l) => Math.max(l, idx + PAGE))
+    setTimeout(() => focusedRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 60)
+  }, [focusTradeId, data.entries])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -279,7 +303,13 @@ export function JournalView({
               {shown.map((e: JournalTradeItem) => {
                 const isEditing = editing === e.trade_id
                 return (
-                  <tr key={e.trade_id} className="border-b border-border-subtle/60 align-top">
+                  <tr
+                    key={e.trade_id}
+                    ref={e.trade_id === focusTradeId ? focusedRef : undefined}
+                    className={`border-b border-border-subtle/60 align-top ${
+                      e.trade_id === focusTradeId ? 'bg-accent/5' : ''
+                    }`}
+                  >
                     <td className="px-2 py-1.5 font-mono text-secondary">{e.exit_time.slice(0, 16).replace('T', ' ')}</td>
                     <td className="px-2 py-1.5">
                       <Link to={`/workspace/market?symbol=${encodeURIComponent(e.symbol)}`} className="font-mono font-semibold text-primary hover:text-accent">
@@ -318,6 +348,9 @@ export function JournalView({
                             >
                               chart ↗
                             </a>
+                          ) : null}
+                          {e.screenshot_count ? (
+                            <span className="ml-1 text-[10px] text-muted">📷 {e.screenshot_count}</span>
                           ) : null}
                         </>
                       )}

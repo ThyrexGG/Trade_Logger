@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import type { DayTrade, DailyPnl } from '../../types/analytics'
 import { getDayTrades } from '../../api/analytics'
+import { patchJournalEntry } from '../../api/operations'
+import { ScreenshotStrip } from '../journal/ScreenshotStrip'
 import { formatPercent, formatUsd } from '../../lib/format'
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -37,6 +40,88 @@ function fmtTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
+/** Compact journal editor shown inline under a trade row in the calendar. */
+function InlineTradeJournal({
+  trade,
+  onSaved,
+}: {
+  trade: DayTrade
+  onSaved: (t: DayTrade) => void
+}) {
+  const [tag, setTag] = useState(trade.setup_tag ?? '')
+  const [notes, setNotes] = useState(trade.notes ?? '')
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const dirty = tag.trim() !== (trade.setup_tag ?? '') || notes !== (trade.notes ?? '')
+
+  async function save() {
+    if (saving || !dirty) return
+    setSaving(true)
+    setErr(null)
+    const body: Record<string, string> = {}
+    if (tag.trim() !== (trade.setup_tag ?? '')) body.setup_tag = tag.trim()
+    if (notes !== (trade.notes ?? '')) body.notes = notes
+    try {
+      const res = await patchJournalEntry(trade.trade_id, body)
+      onSaved({ ...trade, ...res.entry })
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Save failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="space-y-2 font-sans">
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          list="cal-setup-presets"
+          value={tag}
+          onChange={(e) => setTag(e.target.value)}
+          placeholder="setup tag"
+          maxLength={120}
+          className="w-48 rounded border border-border bg-background px-2 py-1 text-xs text-primary placeholder:text-muted focus:border-accent focus:outline-none"
+        />
+        <datalist id="cal-setup-presets">
+          {['BREAKOUT', 'S/R BOUNCE', 'ORDER BLOCK / FVG', 'NEWS SCALP', 'TREND FOLLOWING', 'MEAN REVERSION', 'LIQUIDITY GRAB'].map(
+            (s) => <option key={s} value={s} />,
+          )}
+        </datalist>
+        <Link
+          to={`/operations/journal?trade=${encodeURIComponent(trade.trade_id)}`}
+          className="ml-auto text-[11px] text-accent hover:underline"
+        >
+          Open full entry ↗
+        </Link>
+      </div>
+      <textarea
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        rows={3}
+        maxLength={20_000}
+        placeholder="What was the read? Confluences, mistakes, lesson…"
+        className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-primary placeholder:text-muted focus:border-accent focus:outline-none"
+      />
+      <div>
+        <p className="mb-1 text-[10px] uppercase tracking-wide text-muted">Screenshots</p>
+        <ScreenshotStrip tradeId={trade.trade_id} compact />
+      </div>
+      {err ? <p className="text-[11px] text-negative">{err}</p> : null}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving || !dirty}
+          className="rounded border border-accent/40 bg-accent/10 px-2.5 py-1 text-[11px] text-accent disabled:opacity-40"
+        >
+          {saving ? 'Saving…' : 'Save note'}
+        </button>
+        <span className="text-[10px] text-muted">Screenshots save on upload. Execution facts are immutable.</span>
+      </div>
+    </div>
+  )
+}
+
 function DayDetail({
   date,
   account,
@@ -50,11 +135,13 @@ function DayDetail({
 }) {
   const [trades, setTrades] = useState<DayTrade[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [openTrade, setOpenTrade] = useState<string | null>(null)
 
   useEffect(() => {
     const c = new AbortController()
     setTrades(null)
     setError(null)
+    setOpenTrade(null)
     getDayTrades(date, { account, symbols }, c.signal)
       .then((r) => setTrades(r.trades))
       .catch((e: unknown) => {
@@ -63,6 +150,12 @@ function DayDetail({
       })
     return () => c.abort()
   }, [date, account, symbols])
+
+  const patchLocal = useCallback((updated: DayTrade) => {
+    setTrades((prev) =>
+      prev ? prev.map((t) => (t.trade_id === updated.trade_id ? updated : t)) : prev,
+    )
+  }, [])
 
   const net = trades ? trades.reduce((s, t) => s + t.net_profit, 0) : 0
 
@@ -102,37 +195,64 @@ function DayDetail({
           <table className="w-full text-left text-[11px]">
             <thead className="text-muted">
               <tr>
+                <th className="py-1 pr-3" />
                 <th className="py-1 pr-3">Symbol</th>
                 <th className="py-1 pr-3">Side</th>
                 <th className="py-1 pr-3 text-right">Volume</th>
                 <th className="py-1 pr-3 text-right">Entry</th>
                 <th className="py-1 pr-3 text-right">Exit</th>
                 <th className="py-1 pr-3">Closed</th>
-                <th className="py-1 pr-3">Tag</th>
+                <th className="py-1 pr-3">Journal</th>
                 <th className="py-1 text-right">Net P&amp;L</th>
               </tr>
             </thead>
             <tbody className="font-mono">
-              {trades.map((t) => (
-                <tr key={t.trade_id} className="border-t border-border-subtle/50">
-                  <td className="py-1 pr-3 text-secondary">{t.symbol}</td>
-                  <td className={`py-1 pr-3 ${t.direction === 'LONG' ? 'text-positive' : 'text-negative'}`}>
-                    {t.direction}
-                  </td>
-                  <td className="py-1 pr-3 text-right tabular-nums">{t.volume}</td>
-                  <td className="py-1 pr-3 text-right tabular-nums">{t.entry_price}</td>
-                  <td className="py-1 pr-3 text-right tabular-nums">{t.exit_price}</td>
-                  <td className="py-1 pr-3 text-muted">{fmtTime(t.exit_time)}</td>
-                  <td className="py-1 pr-3 text-muted">{t.setup_tag ?? '—'}</td>
-                  <td
-                    className={`py-1 text-right tabular-nums ${
-                      t.net_profit > 0 ? 'text-positive' : t.net_profit < 0 ? 'text-negative' : 'text-secondary'
+              {trades.map((t) => {
+                const open = openTrade === t.trade_id
+                return [
+                  <tr
+                    key={t.trade_id}
+                    onClick={() => setOpenTrade(open ? null : t.trade_id)}
+                    className={`cursor-pointer border-t border-border-subtle/50 hover:bg-surface-hover/50 ${
+                      open ? 'bg-surface-hover/40' : ''
                     }`}
                   >
-                    {signedUsd(t.net_profit)}
-                  </td>
-                </tr>
-              ))}
+                    <td className="py-1 pr-2 text-muted">{open ? '▾' : '▸'}</td>
+                    <td className="py-1 pr-3 text-secondary">{t.symbol}</td>
+                    <td className={`py-1 pr-3 ${t.direction === 'LONG' ? 'text-positive' : 'text-negative'}`}>
+                      {t.direction}
+                    </td>
+                    <td className="py-1 pr-3 text-right tabular-nums">{t.volume}</td>
+                    <td className="py-1 pr-3 text-right tabular-nums">{t.entry_price}</td>
+                    <td className="py-1 pr-3 text-right tabular-nums">{t.exit_price}</td>
+                    <td className="py-1 pr-3 text-muted">{fmtTime(t.exit_time)}</td>
+                    <td className="py-1 pr-3 text-muted">
+                      {t.setup_tag ? (
+                        <span className="rounded bg-surface-elevated px-1 text-[10px]">{t.setup_tag}</span>
+                      ) : null}
+                      {t.notes ? <span className="ml-1 text-[10px]">✎</span> : null}
+                      {t.screenshot_count ? <span className="ml-1 text-[10px]">📷{t.screenshot_count}</span> : null}
+                      {!t.setup_tag && !t.notes && !t.screenshot_count ? (
+                        <span className="text-[10px] text-muted">add</span>
+                      ) : null}
+                    </td>
+                    <td
+                      className={`py-1 text-right tabular-nums ${
+                        t.net_profit > 0 ? 'text-positive' : t.net_profit < 0 ? 'text-negative' : 'text-secondary'
+                      }`}
+                    >
+                      {signedUsd(t.net_profit)}
+                    </td>
+                  </tr>,
+                  open ? (
+                    <tr key={`${t.trade_id}-edit`} className="border-t border-border-subtle/30 bg-surface-elevated/20">
+                      <td colSpan={9} className="p-3">
+                        <InlineTradeJournal trade={t} onSaved={patchLocal} />
+                      </td>
+                    </tr>
+                  ) : null,
+                ]
+              })}
             </tbody>
           </table>
         </div>
