@@ -27,6 +27,10 @@ from fastapi import APIRouter, File, Form, HTTPException, Path, Query, Response,
 
 import database
 from api.schemas import (
+    JournalEntriesResponse,
+    JournalEntry,
+    JournalEntryCreate,
+    JournalEntryUpdate,
     JournalResponse,
     JournalScreenshotMeta,
     JournalScreenshotsResponse,
@@ -218,8 +222,19 @@ def patch_journal(
 
 
 # --- Journal screenshots (in-DB, base64) --------------------------------
-# Subjective annotation only: an image attached to a closed-trade review.
-# No execution path; a screenshot cannot alter a trade fact.
+# Subjective annotation only: an image attached to a closed-trade review or a
+# free-standing journal entry. No execution path; a screenshot cannot alter a
+# trade fact.
+
+def _journal_owner_exists(owner_id: str) -> bool:
+    """A screenshot can hang off a closed trade OR a free-standing entry."""
+    if _fetch_journal_row(owner_id) is not None:
+        return True
+    try:
+        return bool(database.journal_entry_exists(owner_id))
+    except Exception:
+        return False
+
 
 def _screenshot_meta(row: Mapping[str, Any]) -> JournalScreenshotMeta:
     sid = str(row.get("id"))
@@ -254,10 +269,10 @@ async def journal_screenshot_upload(
     file: UploadFile = File(...),
     caption: Optional[str] = Form(default=None),
 ) -> JournalScreenshotMeta:
-    """Attach one image (PNG/JPEG/WebP/GIF, <=4 MB) to a closed-trade review.
-    Stored base64-encoded in the DB. 404 if the trade is unknown."""
-    if _fetch_journal_row(trade_id) is None:
-        raise HTTPException(status_code=404, detail=f"Trade '{trade_id}' not found in closed_trades")
+    """Attach one image (PNG/JPEG/WebP/GIF, <=4 MB) to a closed-trade review or
+    a journal entry. Stored base64-encoded in the DB. 404 if the owner is unknown."""
+    if not _journal_owner_exists(trade_id):
+        raise HTTPException(status_code=404, detail=f"No closed trade or journal entry '{trade_id}'")
 
     mime = (file.content_type or "").lower().split(";")[0].strip()
     if mime not in _SCREENSHOT_MIME:
@@ -308,6 +323,85 @@ def journal_screenshot_delete(
     if not ok:
         raise HTTPException(status_code=404, detail="Screenshot not found")
     return {"ok": True, "deleted": screenshot_id, "timestamp": datetime.now(timezone.utc).isoformat()}
+
+
+# --- Free-standing journal entries -------------------------------------
+# Market ideas / reviews / observations that are NOT tied to a closed trade.
+# Pure research notes; no execution capability.
+
+def _entry_model(row: Mapping[str, Any], sc_count: int = 0) -> JournalEntry:
+    return JournalEntry(
+        id=str(row.get("id")),
+        kind=str(row.get("kind") or "idea"),
+        instrument=_s(row.get("instrument")),
+        title=_s(row.get("title")),
+        body=str(row.get("body") or ""),
+        tags=list(row.get("tags") or []),
+        screenshot_count=int(sc_count or 0),
+        created_at=str(row.get("created_at") or ""),
+        updated_at=str(row.get("updated_at") or ""),
+    )
+
+
+@router.get("/journal/entries", response_model=JournalEntriesResponse)
+def journal_entries_list() -> JournalEntriesResponse:
+    rows = database.list_journal_entries()
+    try:
+        counts = database.count_journal_screenshots()
+    except Exception:
+        counts = {}
+    return JournalEntriesResponse(
+        entries=[_entry_model(r, counts.get(str(r.get("id")), 0)) for r in rows],
+        timestamp=datetime.now(timezone.utc).isoformat(),
+    )
+
+
+@router.post("/journal/entries", response_model=JournalEntry)
+def journal_entries_create(payload: JournalEntryCreate) -> JournalEntry:
+    eid = "note-" + uuid.uuid4().hex[:16]
+    tags = [t.strip() for t in payload.tags if isinstance(t, str) and t.strip()][:20]
+    database.create_journal_entry(
+        entry_id=eid, kind=payload.kind,
+        instrument=(payload.instrument.strip().upper() if payload.instrument else None),
+        title=(payload.title.strip() if payload.title else None),
+        body=payload.body, tags=tags,
+    )
+    row = database.get_journal_entry(eid)
+    return _entry_model(row or {"id": eid, "kind": payload.kind, "body": payload.body,
+                                "created_at": "", "updated_at": ""})
+
+
+@router.patch("/journal/entries/{entry_id}", response_model=JournalEntry)
+def journal_entries_update(
+    payload: JournalEntryUpdate,
+    entry_id: str = Path(..., min_length=1, max_length=64),
+) -> JournalEntry:
+    if not database.journal_entry_exists(entry_id):
+        raise HTTPException(status_code=404, detail=f"Journal entry '{entry_id}' not found")
+    fields = payload.model_dump(exclude_none=True)
+    if "instrument" in fields and fields["instrument"]:
+        fields["instrument"] = fields["instrument"].strip().upper()
+    if "title" in fields and fields["title"]:
+        fields["title"] = fields["title"].strip()
+    if "tags" in fields:
+        fields["tags"] = [t.strip() for t in fields["tags"] if isinstance(t, str) and t.strip()][:20]
+    database.update_journal_entry(entry_id, **fields)
+    row = database.get_journal_entry(entry_id)
+    try:
+        n = len(database.list_journal_screenshots(entry_id))
+    except Exception:
+        n = 0
+    return _entry_model(row or {}, n)
+
+
+@router.delete("/journal/entries/{entry_id}")
+def journal_entries_delete(
+    entry_id: str = Path(..., min_length=1, max_length=64),
+) -> Dict[str, Any]:
+    ok = database.delete_journal_entry(entry_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail=f"Journal entry '{entry_id}' not found")
+    return {"ok": True, "deleted": entry_id, "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 # --- Audit ---------------------------------------------------------------

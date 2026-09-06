@@ -739,6 +739,58 @@ class JournalScreenshotsResponse(BaseModel):
     timestamp: str
 
 
+_JOURNAL_ENTRY_KINDS = ("idea", "review", "observation")
+
+
+class JournalEntry(BaseModel):
+    id: str
+    kind: str = "idea"
+    instrument: Optional[str] = None
+    title: Optional[str] = None
+    body: str = ""
+    tags: List[str] = []
+    screenshot_count: int = 0
+    created_at: str
+    updated_at: str
+
+
+class JournalEntryCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: str = "idea"
+    instrument: Optional[str] = Field(default=None, max_length=32)
+    title: Optional[str] = Field(default=None, max_length=200)
+    body: str = Field(default="", max_length=20_000)
+    tags: List[str] = Field(default_factory=list, max_length=20)
+
+    @model_validator(mode="after")
+    def _kind_ok(self) -> "JournalEntryCreate":
+        if self.kind not in _JOURNAL_ENTRY_KINDS:
+            raise ValueError(f"kind must be one of {_JOURNAL_ENTRY_KINDS}")
+        return self
+
+
+class JournalEntryUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: Optional[str] = None
+    instrument: Optional[str] = Field(default=None, max_length=32)
+    title: Optional[str] = Field(default=None, max_length=200)
+    body: Optional[str] = Field(default=None, max_length=20_000)
+    tags: Optional[List[str]] = Field(default=None, max_length=20)
+
+    @model_validator(mode="after")
+    def _valid(self) -> "JournalEntryUpdate":
+        if self.kind is not None and self.kind not in _JOURNAL_ENTRY_KINDS:
+            raise ValueError(f"kind must be one of {_JOURNAL_ENTRY_KINDS}")
+        if all(getattr(self, f) is None for f in ("kind", "instrument", "title", "body", "tags")):
+            raise ValueError("provide at least one field to update")
+        return self
+
+
+class JournalEntriesResponse(BaseModel):
+    entries: List[JournalEntry]
+    timestamp: str
+
+
 class AnalyticsDayTradesResponse(BaseModel):
     date: str
     trades: List[JournalTradeItem]
@@ -765,7 +817,7 @@ class JournalResponse(BaseModel):
 # (`database.update_trade_journal`) are writable. Every execution / trade fact
 # (symbol, side, prices, volume, timestamps, P&L, ids) is immutable and is
 # rejected as an unknown field by `extra="forbid"`.
-_JOURNAL_EDITABLE_FIELDS = ("setup_tag", "notes", "chart_snapshot_url")
+_JOURNAL_EDITABLE_FIELDS = ("setup_tag", "notes", "chart_snapshot_url", "rating")
 
 
 class JournalUpdateRequest(BaseModel):
@@ -774,6 +826,7 @@ class JournalUpdateRequest(BaseModel):
     setup_tag: Optional[str] = Field(default=None, max_length=120)
     notes: Optional[str] = Field(default=None, max_length=20_000)
     chart_snapshot_url: Optional[str] = Field(default=None, max_length=3_000_000)
+    rating: Optional[int] = Field(default=None, ge=0, le=5)
 
     @model_validator(mode="after")
     def _at_least_one_field(self) -> "JournalUpdateRequest":

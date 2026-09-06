@@ -471,8 +471,24 @@ def init_db(force: bool = False):
         except Exception:
             pass
 
+        # Free-standing journal entries (market ideas / reviews / observations)
+        # not tied to a closed trade. Subjective research notes only.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS journal_entries (
+                id TEXT PRIMARY KEY,
+                kind TEXT NOT NULL DEFAULT 'idea',
+                instrument TEXT,
+                title TEXT,
+                body TEXT,
+                tags TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+        """)
+
         # Trade-journal screenshots (base64-encoded image bytes, stored in-DB for
-        # portability). Subjective annotation only — no execution bearing.
+        # portability). `trade_id` holds a closed-trade id OR a journal_entries
+        # id. Subjective annotation only — no execution bearing.
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS journal_screenshots (
                 id TEXT PRIMARY KEY,
@@ -1233,13 +1249,117 @@ def delete_journal_screenshot(screenshot_id):
 
 
 def count_journal_screenshots():
-    """{trade_id: count} — one query, for the journal list view."""
+    """{owner_id: count} — one query, for the journal list view."""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("SELECT trade_id, COUNT(*) FROM journal_screenshots GROUP BY trade_id")
     out = {str(r[0]): int(r[1]) for r in cur.fetchall()}
     conn.close()
     return out
+
+
+# ----------------- Free-standing journal entries -----------------
+
+def _now_iso():
+    import datetime as _dt
+    return _dt.datetime.now(_dt.timezone.utc).isoformat()
+
+
+def create_journal_entry(entry_id, kind, instrument, title, body, tags):
+    conn = get_connection()
+    cur = conn.cursor()
+    ph = "%s" if is_postgres() else "?"
+    ts = _now_iso()
+    cur.execute(
+        f"INSERT INTO journal_entries (id, kind, instrument, title, body, tags, created_at, updated_at) "
+        f"VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})",
+        (str(entry_id), str(kind or "idea"), (instrument or None), (title or None),
+         (body or ""), (",".join(tags) if tags else None), ts, ts),
+    )
+    conn.commit()
+    conn.close()
+    return str(entry_id)
+
+
+def _entry_row_to_dict(cols, row):
+    d = dict(zip(cols, row))
+    d["tags"] = [t for t in (d.get("tags") or "").split(",") if t]
+    return d
+
+
+def list_journal_entries():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT id, kind, instrument, title, body, tags, created_at, updated_at "
+        "FROM journal_entries ORDER BY updated_at DESC"
+    )
+    cols = [c[0] for c in cur.description]
+    rows = [_entry_row_to_dict(cols, r) for r in cur.fetchall()]
+    conn.close()
+    return rows
+
+
+def get_journal_entry(entry_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    ph = "%s" if is_postgres() else "?"
+    cur.execute(
+        f"SELECT id, kind, instrument, title, body, tags, created_at, updated_at "
+        f"FROM journal_entries WHERE id = {ph}",
+        (str(entry_id),),
+    )
+    row = cur.fetchone()
+    cols = [c[0] for c in cur.description] if cur.description else []
+    conn.close()
+    return _entry_row_to_dict(cols, row) if row else None
+
+
+def update_journal_entry(entry_id, **fields):
+    allowed = ("kind", "instrument", "title", "body", "tags")
+    sets, params = [], []
+    ph = "%s" if is_postgres() else "?"
+    for k in allowed:
+        if k in fields and fields[k] is not None:
+            v = fields[k]
+            if k == "tags":
+                v = ",".join(v) if v else None
+            sets.append(f"{k} = {ph}")
+            params.append(v)
+    if not sets:
+        return False
+    sets.append(f"updated_at = {ph}")
+    params.append(_now_iso())
+    params.append(str(entry_id))
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(f"UPDATE journal_entries SET {', '.join(sets)} WHERE id = {ph}", tuple(params))
+    n = cur.rowcount
+    conn.commit()
+    conn.close()
+    return (n or 0) > 0
+
+
+def delete_journal_entry(entry_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    ph = "%s" if is_postgres() else "?"
+    cur.execute(f"DELETE FROM journal_screenshots WHERE trade_id = {ph}", (str(entry_id),))
+    cur.execute(f"DELETE FROM journal_entries WHERE id = {ph}", (str(entry_id),))
+    n = cur.rowcount
+    conn.commit()
+    conn.close()
+    return (n or 0) > 0
+
+
+def journal_entry_exists(entry_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    ph = "%s" if is_postgres() else "?"
+    cur.execute(f"SELECT 1 FROM journal_entries WHERE id = {ph}", (str(entry_id),))
+    ok = cur.fetchone() is not None
+    conn.close()
+    return ok
 
 # ----------------- Starred / Favorite Symbols -----------------
 
