@@ -7,9 +7,24 @@ import type {
   MacroScorecardResponse,
 } from '../../types/macro'
 import { SectionCard } from '../intelligence/primitives'
-import { OpsMetric, OpsStatusTag, OpsUnavailable } from '../operations/primitives'
+import { OpsMetric, OpsUnavailable } from '../operations/primitives'
+import { ColorLegend, SentimentBadge, SentimentText } from '../common/Sentiment'
+import { InfoTip } from '../common/InfoTip'
 import { Gauge } from './Gauge'
 import { ProvenanceBanner } from './MacroViews'
+
+/** One-line plain-English read of a macro bias code. */
+function biasSentence(instrument: string, bias: string | null | undefined, conf: number | null | undefined): string {
+  const b = (bias || 'NEUTRAL').toUpperCase()
+  const strength =
+    b.includes('STRONG') ? 'strongly ' : b.includes('MILD') || b.includes('SLIGHT') || b.includes('LEAN') ? 'mildly ' : ''
+  const dir =
+    b.includes('BULL') ? 'bullish' : b.includes('BEAR') ? 'bearish' : b.includes('MIXED') ? 'mixed' : 'neutral'
+  const c = conf == null ? '' : ` (confidence ${conf}/100)`
+  if (dir === 'neutral') return `${instrument} macro read: no clear lean right now${c}.`
+  if (dir === 'mixed') return `${instrument} macro read: mixed — drivers pulling both ways${c}.`
+  return `${instrument} macro read: ${strength}${dir}${c}.`
+}
 
 const INSTRUMENTS = ['XAUUSD', 'USD', 'EUR', 'GBP', 'JPY', 'EURUSD', 'GBPUSD', 'USDJPY', 'EURJPY', 'GBPJPY']
 const CATEGORY_LABEL: Record<string, string> = {
@@ -21,13 +36,6 @@ const CATEGORY_LABEL: Record<string, string> = {
   inflation: 'Inflation',
 }
 
-function tone(dir: string | null | undefined): 'positive' | 'negative' | 'warning' | 'neutral' {
-  const s = (dir || '').toUpperCase()
-  if (s.includes('BULL')) return 'positive'
-  if (s.includes('BEAR')) return 'negative'
-  if (s.includes('INSUFFICIENT') || s.includes('MIXED')) return 'warning'
-  return 'neutral'
-}
 function fmt(v: number | null | undefined, d = 2): string {
   return v == null ? '—' : Number(v).toFixed(d)
 }
@@ -89,38 +97,29 @@ function IndicatorTable({ rows }: { rows: MacroScorecardIndicator[] }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => {
-            const t = tone(r.direction)
-            return (
-              <tr key={r.indicator} className="border-b border-border-subtle/50">
-                <td className="py-1 pr-2 text-secondary">{r.name}</td>
-                <td className="py-1 px-1 text-right font-mono tabular-nums text-primary">{fmt(r.actual)}{r.unit === '%' ? '%' : ''}</td>
-                <td className="py-1 px-1 text-right font-mono tabular-nums text-secondary">{fmt(r.forecast)}{r.unit === '%' ? '%' : ''}</td>
-                <td className="py-1 px-1 text-right font-mono tabular-nums text-muted">{fmt(r.previous)}{r.unit === '%' ? '%' : ''}</td>
-                <td
-                  className={`py-1 px-1 text-right font-mono tabular-nums ${
-                    (r.surprise ?? 0) > 0 ? 'text-positive' : (r.surprise ?? 0) < 0 ? 'text-negative' : 'text-muted'
-                  }`}
-                >
-                  {r.surprise == null ? '—' : `${r.surprise > 0 ? '+' : ''}${fmt(r.surprise)}`}
-                </td>
-                <td className="py-1 px-1 font-mono text-muted">{fmtDate(r.release_time)}</td>
-                <td className="py-1 pl-1">
-                  <span
-                    className={
-                      t === 'positive'
-                        ? 'text-positive'
-                        : t === 'negative'
-                          ? 'text-negative'
-                          : 'text-muted'
-                    }
-                  >
-                    {(r.direction || '').split(' ')[0] || '—'}
-                  </span>
-                </td>
-              </tr>
-            )
-          })}
+          {rows.map((r) => (
+            <tr key={r.indicator} className="border-b border-border-subtle/50">
+              <td className="py-1 pr-2 text-secondary">{r.name}</td>
+              <td className="py-1 px-1 text-right font-mono tabular-nums text-primary">{fmt(r.actual)}{r.unit === '%' ? '%' : ''}</td>
+              <td className="py-1 px-1 text-right font-mono tabular-nums text-secondary">{fmt(r.forecast)}{r.unit === '%' ? '%' : ''}</td>
+              <td className="py-1 px-1 text-right font-mono tabular-nums text-muted">{fmt(r.previous)}{r.unit === '%' ? '%' : ''}</td>
+              <td className="py-1 px-1 text-right font-mono tabular-nums">
+                {r.surprise == null ? (
+                  <span className="text-muted">—</span>
+                ) : (
+                  <SentimentText value={r.surprise} label={`${r.surprise > 0 ? '+' : ''}${fmt(r.surprise)}`} />
+                )}
+              </td>
+              <td className="py-1 px-1 font-mono text-muted">{fmtDate(r.release_time)}</td>
+              <td className="py-1 pl-1">
+                {r.direction ? (
+                  <SentimentText value={r.direction} label={(r.direction || '').split(' ')[0]} />
+                ) : (
+                  <span className="text-muted">—</span>
+                )}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
@@ -143,7 +142,7 @@ function CategoryCard({ cat }: { cat: MacroScorecardCategory }) {
         {insufficient ? (
           <span className="shrink-0 font-mono text-[10px] uppercase text-warning">Insufficient</span>
         ) : (
-          <OpsStatusTag value={cat.direction} tone={tone(cat.direction)} size="sm" />
+          <SentimentBadge value={cat.direction} />
         )}
       </div>
 
@@ -264,14 +263,17 @@ function ScorecardBody({
         <SectionCard title={`${scorecard.instrument} · macro bias`}>
           <div className="flex flex-col items-center gap-2">
             <Gauge score={scorecard.gauge} size={140} />
-            <OpsStatusTag value={scorecard.bias ?? 'NEUTRAL'} tone={tone(scorecard.bias)} />
+            <SentimentBadge value={scorecard.bias ?? 'NEUTRAL'} size="md" />
+            <p className="text-center text-xs text-secondary">
+              {biasSentence(scorecard.instrument, scorecard.bias, scorecard.confidence)}
+            </p>
             <p className="text-center text-[11px] text-muted">{scorecard.scope_note}</p>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <OpsMetric label="Composite" value={scorecard.composite_score == null ? '—' : `${scorecard.composite_score}`} />
-            <OpsMetric label="Confidence" value={scorecard.confidence == null ? '—' : `${scorecard.confidence}`} />
+            <OpsMetric label="Composite" value={scorecard.composite_score == null ? '—' : `${scorecard.composite_score}`} tone={scorecard.composite_score == null ? undefined : scorecard.composite_score > 3 ? 'positive' : scorecard.composite_score < -3 ? 'negative' : undefined} />
+            <OpsMetric label={<InfoTip text="How sure the model is, given how much provider data each category has. Low = thin evidence.">Confidence</InfoTip>} value={scorecard.confidence == null ? '—' : `${scorecard.confidence}`} />
             <OpsMetric label="Eco strength" value={scorecard.economic_strength == null ? '—' : `${scorecard.economic_strength}`} />
-            <OpsMetric label="Surprise" value={scorecard.surprise_momentum ?? '—'} />
+            <OpsMetric label={<InfoTip text="Recent data releases vs consensus — are the surprises trending hawkish or dovish for this currency?">Surprise</InfoTip>} value={scorecard.surprise_momentum ?? '—'} />
           </div>
           {scorecard.state !== 'OK' ? (
             <p className="mt-2 rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[10px] text-warning">
@@ -312,6 +314,10 @@ function ScorecardBody({
         </SectionCard>
       </div>
 
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted">Category reads</p>
+        <ColorLegend />
+      </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {scorecard.categories.map((c) => (
           <CategoryCard key={c.category} cat={c} />

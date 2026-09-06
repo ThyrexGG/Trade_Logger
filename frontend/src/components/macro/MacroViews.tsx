@@ -8,6 +8,8 @@ import type {
 } from '../../types/macro'
 import { SectionCard } from '../intelligence/primitives'
 import { OpsMetric, OpsStatusTag, OpsUnavailable } from '../operations/primitives'
+import { ColorLegend, SentimentBadge } from '../common/Sentiment'
+import { InfoTip } from '../common/InfoTip'
 
 type ProvEnv = MacroEnvelope
 
@@ -157,7 +159,14 @@ export function MacroOverview({ data }: { data: MacroOverviewResponse }) {
         )}
       </SectionCard>
 
-      <SectionCard title="Latest important surprises">
+      <SectionCard
+        title="Latest important surprises"
+        action={
+          <InfoTip text="Surprise = actual release vs consensus forecast, read for its effect on the currency (a hot inflation print is currency-positive/hawkish; a weak jobs print is currency-negative/dovish). Not one universal rule.">
+            <span className="text-[10px] text-muted">what is this</span>
+          </InfoTip>
+        }
+      >
         {data.latest_surprises.length === 0 ? (
           <OpsUnavailable>No scored surprises available.</OpsUnavailable>
         ) : (
@@ -171,13 +180,17 @@ export function MacroOverview({ data }: { data: MacroOverviewResponse }) {
                     {num(s.actual, 2)} vs {num(s.forecast, 2)}
                   </td>
                   <td className="py-1 text-right">
-                    <OpsStatusTag value={s.state} tone={dir(s.direction_bias)} size="sm" />
+                    <SentimentBadge
+                      value={s.direction_bias}
+                      label={s.state.replace(/_/g, ' ').replace(' SURPRISE', '')}
+                    />
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
+        <ColorLegend className="mt-2" />
       </SectionCard>
     </div>
   )
@@ -312,13 +325,21 @@ export function MacroCalendar({ data }: { data: MacroEventsResponse }) {
         </div>
       )}
 
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-muted">
-        <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-1 rounded-sm bg-negative" /> high</span>
-        <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-1 rounded-sm bg-warning" /> medium</span>
-        <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-1 rounded-sm bg-warning/35" /> low</span>
-        <span>🎤 speech · 🏦/Holiday = market closed</span>
-        <span className="flex items-center gap-1"><span className="text-positive">Actual</span> = beat / good surprise · <span className="text-negative">red</span> = miss</span>
-        {cal?.last_refresh_utc ? <span>refreshed {new Date(cal.last_refresh_utc).toLocaleString()}</span> : null}
+      <div className="mt-2 space-y-1">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-muted">
+          <span className="font-medium uppercase tracking-wide">Impact</span>
+          <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-1 rounded-sm bg-negative" /> high</span>
+          <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-1 rounded-sm bg-warning" /> medium</span>
+          <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-1 rounded-sm bg-warning/35" /> low</span>
+          <span>· 🎤 speech · Holiday = market closed</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-muted">
+          <span className="font-medium uppercase tracking-wide">Actual</span>
+          <span className="text-positive">▲ green = beat / good for the currency</span>
+          <span className="text-negative">▼ red = miss</span>
+          <span>· ▲▼ next to Previous = data was revised</span>
+          {cal?.last_refresh_utc ? <span>· refreshed {new Date(cal.last_refresh_utc).toLocaleString()}</span> : null}
+        </div>
       </div>
     </SectionCard>
   )
