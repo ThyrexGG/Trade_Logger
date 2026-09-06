@@ -9,6 +9,7 @@ import {
   SectionError,
   SkeletonRows,
 } from '../components/research/primitives'
+import { IntradayCopilotPanel } from '../components/research/IntradayCopilotPanel'
 import { useTradeSetup } from '../lib/useTradeSetup'
 import type { SetupState } from '../types/tradeSetup'
 
@@ -190,6 +191,12 @@ export function TradeSetupPage() {
             generated {new Date(setup.generated_at).toLocaleString()}
           </p>
         </>
+      ) : null}
+
+      {ASSETS.includes(asset) ? (
+        <div className="mt-4">
+          <IntradayCopilotPanel asset={asset} />
+        </div>
       ) : null}
     </PageContainer>
   )
