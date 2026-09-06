@@ -34,7 +34,6 @@ const StrategyDiscoveryPage = page(
 )
 const TradeSetupPage = page(() => import('./pages/TradeSetupPage'), 'TradeSetupPage')
 const BacktestWorkspacePage = page(() => import('./pages/BacktestWorkspacePage'), 'BacktestWorkspacePage')
-const ResearchAuditPage = page(() => import('./pages/ResearchAuditPage'), 'ResearchAuditPage')
 const MacroIntelligencePage = page(() => import('./pages/MacroIntelligencePage'), 'MacroIntelligencePage')
 const PositionsPage = page(() => import('./pages/PositionsPage'), 'PositionsPage')
 const PriceAlertsPage = page(() => import('./pages/PriceAlertsPage'), 'PriceAlertsPage')
@@ -59,7 +58,6 @@ const LIVE_ITEM_PAGES: Record<string, ReactElement> = {
   'research.strategy': <StrategyLabPage />,
   'research.discovery': <StrategyDiscoveryPage />,
   'research.backtest': <BacktestWorkspacePage />,
-  'research.audit': <ResearchAuditPage />,
   'research.macro': <MacroIntelligencePage />,
   'evidence.forward': <ForwardEvidencePage />,
   'evidence.statistics': <EvidenceStatisticsPage />,
@@ -105,6 +103,12 @@ export default function App() {
           <Route
             path="research/intelligence/asset/:symbol"
             element={<AssetProfilePage />}
+          />
+
+          {/* Edge Audit was merged into the Backtest workspace — keep old links working. */}
+          <Route
+            path="research/audit"
+            element={<Navigate to="/research/backtest" replace />}
           />
 
           <Route path="*" element={<NotFoundPage />} />

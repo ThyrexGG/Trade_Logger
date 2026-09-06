@@ -153,18 +153,10 @@ export const ZONES: Zone[] = [
       },
       {
         id: 'research.backtest',
-        label: 'Backtesting',
-        description: 'Historical research backtests, walk-forward and Monte Carlo.',
+        label: 'Backtest & Edge Audit',
+        description: 'One config, two analyses: historical backtest (walk-forward, Monte Carlo) and statistical edge / adversarial audit (R-multiples, bootstrap, stress).',
         path: '/research/backtest',
         icon: ReplayIcon,
-        status: 'live',
-      },
-      {
-        id: 'research.audit',
-        label: 'Edge Audit',
-        description: 'Statistical edge & adversarial audit (R-multiples, bootstrap, stress).',
-        path: '/research/audit',
-        icon: FlaskIcon,
         status: 'live',
       },
       {
