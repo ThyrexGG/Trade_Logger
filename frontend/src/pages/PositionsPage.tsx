@@ -35,7 +35,7 @@ export function PositionsPage() {
             onClick={() => void sync.syncNow()}
             disabled={sync.syncing || sync.status?.cycle_in_progress}
             className="rounded border border-accent/40 bg-accent/10 px-2.5 py-1 text-xs text-accent hover:bg-accent/20 disabled:opacity-50"
-            title="Pull the latest trades & positions from Capital.com / MT5 now"
+            title="Pull the latest trades & positions from Capital.com now"
           >
             {sync.syncing || sync.status?.cycle_in_progress ? 'Syncing…' : 'Sync now'}
           </button>

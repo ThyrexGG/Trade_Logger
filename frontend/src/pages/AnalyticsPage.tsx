@@ -69,9 +69,8 @@ export function AnalyticsPage() {
 
         <p className="border-t border-border-subtle pt-3 text-[11px] text-muted">
           Source: <code>closed_trades</code> via <code>analytics.calculate_performance_metrics</code>.
-          Not included here: the "Sync MT5 / Sync Capital" data-ingestion buttons
-          (those stay in Streamlit) and research-analytics (R-multiples, execution
-          stress, confluence — a separate Research Lab workflow).
+          Data comes in through the broker sync (Positions → Sync now). Research-analytics
+          (R-multiples, execution stress, confluence) is a separate Research Lab workflow.
         </p>
       </div>
     </PageContainer>

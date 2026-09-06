@@ -43,21 +43,30 @@ def _inprocess_sync_active() -> bool:
 
 
 def run_sync_cycle(known_trade_ids: set, logfn=log) -> dict:
-    """One sync iteration — MT5 + Capital.com trade/position sync, closed-trade
-    push alerts, and price-alert checks. Shared by this standalone daemon and
-    the API server's in-process sync service. `known_trade_ids` is mutated in
-    place with any newly seen closed trades. Returns a small result summary."""
+    """One sync iteration — Capital.com trade/position sync, closed-trade push
+    alerts, and price-alert checks (plus MT5 only if MT5_ENABLED). Shared by
+    this standalone daemon and the API server's in-process sync service.
+    `known_trade_ids` is mutated in place with any newly seen closed trades."""
     result = {"mt5_ok": False, "mt5_skipped": False, "capital_ok": False,
               "new_closed_trades": 0, "errors": []}
 
-    # 1. Sync MetaTrader 5 (respects the MT5 master switch inside sync_mt5)
+    # 1. Sync MetaTrader 5 — only when explicitly enabled (MT5_ENABLED). The
+    #    local terminals were uninstalled, so this is off by default.
     try:
-        result["mt5_ok"] = bool(mt5_sync.sync_mt5())
-        logfn("MT5 Sync: SUCCESS" if result["mt5_ok"]
-              else "MT5 Sync: Completed (no new trades, terminal busy, or switched off)")
-    except Exception as e:  # noqa: BLE001
-        result["errors"].append(f"mt5: {e}")
-        logfn(f"MT5 Sync Exception: {e}")
+        import mt5_gate
+        mt5_on = mt5_gate.is_mt5_enabled()
+    except Exception:
+        mt5_on = False
+    if not mt5_on:
+        result["mt5_skipped"] = True
+    else:
+        try:
+            result["mt5_ok"] = bool(mt5_sync.sync_mt5())
+            logfn("MT5 Sync: SUCCESS" if result["mt5_ok"]
+                  else "MT5 Sync: Completed (no new trades or terminal busy)")
+        except Exception as e:  # noqa: BLE001
+            result["errors"].append(f"mt5: {e}")
+            logfn(f"MT5 Sync Exception: {e}")
 
     # 2. Sync Capital.com
     try:

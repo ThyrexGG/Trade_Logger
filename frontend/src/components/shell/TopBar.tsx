@@ -2,7 +2,6 @@ import { useHealth } from '../../lib/health'
 import { apiStatusView, systemStatusView } from '../../lib/status'
 import { MenuIcon, SearchIcon } from '../../lib/icons'
 import { isMac } from '../../lib/platform'
-import { useMarketDataToggle } from '../../lib/useMarketDataToggle'
 import { Breadcrumbs } from './Breadcrumbs'
 import { StatusDot } from './StatusDot'
 
@@ -17,7 +16,6 @@ export function TopBar({ onOpenSidebar, onOpenCommandPalette }: TopBarProps) {
   const api = apiStatusView(state)
   const system = systemStatusView(state)
   const safety = data?.live_broker_transmission ?? 'BLOCKED'
-  const md = useMarketDataToggle()
 
   return (
     <header className="sticky top-0 z-20 flex h-[var(--tl-topbar-height)] items-center gap-3 border-b border-border-subtle bg-surface/95 px-3 backdrop-blur sm:px-4">
@@ -52,30 +50,6 @@ export function TopBar({ onOpenSidebar, onOpenCommandPalette }: TopBarProps) {
           />
         </span>
       </div>
-
-      <button
-        type="button"
-        onClick={md.toggle}
-        disabled={md.enabled === null || md.busy}
-        title={
-          md.enabled
-            ? 'Live MT5 market data is ON — the app may auto-launch the MetaTrader 5 terminal for quotes. Click to turn off.'
-            : 'Live MT5 market data is OFF — quotes use Binance / Yahoo / cache and the terminal is never opened. Click to turn on.'
-        }
-        className={`hidden items-center gap-1.5 rounded border px-2 py-1 transition-colors sm:flex ${
-          md.enabled
-            ? 'border-positive/40 bg-positive/10 text-positive hover:bg-positive/20'
-            : 'border-border bg-surface-elevated text-muted hover:text-secondary'
-        } disabled:opacity-50`}
-      >
-        <span
-          aria-hidden="true"
-          className={`h-2 w-2 rounded-full ${md.enabled ? 'bg-positive' : 'bg-muted'}`}
-        />
-        <span className="font-mono text-[11px] font-semibold">
-          MT5 DATA {md.enabled === null ? '…' : md.enabled ? 'ON' : 'OFF'}
-        </span>
-      </button>
 
       <span
         className="flex items-center gap-1.5 rounded border border-negative/40 bg-negative/10 px-2 py-1"

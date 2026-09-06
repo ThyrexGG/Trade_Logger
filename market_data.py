@@ -21,13 +21,12 @@ _TICK_CACHE: Dict[str, Any] = {}
 # Read-only: this switch only governs where quotes come from; it has no
 # effect on execution / broker transmission (permanently BLOCKED).
 # --------------------------------------------------------------------------
-# The live-MT5 switch now lives in `mt5_gate` so that every module that can
-# launch the terminal (account_state, mt5_provider, mt5_sync, ...) consults the
-# same flag. These names are kept as thin aliases for existing callers
-# (the system-control router, tests).
+# The MT5 switch lives in `mt5_gate` so every module that can launch the
+# terminal (account_state, mt5_provider, mt5_sync, ...) consults the same flag.
+# MT5 is OFF by default now (the local terminals were uninstalled) and opt-in
+# via the MT5_ENABLED env var only. These names are kept as thin aliases for
+# existing callers / tests.
 import mt5_gate
-
-_LIVE_DATA_SETTING_KEY = mt5_gate.SETTING_KEY
 
 
 def is_live_market_data_enabled() -> bool:
