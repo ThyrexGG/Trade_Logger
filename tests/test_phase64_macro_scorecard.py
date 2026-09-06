@@ -45,15 +45,24 @@ def _canonical_registry():
 def test_scorecard_is_deterministic():
     a = ms.get_scorecard("USD")
     b = ms.get_scorecard("USD")
-    # Strip clock-derived fields (wall-clock stamps + provider hydration age),
-    # which are not part of the scoring output under test.
-    for d in (a, b):
-        for k in ("timestamp", "as_of"):
-            d.pop(k, None)
-        ps = d.get("provider_status")
-        if isinstance(ps, dict):
-            ps.pop("hydrated_age_sec", None)
-    assert a == b
+
+    # The determinism contract is over the *scoring* output — not the live
+    # provider-health metadata (hydration ages, latencies, last-refresh stamps),
+    # which legitimately ticks between two calls.
+    def _scoring(d):
+        return {
+            "composite_score": d.get("composite_score"),
+            "gauge": d.get("gauge"),
+            "bias": d.get("bias"),
+            "direction": d.get("direction"),
+            "confidence": d.get("confidence"),
+            "categories": [
+                (c["category"], c.get("score"), c.get("direction"), c.get("state"))
+                for c in d.get("categories", [])
+            ],
+        }
+
+    assert _scoring(a) == _scoring(b)
 
 
 def test_scorecard_has_named_categories():

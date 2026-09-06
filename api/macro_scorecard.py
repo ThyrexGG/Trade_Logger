@@ -221,9 +221,77 @@ def _insufficient_category(reason: str, next_dep: str) -> Dict[str, Any]:
 
 def _technical_stub() -> Dict[str, Any]:
     return _insufficient_category(
-        "No macro-technical provider. Per-instrument chart / MTF bias is on the Trading Workspace, not the macro layer.",
-        "a macro-technical feed (chart-trend + seasonality) behind MacroDataProvider",
+        "No chartable symbol for this instrument on the macro layer.",
+        "a per-instrument daily / intraday candle feed",
     )
+
+
+# Which real, tradeable chart to read for a scorecard instrument. Bare non-USD
+# currencies are intentionally omitted — a USD-cross proxy would invert the sign.
+_TECH_SYMBOL = {
+    "XAUUSD": "XAUUSD",
+    "EURUSD": "EURUSD", "GBPUSD": "GBPUSD", "USDJPY": "USDJPY",
+    "GBPJPY": "GBPJPY", "EURJPY": "EURJPY",
+}
+
+
+def _technical_category(instrument: str, as_of: Optional[datetime]) -> Dict[str, Any]:
+    """Chart-trend (EMA/RSI/MACD/MTF) + seasonality, from real candles.
+
+    Reuses ``market_evidence_engine`` — the same timestamp-safe, candle-derived
+    evidence the Evidence Fusion layer uses. Best-effort: any failure or missing
+    candle window degrades to INSUFFICIENT_EVIDENCE, never a fabricated read.
+    """
+    sym = _TECH_SYMBOL.get(instrument)
+    if not sym:
+        return _technical_stub()
+    try:
+        import market_evidence_engine as mee
+
+        tech = mee.technical_evidence(sym, as_of)
+        seas = mee.seasonality_evidence(sym, as_of)
+    except Exception:
+        return _technical_stub()
+
+    live_parts = [
+        (r, w) for r, w in ((tech, 0.7), (seas, 0.3))
+        if r is not None and r.state == "AVAILABLE" and r.score is not None
+    ]
+    if not live_parts:
+        reason = (getattr(tech, "reason", None)
+                  or "No candle window resolved for a chart-trend read.")
+        return _insufficient_category(reason, f"a reachable candle feed for {sym}")
+
+    wsum = sum(r.score * w for r, w in live_parts)
+    wtot = sum(w for _, w in live_parts)
+    score = round(wsum / wtot, 1)
+
+    rows: List[Dict[str, Any]] = []
+    for r in (tech, seas):
+        if r is None:
+            continue
+        for it in (r.items or []):
+            if getattr(it, "state", None) != "AVAILABLE":
+                continue
+            rows.append({
+                "indicator": it.metric, "name": it.metric, "family": "TECHNICAL",
+                "actual": it.value, "forecast": None, "previous": None,
+                "unit": it.unit, "surprise": None, "z_score": None,
+                "surprise_state": None, "direction": it.direction,
+                "implication": it.note,
+                "release_time": it.latest_input_timestamp or it.as_of,
+                "freshness": None,
+            })
+
+    has_seasonality = seas is not None and seas.state == "AVAILABLE"
+    return {
+        "score": score, "gauge": _gauge(score), "direction": _direction(score),
+        "state": "OK", "engine_direction": _direction(score),
+        "confidence": getattr(tech, "confidence", None),
+        "basis": f"{sym} chart — EMA/RSI/MACD + MTF bias"
+                 + (" + calendar seasonality" if has_seasonality else " (no seasonal sample yet)"),
+        "indicators": rows, "supporting": [], "conflicting": [],
+    }
 
 
 def _sentiment_stub() -> Dict[str, Any]:
@@ -331,7 +399,7 @@ def get_scorecard(instrument: str, as_of: Optional[datetime] = None) -> Dict[str
             if inst == "XAUUSD" else f"{inst} economy macro strength."
         )
 
-    cats["technical"] = _technical_stub()
+    cats["technical"] = _technical_category(inst, as_of)
     cats["sentiment"] = _sentiment_stub()
 
     ordered = ["rates", "growth", "jobs", "inflation", "cot", "sentiment", "technical"]

@@ -178,6 +178,13 @@ function Rail({
 // --- shared indicator helpers ----------------------------------------
 const SHOWN = 6
 
+// Categories whose rows are scheduled data releases (actual vs forecast /
+// previous). The rest — technical, cot, sentiment — carry a genuine computed
+// direction per row, so their "Read" column shows that direction directly.
+const RELEASE_CATS = new Set(['growth', 'jobs', 'inflation', 'rates'])
+const hasRealDirection = (d?: string) =>
+  !!d && !/UNKNOWN|INSUFFICIENT|N\/?A/i.test(d)
+
 // The provider gives the last several monthly prints of each indicator, which
 // shows up as the same row repeated. Collapse to one row per indicator (the
 // most recent print); "Previous" already carries the prior month's value.
@@ -212,6 +219,11 @@ function CategoryBlock({ cat }: { cat: MacroScorecardCategory }) {
 
   const rows = dedupeIndicators(cat)
   const hasForecast = rows.some((r) => r.forecast != null)
+  const releaseBased = RELEASE_CATS.has(cat.category)
+  // Show a per-row direction word when it means something: a real release
+  // beat/miss, or a computed signal (technical / positioning).
+  const showRowDirection = hasForecast || !releaseBased
+  const trendColumn = releaseBased && !hasForecast
   const visible = open ? rows : rows.slice(0, SHOWN)
 
   return (
@@ -265,10 +277,12 @@ function CategoryBlock({ cat }: { cat: MacroScorecardCategory }) {
                     text={
                       hasForecast
                         ? 'Actual vs consensus forecast, read for direction — hot inflation is hawkish, weak jobs is dovish.'
-                        : 'No forecast feed, so this is the month-on-month trend of the reading itself — rising or falling vs the previous print.'
+                        : trendColumn
+                          ? 'No forecast feed, so this is the month-on-month trend of the reading itself — rising or falling vs the previous print.'
+                          : 'The computed bull / bear read for this signal.'
                     }
                   >
-                    {hasForecast ? 'Read' : 'Trend'}
+                    {trendColumn ? 'Trend' : 'Read'}
                   </InfoTip>
                 </th>
                 <th className="px-2 py-1 text-right font-medium">Latest</th>
@@ -287,12 +301,12 @@ function CategoryBlock({ cat }: { cat: MacroScorecardCategory }) {
             </thead>
             <tbody>
               {visible.map((r: MacroScorecardIndicator) => {
-                const tr = !hasForecast ? trendRead(r) : null
+                const tr = trendColumn ? trendRead(r) : null
                 return (
                   <tr key={r.indicator} className="border-b border-border-subtle/40 last:border-0">
                     <td className="truncate px-3 py-1 text-secondary" title={r.name}>{r.name}</td>
                     <td className="px-2 py-1">
-                      {hasForecast && r.direction ? (
+                      {showRowDirection && hasRealDirection(r.direction) ? (
                         <SentimentText value={r.direction} label={(r.direction || '').split(' ')[0]} />
                       ) : tr ? (
                         <span className="text-secondary">
@@ -344,11 +358,14 @@ function CategoryBlock({ cat }: { cat: MacroScorecardCategory }) {
         </div>
       ) : null}
 
-      {!insufficient && !hasForecast && rows.length > 0 ? (
+      {!insufficient && trendColumn && rows.length > 0 ? (
         <p className="border-t border-border-subtle px-3 py-1 text-[9px] text-muted">
           No consensus-forecast feed, so there is no beat/miss — "Trend" is just the reading vs the
           previous month. The category score is driven by the level and direction of these numbers.
         </p>
+      ) : null}
+      {!insufficient && !releaseBased && cat.basis ? (
+        <p className="border-t border-border-subtle px-3 py-1 text-[9px] text-muted">{cat.basis}</p>
       ) : null}
     </div>
   )
@@ -377,10 +394,10 @@ function BiasBar({ text, tone, className }: { text: string; tone: SentimentTone;
   )
 }
 
-function EdgeSubRow({ r }: { r: MacroScorecardIndicator }) {
-  const forecast = r.forecast != null
-  const dir = forecast ? classifySentiment(r.direction) : null
-  const tr = forecast ? null : trendRead(r)
+function EdgeSubRow({ r, releaseBased }: { r: MacroScorecardIndicator; releaseBased: boolean }) {
+  const showDir = (r.forecast != null || !releaseBased) && hasRealDirection(r.direction)
+  const dir = showDir ? classifySentiment(r.direction) : null
+  const tr = showDir ? null : trendRead(r)
   return (
     <div className="flex items-center justify-between gap-2 text-[11px]">
       <span className="truncate text-secondary" title={r.name}>
@@ -405,6 +422,7 @@ function EdgeCard({ cat }: { cat: MacroScorecardCategory }) {
   const label = CATEGORY_LABEL[cat.category] ?? cat.category
   const insufficient = cat.state === 'INSUFFICIENT_EVIDENCE'
   const rows = dedupeIndicators(cat).slice(0, 4)
+  const releaseBased = RELEASE_CATS.has(cat.category)
   const s = classifySentiment(insufficient ? undefined : cat.direction)
 
   return (
@@ -440,7 +458,7 @@ function EdgeCard({ cat }: { cat: MacroScorecardCategory }) {
             {rows.length ? (
               <div className="space-y-1">
                 {rows.map((r) => (
-                  <EdgeSubRow key={r.indicator} r={r} />
+                  <EdgeSubRow key={r.indicator} r={r} releaseBased={releaseBased} />
                 ))}
               </div>
             ) : (
