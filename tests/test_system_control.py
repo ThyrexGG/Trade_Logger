@@ -107,3 +107,58 @@ def test_shared_gate_and_market_data_alias_agree():
 
 def test_post_is_rejected():
     assert client.post("/api/system/market-data").status_code == 405
+
+
+# --- in-process broker-sync service -----------------------------------------
+def test_sync_status_shape_and_safety_barrier():
+    r = client.get("/api/system/sync")
+    assert r.status_code == 200
+    body = r.json()
+    for k in ("auto_enabled", "loop_running", "cycle_in_progress", "interval_seconds"):
+        assert k in body
+    assert body["safety_barrier"] == {"live_automation_enabled": False,
+                                      "live_broker_transmission": "BLOCKED"}
+
+
+def test_sync_auto_toggle_persists(monkeypatch):
+    from api import sync_service
+    # don't actually spin the background thread in the test
+    monkeypatch.setattr(sync_service, "_ensure_thread", lambda: None)
+    try:
+        client.put("/api/system/sync", json={"auto_enabled": True})
+        assert client.get("/api/system/sync").json()["auto_enabled"] is True
+        assert sync_service.is_auto_enabled() is True
+    finally:
+        client.put("/api/system/sync", json={"auto_enabled": False})
+    assert sync_service.is_auto_enabled() is False
+
+
+def test_sync_run_invokes_one_cycle(monkeypatch):
+    from api import sync_service
+    calls = {"n": 0}
+
+    def _fake_cycle(known, logfn=None):
+        calls["n"] += 1
+        return {"errors": [], "mt5_ok": False, "capital_ok": True, "new_closed_trades": 0}
+
+    monkeypatch.setattr(sync_service.auto_sync, "run_sync_cycle", _fake_cycle)
+    r = client.post("/api/system/sync/run")
+    assert r.status_code == 200
+    body = r.json()
+    assert calls["n"] == 1
+    assert body["ran"]["ok"] is True and body["ran"]["capital_ok"] is True
+    assert body["last_run"]["source"] == "manual"
+
+
+def test_sync_service_imports_no_execution_layer():
+    import inspect
+    from api import sync_service
+    src = inspect.getsource(sync_service)
+    for bad in ("execution_pipeline", "broker_adapter", "risk_gateway",
+                "order_execution", "reconciliation"):
+        assert bad not in src
+
+
+def test_sync_endpoints_reject_wrong_verbs():
+    assert client.get("/api/system/sync/run").status_code == 405
+    assert client.delete("/api/system/sync").status_code == 405

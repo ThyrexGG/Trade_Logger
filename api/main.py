@@ -96,6 +96,11 @@ async def lifespan(_app: FastAPI):
             _warm_up()
         except Exception:
             pass
+    try:
+        from api import sync_service
+        sync_service.start_if_enabled()
+    except Exception:
+        pass
     yield
     # Return every pooled socket cleanly on shutdown.
     try:

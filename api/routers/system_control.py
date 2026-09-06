@@ -21,6 +21,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 import market_data
+from api import sync_service
 
 router = APIRouter(prefix="/api/system", tags=["System Control"])
 
@@ -29,6 +30,10 @@ _SAFETY = {"live_automation_enabled": False, "live_broker_transmission": "BLOCKE
 
 class MarketDataToggle(BaseModel):
     enabled: bool
+
+
+class SyncAutoToggle(BaseModel):
+    auto_enabled: bool
 
 
 def _payload() -> Dict[str, Any]:
@@ -53,3 +58,31 @@ def set_market_data_toggle(body: MarketDataToggle) -> Dict[str, Any]:
     """Enable or disable live MT5 market data. Persisted in app_settings."""
     market_data.set_live_market_data_enabled(bool(body.enabled))
     return _payload()
+
+
+def _sync_payload(extra: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    return {**sync_service.status(), **(extra or {}), "safety_barrier": _SAFETY}
+
+
+@router.get("/sync")
+def get_sync_status() -> Dict[str, Any]:
+    """State of the in-process broker-sync service: whether the auto loop is on,
+    whether a cycle is in progress, and the last run's result."""
+    return _sync_payload()
+
+
+@router.post("/sync/run")
+def run_sync_now() -> Dict[str, Any]:
+    """Run one broker-sync cycle now (MT5 + Capital.com trade / position sync,
+    push + price alerts). Data ingestion only — no order is placed. Blocks
+    until the cycle finishes (a few seconds)."""
+    result = sync_service.run_once(source="manual")
+    return _sync_payload({"ran": result})
+
+
+@router.put("/sync")
+def set_sync_auto(body: SyncAutoToggle) -> Dict[str, Any]:
+    """Turn the background auto-sync loop on or off (persisted). While it is on
+    the standalone auto_sync.py daemon stands down to avoid double-syncing."""
+    sync_service.set_auto(bool(body.auto_enabled))
+    return _sync_payload()
