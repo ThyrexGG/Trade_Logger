@@ -95,26 +95,27 @@ function MiniHistory({ data }: { data: MacroScorecardHistoryResponse | null }) {
       </p>
     )
   }
-  const max = Math.max(4, ...pts.map((p) => Math.abs(p.composite_score as number)))
+  const vals = pts.map((p) => p.composite_score as number)
+  const W = 240
+  const H = 40
+  // scale symmetrically around 0 with a little headroom so a flat run still reads
+  const span = Math.max(6, ...vals.map(Math.abs)) * 1.15
+  const x = (i: number) => (i / (pts.length - 1)) * W
+  const y = (v: number) => H / 2 - (v / span) * (H / 2)
+  const line = vals.map((v, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ')
+  const area = `${line} L ${W} ${H / 2} L 0 ${H / 2} Z`
+  const last = vals[vals.length - 1]
+  const tone = last >= 2 ? 'var(--tl-positive)' : last <= -2 ? 'var(--tl-negative)' : 'var(--tl-text-muted)'
   return (
     <div>
-      <div className="flex h-10 items-center gap-px" aria-label="composite score history">
-        {pts.map((p, i) => {
-          const v = p.composite_score as number
-          const h = (Math.abs(v) / max) * 45
-          return (
-            <div key={i} className="relative flex-1" title={`${p.timestamp.slice(0, 10)}: ${v > 0 ? '+' : ''}${v}`}>
-              <div className="absolute inset-x-0 top-1/2 h-px bg-border-subtle" />
-              <div
-                className={`absolute inset-x-0 ${v >= 0 ? 'bottom-1/2 bg-positive/70' : 'top-1/2 bg-negative/70'}`}
-                style={{ height: `${Math.max(2, h)}%` }}
-              />
-            </div>
-          )
-        })}
-      </div>
-      <p className="mt-1 text-[10px] text-muted">
-        {pts.length} snapshots · {pts[0].timestamp.slice(0, 10)} → {pts[pts.length - 1].timestamp.slice(0, 10)}
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" aria-label="macro score history">
+        <line x1={0} y1={H / 2} x2={W} y2={H / 2} stroke="var(--tl-border-subtle)" strokeWidth={1} />
+        <path d={area} fill={tone} fillOpacity={0.14} />
+        <path d={line} fill="none" stroke={tone} strokeWidth={1.5} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      </svg>
+      <p className="mt-0.5 text-[10px] text-muted">
+        {pts.length} snapshots · {pts[0].timestamp.slice(0, 10)} → {pts[pts.length - 1].timestamp.slice(0, 10)} · now{' '}
+        {last > 0 ? '+' : ''}{Math.round(last)}
       </p>
     </div>
   )
@@ -418,20 +419,39 @@ function EdgeSubRow({ r, releaseBased }: { r: MacroScorecardIndicator; releaseBa
   )
 }
 
+// score a row for "how much it tells the reader" — directional first, neutral last
+function rowInterest(r: MacroScorecardIndicator, releaseBased: boolean): number {
+  if ((r.forecast != null || !releaseBased) && hasRealDirection(r.direction)) {
+    const t = classifySentiment(r.direction).tone
+    if (t === 'up' || t === 'down') return 2
+    if (t === 'caution') return 1
+  }
+  const tr = trendRead(r)
+  if (tr && tr.label !== 'flat') return 1
+  return 0
+}
+
+const CARD_ROWS = 3
+
 function EdgeCard({ cat }: { cat: MacroScorecardCategory }) {
   const label = CATEGORY_LABEL[cat.category] ?? cat.category
   const insufficient = cat.state === 'INSUFFICIENT_EVIDENCE'
-  const rows = dedupeIndicators(cat).slice(0, 4)
   const releaseBased = RELEASE_CATS.has(cat.category)
   const s = classifySentiment(insufficient ? undefined : cat.direction)
 
+  const all = dedupeIndicators(cat)
+  const rows = [...all]
+    .sort((a, b) => rowInterest(b, releaseBased) - rowInterest(a, releaseBased))
+    .slice(0, CARD_ROWS)
+  const more = all.length - rows.length
+
   return (
     <div className="flex flex-col self-start rounded-lg border border-border bg-surface">
-      <div className="flex items-center border-b border-border-subtle px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-secondary">
+      <div className="flex items-center border-b border-border-subtle px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-secondary">
         {label}
         {CATEGORY_INFO[cat.category] ? <InfoTip text={CATEGORY_INFO[cat.category]} /> : null}
       </div>
-      <div className="flex flex-col gap-2 p-3">
+      <div className="flex flex-col gap-2 p-2.5">
         <BiasBar
           text={insufficient ? 'No data' : cat.direction || 'neutral'}
           tone={insufficient ? 'flat' : s.tone}
@@ -444,29 +464,41 @@ function EdgeCard({ cat }: { cat: MacroScorecardCategory }) {
                 <span className="text-secondary">To enable:</span> {cat.next_dependency}
               </span>
             ) : null}
-            {cat.model_prior != null ? (
-              <span className="mt-1 block text-[10px]">
-                Model default without data: {cat.model_prior}/100 — not counted in the score.
-              </span>
-            ) : null}
           </p>
         ) : (
           <>
-            <div className="flex justify-center py-1">
-              <Gauge score={cat.gauge} size={124} />
+            <div className="flex items-center justify-center">
+              <Gauge score={cat.gauge} size={104} />
             </div>
             {rows.length ? (
               <div className="space-y-1">
                 {rows.map((r) => (
                   <EdgeSubRow key={r.indicator} r={r} releaseBased={releaseBased} />
                 ))}
+                {more > 0 ? (
+                  <p className="pt-0.5 text-[10px] text-muted">+{more} more in Detailed view</p>
+                ) : null}
               </div>
             ) : (
-              <p className="text-[11px] text-muted">{(cat.context ?? []).join(' · ') || 'No releases in the window.'}</p>
+              <p className="text-[11px] text-muted">
+                {(cat.context ?? []).join(' · ') || 'No releases in the window.'}
+              </p>
             )}
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+function HeroStat({ k, val, tip }: { k: string; val: string; tip?: string }) {
+  return (
+    <div className="rounded border border-border-subtle bg-surface-elevated/40 px-2 py-1.5">
+      <p className="flex items-center text-[9px] uppercase tracking-wide text-muted">
+        {k}
+        {tip ? <InfoTip text={tip} /> : null}
+      </p>
+      <p className="font-mono text-xs tabular-nums text-secondary">{val}</p>
     </div>
   )
 }
@@ -480,40 +512,36 @@ function EdgeHero({
 }) {
   const v = classifySentiment(sc.bias)
   const liveCats = sc.categories.filter((c) => c.state === 'OK').length
-  const HeroRow = ({ k, val }: { k: string; val: string }) => (
-    <div className="flex items-center justify-between gap-2">
-      <dt className="text-muted">{k}</dt>
-      <dd className="font-mono tabular-nums text-secondary">{val}</dd>
-    </div>
-  )
   return (
-    <div className="flex flex-col rounded-lg border border-border bg-surface">
-      <div className="border-b border-border-subtle px-3 py-2">
-        <p className="text-[10px] uppercase tracking-wider text-muted">{sc.instrument} · macro bias</p>
-        <p className={`text-2xl font-semibold ${toneText(v.tone)}`}>
+    <div className="flex flex-col self-start rounded-lg border border-accent/40 bg-surface">
+      <div className="flex items-center border-b border-border-subtle px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-accent">
+        {sc.instrument} · macro bias
+        {sc.read_basis ? <InfoTip text={sc.read_basis} /> : null}
+      </div>
+      <div className="flex flex-col gap-2 p-2.5">
+        <p className={`text-center text-xl font-semibold ${toneText(v.tone)}`}>
           {sc.bias ? sc.bias.replace(/_/g, ' ') : 'Neutral'}
         </p>
-      </div>
-      <div className="flex flex-1 flex-col gap-3 p-3">
-        <div className="flex justify-center">
-          <Gauge score={sc.gauge} size={168} />
+        <div className="flex items-center justify-center">
+          <Gauge score={sc.gauge} size={128} />
         </div>
         <BiasBar text={sc.bias ? sc.bias.replace(/_/g, ' ') : 'neutral'} tone={v.tone} />
-        <dl className="space-y-1 text-[11px]">
-          <HeroRow k="Confidence" val={sc.confidence != null ? `${sc.confidence}/100` : '—'} />
-          <HeroRow
-            k="Economic strength"
-            val={
-              sc.economic_strength != null
-                ? `${sc.economic_strength > 0 ? '+' : ''}${sc.economic_strength}`
-                : '—'
-            }
+        <div className="grid grid-cols-2 gap-1.5">
+          <HeroStat
+            k="Confidence"
+            val={sc.confidence != null ? `${sc.confidence}/100` : '—'}
+            tip="How sure the model is, given how much provider data each category actually has."
           />
-          <HeroRow k="Recent data" val={momentumText(sc.surprise_momentum)} />
-          <HeroRow k="Categories with data" val={`${liveCats} / ${sc.categories.length}`} />
-        </dl>
+          <HeroStat
+            k="Econ. strength"
+            val={sc.economic_strength != null ? `${sc.economic_strength > 0 ? '+' : ''}${sc.economic_strength}` : '—'}
+            tip="Composite of growth / jobs / inflation / rates vs trend, −100…+100."
+          />
+          <HeroStat k="Data coverage" val={`${liveCats} / ${sc.categories.length} categories`} />
+          <HeroStat k="Recent data" val={momentumText(sc.surprise_momentum)} />
+        </div>
         <div>
-          <p className="mb-1 text-[10px] uppercase tracking-wider text-muted">Macro score over time</p>
+          <p className="mb-1 text-[9px] uppercase tracking-wide text-muted">Macro score over time</p>
           <MiniHistory data={history} />
         </div>
       </div>
@@ -529,13 +557,11 @@ function MacroEdgeFinder({
   history: MacroScorecardHistoryResponse | null
 }) {
   return (
-    <div className="grid gap-3 lg:grid-cols-[320px_1fr] lg:items-start">
+    <div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       <EdgeHero sc={scorecard} history={history} />
-      <div className="grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {scorecard.categories.map((c) => (
-          <EdgeCard key={c.category} cat={c} />
-        ))}
-      </div>
+      {scorecard.categories.map((c) => (
+        <EdgeCard key={c.category} cat={c} />
+      ))}
     </div>
   )
 }
