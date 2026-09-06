@@ -335,6 +335,12 @@ def get_day_trades(
         df = df.sort_values(by="exit_time")
 
     trades = [] if df.empty else [_trade_item(r) for _, r in df.iterrows()]
+    try:
+        counts = database.count_journal_screenshots()
+        for t in trades:
+            t.screenshot_count = counts.get(t.trade_id, 0)
+    except Exception:
+        pass
     return AnalyticsDayTradesResponse(
         date=day.date().isoformat(),
         trades=trades,

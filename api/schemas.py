@@ -719,6 +719,24 @@ class JournalTradeItem(BaseModel):
     notes: Optional[str] = None
     rating: Optional[int] = None
     chart_snapshot_url: Optional[str] = None
+    screenshot_count: int = 0
+
+
+class JournalScreenshotMeta(BaseModel):
+    id: str
+    trade_id: str
+    filename: Optional[str] = None
+    mime: str
+    byte_size: int
+    caption: Optional[str] = None
+    created_at: str
+    url: str
+
+
+class JournalScreenshotsResponse(BaseModel):
+    trade_id: str
+    screenshots: List[JournalScreenshotMeta]
+    timestamp: str
 
 
 class AnalyticsDayTradesResponse(BaseModel):

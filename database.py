@@ -471,6 +471,28 @@ def init_db(force: bool = False):
         except Exception:
             pass
 
+        # Trade-journal screenshots (base64-encoded image bytes, stored in-DB for
+        # portability). Subjective annotation only — no execution bearing.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS journal_screenshots (
+                id TEXT PRIMARY KEY,
+                trade_id TEXT NOT NULL,
+                filename TEXT,
+                mime TEXT NOT NULL,
+                byte_size INTEGER NOT NULL,
+                image_b64 TEXT NOT NULL,
+                caption TEXT,
+                created_at TEXT NOT NULL
+            );
+        """)
+        try:
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_journal_screenshots_trade "
+                "ON journal_screenshots (trade_id);"
+            )
+        except Exception:
+            pass
+
         # Correlation Matrix
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS correlation_matrix (
@@ -1144,6 +1166,80 @@ def update_trade_journal(trade_id, chart_snapshot_url=None, setup_tag=None, note
     conn.commit()
     conn.close()
     return True
+
+
+# ----------------- Trade-journal screenshots -----------------
+
+def add_journal_screenshot(screenshot_id, trade_id, filename, mime, byte_size, image_b64, caption=None):
+    """Persist one journal screenshot (base64-encoded). Returns the id."""
+    import datetime as _dt
+    conn = get_connection()
+    cur = conn.cursor()
+    ph = "%s" if is_postgres() else "?"
+    cur.execute(
+        f"INSERT INTO journal_screenshots "
+        f"(id, trade_id, filename, mime, byte_size, image_b64, caption, created_at) "
+        f"VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})",
+        (str(screenshot_id), str(trade_id), (filename or None), str(mime),
+         int(byte_size), str(image_b64), (caption or None),
+         _dt.datetime.now(_dt.timezone.utc).isoformat()),
+    )
+    conn.commit()
+    conn.close()
+    return str(screenshot_id)
+
+
+def list_journal_screenshots(trade_id):
+    """Metadata (no image bytes) for one trade's screenshots, oldest first."""
+    conn = get_connection()
+    cur = conn.cursor()
+    ph = "%s" if is_postgres() else "?"
+    cur.execute(
+        f"SELECT id, trade_id, filename, mime, byte_size, caption, created_at "
+        f"FROM journal_screenshots WHERE trade_id = {ph} ORDER BY created_at ASC",
+        (str(trade_id),),
+    )
+    cols = [c[0] for c in cur.description]
+    rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+    conn.close()
+    return rows
+
+
+def get_journal_screenshot(screenshot_id):
+    """One screenshot row including the base64 image bytes, or None."""
+    conn = get_connection()
+    cur = conn.cursor()
+    ph = "%s" if is_postgres() else "?"
+    cur.execute(
+        f"SELECT id, trade_id, filename, mime, byte_size, image_b64, caption, created_at "
+        f"FROM journal_screenshots WHERE id = {ph}",
+        (str(screenshot_id),),
+    )
+    row = cur.fetchone()
+    cols = [c[0] for c in cur.description] if cur.description else []
+    conn.close()
+    return dict(zip(cols, row)) if row else None
+
+
+def delete_journal_screenshot(screenshot_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    ph = "%s" if is_postgres() else "?"
+    cur.execute(f"DELETE FROM journal_screenshots WHERE id = {ph}", (str(screenshot_id),))
+    n = cur.rowcount
+    conn.commit()
+    conn.close()
+    return (n or 0) > 0
+
+
+def count_journal_screenshots():
+    """{trade_id: count} — one query, for the journal list view."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT trade_id, COUNT(*) FROM journal_screenshots GROUP BY trade_id")
+    out = {str(r[0]): int(r[1]) for r in cur.fetchall()}
+    conn.close()
+    return out
 
 # ----------------- Starred / Favorite Symbols -----------------
 

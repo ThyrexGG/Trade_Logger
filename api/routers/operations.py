@@ -12,19 +12,24 @@ Every value is produced by the authoritative system and merely serialized.
 GET-only: nothing here mutates operational state, submits orders or touches a
 broker. `sqlite3` placeholders are handled for both SQLite and Postgres.
 """
+import base64
+import binascii
 import math
 import sqlite3
 import threading
 import time
+import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Mapping, Optional
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException, Path, Query
+from fastapi import APIRouter, File, Form, HTTPException, Path, Query, Response, UploadFile
 
 import database
 from api.schemas import (
     JournalResponse,
+    JournalScreenshotMeta,
+    JournalScreenshotsResponse,
     JournalTradeItem,
     JournalUpdateRequest,
     JournalUpdateResponse,
@@ -35,6 +40,9 @@ from api.schemas import (
     ReconciliationHealth,
     _JOURNAL_EDITABLE_FIELDS,
 )
+
+_SCREENSHOT_MAX_BYTES = 4 * 1024 * 1024
+_SCREENSHOT_MIME = {"image/png", "image/jpeg", "image/webp", "image/gif"}
 
 router = APIRouter(prefix="/api/operations", tags=["Operations"])
 
@@ -71,7 +79,7 @@ def _placeholder(conn: Any) -> str:
     return "?" if is_sq else "%s"
 
 
-def _journal_item(r: Mapping[str, Any]) -> JournalTradeItem:
+def _journal_item(r: Mapping[str, Any], sc_count: int = 0) -> JournalTradeItem:
     """Serialize one `closed_trades` row (dict or pandas row) into the schema."""
     rating_raw = r.get("rating")
     try:
@@ -97,6 +105,7 @@ def _journal_item(r: Mapping[str, Any]) -> JournalTradeItem:
         notes=_s(r.get("notes")),
         rating=rating,
         chart_snapshot_url=_s(r.get("chart_snapshot_url")),
+        screenshot_count=int(sc_count or 0),
     )
 
 
@@ -126,6 +135,10 @@ def get_journal() -> JournalResponse:
     is exposed by the current backend, so this surface is read-only.
     """
     df = database.get_closed_trades(ttl_sec=5.0)
+    try:
+        sc_counts = database.count_journal_screenshots()
+    except Exception:
+        sc_counts = {}
     entries: List[JournalTradeItem] = []
     wins = losses = 0
     total_net = 0.0
@@ -141,7 +154,8 @@ def get_journal() -> JournalResponse:
                 losses += 1
             acc = _s(r.get("account_id")) or "UNKNOWN"
             accounts.add(acc)
-            entries.append(_journal_item(r))
+            tid = _s(r.get("trade_id")) or ""
+            entries.append(_journal_item(r, sc_counts.get(tid, 0)))
 
     return JournalResponse(
         entries=entries,
@@ -192,11 +206,108 @@ def patch_journal(
     if updated is None:  # pragma: no cover - row cannot vanish between calls
         raise HTTPException(status_code=404, detail=f"Trade '{trade_id}' disappeared during update")
 
+    try:
+        sc_count = len(database.list_journal_screenshots(trade_id))
+    except Exception:
+        sc_count = 0
     return JournalUpdateResponse(
-        entry=_journal_item(updated),
+        entry=_journal_item(updated, sc_count),
         updated_fields=list(kwargs.keys()),
         timestamp=datetime.now(timezone.utc).isoformat(),
     )
+
+
+# --- Journal screenshots (in-DB, base64) --------------------------------
+# Subjective annotation only: an image attached to a closed-trade review.
+# No execution path; a screenshot cannot alter a trade fact.
+
+def _screenshot_meta(row: Mapping[str, Any]) -> JournalScreenshotMeta:
+    sid = str(row.get("id"))
+    return JournalScreenshotMeta(
+        id=sid,
+        trade_id=str(row.get("trade_id")),
+        filename=_s(row.get("filename")),
+        mime=str(row.get("mime") or "image/png"),
+        byte_size=int(row.get("byte_size") or 0),
+        caption=_s(row.get("caption")),
+        created_at=str(row.get("created_at") or ""),
+        url=f"/api/operations/journal/screenshot/{sid}",
+    )
+
+
+@router.get("/journal/{trade_id}/screenshots", response_model=JournalScreenshotsResponse)
+def journal_screenshots_list(
+    trade_id: str = Path(..., min_length=1, max_length=128),
+) -> JournalScreenshotsResponse:
+    """Screenshot metadata (no bytes) for one closed trade."""
+    rows = database.list_journal_screenshots(trade_id)
+    return JournalScreenshotsResponse(
+        trade_id=trade_id,
+        screenshots=[_screenshot_meta(r) for r in rows],
+        timestamp=datetime.now(timezone.utc).isoformat(),
+    )
+
+
+@router.post("/journal/{trade_id}/screenshots", response_model=JournalScreenshotMeta)
+async def journal_screenshot_upload(
+    trade_id: str = Path(..., min_length=1, max_length=128),
+    file: UploadFile = File(...),
+    caption: Optional[str] = Form(default=None),
+) -> JournalScreenshotMeta:
+    """Attach one image (PNG/JPEG/WebP/GIF, <=4 MB) to a closed-trade review.
+    Stored base64-encoded in the DB. 404 if the trade is unknown."""
+    if _fetch_journal_row(trade_id) is None:
+        raise HTTPException(status_code=404, detail=f"Trade '{trade_id}' not found in closed_trades")
+
+    mime = (file.content_type or "").lower().split(";")[0].strip()
+    if mime not in _SCREENSHOT_MIME:
+        raise HTTPException(status_code=415, detail=f"Unsupported image type '{mime}'. Allowed: PNG, JPEG, WebP, GIF.")
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=422, detail="Empty file")
+    if len(data) > _SCREENSHOT_MAX_BYTES:
+        raise HTTPException(status_code=413, detail=f"Image is {len(data) // 1024} KB — the limit is 4 MB.")
+
+    sid = uuid.uuid4().hex
+    database.add_journal_screenshot(
+        screenshot_id=sid, trade_id=trade_id,
+        filename=(file.filename or None), mime=mime, byte_size=len(data),
+        image_b64=base64.b64encode(data).decode("ascii"),
+        caption=(caption.strip() if isinstance(caption, str) and caption.strip() else None),
+    )
+    row = database.get_journal_screenshot(sid)
+    return _screenshot_meta(row or {"id": sid, "trade_id": trade_id, "mime": mime,
+                                    "byte_size": len(data), "created_at": ""})
+
+
+@router.get("/journal/screenshot/{screenshot_id}")
+def journal_screenshot_serve(
+    screenshot_id: str = Path(..., min_length=8, max_length=64),
+) -> Response:
+    """Serve one screenshot's image bytes."""
+    row = database.get_journal_screenshot(screenshot_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Screenshot not found")
+    try:
+        raw = base64.b64decode(str(row.get("image_b64") or ""))
+    except (binascii.Error, ValueError):
+        raise HTTPException(status_code=500, detail="Stored image is corrupt")
+    return Response(
+        content=raw,
+        media_type=str(row.get("mime") or "image/png"),
+        headers={"Cache-Control": "private, max-age=86400"},
+    )
+
+
+@router.delete("/journal/screenshot/{screenshot_id}")
+def journal_screenshot_delete(
+    screenshot_id: str = Path(..., min_length=8, max_length=64),
+) -> Dict[str, Any]:
+    ok = database.delete_journal_screenshot(screenshot_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Screenshot not found")
+    return {"ok": True, "deleted": screenshot_id, "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 # --- Audit ---------------------------------------------------------------
