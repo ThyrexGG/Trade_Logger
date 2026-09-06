@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { toneArrow } from '../../lib/sentiment'
+import { classifySentiment, toneArrow } from '../../lib/sentiment'
 export { SectionCard, SectionError, SkeletonRows } from '../intelligence/primitives'
 export { HashChip } from '../evidence/primitives'
 
@@ -29,6 +29,12 @@ export function researchTone(value: string | null | undefined): ResearchTone {
   if (v.includes('COMPLETE') || v.includes('ROBUST') || v.includes('READY') || v.includes('PASS')) {
     return 'positive'
   }
+  // fall back to the shared classifier so NOT_ESTABLISHED / PROMISING / DECAYED /
+  // USABLE_EDGE_FOUND etc. get a sensible colour instead of always "neutral".
+  const s = classifySentiment(value).tone
+  if (s === 'up') return 'positive'
+  if (s === 'down') return 'negative'
+  if (s === 'caution') return 'warning'
   return 'neutral'
 }
 

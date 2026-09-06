@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { toneArrow } from '../../lib/sentiment'
+import { classifySentiment, toneArrow } from '../../lib/sentiment'
 export {
   SectionCard,
   SectionError,
@@ -72,6 +72,10 @@ export function evidenceTone(value: string | undefined | null): EvidenceTone {
   ) {
     return 'info'
   }
+  const s = classifySentiment(value).tone
+  if (s === 'up') return 'positive'
+  if (s === 'down') return 'negative'
+  if (s === 'caution') return 'warning'
   return 'neutral'
 }
 
