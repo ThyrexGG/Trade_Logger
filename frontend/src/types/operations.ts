@@ -56,6 +56,34 @@ export interface JournalUpdateRequest {
   setup_tag?: string
   notes?: string
   chart_snapshot_url?: string
+  rating?: number
+}
+
+export type JournalEntryKind = 'idea' | 'review' | 'observation'
+
+export interface JournalEntry {
+  id: string
+  kind: JournalEntryKind
+  instrument: string | null
+  title: string | null
+  body: string
+  tags: string[]
+  screenshot_count: number
+  created_at: string
+  updated_at: string
+}
+
+export interface JournalEntryCreate {
+  kind?: JournalEntryKind
+  instrument?: string | null
+  title?: string | null
+  body?: string
+  tags?: string[]
+}
+
+export interface JournalEntriesResponse {
+  entries: JournalEntry[]
+  timestamp: string
 }
 
 export interface JournalUpdateResponse {

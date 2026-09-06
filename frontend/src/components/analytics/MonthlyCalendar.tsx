@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { DayTrade, DailyPnl } from '../../types/analytics'
+import type { JournalUpdateRequest } from '../../types/operations'
 import { getDayTrades } from '../../api/analytics'
 import { patchJournalEntry } from '../../api/operations'
 import { ScreenshotStrip } from '../journal/ScreenshotStrip'
+import { StarRating } from '../journal/StarRating'
 import { formatPercent, formatUsd } from '../../lib/format'
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -50,17 +52,22 @@ function InlineTradeJournal({
 }) {
   const [tag, setTag] = useState(trade.setup_tag ?? '')
   const [notes, setNotes] = useState(trade.notes ?? '')
+  const [rating, setRating] = useState<number>(trade.rating ?? 0)
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
-  const dirty = tag.trim() !== (trade.setup_tag ?? '') || notes !== (trade.notes ?? '')
+  const dirty =
+    tag.trim() !== (trade.setup_tag ?? '') ||
+    notes !== (trade.notes ?? '') ||
+    rating !== (trade.rating ?? 0)
 
   async function save() {
     if (saving || !dirty) return
     setSaving(true)
     setErr(null)
-    const body: Record<string, string> = {}
+    const body: JournalUpdateRequest = {}
     if (tag.trim() !== (trade.setup_tag ?? '')) body.setup_tag = tag.trim()
     if (notes !== (trade.notes ?? '')) body.notes = notes
+    if (rating !== (trade.rating ?? 0)) body.rating = rating
     try {
       const res = await patchJournalEntry(trade.trade_id, body)
       onSaved({ ...trade, ...res.entry })
@@ -102,6 +109,10 @@ function InlineTradeJournal({
         placeholder="What was the read? Confluences, mistakes, lesson…"
         className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-primary placeholder:text-muted focus:border-accent focus:outline-none"
       />
+      <div className="flex items-center gap-2 text-[11px] text-muted">
+        <span>Rating</span>
+        <StarRating value={rating} onChange={setRating} disabled={saving} />
+      </div>
       <div>
         <p className="mb-1 text-[10px] uppercase tracking-wide text-muted">Screenshots</p>
         <ScreenshotStrip tradeId={trade.trade_id} compact />
@@ -230,9 +241,10 @@ function DayDetail({
                       {t.setup_tag ? (
                         <span className="rounded bg-surface-elevated px-1 text-[10px]">{t.setup_tag}</span>
                       ) : null}
+                      {t.rating ? <span className="ml-1 text-[10px] text-warning">{'★'.repeat(t.rating)}</span> : null}
                       {t.notes ? <span className="ml-1 text-[10px]">✎</span> : null}
                       {t.screenshot_count ? <span className="ml-1 text-[10px]">📷{t.screenshot_count}</span> : null}
-                      {!t.setup_tag && !t.notes && !t.screenshot_count ? (
+                      {!t.setup_tag && !t.notes && !t.rating && !t.screenshot_count ? (
                         <span className="text-[10px] text-muted">add</span>
                       ) : null}
                     </td>

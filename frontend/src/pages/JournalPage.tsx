@@ -2,6 +2,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useJournal } from '../lib/useOperations'
 import { PageContainer } from '../components/shell/PageContainer'
 import { JournalSummary, JournalView } from '../components/operations/JournalView'
+import { FreeEntries } from '../components/journal/FreeEntries'
 import {
   OpsSafetyBanner,
   SectionError,
@@ -58,6 +59,7 @@ export function JournalPage() {
             ) : null}
             <JournalSummary data={data} />
             <JournalView data={data} onEntryUpdated={applyEntry} focusTradeId={focusTradeId} />
+            <FreeEntries />
           </>
         ) : null}
 

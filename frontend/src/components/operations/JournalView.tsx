@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import type { JournalResponse, JournalTradeItem } from '../../types/operations'
+import type { JournalResponse, JournalTradeItem, JournalUpdateRequest } from '../../types/operations'
 import { OpsMetric, OpsUnavailable, SectionCard } from './primitives'
 import { formatUsd, timeAgo } from '../../lib/format'
 import { patchJournalEntry } from '../../api/operations'
 import { ScreenshotStrip } from '../journal/ScreenshotStrip'
+import { StarRating } from '../journal/StarRating'
 
 type Outcome = 'all' | 'win' | 'loss'
 const PAGE = 40
@@ -65,6 +66,7 @@ function JournalEditor({
   const [setupTag, setSetupTag] = useState(entry.setup_tag ?? '')
   const [notes, setNotes] = useState(entry.notes ?? '')
   const [chartUrl, setChartUrl] = useState(entry.chart_snapshot_url ?? '')
+  const [rating, setRating] = useState<number>(entry.rating ?? 0)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -72,17 +74,19 @@ function JournalEditor({
   const dirty =
     norm(setupTag) !== (entry.setup_tag ?? '') ||
     notes !== (entry.notes ?? '') ||
-    norm(chartUrl) !== (entry.chart_snapshot_url ?? '')
+    norm(chartUrl) !== (entry.chart_snapshot_url ?? '') ||
+    rating !== (entry.rating ?? 0)
 
   async function save() {
     if (saving || !dirty) return
     setSaving(true)
     setError(null)
     // Send only the fields that actually changed.
-    const body: Record<string, string> = {}
+    const body: JournalUpdateRequest = {}
     if (norm(setupTag) !== (entry.setup_tag ?? '')) body.setup_tag = norm(setupTag)
     if (notes !== (entry.notes ?? '')) body.notes = notes
     if (norm(chartUrl) !== (entry.chart_snapshot_url ?? '')) body.chart_snapshot_url = norm(chartUrl)
+    if (rating !== (entry.rating ?? 0)) body.rating = rating
     try {
       const res = await patchJournalEntry(entry.trade_id, body)
       onSaved(res.entry)
@@ -134,6 +138,11 @@ function JournalEditor({
           className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-xs text-primary placeholder:text-muted focus:border-accent focus:outline-none"
         />
       </label>
+
+      <div className="flex items-center gap-2 text-[11px] text-muted">
+        <span>Rating</span>
+        <StarRating value={rating} onChange={setRating} disabled={saving} />
+      </div>
 
       <div>
         <p className="text-[11px] text-muted">Screenshots</p>

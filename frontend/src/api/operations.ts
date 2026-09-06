@@ -1,6 +1,9 @@
-import { API_BASE_URL, ApiError, apiDelete, apiGet, apiPatch } from './client'
+import { API_BASE_URL, ApiError, apiDelete, apiGet, apiPatch, apiPost } from './client'
 import type {
   AuditResponse,
+  JournalEntriesResponse,
+  JournalEntry,
+  JournalEntryCreate,
   JournalResponse,
   JournalScreenshotMeta,
   JournalScreenshotsResponse,
@@ -91,6 +94,41 @@ export function deleteJournalScreenshot(
 /** Absolute URL for an <img src> pointing at a stored screenshot. */
 export function journalScreenshotSrc(url: string): string {
   return `${API_BASE_URL}${url}`
+}
+
+// --- free-standing journal entries (market ideas / reviews) ------------
+
+export function getJournalEntries(signal?: AbortSignal): Promise<JournalEntriesResponse> {
+  return apiGet<JournalEntriesResponse>('/api/operations/journal/entries', { signal })
+}
+
+export function createJournalEntry(
+  body: JournalEntryCreate,
+  signal?: AbortSignal,
+): Promise<JournalEntry> {
+  return apiPost<JournalEntry>('/api/operations/journal/entries', body, { signal })
+}
+
+export function patchJournalEntryNote(
+  entryId: string,
+  body: Partial<JournalEntryCreate>,
+  signal?: AbortSignal,
+): Promise<JournalEntry> {
+  return apiPatch<JournalEntry>(
+    `/api/operations/journal/entries/${encodeURIComponent(entryId)}`,
+    body,
+    { signal },
+  )
+}
+
+export function deleteJournalEntry(
+  entryId: string,
+  signal?: AbortSignal,
+): Promise<{ ok: boolean }> {
+  return apiDelete<{ ok: boolean }>(
+    `/api/operations/journal/entries/${encodeURIComponent(entryId)}`,
+    { signal },
+  )
 }
 
 /** GET /api/operations/audit — read-only execution audit trail. */
