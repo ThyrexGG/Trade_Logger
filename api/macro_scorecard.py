@@ -294,6 +294,42 @@ def _technical_category(instrument: str, as_of: Optional[datetime]) -> Dict[str,
     }
 
 
+def _price_behavior(instrument: str, as_of: Optional[datetime]) -> Optional[Dict[str, Any]]:
+    """EdgeFinder-style volatility context: average daily move + realized vol,
+    from the real daily candle window. ``None`` when there is no chart or too
+    little history (never a fabricated figure)."""
+    sym = _TECH_SYMBOL.get(instrument)
+    if not sym:
+        return None
+    try:
+        from historical_market_data import get_candle_window
+
+        w = get_candle_window(sym, "1d", as_of, lookback=180)
+        if w is None or w.n < 7:
+            return None
+        df = w.to_df()
+        ret = df["close"].astype(float).pct_change().dropna() * 100.0
+        if len(ret) < 6:
+            return None
+        recent = ret.tail(7).abs().mean()
+        alln = int(len(ret))
+        overall = ret.abs().mean()
+        vol = float(ret.std())
+        ratio = (recent / overall) if overall else 1.0
+        label = "elevated" if ratio >= 1.3 else "subdued" if ratio <= 0.7 else "normal"
+        return {
+            "symbol": sym,
+            "avg_daily_move_recent_pct": round(float(recent), 2),
+            "avg_daily_move_window_pct": round(float(overall), 2),
+            "window_sessions": alln,
+            "realized_vol_pct": round(vol, 2),
+            "regime": label,
+            "source": w.source_id,
+        }
+    except Exception:
+        return None
+
+
 def _sentiment_stub() -> Dict[str, Any]:
     return _insufficient_category(
         "No retail-positioning provider. COT (institutional) positioning is shown in the COT category.",
@@ -433,6 +469,7 @@ def get_scorecard(instrument: str, as_of: Optional[datetime] = None) -> Dict[str
             "answer a different, faster question and can point the other way."
         ),
         "primary_country": primary_country,
+        "price_behavior": _price_behavior(inst, as_of),
         "categories": categories,
         "strongest_category": strongest["category"] if strongest else None,
         "weakest_category": weakest["category"] if weakest else None,

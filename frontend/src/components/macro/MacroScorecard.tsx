@@ -511,6 +511,7 @@ function EdgeHero({
 }) {
   const v = classifySentiment(sc.bias)
   const liveCats = sc.categories.filter((c) => c.state === 'OK').length
+  const pb = sc.price_behavior
   return (
     <div className="flex flex-col self-stretch rounded-lg border border-accent/40 bg-surface">
       <div className="flex items-center border-b border-border-subtle px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-accent">
@@ -540,6 +541,20 @@ function EdgeHero({
           />
           <HeroStat k="Data coverage" val={`${liveCats} / ${sc.categories.length}`} />
           <HeroStat k="Recent data" val={momentumText(sc.surprise_momentum)} />
+          {pb ? (
+            <>
+              <HeroStat
+                k="Realized volatility"
+                val={pb.regime}
+                tip={`Recent 7-session average daily move vs the ${pb.window_sessions}-session average. "elevated" = the market is moving more than usual, "subdued" = quieter.`}
+              />
+              <HeroStat k="Avg daily move · 7d" val={`${pb.avg_daily_move_recent_pct}%`} />
+              <HeroStat
+                k={`Avg daily move · ${pb.window_sessions}d`}
+                val={`${pb.avg_daily_move_window_pct}%`}
+              />
+            </>
+          ) : null}
         </dl>
       </div>
     </div>
