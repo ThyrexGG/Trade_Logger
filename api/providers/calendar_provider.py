@@ -34,8 +34,11 @@ from typing import Any, Dict, List, Optional
 
 _SUPPORTED_CCY = {"USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD", "CNY"}
 
-_IMPACT = {"HIGH": "HIGH", "MEDIUM": "MEDIUM", "LOW": "LOW", "HOLIDAY": "LOW",
+_IMPACT = {"HIGH": "HIGH", "MEDIUM": "MEDIUM", "LOW": "LOW", "HOLIDAY": "HOLIDAY",
            "3": "HIGH", "2": "MEDIUM", "1": "LOW"}
+
+# ForexFactory currency tag for a non-country-specific note (BRICS summit, G20…)
+_GLOBAL_TAGS = {"ALL", "", "WORLD", "GLOBAL"}
 
 _INDICATOR_HINTS = [
     ("NON-FARM", "NFP"), ("NONFARM", "NFP"), ("PAYROLL", "NFP"),
@@ -124,24 +127,46 @@ def _iso(raw: Any) -> Optional[str]:
         return None
 
 
+def _kind_of(title: str, impact: str) -> str:
+    """A row's flavour, for display: holiday | speech | release."""
+    if impact.upper() == "HOLIDAY":
+        return "holiday"
+    t = title.upper()
+    if "SPEAK" in t or "SPEECH" in t or "TESTIMONY" in t or "PRESS CONFERENCE" in t:
+        return "speech"
+    if "HOLIDAY" in t:
+        return "holiday"
+    return "release"
+
+
 def _event(*, source: str, provider: str, ccy: str, title: str, when: str,
            impact: str, actual: Any, forecast: Any, previous: Any,
            url: Optional[str] = None) -> Optional[Dict[str, Any]]:
-    ccy = (ccy or "").strip().upper()
+    ccy_raw = (ccy or "").strip().upper()
     when_iso = _iso(when)
-    if not title or not when_iso or ccy not in _SUPPORTED_CCY:
+    if not title or not when_iso:
         return None
-    indicator = _indicator_of(title)
+    is_global = ccy_raw in _GLOBAL_TAGS
+    if not is_global and ccy_raw not in _SUPPORTED_CCY:
+        return None
+    currency = None if is_global else ccy_raw
+    country = "ALL" if is_global else ccy_raw
+
+    imp = _IMPACT.get(str(impact or "").strip().upper(), "LOW")
+    kind = _kind_of(title, imp)
+    indicator = None if kind != "release" else _indicator_of(title)
     act = _num(actual)
     return {
-        "event_id": f"{provider}:{ccy}:{title}:{when_iso[:16]}",
+        "event_id": f"{provider}:{country}:{title}:{when_iso[:16]}",
         "timestamp": when_iso,
-        "country": ccy,
-        "currency": ccy,
+        "country": country,
+        "currency": currency,
         "event": title.strip(),
         "indicator": indicator,
-        "category": _CATEGORY.get(indicator or ""),
-        "impact": _IMPACT.get(str(impact or "").strip().upper(), "LOW"),
+        "category": ("HOLIDAY" if kind == "holiday" else "SPEECH" if kind == "speech"
+                     else _CATEGORY.get(indicator or "")),
+        "kind": kind,
+        "impact": imp,
         "actual": act,
         "forecast": _num(forecast),
         "previous": _num(previous),
@@ -149,7 +174,7 @@ def _event(*, source: str, provider: str, ccy: str, title: str, when: str,
         "unit": None,
         "source": source,
         "provider": provider,
-        "status": "RELEASED" if act is not None else "SCHEDULED",
+        "status": "RELEASED" if act is not None else ("NOTE" if kind != "release" else "SCHEDULED"),
         "release_timestamp": when_iso,
         "provenance": "live",
         "metadata": {k: v for k, v in (("url", url),) if v},

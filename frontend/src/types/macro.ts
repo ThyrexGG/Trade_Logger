@@ -115,7 +115,9 @@ export interface MacroEvent {
   event: string
   indicator: string | null
   category: string | null
-  impact: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | string
+  /** release = a data print · holiday = bank holiday · speech = official speaking */
+  kind?: 'release' | 'holiday' | 'speech' | string
+  impact: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | 'HOLIDAY' | string
   actual: number | null
   forecast: number | null
   previous: number | null

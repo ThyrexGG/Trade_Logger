@@ -130,11 +130,12 @@ def get_events(
             continue
         if ind and ind not in (ev.get("indicator") or "").upper() and ind not in (ev.get("event") or "").upper():
             continue
+        is_release = ev.get("kind", "release") == "release"
         if window == "upcoming" and (ev.get("timestamp") or "") < now_iso and ev.get("actual") is not None:
             continue
-        if window == "recent" and ev.get("actual") is None:
+        if window == "recent" and is_release and ev.get("actual") is None:
             continue
-        rows.append({**ev, "surprise": _surprise_lite(ev)})
+        rows.append({**ev, "surprise": _surprise_lite(ev) if is_release else _NO_SURPRISE})
 
     rows.sort(key=lambda r: r.get("timestamp") or "")
     truncated = len(rows) > limit
@@ -160,6 +161,12 @@ def _pdate(raw: Optional[str]) -> Optional[date]:
     if not raw:
         return None
     return datetime.strptime(raw.strip(), "%Y-%m-%d").date()
+
+
+_NO_SURPRISE = {"state": "UNAVAILABLE", "surprise": None, "surprise_pct": None,
+                "normalized_surprise": None, "direction_bias": "NEUTRAL",
+                "policy_bias": "NEUTRAL", "confidence": "NONE",
+                "note": "not a data release"}
 
 
 def _surprise_lite(ev: Dict[str, Any]) -> Dict[str, Any]:

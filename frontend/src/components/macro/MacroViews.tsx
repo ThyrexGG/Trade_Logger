@@ -316,6 +316,7 @@ export function MacroCalendar({ data }: { data: MacroEventsResponse }) {
         <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-1 rounded-sm bg-negative" /> high</span>
         <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-1 rounded-sm bg-warning" /> medium</span>
         <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-1 rounded-sm bg-warning/35" /> low</span>
+        <span>🎤 speech · 🏦/Holiday = market closed</span>
         <span className="flex items-center gap-1"><span className="text-positive">Actual</span> = beat / good surprise · <span className="text-negative">red</span> = miss</span>
         {cal?.last_refresh_utc ? <span>refreshed {new Date(cal.last_refresh_utc).toLocaleString()}</span> : null}
       </div>
@@ -335,6 +336,7 @@ function DayGroup({
   return (
     <>
       {evs.map((e, i) => {
+        const kind = e.kind ?? (e.impact.toUpperCase() === 'HOLIDAY' ? 'holiday' : 'release')
         const bias = dir(e.surprise?.direction_bias)
         const actualTone =
           e.actual == null ? 'text-secondary'
@@ -345,23 +347,68 @@ function DayGroup({
         const revUp = e.revised_previous != null && e.previous != null && e.revised_previous > e.previous
         const revDown = e.revised_previous != null && e.previous != null && e.revised_previous < e.previous
         const high = e.impact.toUpperCase() === 'HIGH' || e.impact.toUpperCase() === 'CRITICAL'
+
+        const dayCell =
+          i === 0 ? (
+            <td
+              rowSpan={evs.length}
+              className={`whitespace-nowrap border-r border-border-subtle px-2 py-1 align-top text-[10px] font-semibold ${
+                isToday ? 'text-accent' : 'text-secondary'
+              }`}
+            >
+              {dayLabel(day)}
+            </td>
+          ) : null
+
+        const timeCell = (
+          <td className="whitespace-nowrap px-2 py-1 font-mono text-[10px] text-muted">{evTime(e.timestamp)}</td>
+        )
+        const ccyCell = (
+          <td className="px-1 py-1 font-mono text-[11px] font-semibold text-primary">
+            {e.currency ?? <span className="text-muted" title="Global / multi-country">🌐</span>}
+          </td>
+        )
+
+        if (kind === 'holiday') {
+          return (
+            <tr key={e.event_id} className="border-t border-border-subtle/50 bg-surface-elevated/30 text-muted">
+              {dayCell}
+              {timeCell}
+              {ccyCell}
+              <td className="px-1 py-1" />
+              <td className="px-2 py-1" colSpan={4}>
+                <span className="rounded bg-surface-elevated px-1.5 py-0.5 text-[9px] uppercase tracking-wide">Holiday</span>{' '}
+                <span className="italic">{e.event}</span>
+                <span className="ml-1 text-[10px]">— market closed / thin liquidity</span>
+              </td>
+            </tr>
+          )
+        }
+
+        if (kind === 'speech') {
+          return (
+            <tr key={e.event_id} className={`border-t border-border-subtle/50 ${high ? 'bg-negative/[0.04]' : ''} hover:bg-surface-hover/50`}>
+              {dayCell}
+              {timeCell}
+              {ccyCell}
+              <td className="px-1 py-1">
+                <span className={`inline-block h-3 w-1 rounded-sm ${impactBar(e.impact)}`} title={e.impact} />
+              </td>
+              <td className={`px-2 py-1 ${high ? 'font-medium text-primary' : 'text-secondary'}`} colSpan={4}>
+                <span aria-hidden="true">🎤</span> {e.event}
+              </td>
+            </tr>
+          )
+        }
+
         return (
           <tr
             key={e.event_id}
             className={`border-t border-border-subtle/50 ${high ? 'bg-negative/[0.04]' : ''} hover:bg-surface-hover/50`}
           >
-            {i === 0 ? (
-              <td
-                rowSpan={evs.length}
-                className={`whitespace-nowrap border-r border-border-subtle px-2 py-1 align-top text-[10px] font-semibold ${
-                  isToday ? 'text-accent' : 'text-secondary'
-                }`}
-              >
-                {dayLabel(day)}
-              </td>
-            ) : null}
-            <td className="whitespace-nowrap px-2 py-1 font-mono text-[10px] text-muted">{evTime(e.timestamp)}</td>
-            <td className="px-1 py-1 font-mono text-[11px] font-semibold text-primary">{e.currency ?? '—'}</td>
+            {dayCell}
+            {timeCell}
+            {ccyCell}
             <td className="px-1 py-1">
               <span className={`inline-block h-3 w-1 rounded-sm ${impactBar(e.impact)}`} title={e.impact} />
             </td>
