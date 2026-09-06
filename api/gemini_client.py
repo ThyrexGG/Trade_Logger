@@ -18,9 +18,12 @@ from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"), override=False)
 
-_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash").strip() or "gemini-1.5-flash"
-_TIMEOUT_SEC = float(os.getenv("GEMINI_TIMEOUT_SEC", "30") or "30")
-_MAX_OUTPUT_TOKENS = int(os.getenv("GEMINI_MAX_OUTPUT_TOKENS", "800") or "800")
+_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-lite-latest").strip() or "gemini-flash-lite-latest"
+_TIMEOUT_SEC = float(os.getenv("GEMINI_TIMEOUT_SEC", "45") or "45")
+# Default headroom: the gemini-3.x "flash" models are reasoning models and spend
+# part of the budget on internal thinking before the answer — 800 was too tight
+# and left them returning an empty text part.
+_MAX_OUTPUT_TOKENS = int(os.getenv("GEMINI_MAX_OUTPUT_TOKENS", "3000") or "3000")
 
 
 def _api_key() -> str:
@@ -89,8 +92,16 @@ def generate(system_instruction: str, history: List[Dict[str, str]], context_blo
     try:
         text = (resp.text or "").strip()
     except Exception:
-        # blocked / no candidates
-        pass
+        # A reasoning model can return a "thought" part with no top-level text —
+        # pull the answer parts out by hand before giving up.
+        try:
+            parts = resp.candidates[0].content.parts
+            text = "".join(
+                getattr(p, "text", "") for p in parts
+                if getattr(p, "text", "") and not getattr(p, "thought", False)
+            ).strip()
+        except Exception:
+            pass
     if not text:
         reason = None
         try:
