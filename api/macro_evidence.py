@@ -283,6 +283,22 @@ def ensure_evidence(*, as_of: Optional[datetime] = None) -> Dict[str, Any]:
     except Exception:  # pragma: no cover - defensive
         sentiment_status = None
 
+    # 5. calendar (ForexFactory / FMP) — additive: scheduled events + forecast +
+    #    impact. Status only here (no blocking network on the hot path); the
+    #    actual refresh happens lazily in macro_service.get_events + at startup.
+    calendar_status: Optional[Dict[str, Any]] = None
+    try:
+        from api.providers.calendar_provider import (
+            calendar_provider_key,
+            get_calendar_provider,
+        )
+        if calendar_provider_key() == "none":
+            calendar_status = {"provider_state": "NOT_CONFIGURED", "configured": False}
+        else:
+            calendar_status = get_calendar_provider().status()
+    except Exception as exc:  # pragma: no cover - defensive
+        calendar_status = {"provider_state": "PROVIDER_UNAVAILABLE", "last_error": type(exc).__name__}
+
     conflicts = list(merge_result.get("conflicts") or [])
     conflict_countries = {c["country"] for c in conflicts}
 
@@ -300,6 +316,7 @@ def ensure_evidence(*, as_of: Optional[datetime] = None) -> Dict[str, Any]:
         "cot_status": cot_status,
         "forecast_status": forecast_status,
         "sentiment_status": sentiment_status,
+        "calendar_status": calendar_status,
         "forecast_merge": {"merged": merge_result.get("merged", 0),
                            "unmatched": merge_result.get("unmatched", 0)},
     })

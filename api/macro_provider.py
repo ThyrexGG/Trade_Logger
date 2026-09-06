@@ -49,6 +49,34 @@ _CCY_BY_COUNTRY = {
 }
 SUPPORTED_CURRENCIES = ["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD"]
 
+# Tier-1 / tier-2 macro releases — used to assign an impact rating when the
+# source (e.g. FRED) does not carry one. A market-moving release is HIGH; a
+# secondary indicator is MEDIUM; everything else stays LOW.
+_HIGH_IMPACT_INDICATORS = {
+    "NFP", "CPI", "CORE_CPI", "PCE", "CORE_PCE", "GDP", "UNEMPLOYMENT",
+    "INTEREST_RATE", "RATE_DECISION", "FOMC",
+}
+_MEDIUM_IMPACT_INDICATORS = {
+    "RETAIL_SALES", "JOBLESS_CLAIMS", "CONSUMER_CONF", "PMI", "ISM",
+    "PPI", "DURABLE_GOODS", "TRADE_BALANCE",
+}
+_HIGH_IMPACT_NAME_HINTS = (
+    "NON-FARM", "NONFARM", "PAYROLL", "RATE DECISION", "RATE STATEMENT",
+    "FOMC", "CPI", "GDP", "UNEMPLOYMENT RATE", "PCE PRICE",
+)
+
+
+def classify_impact(indicator: Optional[str], name: Optional[str]) -> str:
+    ind = (indicator or "").upper().strip()
+    if ind in _HIGH_IMPACT_INDICATORS:
+        return "HIGH"
+    if ind in _MEDIUM_IMPACT_INDICATORS:
+        return "MEDIUM"
+    nm = (name or "").upper()
+    if any(h in nm for h in _HIGH_IMPACT_NAME_HINTS):
+        return "HIGH"
+    return "LOW"
+
 
 def _num(value: Any) -> Optional[float]:
     """Parse a possibly-formatted number ("+0.3%", "225K", "3.2") -> float, or None."""
@@ -100,10 +128,17 @@ def normalize_event(raw: Dict[str, Any], *, provider: str, is_live: bool) -> Opt
     country_raw = str(raw.get("country") or "").strip()
     currency = str(raw.get("currency") or "").strip().upper()
     if not currency:
-        currency = _CCY_BY_COUNTRY.get(country_raw.upper(), "")
+        cu = country_raw.upper()
+        currency = (
+            cu if cu in SUPPORTED_CURRENCIES else _CCY_BY_COUNTRY.get(cu, "")
+        )
 
+    _indicator = str(raw.get("metric") or raw.get("indicator") or "").upper() or None
     impact_raw = str(raw.get("impact_level") or raw.get("impact") or raw.get("importance") or "").strip().upper()
-    impact = _IMPACT_MAP.get(impact_raw, "MEDIUM" if impact_raw else "LOW")
+    if impact_raw:
+        impact = _IMPACT_MAP.get(impact_raw, "MEDIUM")
+    else:
+        impact = classify_impact(_indicator, name)
 
     actual = _num(raw.get("actual"))
     forecast = _num(raw.get("forecast") if raw.get("forecast") is not None else raw.get("consensus"))
@@ -118,7 +153,7 @@ def normalize_event(raw: Dict[str, Any], *, provider: str, is_live: bool) -> Opt
         "country": country_raw or None,
         "currency": currency or None,
         "event": str(name),
-        "indicator": str(raw.get("metric") or raw.get("indicator") or "").upper() or None,
+        "indicator": _indicator,
         "category": str(raw.get("category") or raw.get("family") or "").upper() or None,
         "impact": impact,
         "actual": actual,

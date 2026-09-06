@@ -92,7 +92,7 @@ def test_hydrate_registers_normalized_records(fred):
     assert cpi
     r = cpi[-1]
     assert r.country == "USD"
-    assert r.unit == "%"
+    assert r.unit == "% YoY"   # descriptive label — CPIAUCSL is pulled as pc1 (year-over-year)
     assert r.source.startswith("FRED:CPIAUCSL")
     assert r.source_timestamp  # retrieved_at
     assert r.period.count("-") == 1  # observation period, YYYY-MM

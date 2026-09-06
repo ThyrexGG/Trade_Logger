@@ -27,6 +27,12 @@ export interface MacroEnvelope {
   cot_status?: ProviderHealth | null
   forecast_status?: ProviderHealth | null
   sentiment_status?: ProviderHealth | null
+  calendar_status?: (ProviderHealth & {
+    events_cached?: number
+    scheduled_ahead?: number
+    loaded_from?: string | null
+    last_refresh_utc?: string | null
+  }) | null
   available: boolean
   disclaimer?: string | null
   timestamp: string

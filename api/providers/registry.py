@@ -205,11 +205,17 @@ def _sentiment_factory():
     return get_sentiment_provider()
 
 
+def _calendar_factory():
+    from api.providers.calendar_provider import get_calendar_provider
+    return get_calendar_provider()
+
+
 def _register_builtin_providers() -> None:
     MacroProviderRegistry.register("fred", _fred_factory)
     MacroProviderRegistry.register("cftc", _cftc_factory)
     MacroProviderRegistry.register("forecast", _forecast_factory)
     MacroProviderRegistry.register("sentiment", _sentiment_factory)
+    MacroProviderRegistry.register("calendar", _calendar_factory)
 
 
 _register_builtin_providers()

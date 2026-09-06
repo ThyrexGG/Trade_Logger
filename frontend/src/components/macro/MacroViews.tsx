@@ -61,6 +61,9 @@ export function ProvenanceBanner({ env }: { env: ProvEnv | null }) {
             {age != null ? ` · updated ${Math.round(age / 60)} min ago` : ''}
             {' '}· consensus forecast{env.forecast_status?.configured ? '' : ' not configured'} (surprise
             {env.forecast_status?.configured ? '' : ' = n/a'})
+            {env.calendar_status && (env.calendar_status.events_cached ?? 0) > 0
+              ? ` · calendar: ${env.calendar_status.provider} (${env.calendar_status.scheduled_ahead ?? 0} ahead)`
+              : ''}
             {env.cot_status?.provider_state === 'LIVE' ? ' · COT: CFTC live' : ''}
           </>
         ) : outage ? (
@@ -235,6 +238,7 @@ export function MacroCalendar({ data }: { data: MacroEventsResponse }) {
                 <th className="px-2 py-1 text-right font-medium">Previous</th>
                 <th className="px-2 py-1 text-left font-medium">Surprise</th>
                 <th className="px-2 py-1 text-left font-medium">Status</th>
+                <th className="px-2 py-1 text-left font-medium">Source</th>
               </tr>
             </thead>
             <tbody>
@@ -257,6 +261,7 @@ export function MacroCalendar({ data }: { data: MacroEventsResponse }) {
                     )}
                   </td>
                   <td className="px-2 py-1 font-mono text-muted">{e.status}</td>
+                  <td className="px-2 py-1 text-[10px] text-muted">{e.source ?? e.provider}</td>
                 </tr>
               ))}
             </tbody>

@@ -48,55 +48,55 @@ _FRED_BASE = "https://api.stlouisfed.org/fred/series/observations"
 #   lin = level (as published)
 _SERIES: Dict[str, Dict[str, Tuple[str, str, str]]] = {
     "USD": {
-        "CPI":            ("CPIAUCSL", "pc1", "%"),
-        "CORE_CPI":       ("CPILFESL", "pc1", "%"),
-        "PCE":            ("PCEPI", "pc1", "%"),
-        "CORE_PCE":       ("PCEPILFE", "pc1", "%"),
-        "GDP":            ("A191RL1Q225SBEA", "lin", "% ann."),
-        "RETAIL_SALES":   ("RSAFS", "pc1", "%"),
+        "CPI":            ("CPIAUCSL", "pc1", "% YoY"),
+        "CORE_CPI":       ("CPILFESL", "pc1", "% YoY"),
+        "PCE":            ("PCEPI", "pc1", "% YoY"),
+        "CORE_PCE":       ("PCEPILFE", "pc1", "% YoY"),
+        "GDP":            ("A191RL1Q225SBEA", "lin", "% ann. (QoQ)"),
+        "RETAIL_SALES":   ("RSAFS", "pc1", "% YoY"),
         "CONSUMER_CONF":  ("UMCSENT", "lin", "index"),
         "UNEMPLOYMENT":   ("UNRATE", "lin", "%"),
-        "NFP":            ("PAYEMS", "chg", "k"),
-        "JOBLESS_CLAIMS": ("ICSA", "lin", ""),
-        "INTEREST_RATE":  ("DFEDTARU", "lin", "%"),
+        "NFP":            ("PAYEMS", "chg", "k jobs (MoM chg)"),
+        "JOBLESS_CLAIMS": ("ICSA", "lin", "claims"),
+        "INTEREST_RATE":  ("DFEDTARU", "lin", "% (Fed target upper)"),
         "YIELD_2Y":       ("DGS2", "lin", "%"),
         "YIELD_10Y":      ("DGS10", "lin", "%"),
     },
     "EUR": {
-        "CPI":           ("CP0000EZ19M086NEST", "pc1", "%"),
-        "GDP":           ("CLVMNACSCAB1GQEA19", "pc1", "%"),
+        "CPI":           ("CP0000EZ19M086NEST", "pc1", "% YoY"),
+        "GDP":           ("CLVMNACSCAB1GQEA19", "pc1", "% YoY"),
         "UNEMPLOYMENT":  ("LRHUTTTTEZM156S", "lin", "%"),
         "INTEREST_RATE": ("ECBDFR", "lin", "%"),
     },
     "GBP": {
-        "CPI":           ("GBRCPIALLMINMEI", "pc1", "%"),
-        "GDP":           ("CLVMNACSCAB1GQUK", "pc1", "%"),
+        "CPI":           ("GBRCPIALLMINMEI", "pc1", "% YoY"),
+        "GDP":           ("CLVMNACSCAB1GQUK", "pc1", "% YoY"),
         "UNEMPLOYMENT":  ("LRHUTTTTGBM156S", "lin", "%"),
         # IRSTCB01GBM156N was discontinued by FRED — 3-month interbank rate instead
         "INTEREST_RATE": ("IR3TIB01GBM156N", "lin", "%"),
     },
     "JPY": {
-        "CPI":           ("JPNCPIALLMINMEI", "pc1", "%"),
-        "GDP":           ("JPNRGDPEXP", "pc1", "%"),
+        "CPI":           ("JPNCPIALLMINMEI", "pc1", "% YoY"),
+        "GDP":           ("JPNRGDPEXP", "pc1", "% YoY"),
         "UNEMPLOYMENT":  ("LRUNTTTTJPM156S", "lin", "%"),
         "INTEREST_RATE": ("IRSTCB01JPM156N", "lin", "%"),
     },
     "CAD": {
-        "CPI":           ("CANCPIALLMINMEI", "pc1", "%"),
+        "CPI":           ("CANCPIALLMINMEI", "pc1", "% YoY"),
         "UNEMPLOYMENT":  ("LRUNTTTTCAM156S", "lin", "%"),
         "INTEREST_RATE": ("IRSTCB01CAM156N", "lin", "%"),
     },
     "AUD": {
-        "CPI":           ("AUSCPIALLQINMEI", "pc1", "%"),
+        "CPI":           ("AUSCPIALLQINMEI", "pc1", "% YoY"),
         "UNEMPLOYMENT":  ("LRUNTTTTAUM156S", "lin", "%"),
         "INTEREST_RATE": ("IR3TIB01AUM156N", "lin", "%"),
     },
     "NZD": {
-        "CPI":          ("NZLCPIALLQINMEI", "pc1", "%"),
+        "CPI":          ("NZLCPIALLQINMEI", "pc1", "% YoY"),
         "UNEMPLOYMENT": ("LRHUTTTTNZQ156S", "lin", "%"),
     },
     "CHF": {
-        "CPI":           ("CHECPIALLMINMEI", "pc1", "%"),
+        "CPI":           ("CHECPIALLMINMEI", "pc1", "% YoY"),
         # LRHUTTTTCHM156S (monthly) and IRSTCB01CHM156N were discontinued by FRED
         "UNEMPLOYMENT":  ("LRHUTTTTCHQ156S", "lin", "%"),   # quarterly harmonised rate
         "INTEREST_RATE": ("IR3TIB01CHM156N", "lin", "%"),   # 3-month interbank rate

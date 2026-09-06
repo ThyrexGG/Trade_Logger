@@ -86,6 +86,15 @@ def _warm_up() -> None:
         except Exception:
             pass
 
+    # Stage 18G — prime the economic-calendar provider (ForexFactory / FMP) so
+    # the first macro request has a calendar and a fresh last-good snapshot.
+    if (_os.getenv("MACRO_CALENDAR_PROVIDER") or "").strip().lower() != "none":
+        try:
+            from api.providers.calendar_provider import get_calendar_provider
+            get_calendar_provider().hydrate()
+        except Exception:
+            pass
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):

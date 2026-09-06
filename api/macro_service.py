@@ -52,6 +52,37 @@ def _provider_meta() -> Dict[str, Any]:
         }
 
 
+def _calendar_key(ev: Dict[str, Any]) -> tuple:
+    """Loose identity for de-duping a calendar row against an observation row:
+    same currency, same indicator (or event name), same calendar day."""
+    ind = (ev.get("indicator") or ev.get("event") or "").upper().strip()
+    return ((ev.get("currency") or ev.get("country") or "").upper(), ind,
+            (ev.get("timestamp") or "")[:10])
+
+
+def _merge_calendar_events(base: List[Dict[str, Any]], s: date, e: date) -> List[Dict[str, Any]]:
+    """Fold the ForexFactory calendar (scheduled events + forecast + impact +
+    real times) into the base provider's rows. FF wins a collision because it
+    carries the schedule, the consensus and a real impact rating; the base
+    (FRED) row stays when FF has nothing for that identity. Never raises."""
+    try:
+        from api.providers.calendar_provider import calendar_enabled, get_calendar_provider
+    except Exception:  # pragma: no cover - defensive
+        return base
+    if not calendar_enabled():
+        return base
+    try:
+        cal = get_calendar_provider().get_events(s, e)
+    except Exception:  # pragma: no cover - defensive
+        return base
+    if not cal:
+        return base
+
+    cal_keys = {_calendar_key(ev) for ev in cal}
+    kept = [ev for ev in base if _calendar_key(ev) not in cal_keys]
+    return kept + list(cal)
+
+
 # --- events ------------------------------------------------------------
 def get_events(
     *,
@@ -73,7 +104,8 @@ def get_events(
         s = _pdate(start) or (today - timedelta(days=30))
         e = _pdate(end) or (today + timedelta(days=14))
 
-    events = get_provider().get_events(s, e)
+    events = list(get_provider().get_events(s, e))
+    events = _merge_calendar_events(events, s, e)
 
     cf = (currency or "").upper().strip()
     co = (country or "").upper().strip()
