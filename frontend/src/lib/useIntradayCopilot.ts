@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { getIntradayCopilot } from '../api/intradayCopilot'
 import type { IntradayCopilotResponse } from '../types/intradayCopilot'
 import type { LoadState } from './useWatchlist'
@@ -16,11 +16,17 @@ export function useIntradayCopilot() {
   const [data, setData] = useState<IntradayCopilotResponse | null>(cached)
   const [state, setState] = useState<LoadState>(cached ? 'ready' : 'loading')
   const [error, setError] = useState<string | null>(null)
-  const started = useRef(false)
 
   useEffect(() => {
-    if (cached || started.current) return
-    started.current = true
+    if (cached) {
+      setData(cached)
+      setState('ready')
+      return
+    }
+    // No `started` guard: under React StrictMode the first run's effect is torn
+    // down (aborting its request) and re-run. A ref guard would block that
+    // second run and leave the hook stuck on `loading` forever. The module-level
+    // `cached` is what dedupes across separate consumers.
     const controller = new AbortController()
     getIntradayCopilot(controller.signal)
       .then((r) => {
