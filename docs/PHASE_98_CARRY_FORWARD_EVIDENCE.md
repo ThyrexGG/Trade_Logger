@@ -74,16 +74,44 @@ verdict, snapshot history). GET-only; `NOT_COMPUTED` until
 
 ## Operating it
 
+Manually:
+
 ```
 python -m phase98_carry_forward_evidence --refresh
 ```
 
-Run weekly (e.g. every Saturday). Each run ingests the past week's crypto
-data, extends the forward ledger, appends a snapshot, and updates the
-verdict. When the verdict reaches `FORWARD_EVIDENCE_CONFIRMING`, the
-Phase-97 allocation has a real out-of-sample track record and can be
-considered for a small live allocation. If it ever reads
-`FORWARD_EVIDENCE_DIVERGING`, stop.
+Each run ingests the past week's crypto data, extends the forward ledger,
+appends a snapshot, and updates the verdict. When the verdict reaches
+`FORWARD_EVIDENCE_CONFIRMING`, the Phase-97 allocation has a real
+out-of-sample track record and can be considered for a small live
+allocation. If it ever reads `FORWARD_EVIDENCE_DIVERGING`, stop.
+
+### Automating the weekly run
+
+`phase98_forward_daemon.py` is a thin scheduler wrapper (no strategy
+logic, no execution). It decides *when* to call the harness and logs the
+outcome to `phase98_daemon_log.txt`.
+
+- `python phase98_forward_daemon.py --once` — run the harness **iff** a
+  weekly run is due (≥ 7 days since the last snapshot), then exit.
+- `python phase98_forward_daemon.py --loop` — run forever, checking every
+  6 hours.
+- `python phase98_forward_daemon.py --status` — print whether a run is due.
+
+**Windows Task Scheduler** (recommended — survives reboots, no terminal):
+
+```
+powershell -ExecutionPolicy Bypass -File register_phase98_weekly.ps1
+```
+
+This registers a task that runs `--once` **daily at 10:00**; the daemon's
+internal 7-day gate means the harness itself only actually runs once a
+week, and a missed day (laptop asleep) is caught up on the next trigger.
+
+Remove it with:
+```
+Unregister-ScheduledTask -TaskName "TradeLogger Phase98 Forward Evidence" -Confirm:$false
+```
 
 ## Next
 
