@@ -49,6 +49,11 @@ def get_account_state(account_type="MT5"):
 
     if account_type.upper() == "MT5":
         try:
+            import mt5_gate
+            if not mt5_gate.is_mt5_enabled():
+                state["message"] = "Live MT5 data is switched off"
+                return state
+
             import mt5_sync
             if not mt5_sync.MT5_AVAILABLE:
                 state["message"] = "MT5 not available on this platform"

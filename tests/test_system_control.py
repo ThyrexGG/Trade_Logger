@@ -67,5 +67,43 @@ def test_mt5_branch_is_gated_by_the_flag(monkeypatch):
     assert touched["mt5"] is False
 
 
+def test_account_state_short_circuits_when_switch_off():
+    """account_state.get_account_state('MT5') must not call MetaTrader5 when
+    the master switch is off — it launches the terminal."""
+    import account_state
+    market_data.set_live_market_data_enabled(False)
+    state = account_state.get_account_state("MT5")
+    assert "switched off" in (state.get("message") or "").lower()
+
+
+def test_mt5_provider_connect_refuses_when_switch_off(monkeypatch):
+    import mt5_provider
+    market_data.set_live_market_data_enabled(False)
+    called = {"init": False}
+    monkeypatch.setattr(mt5_provider, "_available", lambda: True)
+    if mt5_provider._mt5 is not None:
+        monkeypatch.setattr(mt5_provider._mt5, "initialize",
+                            lambda *a, **k: called.__setitem__("init", True) or True)
+    assert mt5_provider._connect() is False
+    assert called["init"] is False
+
+
+def test_mt5_sync_skips_when_switch_off():
+    import mt5_sync
+    if not mt5_sync.MT5_AVAILABLE:
+        return
+    market_data.set_live_market_data_enabled(False)
+    assert mt5_sync.sync_mt5() is False
+
+
+def test_shared_gate_and_market_data_alias_agree():
+    import mt5_gate
+    market_data.set_live_market_data_enabled(False)
+    assert mt5_gate.is_mt5_enabled() is False
+    assert market_data.is_live_market_data_enabled() is False
+    market_data.set_live_market_data_enabled(True)
+    assert mt5_gate.is_mt5_enabled() is True
+
+
 def test_post_is_rejected():
     assert client.post("/api/system/market-data").status_code == 405

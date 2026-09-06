@@ -85,7 +85,13 @@ def run_auto_sync():
                     
                     # Fetch current live price for symbol via MT5 or Capital.com
                     current_price = None
-                    if mt5_sync.MT5_AVAILABLE:
+                    _mt5_ok = mt5_sync.MT5_AVAILABLE
+                    try:
+                        import mt5_gate
+                        _mt5_ok = _mt5_ok and mt5_gate.is_mt5_enabled()
+                    except Exception:
+                        pass
+                    if _mt5_ok:
                         try:
                             import MetaTrader5 as mt5
                             tick = mt5.symbol_info_tick(sym)

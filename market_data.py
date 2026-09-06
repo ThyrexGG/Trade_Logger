@@ -21,33 +21,21 @@ _TICK_CACHE: Dict[str, Any] = {}
 # Read-only: this switch only governs where quotes come from; it has no
 # effect on execution / broker transmission (permanently BLOCKED).
 # --------------------------------------------------------------------------
-_LIVE_DATA_SETTING_KEY = "market_data_live_enabled"
-_LIVE_DATA_FLAG_CACHE: Dict[str, Any] = {"value": True, "at": 0.0}
-_LIVE_DATA_FLAG_TTL = 3.0
+# The live-MT5 switch now lives in `mt5_gate` so that every module that can
+# launch the terminal (account_state, mt5_provider, mt5_sync, ...) consults the
+# same flag. These names are kept as thin aliases for existing callers
+# (the system-control router, tests).
+import mt5_gate
+
+_LIVE_DATA_SETTING_KEY = mt5_gate.SETTING_KEY
 
 
 def is_live_market_data_enabled() -> bool:
-    now_t = time.time()
-    if now_t - _LIVE_DATA_FLAG_CACHE["at"] < _LIVE_DATA_FLAG_TTL:
-        return bool(_LIVE_DATA_FLAG_CACHE["value"])
-    val = True
-    try:
-        import database
-        raw = database.get_setting(_LIVE_DATA_SETTING_KEY, "true")
-        val = (raw or "true").strip().lower() != "false"
-    except Exception:
-        val = True
-    _LIVE_DATA_FLAG_CACHE["value"] = val
-    _LIVE_DATA_FLAG_CACHE["at"] = now_t
-    return val
+    return mt5_gate.is_mt5_enabled()
 
 
 def set_live_market_data_enabled(enabled: bool) -> bool:
-    import database
-    database.set_setting(_LIVE_DATA_SETTING_KEY, "true" if enabled else "false")
-    _LIVE_DATA_FLAG_CACHE["value"] = bool(enabled)
-    _LIVE_DATA_FLAG_CACHE["at"] = time.time()
-    return bool(enabled)
+    return mt5_gate.set_mt5_enabled(enabled)
 
 # Records which upstream last served a given candle cache_key: one of
 # "mt5" | "binance" | "yahoo" | "synthetic_fallback". Lets the Phase-68 historical

@@ -32,6 +32,16 @@ def sync_mt5():
         print("MetaTrader5 is not available on this platform (Linux/Cloud). MT5 sync only works locally on Windows.")
         return False
 
+    # Guard: the live-MT5 master switch. When off, do not touch the terminal
+    # (mt5.initialize() would launch it). Capital.com sync is unaffected.
+    try:
+        import mt5_gate
+        if not mt5_gate.is_mt5_enabled():
+            print("Live MT5 data is switched off (app_settings) -- skipping MT5 sync.")
+            return False
+    except Exception:
+        pass
+
     # Initialize MT5 connection
     login_str = os.getenv("MT5_LOGIN", "")
     password = os.getenv("MT5_PASSWORD", "")

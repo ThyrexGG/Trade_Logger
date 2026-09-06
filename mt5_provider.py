@@ -87,6 +87,12 @@ def _available() -> bool:
 def _connect() -> bool:
     if not _available():
         return False
+    try:
+        import mt5_gate
+        if not mt5_gate.is_mt5_enabled():
+            return False
+    except Exception:
+        pass
     with _LOCK:
         login = os.getenv("MT5_LOGIN")
         server = os.getenv("MT5_SERVER")
