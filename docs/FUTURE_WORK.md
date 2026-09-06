@@ -3,6 +3,11 @@
 *Maintained as the backlog. Nothing here is an active task — the next phase is
 chosen separately from the stabilized current state.*
 
+> **Web / mobile / online:** the platform plan for going online and mobile-usable
+> (AI tool-calling, Streamlit decouple, auth, streaming, PWA, Alembic, deploy) is
+> in **`docs/WEB_MOBILE_PLATFORM_PLAN.md`** — 7 workstreams with sequencing and
+> open decisions.
+
 ---
 
 ## CURRENTLY IMPLEMENTED
