@@ -16,7 +16,7 @@ from api.main import app
 
 client = TestClient(app)
 
-EDITABLE = ("setup_tag", "notes", "chart_snapshot_url")
+EDITABLE = ("setup_tag", "notes", "chart_snapshot_url", "rating")
 IMMUTABLE_SAMPLE = {
     "symbol": "FAKE/USD",
     "direction": "SELL",
@@ -27,7 +27,6 @@ IMMUTABLE_SAMPLE = {
     "trade_id": "hacked",
     "account_id": "ATTACKER",
     "exit_time": "1970-01-01T00:00:00",
-    "rating": 5,
 }
 
 
