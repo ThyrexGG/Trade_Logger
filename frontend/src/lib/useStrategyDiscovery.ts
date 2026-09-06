@@ -14,9 +14,13 @@ import type {
 import type { LoadState } from './useWatchlist'
 
 /**
- * One batched read of the Phase 69/70 research surface — historical coverage,
- * strategy definitions, the persisted pair-ranking artifact, and the Gold
- * baseline. `Promise.allSettled`, not a fan-out. Read-only.
+ * Read of the Phase 69/70 research surface — historical coverage, strategy
+ * definitions, the persisted pair-ranking artifact, and the Gold baseline.
+ *
+ * Each of the four calls is applied to state the moment it resolves — a slow
+ * or hanging call (historical coverage against a remote store can take tens of
+ * seconds) never blocks the fast ones. The page becomes usable as soon as the
+ * first result lands. Read-only.
  */
 export function useStrategyDiscovery() {
   const [coverage, setCoverage] = useState<HistoricalCoverageResponse | null>(null)
@@ -36,30 +40,26 @@ export function useStrategyDiscovery() {
     const s = controller.signal
     if (!hasData.current) setState('loading')
 
-    Promise.allSettled([
-      getHistoricalCoverage(s),
-      getStrategies(s),
-      getPairRanking(s),
-      getGoldBaseline(s),
-    ]).then((res) => {
+    let settled = 0
+    let anyOk = false
+    const done = (ok: boolean, reason?: unknown) => {
       if (disposed || s.aborted) return
-      const [cov, str, rank, g] = res
-      if (cov.status === 'fulfilled') setCoverage(cov.value)
-      if (str.status === 'fulfilled') setStrategies(str.value)
-      if (rank.status === 'fulfilled') setRanking(rank.value)
-      if (g.status === 'fulfilled') setGold(g.value)
-
-      const anyOk = res.some((r) => r.status === 'fulfilled')
-      if (anyOk) {
-        setState('ready')
+      settled += 1
+      if (ok) {
+        anyOk = true
         hasData.current = true
+        setState('ready')
         setError(null)
-      } else {
-        const first = res.find((r) => r.status === 'rejected') as PromiseRejectedResult | undefined
-        setError(String(first?.reason?.message ?? first?.reason ?? 'request failed'))
-        if (!hasData.current) setState('error')
+      } else if (!anyOk) {
+        setError(String((reason as Error)?.message ?? reason ?? 'request failed'))
+        if (settled === 4 && !hasData.current) setState('error')
       }
-    })
+    }
+
+    getPairRanking(s).then((v) => { if (!disposed && !s.aborted) setRanking(v); done(true) }, (e) => done(false, e))
+    getStrategies(s).then((v) => { if (!disposed && !s.aborted) setStrategies(v); done(true) }, (e) => done(false, e))
+    getGoldBaseline(s).then((v) => { if (!disposed && !s.aborted) setGold(v); done(true) }, (e) => done(false, e))
+    getHistoricalCoverage(s).then((v) => { if (!disposed && !s.aborted) setCoverage(v); done(true) }, (e) => done(false, e))
 
     return () => {
       disposed = true

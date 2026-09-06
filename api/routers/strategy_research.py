@@ -12,6 +12,8 @@ produced by the authoritative Python engines and merely serialized.
 """
 from __future__ import annotations
 
+import threading
+import time
 from datetime import datetime, timezone
 from typing import Any, Dict
 
@@ -26,10 +28,21 @@ router = APIRouter(prefix="/api/research", tags=["Strategy Research"])
 
 _SAFETY = {"live_automation_enabled": False, "live_broker_transmission": "BLOCKED"}
 
+# The coverage payload is expensive to build (~1.5s of remote-store work per
+# instrument x timeframe: a coverage query plus a gap analysis, ~50s total) and
+# only changes when the OHLCV store is re-ingested — minutes-to-hours apart.
+#
+# Strategy: serve a DB-persisted snapshot instantly (stale-while-revalidate).
+# When the snapshot is older than the TTL a single background thread rebuilds
+# and re-persists it. Only the very first call on a fresh database pays the
+# full cost synchronously.
+_COVERAGE_ARTIFACT_KEY = "research_historical_coverage_snapshot"
+_COVERAGE_TTL_SEC = 900.0
+_coverage_mem: Dict[str, Any] = {"payload": None, "at": 0.0}
+_coverage_rebuilding = threading.Lock()
 
-@router.get("/historical/coverage", response_model=HistoricalCoverageResponse)
-def get_historical_coverage() -> HistoricalCoverageResponse:
-    """Persistent OHLCV store coverage + per-instrument/timeframe sufficiency."""
+
+def _build_coverage_payload() -> HistoricalCoverageResponse:
     available = store.list_available()
     sufficiency = []
     for inst in research_universe.universe():
@@ -45,6 +58,62 @@ def get_historical_coverage() -> HistoricalCoverageResponse:
         notes=research_universe.TIMEFRAME_DATA_NOTE,
         safety_barrier=_SAFETY,
     )
+
+
+def _persist_coverage(payload: HistoricalCoverageResponse) -> None:
+    _coverage_mem["payload"] = payload
+    _coverage_mem["at"] = time.time()
+    try:
+        store.save_artifact(_COVERAGE_ARTIFACT_KEY, "coverage_snapshot", payload.model_dump())
+    except Exception:
+        pass  # a persist failure just means the next call rebuilds — not fatal
+
+
+def _rebuild_coverage_in_background() -> None:
+    if not _coverage_rebuilding.acquire(blocking=False):
+        return
+    def _work() -> None:
+        try:
+            _persist_coverage(_build_coverage_payload())
+        finally:
+            _coverage_rebuilding.release()
+    threading.Thread(target=_work, name="coverage-rebuild", daemon=True).start()
+
+
+@router.get("/historical/coverage", response_model=HistoricalCoverageResponse)
+def get_historical_coverage(refresh: bool = False) -> HistoricalCoverageResponse:
+    """Persistent OHLCV store coverage + per-instrument/timeframe sufficiency.
+
+    Serves a persisted snapshot immediately and refreshes it in the background
+    once it is older than 15 minutes. `?refresh=true` forces a synchronous
+    rebuild."""
+    if refresh:
+        payload = _build_coverage_payload()
+        _persist_coverage(payload)
+        return payload
+
+    mem = _coverage_mem["payload"]
+    if mem is not None:
+        if time.time() - _coverage_mem["at"] >= _COVERAGE_TTL_SEC:
+            _rebuild_coverage_in_background()
+        return mem
+
+    # cold process — try the DB snapshot before paying the full cost
+    try:
+        art = store.load_artifact(_COVERAGE_ARTIFACT_KEY)
+    except Exception:
+        art = None
+    if art and art.get("payload"):
+        payload = HistoricalCoverageResponse(**art["payload"])
+        _coverage_mem["payload"] = payload
+        _coverage_mem["at"] = time.time()
+        _rebuild_coverage_in_background()
+        return payload
+
+    # first call on a fresh database — build synchronously and persist
+    payload = _build_coverage_payload()
+    _persist_coverage(payload)
+    return payload
 
 
 @router.get("/data-coverage")
