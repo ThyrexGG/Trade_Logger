@@ -60,7 +60,10 @@ export function CryptoCarryPage() {
       {/* ---- Usability verdict (Phase 97) ---- */}
       {book ? (
         <div className="mt-4">
-          <SectionCard title="Verdict — is this a usable edge?">
+          <SectionCard
+            title="Verdict — is this a usable edge?"
+            info="The bottom line from the research: is delta-neutral crypto funding carry worth allocating to, and how much? This is the one strategy out of ~100 phases that came back as actually usable — modest (~2%/yr over cash), uncorrelated, and survivable."
+          >
             {book.state === 'AVAILABLE' && book.usability_verdict ? (
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
@@ -83,7 +86,10 @@ export function CryptoCarryPage() {
       {/* ---- Recommended book (Phase 97) ---- */}
       {rb ? (
         <div className="mt-4">
-          <SectionCard title="Recommended book">
+          <SectionCard
+            title="Recommended book"
+            info="How to split capital: put ~25% into the delta-neutral carry (spread across at least 2 exchanges so one failing can't sink you), leave 75% in cash. The metrics are the historical performance of that blend before the tail-risk haircut."
+          >
             <div className="mb-3">
               <div className="flex items-baseline justify-between text-[11px]">
                 <span className="font-mono text-positive">Funding carry {pct(rb.allocation.funding_carry, 0)}</span>
@@ -126,6 +132,7 @@ export function CryptoCarryPage() {
       <div className="mt-4">
         <SectionCard
           title="Forward evidence tracker"
+          info="Since the go-live date, is the strategy actually delivering what the backtest promised? Each week you run the refresh, this compares real forward returns against the backtest reference. It needs 12 weeks before a call and 26 to confirm. The backtest is survivorship-biased, so this is the real test."
           action={forward?.verdict ? <SentimentBadge value={forward.verdict} hint="caution" /> : null}
         >
           {forward?.state === 'AVAILABLE' && led ? (
@@ -233,7 +240,10 @@ export function CryptoCarryPage() {
       {/* ---- Edge test (Phase 96) — secondary ---- */}
       {edge?.state === 'AVAILABLE' ? (
         <div className="mt-4">
-          <SectionCard title="Edge test (Phase 96)">
+          <SectionCard
+            title="Edge test (Phase 96)"
+            info="The original backtest that established the edge: net Sharpe across a cost ladder, how it holds up under adverse assumptions, whether funding stays positive per coin, the BTC beta (delta-neutrality check), and whether it beats a random-entry placebo. BASE = normal costs, ADVERSE = doubled."
+          >
             <details>
               <summary className="cursor-pointer text-[11px] text-muted">
                 {edge.edge_verdict} — how the backtested edge was judged
@@ -241,27 +251,27 @@ export function CryptoCarryPage() {
               <div className="mt-3 space-y-3">
                 <p className="text-[11px] leading-relaxed text-secondary">{edge.edge_reason}</p>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  <MetricCard label="Sharpe (BASE)" value={num(edge.headline_base?.sharpe)} />
-                  <MetricCard label="Sharpe (ADVERSE)" value={num(edge.headline_adverse?.sharpe)} />
-                  <MetricCard label="CAGR (BASE)" value={pct(edge.headline_base?.cagr)} />
-                  <MetricCard label="Max DD (BASE)" value={pct(edge.headline_base?.max_drawdown)} />
+                  <MetricCard label={<InfoTip text="Return above cash ÷ volatility, with normal trading costs. >2 is very good.">Sharpe (BASE)</InfoTip>} value={num(edge.headline_base?.sharpe)} />
+                  <MetricCard label={<InfoTip text="Same Sharpe but with trading costs doubled — a stress test.">Sharpe (ADVERSE)</InfoTip>} value={num(edge.headline_adverse?.sharpe)} />
+                  <MetricCard label={<InfoTip text="Compound annual growth of the carry sleeve alone, normal costs.">CAGR (BASE)</InfoTip>} value={pct(edge.headline_base?.cagr)} />
+                  <MetricCard label={<InfoTip text="Deepest peak-to-trough drop of the carry sleeve, normal costs.">Max DD (BASE)</InfoTip>} value={pct(edge.headline_base?.max_drawdown)} />
                   <MetricCard
-                    label="Funding persistence"
+                    label={<InfoTip text="How reliably each coin's funding stays positive month to month. Higher = the carry is repeatable, not a fluke.">Funding persistence</InfoTip>}
                     value={num(edge.controls?.funding_persistence?.pooled_corr)}
                     sub={`${edge.controls?.funding_persistence?.n_coin_positive ?? '—'}/27 coins positive`}
                   />
                   <MetricCard
-                    label="BTC beta"
+                    label={<InfoTip text="How much the book moves for a 1% Bitcoin move. Near zero = genuinely delta-neutral; price direction doesn't matter.">BTC beta</InfoTip>}
                     value={num(edge.controls?.delta_neutrality_check?.btc?.beta, 3)}
                     sub="delta-neutrality check"
                   />
                   <MetricCard
-                    label="Placebo percentile"
+                    label={<InfoTip text="Where the real strategy's Sharpe sits vs 300 random-entry placebos. 100% = it beat every placebo; p is the chance the edge is luck.">Placebo percentile</InfoTip>}
                     value={pct(edge.controls?.random_eligibility_placebo?.real_percentile, 0)}
                     sub={`p=${num(edge.controls?.random_eligibility_placebo?.empirical_p_one_sided, 3)}`}
                   />
                   <MetricCard
-                    label="Positive years"
+                    label={<InfoTip text="How many calendar years the sleeve finished green out of the years tested.">Positive years</InfoTip>}
                     value={`${edge.headline_base?.positive_years ?? '—'}/${edge.headline_base?.n_years ?? '—'}`}
                   />
                 </div>
@@ -304,6 +314,15 @@ export function CryptoCarryPage() {
   )
 }
 
+const CMP_TIP: Record<string, string> = {
+  'Weeks': 'How many weeks of data each column covers. The forward column grows by one each weekly refresh.',
+  'Ann. funding': 'Annualised funding yield collected — the raw engine of the carry, before costs and basis.',
+  'Ann. return (net)': 'Annualised return after costs and basis drag. This is what actually lands in the account.',
+  'Sharpe': 'Return above cash ÷ volatility. If the forward Sharpe is well below the backtest, the edge is decaying.',
+  'Positive weeks': 'Share of weeks that closed green. Carry should be positive most weeks.',
+  'Cumulative': 'Total compounded return of the sleeve since the start of each window.',
+}
+
 function CmpRow({
   label,
   b,
@@ -315,9 +334,12 @@ function CmpRow({
   f: number | null
   fmt: (v: number) => string
 }) {
+  const tip = CMP_TIP[label]
   return (
     <tr className="border-t border-border-subtle/50">
-      <td className="py-1 pr-3 font-sans text-muted">{label}</td>
+      <td className="py-1 pr-3 font-sans text-muted">
+        {tip ? <InfoTip text={tip}>{label}</InfoTip> : label}
+      </td>
       <td className="py-1 pr-3 text-right tabular-nums text-secondary">{b === null ? '—' : fmt(b)}</td>
       <td className="py-1 text-right tabular-nums text-primary">{f === null ? '—' : fmt(f)}</td>
     </tr>

@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { ageSeconds, timeAgo } from '../../lib/format'
 import { toneArrow } from '../../lib/sentiment'
+import { InfoTip } from '../common/InfoTip'
 
 export type IntelTone = 'positive' | 'negative' | 'warning' | 'neutral'
 
@@ -195,11 +196,14 @@ export function ScoreBar({
 export function SectionCard({
   title,
   action,
+  info,
   children,
   className = '',
 }: {
   title: string
   action?: ReactNode
+  /** plain-English "what this section shows" — rendered as a hover "?" by the title */
+  info?: string
   children: ReactNode
   className?: string
 }) {
@@ -209,8 +213,9 @@ export function SectionCard({
       className={`rounded-lg border border-border bg-surface ${className}`}
     >
       <header className="flex items-center justify-between gap-2 border-b border-border-subtle px-4 py-2.5">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-secondary">
+        <h2 className="flex items-center text-xs font-semibold uppercase tracking-wider text-secondary">
           {title}
+          {info ? <InfoTip text={info} /> : null}
         </h2>
         {action}
       </header>

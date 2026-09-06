@@ -15,6 +15,17 @@ import {
   toneForIntel,
   type IntelTone,
 } from './primitives'
+import { InfoTip } from '../common/InfoTip'
+
+const CATEGORY_TIP: Record<string, string> = {
+  TECHNICAL: 'Price-action and indicator read (trend, momentum, key levels) from the candle data.',
+  SMC: 'Smart Money Concepts — market-structure shifts, liquidity sweeps and fair-value gaps.',
+  MACRO: 'The economy behind the instrument: growth, jobs and inflation vs trend and forecast.',
+  COT: 'CFTC Commitments of Traders — how large speculators are positioned. Crowded = potential turning point. Needs MACRO_COT_PROVIDER=cftc.',
+  REGIME: 'The cross-asset market state (risk-on / risk-off) inferred from DXY, equities, oil, yields and BTC. Needs ≥4 of those series.',
+  SEASONALITY: 'The average historical tendency of this instrument at this point in the calendar. Context only.',
+  SENTIMENT: 'Retail / crowd positioning from a broker feed. Not configured — no free redistributable source.',
+}
 
 /**
  * Unified Evidence Fusion panel (Phase 67). Consumes the single canonical
@@ -118,8 +129,9 @@ function Coverage({ snap }: { snap: AssetIntelligence }) {
   return (
     <div className="rounded-md border border-border-subtle bg-surface-elevated px-3 py-2">
       <div className="flex items-baseline justify-between text-xs">
-        <span className="font-semibold uppercase tracking-wide text-secondary">
+        <span className="flex items-center font-semibold uppercase tracking-wide text-secondary">
           Evidence coverage
+          <InfoTip text="How many of the 7 signal categories actually have live data right now. Higher = the fused read rests on more independent evidence. A missing provider is 'unavailable', not a bearish vote." />
         </span>
         <span className="font-mono tabular-nums text-primary">
           {c.available_categories}/{c.total_categories}
@@ -160,8 +172,11 @@ function CategoryCard({ cat }: { cat: EvidenceCategory }) {
         aria-expanded={open}
       >
         <span className="flex items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-secondary">
+          <span className="flex items-center text-xs font-semibold uppercase tracking-wide text-secondary">
             {cat.category}
+            {CATEGORY_TIP[cat.category?.toUpperCase()] ? (
+              <InfoTip text={CATEGORY_TIP[cat.category.toUpperCase()]} />
+            ) : null}
           </span>
           <IntelTag value={STATE_LABEL[cat.state] ?? cat.state} tone={tone} />
           {populated && cat.direction !== 'UNKNOWN' ? (
@@ -272,6 +287,7 @@ export function EvidenceFusionPanel({
   return (
     <SectionCard
       title="Unified Evidence"
+      info="One directional read for this instrument, built by fusing several independent signal categories — Technical (price/indicators), SMC (smart-money structure), Macro (economic strength), COT (large-speculator positioning), Regime (cross-asset risk state), Seasonality, and retail Sentiment. Each is scored and weighted. A category with no data provider shows 'unavailable' — that is NOT bearish and NOT neutral, it's just missing."
       action={
         <span className="flex items-center gap-2 text-[11px] text-muted">
           {data ? (
