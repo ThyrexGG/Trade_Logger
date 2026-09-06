@@ -136,6 +136,12 @@ export interface MacroEventsResponse extends MacroEnvelope {
   truncated: boolean
   events: MacroEvent[]
   filters_applied?: Record<string, string>
+  calendar?: {
+    calendar_source: string | null
+    calendar_state: string
+    last_refresh_utc?: string | null
+    note?: string
+  }
 }
 
 export interface MacroSurpriseRow extends MacroSurpriseLite {

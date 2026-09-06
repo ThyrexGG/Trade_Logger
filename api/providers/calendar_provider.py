@@ -175,6 +175,9 @@ class _BaseCalendarProvider:
     except Exception:  # pragma: no cover - defensive
         CAPABILITIES = frozenset()
 
+    _HISTORY_DAYS = 75    # rolling window kept in the persisted snapshot
+    _HORIZON_DAYS = 30
+
     def __init__(self) -> None:
         self._ttl = float(_cfg_int("MACRO_CALENDAR_TTL_SEC", 3600))
         self._timeout = float(_cfg_int("MACRO_CALENDAR_TIMEOUT_SEC", 12))
@@ -241,12 +244,20 @@ class _BaseCalendarProvider:
                 st["retry_not_before"] = now_m + self._backoff
                 return
 
-            best: Dict[str, Dict[str, Any]] = {}
+            # Accumulate: the ForexFactory feed is current-week only, but each
+            # refresh fills in `actual` for events that have since released.
+            # Merge the fresh rows over whatever is stored (fresh wins — it has
+            # the newest actuals), then prune to a rolling window so history
+            # builds up week over week.
+            best: Dict[str, Dict[str, Any]] = {ev["event_id"]: ev for ev in st["events"]}
             for ev in events:
-                cur = best.get(ev["event_id"])
-                if cur is None or (ev["actual"] is not None and cur["actual"] is None):
-                    best[ev["event_id"]] = ev
-            merged = sorted(best.values(), key=lambda e: e["timestamp"])
+                best[ev["event_id"]] = ev
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=self._HISTORY_DAYS)).isoformat()
+            horizon = (datetime.now(timezone.utc) + timedelta(days=self._HORIZON_DAYS)).isoformat()
+            merged = sorted(
+                (e for e in best.values() if cutoff <= e["timestamp"] <= horizon),
+                key=lambda e: e["timestamp"],
+            )
 
             st["events"] = merged
             st["fetched_at"] = now_m

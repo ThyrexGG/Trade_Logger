@@ -184,95 +184,216 @@ export function MacroOverview({ data }: { data: MacroOverviewResponse }) {
 }
 
 // --- CALENDAR --------------------------------------------------------
-const IMPACTS = ['', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
-const CCYS = ['', 'USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD']
+const IMPACTS = ['', 'LOW', 'MEDIUM', 'HIGH']
+const CCYS = ['', 'USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD', 'CNY']
+
+/** ForexFactory-style compact number: 214K, 3.2B, -0.4%, 56.5. */
+function fmtVal(v: number | null | undefined, unit: string | null | undefined): string {
+  if (v == null || !Number.isFinite(v)) return ''
+  const abs = Math.abs(v)
+  const pct = (unit ?? '').includes('%')
+  let s: string
+  if (abs >= 1e9) s = `${(v / 1e9).toFixed(abs >= 1e11 ? 0 : 1)}B`
+  else if (abs >= 1e6) s = `${(v / 1e6).toFixed(1)}M`
+  else if (abs >= 1e4) s = `${Math.round(v / 1e3)}K`
+  else if (Number.isInteger(v)) s = String(v)
+  else s = v.toFixed(abs < 10 ? (pct ? 1 : 2) : 1)
+  return pct ? `${s}%` : s
+}
+
+function impactBar(impact: string): string {
+  const s = impact.toUpperCase()
+  if (s === 'HIGH' || s === 'CRITICAL') return 'bg-negative'
+  if (s === 'MEDIUM') return 'bg-warning'
+  return 'bg-warning/35'
+}
+
+function dayKey(iso: string | null): string {
+  return (iso ?? '').slice(0, 10)
+}
+function dayLabel(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`)
+  return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+}
+function evTime(iso: string | null): string {
+  if (!iso) return ''
+  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
 
 export function MacroCalendar({ data }: { data: MacroEventsResponse }) {
   const [impact, setImpact] = useState('')
   const [ccy, setCcy] = useState('')
   const [q, setQ] = useState('')
+  const [releasedOnly, setReleasedOnly] = useState(false)
 
   const rows = useMemo(() => {
     const query = q.trim().toLowerCase()
-    return data.events.filter((e) => {
-      if (impact && e.impact !== impact) return false
-      if (ccy && e.currency !== ccy) return false
-      if (query && !e.event.toLowerCase().includes(query) && !(e.country ?? '').toLowerCase().includes(query)) return false
-      return true
-    })
-  }, [data.events, impact, ccy, q])
+    return data.events
+      .filter((e) => {
+        if (impact && e.impact !== impact) return false
+        if (ccy && e.currency !== ccy) return false
+        if (releasedOnly && e.actual == null) return false
+        if (query && !e.event.toLowerCase().includes(query) && !(e.currency ?? '').toLowerCase().includes(query)) return false
+        return true
+      })
+      .slice()
+      .sort((a, b) => (a.timestamp ?? '').localeCompare(b.timestamp ?? ''))
+  }, [data.events, impact, ccy, q, releasedOnly])
+
+  const groups = useMemo(() => {
+    const m = new Map<string, typeof rows>()
+    for (const e of rows) {
+      const k = dayKey(e.timestamp)
+      if (!m.has(k)) m.set(k, [])
+      m.get(k)!.push(e)
+    }
+    return [...m.entries()]
+  }, [rows])
+
+  const todayKey = new Date().toISOString().slice(0, 10)
+  const cal = data.calendar
+
+  const selectClass = 'rounded border border-border bg-background px-2 py-1 text-xs text-primary'
 
   return (
     <SectionCard
       title="Economic calendar"
-      action={<span className="font-mono text-[11px] text-muted">{rows.length} / {data.events.length}</span>}
+      action={
+        <span className="font-mono text-[11px] text-muted">
+          {cal?.calendar_source ?? data.data_provider} · {rows.length} events
+        </span>
+      }
     >
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Event or country…"
-          className="w-44 rounded border border-border bg-background px-2 py-1 text-xs text-primary placeholder:text-muted focus:border-accent focus:outline-none"
+          placeholder="Event or currency…"
+          className="w-40 rounded border border-border bg-background px-2 py-1 text-xs text-primary placeholder:text-muted focus:border-accent focus:outline-none"
         />
-        <select value={ccy} onChange={(e) => setCcy(e.target.value)} className="rounded border border-border bg-background px-2 py-1 text-xs text-primary">
+        <select value={ccy} onChange={(e) => setCcy(e.target.value)} className={selectClass}>
           {CCYS.map((c) => <option key={c} value={c}>{c || 'All currencies'}</option>)}
         </select>
-        <select value={impact} onChange={(e) => setImpact(e.target.value)} className="rounded border border-border bg-background px-2 py-1 text-xs text-primary">
+        <select value={impact} onChange={(e) => setImpact(e.target.value)} className={selectClass}>
           {IMPACTS.map((c) => <option key={c} value={c}>{c || 'All impact'}</option>)}
         </select>
+        <label className="flex items-center gap-1.5 text-[11px] text-secondary">
+          <input type="checkbox" checked={releasedOnly} onChange={(e) => setReleasedOnly(e.target.checked)} />
+          Released only
+        </label>
       </div>
 
       {rows.length === 0 ? (
-        <OpsUnavailable>No events match the filters.</OpsUnavailable>
+        <OpsUnavailable>
+          {cal?.calendar_state === 'PROVIDER_UNAVAILABLE'
+            ? 'The calendar source is temporarily unreachable. It will fill back in on the next refresh.'
+            : 'No events match the filters (the ForexFactory feed only covers the current week — set FMP_API_KEY for multi-week history).'}
+        </OpsUnavailable>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="max-h-[70vh] overflow-y-auto rounded border border-border-subtle">
           <table className="w-full border-collapse text-[11px]">
-            <thead className="border-b border-border text-muted">
+            <thead className="sticky top-0 z-10 bg-surface-elevated text-[10px] uppercase tracking-wide text-muted">
               <tr>
-                <th className="px-2 py-1 text-left font-medium">Time</th>
-                <th className="px-2 py-1 text-left font-medium">Ccy</th>
-                <th className="px-2 py-1 text-left font-medium">Event</th>
-                <th className="px-2 py-1 text-left font-medium">Impact</th>
-                <th className="px-2 py-1 text-right font-medium">Actual</th>
-                <th className="px-2 py-1 text-right font-medium">Forecast</th>
-                <th className="px-2 py-1 text-right font-medium">Previous</th>
-                <th className="px-2 py-1 text-left font-medium">Surprise</th>
-                <th className="px-2 py-1 text-left font-medium">Status</th>
-                <th className="px-2 py-1 text-left font-medium">Source</th>
+                <th className="px-2 py-1.5 text-left font-medium">Time</th>
+                <th className="px-1 py-1.5 text-left font-medium">Ccy</th>
+                <th className="px-1 py-1.5 font-medium" />
+                <th className="px-2 py-1.5 text-left font-medium">Event</th>
+                <th className="px-3 py-1.5 text-right font-medium">Actual</th>
+                <th className="px-3 py-1.5 text-right font-medium">Forecast</th>
+                <th className="px-3 py-1.5 text-right font-medium">Previous</th>
               </tr>
             </thead>
             <tbody>
-              {rows.slice(0, 250).map((e) => (
-                <tr key={e.event_id} className="border-b border-border-subtle/60">
-                  <td className="px-2 py-1 font-mono text-secondary">{e.timestamp?.slice(0, 16).replace('T', ' ') ?? '—'}</td>
-                  <td className="px-2 py-1 font-mono text-primary">{e.currency ?? '—'}</td>
-                  <td className="px-2 py-1 max-w-[18rem] text-secondary">{e.event}</td>
-                  <td className="px-2 py-1"><OpsStatusTag value={e.impact} size="sm" /></td>
-                  <td className="px-2 py-1 text-right font-mono tabular-nums text-primary">{num(e.actual, 2)}</td>
-                  <td className="px-2 py-1 text-right font-mono tabular-nums text-secondary">{num(e.forecast, 2)}</td>
-                  <td className="px-2 py-1 text-right font-mono tabular-nums text-muted">{num(e.previous, 2)}</td>
-                  <td className="px-2 py-1">
-                    {e.surprise.state === 'UNAVAILABLE' ? (
-                      <span className="text-muted">—</span>
-                    ) : (
-                      <span className={dir(e.surprise.direction_bias) === 'positive' ? 'text-positive' : dir(e.surprise.direction_bias) === 'negative' ? 'text-negative' : 'text-muted'}>
-                        {e.surprise.normalized_surprise != null ? `${e.surprise.normalized_surprise > 0 ? '+' : ''}${e.surprise.normalized_surprise}` : e.surprise.state.replace('_SURPRISE', '')}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-2 py-1 font-mono text-muted">{e.status}</td>
-                  <td className="px-2 py-1 text-[10px] text-muted">{e.source ?? e.provider}</td>
-                </tr>
+              {groups.map(([day, evs]) => (
+                <DayGroup key={day} day={day} evs={evs} isToday={day === todayKey} />
               ))}
             </tbody>
           </table>
         </div>
       )}
-      <p className="mt-2 text-[10px] text-muted">
-        Surprise = deterministic per-indicator interpretation (not one universal rule). Blank = no
-        actual/forecast, or indicator not in the surprise config.
-      </p>
+
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-muted">
+        <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-1 rounded-sm bg-negative" /> high</span>
+        <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-1 rounded-sm bg-warning" /> medium</span>
+        <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-1 rounded-sm bg-warning/35" /> low</span>
+        <span className="flex items-center gap-1"><span className="text-positive">Actual</span> = beat / good surprise · <span className="text-negative">red</span> = miss</span>
+        {cal?.last_refresh_utc ? <span>refreshed {new Date(cal.last_refresh_utc).toLocaleString()}</span> : null}
+      </div>
     </SectionCard>
+  )
+}
+
+function DayGroup({
+  day,
+  evs,
+  isToday,
+}: {
+  day: string
+  evs: MacroEventsResponse['events']
+  isToday: boolean
+}) {
+  return (
+    <>
+      {evs.map((e, i) => {
+        const bias = dir(e.surprise?.direction_bias)
+        const actualTone =
+          e.actual == null ? 'text-secondary'
+          : bias === 'positive' ? 'text-positive'
+          : bias === 'negative' ? 'text-negative'
+          : 'text-primary'
+        const arrow = e.actual != null && bias === 'positive' ? '▲' : e.actual != null && bias === 'negative' ? '▼' : ''
+        const revUp = e.revised_previous != null && e.previous != null && e.revised_previous > e.previous
+        const revDown = e.revised_previous != null && e.previous != null && e.revised_previous < e.previous
+        const high = e.impact.toUpperCase() === 'HIGH' || e.impact.toUpperCase() === 'CRITICAL'
+        return (
+          <tr
+            key={e.event_id}
+            className={`border-t border-border-subtle/50 ${high ? 'bg-negative/[0.04]' : ''} hover:bg-surface-hover/50`}
+          >
+            {i === 0 ? (
+              <td
+                rowSpan={evs.length}
+                className={`whitespace-nowrap border-r border-border-subtle px-2 py-1 align-top text-[10px] font-semibold ${
+                  isToday ? 'text-accent' : 'text-secondary'
+                }`}
+              >
+                {dayLabel(day)}
+              </td>
+            ) : null}
+            <td className="whitespace-nowrap px-2 py-1 font-mono text-[10px] text-muted">{evTime(e.timestamp)}</td>
+            <td className="px-1 py-1 font-mono text-[11px] font-semibold text-primary">{e.currency ?? '—'}</td>
+            <td className="px-1 py-1">
+              <span className={`inline-block h-3 w-1 rounded-sm ${impactBar(e.impact)}`} title={e.impact} />
+            </td>
+            <td className={`px-2 py-1 ${high ? 'font-medium text-primary' : 'text-secondary'}`}>{e.event}</td>
+            <td className={`px-3 py-1 text-right font-mono tabular-nums ${actualTone}`}>
+              {e.actual != null ? (
+                <>
+                  {fmtVal(e.actual, e.unit)}
+                  {arrow ? <span className="ml-0.5 text-[9px]">{arrow}</span> : null}
+                </>
+              ) : (
+                <span className="text-muted">—</span>
+              )}
+            </td>
+            <td className="px-3 py-1 text-right font-mono tabular-nums text-muted">
+              {e.forecast != null ? fmtVal(e.forecast, e.unit) : '—'}
+            </td>
+            <td className="px-3 py-1 text-right font-mono tabular-nums text-muted">
+              {e.previous != null ? (
+                <>
+                  {fmtVal(e.previous, e.unit)}
+                  {revUp ? <span className="ml-0.5 text-[9px] text-positive">▲</span> : null}
+                  {revDown ? <span className="ml-0.5 text-[9px] text-negative">▼</span> : null}
+                </>
+              ) : (
+                '—'
+              )}
+            </td>
+          </tr>
+        )
+      })}
+    </>
   )
 }
 

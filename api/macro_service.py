@@ -14,7 +14,7 @@ or any order path. Everything is GET-shaped and pure.
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from api.macro_provider import SUPPORTED_CURRENCIES, get_provider
 
@@ -52,35 +52,42 @@ def _provider_meta() -> Dict[str, Any]:
         }
 
 
-def _calendar_key(ev: Dict[str, Any]) -> tuple:
-    """Loose identity for de-duping a calendar row against an observation row:
-    same currency, same indicator (or event name), same calendar day."""
-    ind = (ev.get("indicator") or ev.get("event") or "").upper().strip()
-    return ((ev.get("currency") or ev.get("country") or "").upper(), ind,
-            (ev.get("timestamp") or "")[:10])
+def _calendar_events(base: List[Dict[str, Any]], s: date, e: date) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """The event-calendar rows.
 
+    FRED gives historical *observations* with no real release time and
+    transformed units — it is not a calendar. So when a calendar provider
+    (ForexFactory / FMP) is live, the calendar view is *only* its rows
+    (scheduled events, real times, consensus, impact). The FRED `base` rows
+    are used only as a fallback when no calendar provider is configured or it
+    is unreachable. Never raises.
 
-def _merge_calendar_events(base: List[Dict[str, Any]], s: date, e: date) -> List[Dict[str, Any]]:
-    """Fold the ForexFactory calendar (scheduled events + forecast + impact +
-    real times) into the base provider's rows. FF wins a collision because it
-    carries the schedule, the consensus and a real impact rating; the base
-    (FRED) row stays when FF has nothing for that identity. Never raises."""
+    Returns (rows, calendar_meta).
+    """
+    fallback_meta = {"calendar_source": None, "calendar_state": "FALLBACK_OBSERVATIONS"}
     try:
         from api.providers.calendar_provider import calendar_enabled, get_calendar_provider
     except Exception:  # pragma: no cover - defensive
-        return base
+        return base, fallback_meta
     if not calendar_enabled():
-        return base
+        return base, fallback_meta
     try:
-        cal = get_calendar_provider().get_events(s, e)
+        prov = get_calendar_provider()
+        cal = prov.get_events(s, e)
+        st = prov.status()
     except Exception:  # pragma: no cover - defensive
-        return base
+        return base, fallback_meta
     if not cal:
-        return base
-
-    cal_keys = {_calendar_key(ev) for ev in cal}
-    kept = [ev for ev in base if _calendar_key(ev) not in cal_keys]
-    return kept + list(cal)
+        return base, {"calendar_source": st.get("provider"),
+                      "calendar_state": st.get("provider_state") or "UNAVAILABLE",
+                      "note": "calendar source returned nothing for this window — showing FRED observations instead"}
+    return list(cal), {
+        "calendar_source": st.get("provider"),
+        "calendar_state": st.get("provider_state"),
+        "last_refresh_utc": st.get("last_refresh_utc"),
+        "note": ("Scheduled events from the calendar provider. Historical macro "
+                 "readings (FRED) are on the Currencies / Scorecard views, not here."),
+    }
 
 
 # --- events ------------------------------------------------------------
@@ -105,7 +112,7 @@ def get_events(
         e = _pdate(end) or (today + timedelta(days=14))
 
     events = list(get_provider().get_events(s, e))
-    events = _merge_calendar_events(events, s, e)
+    events, calendar_meta = _calendar_events(events, s, e)
 
     cf = (currency or "").upper().strip()
     co = (country or "").upper().strip()
@@ -143,6 +150,7 @@ def get_events(
         "total_matched": len(rows),
         "truncated": truncated,
         "events": rows[:limit],
+        "calendar": calendar_meta,
         "disclaimer": _MODEL_DISCLAIMER,
         "timestamp": now_iso,
     }
