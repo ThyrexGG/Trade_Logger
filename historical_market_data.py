@@ -282,6 +282,28 @@ def get_candle_window(
             provenance = "live_ohlcv"
             source_id = f"live:{upstream}"
 
+    # The live feed only serves a shallow daily history (Yahoo caps `1d` at ~1
+    # month). When a caller asks for a deep window (seasonality wants years),
+    # back-fill the older portion from the persistent store and keep the live
+    # bars for the tail.
+    if (
+        raw is not None
+        and is_recent
+        and len(raw) < lookback
+        and len(raw) < 400
+    ):
+        try:
+            store_prov = _historical_provider()
+            deep = store_prov(asset, timeframe, as_of_epoch, lookback) if store_prov else None
+        except Exception:
+            deep = None
+        if deep and len(deep) > len(raw):
+            by_time = {int(c["time"]): c for c in deep}
+            for c in raw:  # live bars win on overlap (freshest)
+                by_time[int(c["time"])] = c
+            raw = [by_time[t] for t in sorted(by_time)]
+            source_id = f"{source_id}+store"
+
     if raw is None:
         prov = _historical_provider()
         if prov is None:
