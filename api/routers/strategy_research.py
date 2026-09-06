@@ -909,6 +909,29 @@ def get_portfolio_construction() -> Dict[str, Any]:
     return r
 
 
+@router.get("/funding-carry-forward")
+def get_funding_carry_forward() -> Dict[str, Any]:
+    """Phase 98 — funding-carry forward-evidence harness. Splits the frozen
+    Phase-96 carry backtest at a frozen go-live anchor and accumulates
+    real-time out-of-sample evidence (funding level, Sharpe, basis drag,
+    the Phase-97 25%-carry book's forward equity), one immutable snapshot
+    per run, with a TRACKING / DIVERGING / CONFIRMING / INSUFFICIENT
+    verdict. Nothing fitted; no execution, no orders, no signals emitted.
+    `NOT_COMPUTED` until `python -m phase98_carry_forward_evidence` has run.
+    Holdout untouched, live automation disabled, broker transmission
+    blocked."""
+    import phase98_carry_forward_evidence
+    r = phase98_carry_forward_evidence.get_result()
+    if not r:
+        return {"state": "NOT_COMPUTED",
+                "reason": "run `python -m phase98_carry_forward_evidence`",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "safety_barrier": _SAFETY}
+    r["state"] = "AVAILABLE"
+    r["safety_barrier"] = _SAFETY
+    return r
+
+
 @router.get("/market-behavior")
 def get_market_behavior_discovery() -> Dict[str, Any]:
     """Phase 76 — literature-guided market behavior discovery: the phenomenon

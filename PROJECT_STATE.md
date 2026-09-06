@@ -1044,3 +1044,36 @@ phases (see each phase's own `docs/PHASE_*.md` for full detail).*
 - **Next**: Phase 98 FX/rate carry (when rate data available) → Phase 99
   paper-trading harness for the recommended book (6-12 months, no
   execution).
+
+## 18. Research Program Status (Phase 98) — Funding-Carry Forward-Evidence Harness
+
+- **Module**: `phase98_carry_forward_evidence.py`. A weekly-run **shadow
+  ledger** (not a trader) that accumulates genuine real-time forward
+  evidence on the Phase-97 edge before any capital is risked. No
+  execution, no orders.
+- **Method** (all frozen / inherited): optional `--refresh` re-runs the
+  idempotent Phase 94/96 ingestion; the frozen Phase-96 carry rules run
+  over all history and split at a frozen **go-live anchor 2026-09-04**
+  (weeks <= anchor = backtest reference, weeks after = forward OOS
+  evidence); Phase-97's f*=0.25 sizing is applied to the forward returns;
+  each run appends an **immutable timestamped snapshot**
+  (`phase98_forward_snapshot__<iso>`, never overwritten) with the running
+  index in the main artifact.
+- **Verdict states**: `FORWARD_EVIDENCE_INSUFFICIENT` (<12 fwd weeks) /
+  `FORWARD_EVIDENCE_DIVERGING` (fwd funding <25% of backtest OR fwd
+  Sharpe <0 -> do not deploy) / `FORWARD_EVIDENCE_TRACKING` (fwd funding
+  >=60% of backtest AND fwd Sharpe >=0.5) / `FORWARD_EVIDENCE_CONFIRMING`
+  (tracking AND >=26 fwd weeks).
+- **Current state**: go-live 2026-09-04, data through 2026-09-11,
+  backtest reference 473 wk / ann funding +10.6% / Sharpe 2.9, **forward =
+  1 week -> `FORWARD_EVIDENCE_INSUFFICIENT`**. Needs weekly re-runs; a
+  meaningful read is ~12 weeks out, a confirming read ~26 weeks.
+- `GET /api/research/funding-carry-forward`,
+  `docs/PHASE_98_CARRY_FORWARD_EVIDENCE.md`, PROJECT_STATE §18, 16 tests.
+  `determinism.match == True`. Holdout `UNTOUCHED`; live automation
+  `DISABLED`; broker transmission `BLOCKED`. `PROFITABLE_TRADING_EDGE_FOUND`
+  stays `FOUND` (Phase 97); this phase gates the move from "found in
+  backtest" to "confirmed live".
+- **Next**: Phase 99 FX/rate-differential carry (needs `FRED_API_KEY` or
+  an equivalent multi-country short-rate source), folded into the Phase-97
+  allocation as a second uncorrelated sleeve.
