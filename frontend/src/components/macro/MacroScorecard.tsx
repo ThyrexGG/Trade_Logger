@@ -181,9 +181,17 @@ function CategoryBlock({ cat }: { cat: MacroScorecardCategory }) {
   const label = CATEGORY_LABEL[cat.category] ?? cat.category
   const insufficient = cat.state === 'INSUFFICIENT_EVIDENCE'
 
-  const rows = [...(cat.indicators ?? [])].sort((a, b) =>
+  // The provider gives the last several monthly prints of each indicator, which
+  // shows up as the same row repeated. Collapse to one row per indicator (the
+  // most recent print); "Previous" already carries the prior month's value.
+  const byIndicator = new Map<string, MacroScorecardIndicator>()
+  for (const r of [...(cat.indicators ?? [])].sort((a, b) =>
     (b.release_time ?? '').localeCompare(a.release_time ?? ''),
-  )
+  )) {
+    const k = r.indicator || r.name
+    if (!byIndicator.has(k)) byIndicator.set(k, r)
+  }
+  const rows = [...byIndicator.values()]
   const hasForecast = rows.some((r) => r.forecast != null)
   const visible = open ? rows : rows.slice(0, SHOWN)
 
@@ -275,7 +283,7 @@ function CategoryBlock({ cat }: { cat: MacroScorecardCategory }) {
               onClick={() => setOpen((v) => !v)}
               className="w-full border-t border-border-subtle px-3 py-1 text-left text-[10px] text-accent hover:bg-surface-hover"
             >
-              {open ? 'Show fewer' : `Show all ${rows.length} indicators`}
+              {open ? 'Show fewer' : `Show all ${rows.length}`}
             </button>
           ) : null}
         </>

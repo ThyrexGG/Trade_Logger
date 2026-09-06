@@ -233,6 +233,39 @@ DEFAULT_UNIVERSE_PRICES: Dict[str, float] = {
 }
 
 
+_FMP_QUOTE_SYMS = {  # canonical -> FMP symbol for the free /stable/quote-short feed
+    "EURUSD": "EURUSD", "GBPUSD": "GBPUSD", "USDJPY": "USDJPY", "USDCHF": "USDCHF",
+    "USDCAD": "USDCAD", "AUDUSD": "AUDUSD", "NZDUSD": "NZDUSD", "EURJPY": "EURJPY",
+    "GBPJPY": "GBPJPY", "EURGBP": "EURGBP", "AUDJPY": "AUDJPY",
+    "XAUUSD": "XAUUSD", "XAGUSD": "XAGUSD",
+    "SPX500": "^GSPC", "NAS100": "^IXIC", "US30": "^DJI", "US10Y": "^TNX",
+}
+
+
+def _fmp_quote(sym: str) -> Optional[float]:
+    """Real-time spot price from Financial Modeling Prep's free quote endpoint —
+    fresher than Yahoo for FX / metals. Skipped when FMP_API_KEY is unset."""
+    key = (os.getenv("FMP_API_KEY") or "").strip()
+    fmp_sym = _FMP_QUOTE_SYMS.get(sym)
+    if not key or not fmp_sym:
+        return None
+    try:
+        import requests
+        r = requests.get(
+            "https://financialmodelingprep.com/stable/quote-short",
+            params={"symbol": fmp_sym, "apikey": key}, timeout=5,
+        )
+        if r.status_code != 200:
+            return None
+        rows = r.json()
+        if isinstance(rows, list) and rows and isinstance(rows[0], dict):
+            p = rows[0].get("price")
+            return float(p) if p not in (None, 0) else None
+    except Exception:
+        return None
+    return None
+
+
 def get_latest_price(symbol: str = "EURUSD", ttl_sec: float = 8.0) -> Optional[float]:
     """
     Returns latest real-time market price for symbol with high-speed in-memory TTL caching.
@@ -243,6 +276,14 @@ def get_latest_price(symbol: str = "EURUSD", ttl_sec: float = 8.0) -> Optional[f
         cached_p, cached_t = _PRICE_CACHE[sym]
         if now_t - cached_t < ttl_sec and cached_p is not None:
             return float(cached_p)
+
+    # FMP real-time spot for FX / metals / indices (free tier), before the
+    # slower candle feeds. Crypto stays on Binance via get_realtime_candles.
+    if "BTC" not in sym and "ETH" not in sym and "SOL" not in sym:
+        fp = _fmp_quote(sym)
+        if fp is not None:
+            _PRICE_CACHE[sym] = (fp, now_t)
+            return fp
 
     try:
         candles = get_realtime_candles(sym, timeframe="1m", count=1, ttl_sec=ttl_sec)

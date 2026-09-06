@@ -74,10 +74,10 @@ def _cfg_int(name: str, default: int) -> int:
 
 
 def calendar_provider_key() -> str:
-    key = (os.getenv("MACRO_CALENDAR_PROVIDER") or "").strip().lower()
-    if key:
-        return key
-    return "fmp" if (os.getenv("FMP_API_KEY") or "").strip() else "forexfactory"
+    # ForexFactory by default. FMP's economic-calendar endpoint moved behind a
+    # paid plan (Aug 2025), so an FMP key alone does NOT switch to it — set
+    # MACRO_CALENDAR_PROVIDER=fmp explicitly if you have a paid FMP plan.
+    return (os.getenv("MACRO_CALENDAR_PROVIDER") or "forexfactory").strip().lower()
 
 
 def calendar_enabled() -> bool:
