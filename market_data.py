@@ -9,6 +9,46 @@ from typing import Optional, Dict, Any, List
 _CANDLE_CACHE: Dict[str, Any] = {}
 _TICK_CACHE: Dict[str, Any] = {}
 
+# --------------------------------------------------------------------------
+# Live-market-data master switch (persisted in app_settings, default ON).
+#
+# When OFF, market_data will NOT touch the local MetaTrader 5 terminal --
+# every MT5 branch is skipped and the existing fallbacks (Binance / Yahoo /
+# in-memory cache / default universe price) serve instead. This is the
+# thing to flip when a running API server + a polling browser tab keeps
+# auto-relaunching the MT5 terminal: `mt5.initialize()` launches the
+# terminal if it is not open, and nothing here ever closes it.
+# Read-only: this switch only governs where quotes come from; it has no
+# effect on execution / broker transmission (permanently BLOCKED).
+# --------------------------------------------------------------------------
+_LIVE_DATA_SETTING_KEY = "market_data_live_enabled"
+_LIVE_DATA_FLAG_CACHE: Dict[str, Any] = {"value": True, "at": 0.0}
+_LIVE_DATA_FLAG_TTL = 3.0
+
+
+def is_live_market_data_enabled() -> bool:
+    now_t = time.time()
+    if now_t - _LIVE_DATA_FLAG_CACHE["at"] < _LIVE_DATA_FLAG_TTL:
+        return bool(_LIVE_DATA_FLAG_CACHE["value"])
+    val = True
+    try:
+        import database
+        raw = database.get_setting(_LIVE_DATA_SETTING_KEY, "true")
+        val = (raw or "true").strip().lower() != "false"
+    except Exception:
+        val = True
+    _LIVE_DATA_FLAG_CACHE["value"] = val
+    _LIVE_DATA_FLAG_CACHE["at"] = now_t
+    return val
+
+
+def set_live_market_data_enabled(enabled: bool) -> bool:
+    import database
+    database.set_setting(_LIVE_DATA_SETTING_KEY, "true" if enabled else "false")
+    _LIVE_DATA_FLAG_CACHE["value"] = bool(enabled)
+    _LIVE_DATA_FLAG_CACHE["at"] = time.time()
+    return bool(enabled)
+
 # Records which upstream last served a given candle cache_key: one of
 # "mt5" | "binance" | "yahoo" | "synthetic_fallback". Lets the Phase-68 historical
 # market-evidence layer refuse to treat the offline synthetic fallback as real
@@ -50,10 +90,11 @@ def get_realtime_candles(symbol="XAUUSD", timeframe="15m", count=250, ttl_sec=4)
             _CANDLE_SOURCE[cache_key] = source
         return data
 
-    # 1. Try MetaTrader 5
+    # 1. Try MetaTrader 5 (skipped entirely when the live-data switch is OFF,
+    #    so a poll never auto-launches the terminal)
     try:
         import mt5_sync
-        if mt5_sync.MT5_AVAILABLE:
+        if is_live_market_data_enabled() and mt5_sync.MT5_AVAILABLE:
             import MetaTrader5 as mt5
             if mt5.initialize():
                 tf_map = {
@@ -297,7 +338,7 @@ def get_latest_tick(symbol: str = "EURUSD", ttl_sec: float = 8.0) -> Optional[Di
 
     try:
         import mt5_sync
-        if mt5_sync.MT5_AVAILABLE:
+        if is_live_market_data_enabled() and mt5_sync.MT5_AVAILABLE:
             import MetaTrader5 as mt5
             if mt5.initialize():
                 tick = mt5.symbol_info_tick(sym)
