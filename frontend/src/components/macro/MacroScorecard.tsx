@@ -304,7 +304,15 @@ function CategoryBlock({ cat }: { cat: MacroScorecardCategory }) {
                 const tr = trendColumn ? trendRead(r) : null
                 return (
                   <tr key={r.indicator} className="border-b border-border-subtle/40 last:border-0">
-                    <td className="truncate px-3 py-1 text-secondary" title={r.name}>{r.name}</td>
+                    <td className="px-3 py-1 text-secondary">
+                      <span className="block truncate" title={r.name}>{r.name}</span>
+                      {r.next_forecast != null ? (
+                        <span className="block text-[9px] text-muted">
+                          next: {fmt(r.next_forecast, r.unit)}
+                          {r.next_forecast_date ? ` · ${fmtDate(r.next_forecast_date)}` : ''}
+                        </span>
+                      ) : null}
+                    </td>
                     <td className="px-2 py-1">
                       {showRowDirection && hasRealDirection(r.direction) ? (
                         <SentimentText value={r.direction} label={(r.direction || '').split(' ')[0]} />
@@ -398,9 +406,11 @@ function EdgeSubRow({ r, releaseBased }: { r: MacroScorecardIndicator; releaseBa
   const showDir = (r.forecast != null || !releaseBased) && hasRealDirection(r.direction)
   const dir = showDir ? classifySentiment(r.direction) : null
   const tr = showDir ? null : trendRead(r)
+  const nextFc =
+    r.next_forecast != null ? ` · next consensus ${r.next_forecast}` : ''
   return (
     <div className="flex items-center justify-between gap-2 text-[11px]">
-      <span className="truncate text-secondary" title={r.name}>
+      <span className="truncate text-secondary" title={`${r.name}${nextFc}`}>
         {r.name}
       </span>
       {dir ? (
@@ -583,7 +593,7 @@ const DATA_SOURCES: { area: string; source: string; note: string }[] = [
   {
     area: 'Growth · Jobs · Inflation',
     source: 'FRED — U.S. Federal Reserve (St. Louis) + national statistics offices',
-    note: 'Real released figures, revision-aware. No free consensus-forecast feed exists, so there is no true beat/miss — the read is level & trend.',
+    note: 'Real released figures, revision-aware. The "next consensus" shown per indicator is the upcoming forecast from the ForexFactory calendar; a full historical beat/miss builds as that calendar accumulates week over week.',
   },
   {
     area: 'Rates & policy',

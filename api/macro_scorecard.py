@@ -127,6 +127,59 @@ def _confidence_state(n_indicators: int, groups_present: int) -> str:
 # indicator rows
 # --------------------------------------------------------------------------
 
+# FRED series that are transformed to year-over-year (or annualised QoQ for GDP) —
+# for these we must pick the calendar's "y/y" (or "q/q") consensus, never "m/m".
+_YOY_METRICS = {"CPI", "CORE_CPI", "PCE", "CORE_PCE", "PPI", "RETAIL_SALES",
+                "INDUSTRIAL_PROD", "DURABLE_GOODS", "GDP"}
+
+
+def _next_consensus(country: str) -> Dict[str, Dict[str, Any]]:
+    """Upcoming consensus forecast per indicator for `country`, from the live
+    economic calendar (ForexFactory). Forward-looking context — "what the street
+    expects for the next print" — not a fabricated value. Cached."""
+    cached = _memoized(f"nc:{country}")
+    if cached is not None:
+        return cached
+    out: Dict[str, Dict[str, Any]] = {}
+    try:
+        from datetime import date, timedelta
+        from api.providers.calendar_provider import get_calendar_provider, calendar_enabled
+
+        if not calendar_enabled():
+            return _memo_put(f"nc:{country}", out)
+        prov = get_calendar_provider()
+        prov.hydrate()
+        today = datetime.now(timezone.utc).date()
+        events = prov.get_events(today, today + timedelta(days=45))
+        for ev in events:
+            if (ev.get("currency") or ev.get("country")) != country:
+                continue
+            metric = ev.get("indicator")
+            fc = ev.get("forecast")
+            if not metric or fc is None:
+                continue
+            name = (ev.get("event") or "").lower()
+            if metric in _YOY_METRICS:
+                if metric == "GDP":
+                    if "q/q" not in name and "y/y" not in name:
+                        continue
+                elif "y/y" not in name:
+                    continue  # skip the m/m variant
+            ts = ev.get("release_timestamp") or ev.get("timestamp") or ""
+            cur = out.get(metric)
+            if cur is None or (ts and ts < cur.get("release_time", "~")):
+                out[metric] = {
+                    "forecast": fc,
+                    "previous": ev.get("previous"),
+                    "event": ev.get("event"),
+                    "release_time": ts,
+                    "impact": ev.get("impact"),
+                }
+    except Exception:
+        pass
+    return _memo_put(f"nc:{country}", out)
+
+
 def _indicator_rows(country: str, families: set, as_of: Optional[datetime]) -> List[Dict[str, Any]]:
     from macro_intelligence_engine import (
         EconomicDataRegistry,
@@ -134,6 +187,7 @@ def _indicator_rows(country: str, families: set, as_of: Optional[datetime]) -> L
         INDICATOR_METADATA,
     )
 
+    consensus = _next_consensus(country) if as_of is None else {}
     releases = EconomicDataRegistry.get_releases_as_of(as_of=as_of, country=country)
     rows: List[Dict[str, Any]] = []
     for r in releases:
@@ -142,6 +196,7 @@ def _indicator_rows(country: str, families: set, as_of: Optional[datetime]) -> L
         if fam not in families:
             continue
         s = EconomicSurpriseEngine.evaluate_release_surprise(r)
+        nc = consensus.get(s["indicator"]) or {}
         rows.append({
             "indicator": s["indicator"],
             "name": s.get("display_name", s["indicator"]),
@@ -157,6 +212,10 @@ def _indicator_rows(country: str, families: set, as_of: Optional[datetime]) -> L
             "implication": s.get("market_implication"),
             "release_time": s.get("release_time"),
             "freshness": s.get("freshness"),
+            "next_forecast": nc.get("forecast"),
+            "next_forecast_previous": nc.get("previous"),
+            "next_forecast_date": nc.get("release_time"),
+            "next_forecast_event": nc.get("event"),
         })
     rows.sort(key=lambda x: str(x.get("release_time") or ""), reverse=True)
     return rows

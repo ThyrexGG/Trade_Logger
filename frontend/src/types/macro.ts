@@ -250,6 +250,10 @@ export interface MacroScorecardIndicator {
   freshness?: string
   currency_impact?: string
   equity_impact?: string
+  next_forecast?: number | null
+  next_forecast_previous?: number | null
+  next_forecast_date?: string | null
+  next_forecast_event?: string | null
 }
 
 export interface MacroScorecardCategory {
