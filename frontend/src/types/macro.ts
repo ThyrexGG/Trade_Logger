@@ -285,6 +285,7 @@ export interface MacroScorecardResponse extends MacroEnvelope {
   surprise_score?: number | null
   surprise_momentum?: string | null
   scope_note?: string | null
+  read_basis?: string | null
   primary_country?: string
   categories: MacroScorecardCategory[]
   strongest_category?: string | null

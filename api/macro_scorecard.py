@@ -54,12 +54,18 @@ _CATEGORY_FROM_GROUP = {
     "GROWTH": "growth",
     "INFLATION": "inflation",
     "LABOR": "jobs",
+    "MONETARY_POLICY": "rates",
     "SENTIMENT_POSITIONING": "cot",
 }
 _INDICATOR_FAMILY = {
     "growth": {"GROWTH"},
-    "inflation": {"INFLATION", "MONETARY_POLICY"},
+    "inflation": {"INFLATION"},
     "jobs": {"LABOR"},
+    # Policy rate + sovereign yields — the single biggest driver of an FX pair's
+    # macro lean (the rate differential / carry). Kept in its own category so the
+    # composite score reconciles with something visible instead of hiding inside
+    # "inflation".
+    "rates": {"MONETARY_POLICY"},
     "cot": {"SENTIMENT_POSITIONING"},
 }
 
@@ -200,13 +206,6 @@ def _economy_categories(country: str, as_of: Optional[datetime]) -> Dict[str, Di
             "indicators": rows,
             "state": "OK",
         }
-    # inflation folds the monetary-policy group in as context
-    pol = groups.get("MONETARY_POLICY")
-    infl = out.get("inflation")
-    if pol and infl and infl.get("state") == "OK":
-        infl.setdefault("context", []).append(
-            f"Monetary policy: {pol.get('direction')} ({round(float(pol.get('score', 0.0)), 1)})"
-        )
     return out
 
 
@@ -291,7 +290,7 @@ def get_scorecard(instrument: str, as_of: Optional[datetime] = None) -> Dict[str
         base_cats = _economy_categories(base, as_of)
         quote_cats = _economy_categories(quote, as_of)
         cats: Dict[str, Any] = {}
-        for name in ("growth", "inflation", "jobs", "cot"):
+        for name in ("growth", "inflation", "jobs", "rates", "cot"):
             b = base_cats.get(name)
             q = quote_cats.get(name)
             b_ok = bool(b) and isinstance(b.get("score"), (int, float))
@@ -333,7 +332,7 @@ def get_scorecard(instrument: str, as_of: Optional[datetime] = None) -> Dict[str
     cats["technical"] = _technical_stub()
     cats["sentiment"] = _sentiment_stub()
 
-    ordered = ["technical", "cot", "sentiment", "growth", "jobs", "inflation"]
+    ordered = ["rates", "growth", "jobs", "inflation", "cot", "sentiment", "technical"]
     categories = [{"category": name, **cats[name]} for name in ordered if name in cats]
 
     scored = [c for c in categories if isinstance(c.get("score"), (int, float))]
@@ -357,6 +356,12 @@ def get_scorecard(instrument: str, as_of: Optional[datetime] = None) -> Dict[str
         "surprise_score": ctx.get("surprise_score"),
         "surprise_momentum": ctx.get("surprise_momentum"),
         "scope_note": scope_note,
+        "read_basis": (
+            "Structural read: it weighs the level and trend of growth, jobs, inflation and "
+            "the rate/policy differential. It is NOT a short-term data-surprise tracker — "
+            "tools that score every release as a beat/miss vs consensus (e.g. EdgeFinder) "
+            "answer a different, faster question and can point the other way."
+        ),
         "primary_country": primary_country,
         "categories": categories,
         "strongest_category": strongest["category"] if strongest else None,
@@ -365,6 +370,7 @@ def get_scorecard(instrument: str, as_of: Optional[datetime] = None) -> Dict[str
             "growth": (cats.get("growth") or {}).get("score"),
             "inflation": (cats.get("inflation") or {}).get("score"),
             "jobs": (cats.get("jobs") or {}).get("score"),
+            "rates": (cats.get("rates") or {}).get("score"),
             "cot": (cats.get("cot") or {}).get("score"),
         },
         "release_count": len(EconomicDataRegistry.get_releases_as_of(as_of=as_of, country=primary_country)),
@@ -491,7 +497,7 @@ def record_scorecard_snapshot(instrument: str) -> Optional[str]:
                 "growth": sc["sub_scores"].get("growth") or 0.0,
                 "inflation": sc["sub_scores"].get("inflation") or 0.0,
                 "labor": sc["sub_scores"].get("jobs") or 0.0,
-                "monetary_policy": 0.0,
+                "monetary_policy": sc["sub_scores"].get("rates") or 0.0,
                 "positioning": sc["sub_scores"].get("cot") or 0.0,
             },
             "model_version": MODEL_VERSION,

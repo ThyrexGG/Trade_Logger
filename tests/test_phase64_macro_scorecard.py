@@ -51,10 +51,10 @@ def test_scorecard_is_deterministic():
     assert a == b
 
 
-def test_scorecard_has_six_named_categories():
+def test_scorecard_has_named_categories():
     sc = ms.get_scorecard("XAUUSD")
     names = [c["category"] for c in sc["categories"]]
-    assert names == ["technical", "cot", "sentiment", "growth", "jobs", "inflation"]
+    assert names == ["rates", "growth", "jobs", "inflation", "cot", "sentiment", "technical"]
     assert sc["composite_score"] is not None
     assert -10 <= sc["gauge"] <= 10
     assert sc["bias"] in ("VERY BULLISH", "BULLISH", "NEUTRAL", "BEARISH", "VERY BEARISH")
@@ -283,7 +283,7 @@ def test_scorecard_response_shape():
     assert d["provenance"] in ("live", "seed_demo", "unavailable")
     if not _LIVE_MACRO:
         assert d["provenance"] == "seed_demo"
-    assert len(d["categories"]) == 6
+    assert len(d["categories"]) == 7
     assert "disclaimer" in d
 
 

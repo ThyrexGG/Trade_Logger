@@ -1,4 +1,5 @@
-import { useId, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 /**
  * Plain-English explanations for the jargon that shows up around the app.
@@ -81,39 +82,104 @@ export function glossaryLookup(term: string): string | undefined {
 }
 
 /**
- * A small "?" that reveals an explanation on hover / focus / tap. Dependency-free.
+ * A small "?" that reveals an explanation on hover / focus / tap.
+ *
+ * The panel is rendered in a portal with `position: fixed` so it is never
+ * clipped by an ancestor's `overflow: hidden` and never sits behind a sibling
+ * in the stacking order. Hovering the panel itself keeps it open (a short
+ * close delay bridges the gap between the "?" and the panel).
  */
 export function InfoTip({ text, children }: { text: string; children?: ReactNode }) {
   const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState<{ top: number; left: number; placement: 'top' | 'bottom' }>()
   const id = useId()
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const closeTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  const PANEL_W = 260
+
+  const place = useCallback(() => {
+    const el = btnRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const spaceBelow = window.innerHeight - r.bottom
+    const placement: 'top' | 'bottom' = spaceBelow < 140 && r.top > 140 ? 'top' : 'bottom'
+    let left = r.left + r.width / 2 - PANEL_W / 2
+    left = Math.max(8, Math.min(left, window.innerWidth - PANEL_W - 8))
+    setPos({
+      top: placement === 'bottom' ? r.bottom + 6 : r.top - 6,
+      left,
+      placement,
+    })
+  }, [])
+
+  const show = useCallback(() => {
+    clearTimeout(closeTimer.current)
+    place()
+    setOpen(true)
+  }, [place])
+
+  const hide = useCallback((immediate = false) => {
+    clearTimeout(closeTimer.current)
+    if (immediate) return setOpen(false)
+    closeTimer.current = setTimeout(() => setOpen(false), 140)
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    const onScroll = () => setOpen(false)
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('scroll', onScroll, true)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('scroll', onScroll, true)
+    }
+  }, [open])
+
+  useEffect(() => () => clearTimeout(closeTimer.current), [])
+
   return (
-    <span className="relative inline-flex items-center">
+    <span className="inline-flex items-center">
       {children}
       <button
+        ref={btnRef}
         type="button"
         aria-label="Explanation"
         aria-describedby={open ? id : undefined}
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setOpen(false)}
+        onMouseEnter={show}
+        onMouseLeave={() => hide()}
+        onFocus={show}
+        onBlur={() => hide(true)}
         onClick={(e) => {
           e.preventDefault()
-          setOpen((v) => !v)
+          open ? hide(true) : show()
         }}
-        className="ml-0.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full border border-border-subtle text-[9px] leading-none text-muted hover:border-accent hover:text-accent"
+        className="ml-0.5 inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-border-subtle text-[9px] leading-none text-muted hover:border-accent hover:text-accent"
       >
         ?
       </button>
-      {open ? (
-        <span
-          id={id}
-          role="tooltip"
-          className="absolute bottom-full left-0 z-30 mb-1 w-64 rounded-md border border-border bg-surface-elevated px-2.5 py-2 text-[11px] font-normal leading-snug text-secondary shadow-lg"
-        >
-          {text}
-        </span>
-      ) : null}
+      {open && pos
+        ? createPortal(
+            <span
+              id={id}
+              role="tooltip"
+              onMouseEnter={show}
+              onMouseLeave={() => hide()}
+              style={{
+                position: 'fixed',
+                top: pos.top,
+                left: pos.left,
+                width: PANEL_W,
+                transform: pos.placement === 'top' ? 'translateY(-100%)' : undefined,
+              }}
+              className="z-[100] rounded-md border border-border bg-surface-elevated px-2.5 py-2 text-[11px] font-normal normal-case leading-snug tracking-normal text-secondary shadow-lg"
+            >
+              {text}
+            </span>,
+            document.body,
+          )
+        : null}
     </span>
   )
 }

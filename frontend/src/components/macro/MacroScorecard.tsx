@@ -16,6 +16,7 @@ import { ProvenanceBanner } from './MacroViews'
 const INSTRUMENTS = ['XAUUSD', 'USD', 'EUR', 'GBP', 'JPY', 'EURUSD', 'GBPUSD', 'USDJPY', 'EURJPY', 'GBPJPY']
 
 const CATEGORY_LABEL: Record<string, string> = {
+  rates: 'Rates & policy',
   technical: 'Technicals',
   cot: 'Institutional activity (COT)',
   sentiment: 'Crowd sentiment',
@@ -24,22 +25,23 @@ const CATEGORY_LABEL: Record<string, string> = {
   inflation: 'Inflation',
 }
 const CATEGORY_INFO: Record<string, string> = {
+  rates: 'Policy rate + 2Y / 10Y sovereign yields. For an FX pair this is the rate differential (carry) — usually the single biggest driver of the macro lean, and the reason a pair can read bullish while growth/jobs/inflation sit neutral.',
   technical: 'Chart trend + seasonality read. Needs a macro-technical provider — the per-instrument chart on the Market page is separate.',
   cot: "CFTC Commitments of Traders — how large speculators are positioned. Needs MACRO_COT_PROVIDER=cftc.",
   sentiment: 'Retail / crowd positioning from a broker feed. No free redistributable source is configured.',
-  growth: 'GDP, PMIs, retail sales, consumer confidence — the pace of the economy vs forecast.',
-  jobs: 'Payrolls, unemployment rate, jobless claims — labour-market strength vs forecast.',
-  inflation: 'CPI / PPI / PCE and the policy-rate read — hotter than forecast is hawkish (currency-positive).',
+  growth: 'GDP, PMIs, retail sales, consumer confidence — the pace of the economy.',
+  jobs: 'Payrolls, unemployment rate, jobless claims — labour-market strength.',
+  inflation: 'CPI / PPI / PCE — hotter is hawkish (currency-positive). Policy rate & yields are in "Rates & policy".',
 }
 
 const MOMENTUM_LABEL: Record<string, string> = {
-  INLINE: 'in line with forecasts',
-  'INLINE MACRO DATASTREAM': 'in line with forecasts',
-  NEUTRAL: 'neutral',
-  'STRONG POSITIVE SURPRISE REGIME': 'data strongly beating forecasts',
-  'MODERATE POSITIVE SURPRISES': 'data beating forecasts',
-  'STRONG DOWNSIDE SURPRISE REGIME': 'data strongly missing forecasts',
-  'MODERATE DOWNSIDE SURPRISES': 'data missing forecasts',
+  INLINE: 'no notable data surprises',
+  'INLINE MACRO DATASTREAM': 'no notable data surprises',
+  NEUTRAL: 'no notable data surprises',
+  'STRONG POSITIVE SURPRISE REGIME': 'data strongly beating expectations',
+  'MODERATE POSITIVE SURPRISES': 'data beating expectations',
+  'STRONG DOWNSIDE SURPRISE REGIME': 'data strongly missing expectations',
+  'MODERATE DOWNSIDE SURPRISES': 'data missing expectations',
   HAWKISH: 'hawkish tilt',
   DOVISH: 'dovish tilt',
 }
@@ -195,6 +197,19 @@ function CategoryBlock({ cat }: { cat: MacroScorecardCategory }) {
   const hasForecast = rows.some((r) => r.forecast != null)
   const visible = open ? rows : rows.slice(0, SHOWN)
 
+  // Without a consensus-forecast feed there is no beat/miss, so a column of
+  // "→ NEUTRAL" tells the reader nothing. Show the month-on-month trend instead
+  // (rising / falling vs the previous print) — that is what actually feeds the
+  // level-and-trend score.
+  const trendRead = (r: MacroScorecardIndicator): { glyph: string; label: string } | null => {
+    if (r.actual == null || r.previous == null) return null
+    const d = r.actual - r.previous
+    const eps = Math.max(1e-9, Math.abs(r.previous) * 0.002)
+    if (d > eps) return { glyph: '↑', label: 'rising' }
+    if (d < -eps) return { glyph: '↓', label: 'falling' }
+    return { glyph: '→', label: 'flat' }
+  }
+
   return (
     <div className="overflow-hidden rounded-lg border border-border">
       <div className="flex items-center justify-between gap-2 bg-surface-elevated/60 px-3 py-1.5">
@@ -229,14 +244,32 @@ function CategoryBlock({ cat }: { cat: MacroScorecardCategory }) {
         </div>
       ) : (
         <>
-          <table className="w-full text-[11px]">
+          <table className="w-full table-fixed text-[11px]">
+            <colgroup>
+              <col className="w-[38%]" />
+              <col className="w-[18%]" />
+              <col className="w-[13%]" />
+              <col className="w-[13%]" />
+              {hasForecast ? <col className="w-[10%]" /> : null}
+              <col className="w-[12%]" />
+            </colgroup>
             <thead className="text-[10px] uppercase tracking-wide text-muted">
               <tr className="border-b border-border-subtle">
                 <th className="px-3 py-1 text-left font-medium">Indicator</th>
-                <th className="px-2 py-1 text-left font-medium">Read</th>
+                <th className="px-2 py-1 text-left font-medium">
+                  <InfoTip
+                    text={
+                      hasForecast
+                        ? 'Actual vs consensus forecast, read for direction — hot inflation is hawkish, weak jobs is dovish.'
+                        : 'No forecast feed, so this is the month-on-month trend of the reading itself — rising or falling vs the previous print.'
+                    }
+                  >
+                    {hasForecast ? 'Read' : 'Trend'}
+                  </InfoTip>
+                </th>
                 <th className="px-2 py-1 text-right font-medium">Latest</th>
                 <th className="px-2 py-1 text-right font-medium">
-                  {hasForecast ? 'Forecast' : 'Previous'}
+                  {hasForecast ? 'Forecast' : 'Prev.'}
                 </th>
                 {hasForecast ? (
                   <th className="px-2 py-1 text-right font-medium">
@@ -249,32 +282,39 @@ function CategoryBlock({ cat }: { cat: MacroScorecardCategory }) {
               </tr>
             </thead>
             <tbody>
-              {visible.map((r: MacroScorecardIndicator) => (
-                <tr key={r.indicator} className="border-b border-border-subtle/40 last:border-0">
-                  <td className="px-3 py-1 text-secondary">{r.name}</td>
-                  <td className="px-2 py-1">
-                    {r.direction ? (
-                      <SentimentText value={r.direction} label={(r.direction || '').split(' ')[0]} />
-                    ) : (
-                      <span className="text-muted">—</span>
-                    )}
-                  </td>
-                  <td className="px-2 py-1 text-right font-mono tabular-nums text-primary">{fmt(r.actual, r.unit)}</td>
-                  <td className="px-2 py-1 text-right font-mono tabular-nums text-secondary">
-                    {fmt(hasForecast ? r.forecast : r.previous, r.unit)}
-                  </td>
-                  {hasForecast ? (
-                    <td className="px-2 py-1 text-right font-mono tabular-nums">
-                      {r.surprise == null ? (
-                        <span className="text-muted">—</span>
+              {visible.map((r: MacroScorecardIndicator) => {
+                const tr = !hasForecast ? trendRead(r) : null
+                return (
+                  <tr key={r.indicator} className="border-b border-border-subtle/40 last:border-0">
+                    <td className="truncate px-3 py-1 text-secondary" title={r.name}>{r.name}</td>
+                    <td className="px-2 py-1">
+                      {hasForecast && r.direction ? (
+                        <SentimentText value={r.direction} label={(r.direction || '').split(' ')[0]} />
+                      ) : tr ? (
+                        <span className="text-secondary">
+                          <span className="font-mono">{tr.glyph}</span> {tr.label}
+                        </span>
                       ) : (
-                        <SentimentText value={r.surprise} label={`${r.surprise > 0 ? '+' : ''}${fmt(r.surprise)}`} arrow={false} />
+                        <span className="text-muted">—</span>
                       )}
                     </td>
-                  ) : null}
-                  <td className="px-3 py-1 text-right font-mono text-muted">{fmtDate(r.release_time)}</td>
-                </tr>
-              ))}
+                    <td className="px-2 py-1 text-right font-mono tabular-nums text-primary">{fmt(r.actual, r.unit)}</td>
+                    <td className="px-2 py-1 text-right font-mono tabular-nums text-secondary">
+                      {fmt(hasForecast ? r.forecast : r.previous, r.unit)}
+                    </td>
+                    {hasForecast ? (
+                      <td className="px-2 py-1 text-right font-mono tabular-nums">
+                        {r.surprise == null ? (
+                          <span className="text-muted">—</span>
+                        ) : (
+                          <SentimentText value={r.surprise} label={`${r.surprise > 0 ? '+' : ''}${fmt(r.surprise)}`} arrow={false} />
+                        )}
+                      </td>
+                    ) : null}
+                    <td className="px-3 py-1 text-right font-mono text-muted">{fmtDate(r.release_time)}</td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
           {rows.length > SHOWN ? (
@@ -302,7 +342,8 @@ function CategoryBlock({ cat }: { cat: MacroScorecardCategory }) {
 
       {!insufficient && !hasForecast && rows.length > 0 ? (
         <p className="border-t border-border-subtle px-3 py-1 text-[9px] text-muted">
-          No consensus-forecast feed configured, so "Read" reflects the level and trend, not a beat/miss.
+          No consensus-forecast feed, so there is no beat/miss — "Trend" is just the reading vs the
+          previous month. The category score is driven by the level and direction of these numbers.
         </p>
       ) : null}
     </div>
@@ -364,6 +405,13 @@ export function MacroScorecard() {
             {'  '}
             <InfoTip text="Blend of the category scores below. Green categories push the read bullish, red push it bearish. A category with no data provider ('no data') is not counted — it's missing, not neutral." />
           </p>
+
+          {scorecard.read_basis ? (
+            <p className="rounded border border-border-subtle bg-surface-elevated/40 px-3 py-2 text-[11px] leading-snug text-muted">
+              <span className="font-medium text-secondary">How to read this: </span>
+              {scorecard.read_basis}
+            </p>
+          ) : null}
 
           <div className="grid gap-3 lg:grid-cols-[300px_1fr] lg:items-start">
             <Rail sc={scorecard} history={history} />
