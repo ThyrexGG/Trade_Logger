@@ -5,6 +5,8 @@ import type { AIChatMessage, AIChatResponse } from '../types/ai'
 export interface ChatTurn {
   role: 'user' | 'assistant'
   content: string
+  /** epoch ms — when this turn was added */
+  at?: number
   /** set on an assistant turn that came back as an error */
   error?: boolean
   errorKind?: string | null
@@ -21,15 +23,44 @@ interface UseAIChatResult {
 }
 
 const MAX_HISTORY = 18
+const STORAGE_KEY = 'tl.assistant.history.v1'
+const STORE_CAP = 60
+
+function loadStored(): ChatTurn[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .filter(
+        (t): t is ChatTurn =>
+          t && (t.role === 'user' || t.role === 'assistant') && typeof t.content === 'string',
+      )
+      .slice(-STORE_CAP)
+  } catch {
+    return []
+  }
+}
+
+function persist(turns: ChatTurn[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(turns.slice(-STORE_CAP)))
+  } catch {
+    /* private mode / quota / disabled — the chat still works in-memory */
+  }
+}
 
 /**
  * Drives the AI Assistant. `send()` is the only trigger (explicit user action).
  * AbortController + request-id guard; a superseded / unmounted request is
- * dropped. History sent to the server is capped; nothing is persisted.
+ * dropped. The visible transcript is persisted to this browser's localStorage
+ * so a refresh keeps the conversation; the history *sent to the server* is
+ * still capped at MAX_HISTORY.
  */
 export function useAIChat(): UseAIChatResult {
   const [configured, setConfigured] = useState<boolean | null>(null)
-  const [turns, setTurns] = useState<ChatTurn[]>([])
+  const [turns, setTurns] = useState<ChatTurn[]>(() => loadStored())
   const [sending, setSending] = useState(false)
   const [lastMeta, setLastMeta] = useState<AIChatResponse | null>(null)
   const inFlight = useRef<AbortController | null>(null)
@@ -45,6 +76,10 @@ export function useAIChat(): UseAIChatResult {
   }, [])
 
   useEffect(() => () => inFlight.current?.abort(), [])
+
+  useEffect(() => {
+    persist(turns)
+  }, [turns])
 
   const dispatch = useCallback((userText: string, base: ChatTurn[]) => {
     inFlight.current?.abort()
@@ -65,12 +100,13 @@ export function useAIChat(): UseAIChatResult {
         setTurns((prev) => [
           ...prev,
           res.ok && res.reply
-            ? { role: 'assistant', content: res.reply }
+            ? { role: 'assistant', content: res.reply, at: Date.now() }
             : {
                 role: 'assistant',
                 content: res.error ?? 'The assistant could not respond.',
                 error: true,
                 errorKind: res.error_kind,
+                at: Date.now(),
               },
         ])
       })
@@ -82,6 +118,7 @@ export function useAIChat(): UseAIChatResult {
             role: 'assistant',
             content: err instanceof Error ? err.message : 'Network error contacting the assistant.',
             error: true,
+            at: Date.now(),
           },
         ])
       })
@@ -95,7 +132,7 @@ export function useAIChat(): UseAIChatResult {
       const trimmed = text.trim()
       if (!trimmed || sending) return
       setTurns((prev) => {
-        const next: ChatTurn[] = [...prev, { role: 'user', content: trimmed }]
+        const next: ChatTurn[] = [...prev, { role: 'user', content: trimmed, at: Date.now() }]
         dispatch(trimmed, prev)
         return next
       })
@@ -121,6 +158,11 @@ export function useAIChat(): UseAIChatResult {
     setTurns([])
     setLastMeta(null)
     setSending(false)
+    try {
+      localStorage.removeItem(STORAGE_KEY)
+    } catch {
+      /* ignore */
+    }
   }, [])
 
   return { configured, turns, sending, lastMeta, send, retry, clear }
