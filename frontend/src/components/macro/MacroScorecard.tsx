@@ -578,6 +578,74 @@ function MacroEdgeFinder({
   )
 }
 
+// --- data sources (static reference) --------------------------------
+const DATA_SOURCES: { area: string; source: string; note: string }[] = [
+  {
+    area: 'Growth · Jobs · Inflation',
+    source: 'FRED — U.S. Federal Reserve (St. Louis) + national statistics offices',
+    note: 'Real released figures, revision-aware. No free consensus-forecast feed exists, so there is no true beat/miss — the read is level & trend.',
+  },
+  {
+    area: 'Rates & policy',
+    source: 'FRED',
+    note: 'Central-bank policy rate + 2Y / 10Y sovereign bond yields. For an FX pair this is the rate differential (carry).',
+  },
+  {
+    area: 'Institutional activity (COT)',
+    source: 'CFTC — Commitments of Traders (official U.S. regulator)',
+    note: 'Free, published weekly (Friday). Net non-commercial positioning.',
+  },
+  {
+    area: 'Technicals',
+    source: 'Live price candles — Yahoo Finance (FX / metals), Binance (crypto)',
+    note: 'EMA / RSI / MACD / multi-timeframe bias + calendar seasonality. FX & metals bars are ~15 min delayed.',
+  },
+  {
+    area: 'Crowd sentiment',
+    source: 'None configured',
+    note: 'No free redistributable retail-positioning feed. Shown as "no data" — COT covers the institutional side.',
+  },
+  {
+    area: 'Economic Calendar tab',
+    source: 'ForexFactory — public weekly feed',
+    note: 'Scheduled events, release times, impact rating, forecast / actual / previous. Current week + accumulating history.',
+  },
+  {
+    area: 'Composite bias / gauge',
+    source: 'TradeLogger model',
+    note: 'Deterministic weighted blend of the categories above. Context, not a forecast, and never an execution signal.',
+  },
+]
+
+function DataSources() {
+  return (
+    <details className="rounded-lg border border-border-subtle bg-surface">
+      <summary className="cursor-pointer select-none px-3 py-2 text-[11px] font-medium text-secondary">
+        Where this data comes from
+      </summary>
+      <div className="border-t border-border-subtle px-3 py-2">
+        <table className="w-full text-left text-[11px]">
+          <tbody>
+            {DATA_SOURCES.map((s) => (
+              <tr key={s.area} className="border-b border-border-subtle/40 align-top last:border-0">
+                <td className="w-40 py-1.5 pr-3 font-medium text-secondary">{s.area}</td>
+                <td className="py-1.5">
+                  <span className="text-primary">{s.source}</span>
+                  <span className="mt-0.5 block text-[10px] text-muted">{s.note}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="mt-2 text-[10px] text-muted">
+          Live provider health + per-economy coverage is on the{' '}
+          <span className="text-secondary">Providers &amp; Coverage</span> tab.
+        </p>
+      </div>
+    </details>
+  )
+}
+
 // --- page -------------------------------------------------------------
 type ScorecardView = 'edgefinder' | 'detailed'
 
@@ -675,6 +743,8 @@ export function MacroScorecard() {
               </div>
             </div>
           )}
+
+          <DataSources />
 
           <p className="border-t border-border-subtle pt-2 text-[10px] text-muted">
             {scorecard.disclaimer} Model {scorecard.model_version}. Surprise interpretation is deterministic
