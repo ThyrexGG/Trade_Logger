@@ -182,13 +182,13 @@ export const ZONES: Zone[] = [
     label: 'Forward Evidence & Governance',
     shortLabel: 'Evidence',
     path: '/evidence',
-    tagline: 'Statistical validation, forward evidence and governance.',
+    tagline: 'Live-vs-backtest forward tracking for every edge, plus statistical surveillance and governance.',
     icon: GaugeIcon,
     items: [
       {
         id: 'evidence.forward',
-        label: 'Forward Evidence',
-        description: 'Forward sample accumulation and decision state.',
+        label: 'XAUUSD Forward',
+        description: 'Forward sample accumulation and decision state for the frozen XAUUSD directional contract (Phase 49).',
         path: '/evidence/forward',
         icon: GaugeIcon,
         status: 'live',
@@ -196,7 +196,7 @@ export const ZONES: Zone[] = [
       {
         id: 'evidence.statistics',
         label: 'Statistics',
-        description: 'Statistical surveillance, milestones and holdout comparison.',
+        description: 'Statistical surveillance, milestones and holdout comparison for the XAUUSD contract.',
         path: '/evidence/statistics',
         icon: ChartIcon,
         status: 'live',

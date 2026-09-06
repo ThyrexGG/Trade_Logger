@@ -13,8 +13,8 @@ export function ForwardEvidencePage() {
 
   return (
     <EvidencePageFrame
-      title="Forward Validation"
-      description="Genuine forward observation accumulation, decision state and outcome distribution. Every metric is produced by the authoritative Phase 49 engine."
+      title="XAUUSD Forward Validation"
+      description="Genuine forward observation accumulation, decision state and outcome distribution for the frozen XAUUSD directional contract. Every metric is produced by the authoritative Phase 49 engine. (Other edges have their own trackers — see the Evidence command center.)"
       view={view}
       crossLinks={
         <>

@@ -7,6 +7,7 @@ import { EvidenceReadout } from '../components/evidence/EvidenceReadout'
 import { EvidenceWarnings } from '../components/evidence/EvidenceWarnings'
 import { MilestoneTimeline } from '../components/evidence/MilestoneTimeline'
 import { HoldoutComparison } from '../components/evidence/HoldoutComparison'
+import { ForwardTrackers } from '../components/evidence/ForwardTrackers'
 import { SectionError } from '../components/evidence/primitives'
 import { timeAgo } from '../lib/format'
 
@@ -41,6 +42,8 @@ export function EvidenceCommandCenterPage() {
 
       <EvidenceHeader state={state} data={data} error={error} />
       <SafetyBanner safety={data?.safety} />
+
+      <ForwardTrackers data={data ?? null} />
 
       {state === 'error' && !data ? (
         <div className="rounded-lg border border-border bg-surface p-4">
