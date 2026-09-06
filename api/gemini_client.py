@@ -110,4 +110,15 @@ def generate(system_instruction: str, history: List[Dict[str, str]], context_blo
             reason = None
         raise GeminiError(f"Gemini returned no usable text (finish_reason={reason})", kind="empty")
 
-    return text, {"model": _MODEL, "finish_reason": "stop"}
+    usage: Dict[str, Any] = {}
+    try:
+        um = resp.usage_metadata
+        usage = {
+            "prompt_tokens": int(getattr(um, "prompt_token_count", 0) or 0),
+            "output_tokens": int(getattr(um, "candidates_token_count", 0) or 0),
+            "total_tokens": int(getattr(um, "total_token_count", 0) or 0),
+        }
+    except Exception:
+        usage = {}
+
+    return text, {"model": _MODEL, "finish_reason": "stop", "usage": usage}

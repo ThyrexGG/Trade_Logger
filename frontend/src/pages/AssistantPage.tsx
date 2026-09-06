@@ -3,6 +3,13 @@ import type { FormEvent, KeyboardEvent } from 'react'
 import { useAIChat } from '../lib/useAIChat'
 import { PageContainer } from '../components/shell/PageContainer'
 import { ChatMarkdown } from '../components/assistant/ChatMarkdown'
+import { InfoTip } from '../components/common/InfoTip'
+
+function fmtTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(n >= 10_000 ? 0 : 1)}K`
+  return String(n)
+}
 
 const SUGGESTIONS = [
   'How did I perform today?',
@@ -25,7 +32,7 @@ function clockTime(at?: number): string {
  * transcript persists in this browser so a refresh keeps the conversation.
  */
 export function AssistantPage() {
-  const { configured, turns, sending, lastMeta, send, retry, clear } = useAIChat()
+  const { configured, turns, sending, lastMeta, usage, send, retry, clear } = useAIChat()
   const [draft, setDraft] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
   const taRef = useRef<HTMLTextAreaElement>(null)
@@ -72,16 +79,34 @@ export function AssistantPage() {
       <div className="flex h-[calc(100vh-12rem)] min-h-[30rem] flex-col overflow-hidden rounded-xl border border-border bg-surface">
         {/* header strip */}
         <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-2 text-[11px]">
-          <span className="flex items-center gap-1.5">
-            <span
-              className={`h-1.5 w-1.5 rounded-full ${
-                disabled ? 'bg-muted' : configured ? 'bg-positive' : 'bg-warning'
-              }`}
-              aria-hidden="true"
-            />
-            <span className="text-muted">
-              {disabled ? 'Not configured' : lastMeta?.model ? lastMeta.model : 'Assistant'}
+          <span className="flex items-center gap-3">
+            <span className="flex items-center gap-1.5">
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  disabled ? 'bg-muted' : configured ? 'bg-positive' : 'bg-warning'
+                }`}
+                aria-hidden="true"
+              />
+              <span className="text-muted">
+                {disabled ? 'Not configured' : lastMeta?.model ? lastMeta.model : 'Assistant'}
+              </span>
             </span>
+            {!disabled && usage ? (
+              <span className="flex items-center gap-1 text-muted">
+                <span aria-hidden="true">⚡</span>
+                <InfoTip
+                  text={`Gemini API usage from this server. Today: ${usage.day_tokens.toLocaleString()} tokens over ${usage.day_requests} message${usage.day_requests === 1 ? '' : 's'}. This session: ${usage.session_tokens.toLocaleString()} tokens / ${usage.session_requests}.${
+                    lastMeta?.turn_usage
+                      ? ` Last reply: ${lastMeta.turn_usage.total_tokens.toLocaleString()} tokens (${lastMeta.turn_usage.prompt_tokens.toLocaleString()} in / ${lastMeta.turn_usage.output_tokens.toLocaleString()} out).`
+                      : ''
+                  } Counters reset on server restart / at UTC midnight.`}
+                >
+                  <span className="font-mono text-secondary">
+                    {fmtTokens(usage.day_tokens)} · {usage.day_requests} msg
+                  </span>
+                </InfoTip>
+              </span>
+            ) : null}
           </span>
           <span className="font-mono uppercase tracking-wider text-blocked">Read-only · no order path</span>
         </div>

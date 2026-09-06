@@ -21,6 +21,21 @@ export type AIErrorKind =
   | 'rate_limit'
   | 'empty'
 
+export interface AIUsage {
+  day: string
+  day_requests: number
+  day_tokens: number
+  session_requests: number
+  session_tokens: number
+  last_request_utc: string | null
+}
+
+export interface AITurnUsage {
+  prompt_tokens: number
+  output_tokens: number
+  total_tokens: number
+}
+
 export interface AIChatResponse {
   ok: boolean
   reply: string | null
@@ -29,6 +44,8 @@ export interface AIChatResponse {
   model: string | null
   context_sections_used: string[]
   context_sections_unavailable: string[]
+  turn_usage: AITurnUsage | null
+  usage: AIUsage | null
   read_only: boolean
   live_broker_transmission: string
   timestamp: string
@@ -37,6 +54,7 @@ export interface AIChatResponse {
 export interface AIStatusResponse {
   configured: boolean
   model: string | null
+  usage: AIUsage | null
   read_only: boolean
   live_broker_transmission: string
   timestamp: string

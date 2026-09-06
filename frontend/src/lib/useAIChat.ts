@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getAIStatus, postAIChat } from '../api/ai'
-import type { AIChatMessage, AIChatResponse } from '../types/ai'
+import type { AIChatMessage, AIChatResponse, AIUsage } from '../types/ai'
 
 export interface ChatTurn {
   role: 'user' | 'assistant'
@@ -17,6 +17,7 @@ interface UseAIChatResult {
   turns: ChatTurn[]
   sending: boolean
   lastMeta: AIChatResponse | null
+  usage: AIUsage | null
   send: (text: string) => void
   retry: () => void
   clear: () => void
@@ -63,6 +64,7 @@ export function useAIChat(): UseAIChatResult {
   const [turns, setTurns] = useState<ChatTurn[]>(() => loadStored())
   const [sending, setSending] = useState(false)
   const [lastMeta, setLastMeta] = useState<AIChatResponse | null>(null)
+  const [usage, setUsage] = useState<AIUsage | null>(null)
   const inFlight = useRef<AbortController | null>(null)
   const reqId = useRef(0)
   const lastUser = useRef<string | null>(null)
@@ -70,7 +72,10 @@ export function useAIChat(): UseAIChatResult {
   useEffect(() => {
     const c = new AbortController()
     getAIStatus(c.signal)
-      .then((s) => setConfigured(s.configured))
+      .then((s) => {
+        setConfigured(s.configured)
+        if (s.usage) setUsage(s.usage)
+      })
       .catch(() => setConfigured(null))
     return () => c.abort()
   }, [])
@@ -97,6 +102,7 @@ export function useAIChat(): UseAIChatResult {
       .then((res) => {
         if (id !== reqId.current) return
         setLastMeta(res)
+        if (res.usage) setUsage(res.usage)
         setTurns((prev) => [
           ...prev,
           res.ok && res.reply
@@ -165,5 +171,5 @@ export function useAIChat(): UseAIChatResult {
     }
   }, [])
 
-  return { configured, turns, sending, lastMeta, send, retry, clear }
+  return { configured, turns, sending, lastMeta, usage, send, retry, clear }
 }

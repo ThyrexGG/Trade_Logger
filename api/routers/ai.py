@@ -38,9 +38,12 @@ def _now() -> str:
 @router.get("/status", response_model=AIStatusResponse)
 def ai_status() -> AIStatusResponse:
     """Whether the assistant is configured (no secret is ever returned)."""
+    from api import ai_usage
+
     return AIStatusResponse(
         configured=is_configured(),
         model=model_name() if is_configured() else None,
+        usage=ai_usage.snapshot(),
         timestamp=_now(),
     )
 
@@ -84,11 +87,18 @@ def ai_chat(req: AIChatRequest) -> AIChatResponse:
             timestamp=_now(),
         )
 
+    from api import ai_usage
+
+    turn_usage = meta.get("usage") or {}
+    ai_usage.record(int(turn_usage.get("total_tokens", 0) or 0))
+
     return AIChatResponse(
         ok=True,
         reply=reply,
         model=str(meta.get("model", model_name())),
         context_sections_used=ctx["available_sections"],
         context_sections_unavailable=ctx["unavailable_sections"],
+        turn_usage=turn_usage or None,
+        usage=ai_usage.snapshot(),
         timestamp=_now(),
     )
