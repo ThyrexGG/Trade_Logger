@@ -111,7 +111,7 @@ export function AnalyticsView({ data }: { data: AnalyticsPerformanceResponse }) 
         />
       </div>
 
-      <SectionCard title="Calendar">
+      <SectionCard title="Calendar" info="Daily net P&L on a month grid. Green = up day, red = down. Click any day to see the trades that closed on it. The summary chips are that month's totals.">
         <MonthlyCalendar
           daily={data.daily_pnl}
           initialBalance={initialBalance}
@@ -123,6 +123,7 @@ export function AnalyticsView({ data }: { data: AnalyticsPerformanceResponse }) 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <SectionCard
           title="Account balance curve"
+          info="Equity over time, one point per closed trade. Below it: average win vs average loss, and the long/short trade split."
           action={
             <span className="font-mono text-[11px] text-muted">
               {data.equity_curve.length} pts{data.equity_curve_sampled ? ' · sampled' : ''}
@@ -161,7 +162,7 @@ export function AnalyticsView({ data }: { data: AnalyticsPerformanceResponse }) 
           )}
         </SectionCard>
 
-        <SectionCard title="Period returns">
+        <SectionCard title="Period returns" info="Return over rolling windows relative to now: average day, this week, this month, and the annualised figure. Percentages are of the starting balance.">
           <div className="grid grid-cols-2 gap-2">
             <PeriodCell label="Avg daily" pct={pr.avg_daily_pct} />
             <PeriodCell label="This week" pct={pr.weekly_pct} usd={pr.weekly_pnl} />
@@ -173,7 +174,7 @@ export function AnalyticsView({ data }: { data: AnalyticsPerformanceResponse }) 
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <SectionCard title="Net P&L by symbol">
+        <SectionCard title="Net P&L by symbol" info="Which instruments made or lost money over the filtered period, with trade count and win rate. Bars extend right for profit, left for loss.">
           {data.symbol_breakdown.length === 0 ? (
             <OpsUnavailable>No symbols in range.</OpsUnavailable>
           ) : (
@@ -185,7 +186,7 @@ export function AnalyticsView({ data }: { data: AnalyticsPerformanceResponse }) 
           )}
         </SectionCard>
 
-        <SectionCard title="Net P&L by strategy tag">
+        <SectionCard title="Net P&L by strategy tag" info="Same P&L breakdown but grouped by the setup tag you assigned in the journal. Untagged trades are grouped together.">
           {data.tag_breakdown.length === 0 ? (
             <OpsUnavailable>No tagged trades in range.</OpsUnavailable>
           ) : (
@@ -199,14 +200,14 @@ export function AnalyticsView({ data }: { data: AnalyticsPerformanceResponse }) 
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <SectionCard title="Direction split">
+        <SectionCard title="Direction split" info="Long vs short: how many trades, win rate and net P&L on each side. A big skew can mean a directional bias worth examining.">
           <div className="grid grid-cols-2 gap-2 text-[11px]">
             <DirCell label="Long" s={m.long_stats} />
             <DirCell label="Short" s={m.short_stats} />
           </div>
         </SectionCard>
 
-        <SectionCard title="Performance index">
+        <SectionCard title="Performance index" info="Five 0-100 presentation scores derived from the metrics above (profitability, win rate, risk-reward, capital protection, consistency). Not a grade - a shape to eyeball. Green >=60, red <=40.">
           <div className="text-accent">
             <RadarChart axes={scores.map((s) => ({ label: s.label, value: s.v }))} />
           </div>

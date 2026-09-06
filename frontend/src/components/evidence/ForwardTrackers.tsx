@@ -72,7 +72,10 @@ export function ForwardTrackers({ data }: { data: ForwardEvidenceState | null })
   const goldN = data?.metrics.trades_n ?? data?.sample_n ?? 0
 
   return (
-    <SectionCard title="Forward trackers">
+    <SectionCard
+      title="Forward trackers"
+      info="Every edge the project follows, with its live-vs-backtest status in one glance. Each card links to the full detail. 'Tracking' / 'Confirming' = live results match the backtest; 'Diverging' = they don't; 'Insufficient' = not enough forward data yet."
+    >
       <p className="mb-3 text-[11px] text-muted">
         Backtest says X — is live-forward delivering X? One card per edge; each
         links to its detail and its own engine.

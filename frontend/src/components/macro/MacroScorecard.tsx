@@ -260,7 +260,10 @@ function ScorecardBody({
   return (
     <div className="space-y-4">
       <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
-        <SectionCard title={`${scorecard.instrument} · macro bias`}>
+        <SectionCard
+          title={`${scorecard.instrument} · macro bias`}
+          info="The overall macro lean for this instrument, from a weighted blend of the growth / inflation / jobs / positioning category scores. Composite is that blend as one number (positive = bullish); Confidence reflects how much provider data each category actually has."
+        >
           <div className="flex flex-col items-center gap-2">
             <Gauge score={scorecard.gauge} size={140} />
             <SentimentBadge value={scorecard.bias ?? 'NEUTRAL'} size="md" />
@@ -284,6 +287,7 @@ function ScorecardBody({
 
         <SectionCard
           title="Score history"
+          info="How the composite macro score has moved over time. Bars above the line are bullish snapshots, below are bearish. Only real stored snapshots — no synthetic backfill, so the timeline builds up as you revisit."
           action={<span className="font-mono text-[10px] text-muted">stored snapshots only</span>}
         >
           <ScoreHistory data={history} />

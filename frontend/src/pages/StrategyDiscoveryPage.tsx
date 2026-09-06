@@ -57,7 +57,10 @@ export function StrategyDiscoveryPage() {
 
       {/* ---- Verdict ---- */}
       <div className="mt-4">
-        <SectionCard title="Research verdict">
+        <SectionCard
+          title="Research verdict"
+          info="Which instrument + strategy combination had the most defensible statistical edge on real historical data — computed offline by `python -m pair_ranking`. If nothing is shown, the ranking artifact hasn't been generated on this database yet."
+        >
           {ranking?.state === 'AVAILABLE' ? (
             <div className="space-y-2">
               <p className="font-mono text-sm text-primary">{ranking.verdict}</p>
@@ -78,7 +81,10 @@ export function StrategyDiscoveryPage() {
 
       {/* ---- Leaderboard ---- */}
       <div className="mt-4">
-        <SectionCard title={`Pair × strategy leaderboard${leaderboard.length ? ` (${leaderboard.length})` : ''}`}>
+        <SectionCard
+          title={`Pair × strategy leaderboard${leaderboard.length ? ` (${leaderboard.length})` : ''}`}
+          info="Every instrument+strategy candidate that cleared the minimum sample size, ranked by Research Ranking Score (a sorting aid, NOT a trade signal). OOS columns = out-of-sample, i.e. tested on data the rules were not fitted on. A candidate below the sample floor is 'insufficient evidence' and never ranked."
+        >
           {leaderboard.length ? (
             <div className="overflow-x-auto">
               <LeaderboardTable rows={leaderboard} />

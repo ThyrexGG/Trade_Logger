@@ -34,6 +34,7 @@ export function ForwardEvidencePage() {
           <div className="space-y-4">
             <SectionCard
               title="Decision state"
+              info="Whether there is yet enough genuine forward (real-time, out-of-sample) evidence to trust the frozen XAUUSD strategy. It starts at 'INSUFFICIENT EVIDENCE (N=0)' and only advances as real closed trades accumulate — no backtest data counts here."
               action={
                 <EvidenceStatusTag
                   value={data.decision.decision_state}
@@ -50,7 +51,10 @@ export function ForwardEvidencePage() {
 
             <EvidenceReadout data={data} />
 
-            <SectionCard title="Outcome distribution">
+            <SectionCard
+              title="Outcome distribution"
+              info="The spread of forward trade results once trades exist — how often each R-bucket hit, plus win / loss streaks and result variability. Empty until genuine trades are recorded."
+            >
               {hasSample ? (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {Object.entries(m.outcomes).map(([k, v]) => (
