@@ -88,6 +88,33 @@ INDICATOR_METADATA: Dict[str, Dict[str, Any]] = {
         "inverted_growth": False,
         "std_deviation": 0.8
     },
+    "PPI": {
+        "display_name": "Producer Price Index (YoY)",
+        "family": "INFLATION",
+        "unit": "%",
+        "frequency": "MONTHLY",
+        "high_impact": True,
+        "inverted_growth": True,
+        "std_deviation": 0.6
+    },
+    "DURABLE_GOODS": {
+        "display_name": "Durable Goods Orders (YoY)",
+        "family": "GROWTH",
+        "unit": "%",
+        "frequency": "MONTHLY",
+        "high_impact": False,
+        "inverted_growth": False,
+        "std_deviation": 2.0
+    },
+    "HOUSING_STARTS": {
+        "display_name": "Housing Starts (SAAR)",
+        "family": "GROWTH",
+        "unit": "k",
+        "frequency": "MONTHLY",
+        "high_impact": False,
+        "inverted_growth": False,
+        "std_deviation": 60.0
+    },
     "MFG_PMI": {
         "display_name": "Manufacturing PMI (ISM / S&P)",
         "family": "GROWTH",
@@ -107,22 +134,22 @@ INDICATOR_METADATA: Dict[str, Dict[str, Any]] = {
         "std_deviation": 1.8
     },
     "RETAIL_SALES": {
-        "display_name": "Retail Sales (MoM)",
+        "display_name": "Retail Sales (YoY)",
         "family": "GROWTH",
         "unit": "%",
         "frequency": "MONTHLY",
         "high_impact": True,
         "inverted_growth": False,
-        "std_deviation": 0.5
+        "std_deviation": 1.5
     },
     "INDUSTRIAL_PROD": {
-        "display_name": "Industrial Production (MoM)",
+        "display_name": "Industrial Production (YoY)",
         "family": "GROWTH",
         "unit": "%",
         "frequency": "MONTHLY",
         "high_impact": False,
         "inverted_growth": False,
-        "std_deviation": 0.4
+        "std_deviation": 1.2
     },
     "CONSUMER_CONF": {
         "display_name": "Consumer Confidence Index",
@@ -163,11 +190,11 @@ INDICATOR_METADATA: Dict[str, Dict[str, Any]] = {
     "JOLTS": {
         "display_name": "JOLTS Job Openings",
         "family": "LABOR",
-        "unit": "M",
+        "unit": "k",
         "frequency": "MONTHLY",
         "high_impact": False,
         "inverted_growth": False,
-        "std_deviation": 0.3
+        "std_deviation": 250.0
     },
     "JOBLESS_CLAIMS": {
         "display_name": "Initial Jobless Claims (Weekly)",

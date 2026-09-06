@@ -52,11 +52,16 @@ _SERIES: Dict[str, Dict[str, Tuple[str, str, str]]] = {
         "CORE_CPI":       ("CPILFESL", "pc1", "% YoY"),
         "PCE":            ("PCEPI", "pc1", "% YoY"),
         "CORE_PCE":       ("PCEPILFE", "pc1", "% YoY"),
+        "PPI":            ("PPIACO", "pc1", "% YoY"),
         "GDP":            ("A191RL1Q225SBEA", "lin", "% ann. (QoQ)"),
         "RETAIL_SALES":   ("RSAFS", "pc1", "% YoY"),
         "CONSUMER_CONF":  ("UMCSENT", "lin", "index"),
+        "INDUSTRIAL_PROD": ("INDPRO", "pc1", "% YoY"),
+        "DURABLE_GOODS":  ("DGORDER", "pc1", "% YoY"),
+        "HOUSING_STARTS": ("HOUST", "lin", "k units (SAAR)"),
         "UNEMPLOYMENT":   ("UNRATE", "lin", "%"),
         "NFP":            ("PAYEMS", "chg", "k jobs (MoM chg)"),
+        "JOLTS":          ("JTSJOL", "lin", "k openings"),
         "JOBLESS_CLAIMS": ("ICSA", "lin", "claims"),
         "INTEREST_RATE":  ("DFEDTARU", "lin", "% (Fed target upper)"),
         "YIELD_2Y":       ("DGS2", "lin", "%"),
@@ -105,8 +110,10 @@ _SERIES: Dict[str, Dict[str, Tuple[str, str, str]]] = {
 
 _METRIC_FAMILY = {
     "CPI": "INFLATION", "CORE_CPI": "INFLATION", "PCE": "INFLATION", "CORE_PCE": "INFLATION",
+    "PPI": "INFLATION",
     "GDP": "GROWTH", "RETAIL_SALES": "GROWTH", "CONSUMER_CONF": "GROWTH",
-    "UNEMPLOYMENT": "LABOR", "NFP": "LABOR", "JOBLESS_CLAIMS": "LABOR",
+    "INDUSTRIAL_PROD": "GROWTH", "DURABLE_GOODS": "GROWTH", "HOUSING_STARTS": "GROWTH",
+    "UNEMPLOYMENT": "LABOR", "NFP": "LABOR", "JOLTS": "LABOR", "JOBLESS_CLAIMS": "LABOR",
     "INTEREST_RATE": "MONETARY_POLICY", "YIELD_2Y": "MONETARY_POLICY", "YIELD_10Y": "MONETARY_POLICY",
 }
 
