@@ -34,6 +34,7 @@ const StrategyDiscoveryPage = page(
 )
 const TradeSetupPage = page(() => import('./pages/TradeSetupPage'), 'TradeSetupPage')
 const BacktestWorkspacePage = page(() => import('./pages/BacktestWorkspacePage'), 'BacktestWorkspacePage')
+const CryptoCarryPage = page(() => import('./pages/CryptoCarryPage'), 'CryptoCarryPage')
 const MacroIntelligencePage = page(() => import('./pages/MacroIntelligencePage'), 'MacroIntelligencePage')
 const PositionsPage = page(() => import('./pages/PositionsPage'), 'PositionsPage')
 const PriceAlertsPage = page(() => import('./pages/PriceAlertsPage'), 'PriceAlertsPage')
@@ -58,6 +59,7 @@ const LIVE_ITEM_PAGES: Record<string, ReactElement> = {
   'research.strategy': <StrategyLabPage />,
   'research.discovery': <StrategyDiscoveryPage />,
   'research.backtest': <BacktestWorkspacePage />,
+  'research.crypto-carry': <CryptoCarryPage />,
   'research.macro': <MacroIntelligencePage />,
   'evidence.forward': <ForwardEvidencePage />,
   'evidence.statistics': <EvidenceStatisticsPage />,

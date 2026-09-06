@@ -160,6 +160,14 @@ export const ZONES: Zone[] = [
         status: 'live',
       },
       {
+        id: 'research.crypto-carry',
+        label: 'Crypto Carry',
+        description: 'Delta-neutral crypto funding carry — the one usable edge: recommended book, sizing, and the weekly forward-evidence tracker.',
+        path: '/research/crypto-carry',
+        icon: ScaleIcon,
+        status: 'live',
+      },
+      {
         id: 'research.macro',
         label: 'Macro Intelligence',
         description: 'Economic calendar, surprise, currency strength and asset macro context.',
