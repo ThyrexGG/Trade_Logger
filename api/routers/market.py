@@ -5,12 +5,23 @@ Provides near-instant cached multi-timeframe bias, price, spread, and context
 consuming authoritative TradingWorkspaceCockpit and market_data without modification.
 """
 from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException
+from typing import Any, Dict
+from fastapi import APIRouter, HTTPException, Query
 from api.schemas import MarketSnapshotResponse
 from trading_workspace_cockpit import TradingWorkspaceCockpit, WATCHLIST_SYMBOLS
 import market_data
 
 router = APIRouter(prefix="/api/market", tags=["Market"])
+
+_ALLOWED_TF = ("1m", "5m", "15m", "1h", "4h", "1d")
+# how fresh the client should treat a source (drives the poll interval it picks)
+_SOURCE_LIVENESS = {
+    "binance": "live",          # real-time public feed
+    "mt5": "live",
+    "yahoo": "delayed",         # polled, can lag ~15 min on intraday
+    "synthetic_fallback": "synthetic",
+    "unknown": "unknown",
+}
 
 
 def _calculate_market_session(dt: datetime) -> str:
@@ -75,3 +86,34 @@ async def get_market_snapshot(symbol: str) -> MarketSnapshotResponse:
         cached=True,
         timestamp=now_utc.isoformat()
     )
+
+
+@router.get("/candles/{symbol}")
+async def get_candles(
+    symbol: str,
+    tf: str = Query("15m", description="one of 1m/5m/15m/1h/4h/1d"),
+    count: int = Query(200, ge=20, le=500),
+) -> Dict[str, Any]:
+    """OHLC candles for a live chart. Read-only, display-only — no order path.
+
+    Source is whatever `market_data` could reach: `binance` (real-time, crypto),
+    `yahoo` (polled, can lag on intraday), or `synthetic_fallback`. The client
+    uses `liveness` to pick a poll interval.
+    """
+    sym = symbol.upper().replace("/", "").replace(":", "").strip()
+    timeframe = tf.lower() if tf.lower() in _ALLOWED_TF else "15m"
+    try:
+        candles, source = market_data.get_candles_with_source(sym, timeframe, int(count), ttl_sec=4)
+    except Exception as exc:  # pragma: no cover - defensive
+        raise HTTPException(status_code=502, detail=f"candle feed error: {type(exc).__name__}")
+    candles = candles or []
+    return {
+        "symbol": sym,
+        "timeframe": timeframe,
+        "count": len(candles),
+        "candles": candles,   # [{time, open, high, low, close, volume?}] — unix seconds
+        "source": source,
+        "liveness": _SOURCE_LIVENESS.get(source, "unknown"),
+        "live_broker_transmission": "BLOCKED",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }

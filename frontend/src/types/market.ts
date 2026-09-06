@@ -49,3 +49,23 @@ export interface MarketSnapshot {
   cached: boolean
   timestamp: string
 }
+
+export interface Candle {
+  time: number // unix seconds
+  open: number
+  high: number
+  low: number
+  close: number
+  volume?: number
+}
+
+export interface CandlesResponse {
+  symbol: string
+  timeframe: string
+  count: number
+  candles: Candle[]
+  source: 'binance' | 'yahoo' | 'mt5' | 'synthetic_fallback' | 'unknown' | string
+  liveness: 'live' | 'delayed' | 'synthetic' | 'unknown' | string
+  live_broker_transmission: string
+  timestamp: string
+}

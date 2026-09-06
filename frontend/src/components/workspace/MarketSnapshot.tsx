@@ -78,10 +78,7 @@ export function MarketSnapshot({
     data.ask === 0
 
   return (
-    <section
-      aria-label="Market snapshot"
-      className="flex min-h-0 flex-col overflow-y-auto"
-    >
+    <section aria-label="Market snapshot" className="flex min-h-0 flex-col">
       <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-border-subtle px-4 py-3">
         <div className="flex items-baseline gap-2">
           <h2 className="font-mono text-base font-semibold text-primary">

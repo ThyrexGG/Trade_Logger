@@ -4,6 +4,8 @@ import { useWatchlist } from '../lib/useWatchlist'
 import { useMarketSnapshot } from '../lib/useMarketSnapshot'
 import { Watchlist } from '../components/workspace/Watchlist'
 import { MarketSnapshot } from '../components/workspace/MarketSnapshot'
+import { PriceChart } from '../components/workspace/PriceChart'
+import type { ChartTimeframe } from '../lib/usePriceChart'
 
 /**
  * Trading workspace: real watchlist (one request) + market snapshot for the
@@ -35,6 +37,7 @@ export function MarketWorkspacePage() {
 
   const snapshot = useMarketSnapshot(selected)
   const onSelect = useCallback((symbol: string) => setSelected(symbol), [])
+  const [tf, setTf] = useState<ChartTimeframe>('15m')
 
   return (
     <div className="flex flex-col lg:h-[calc(100vh-var(--tl-topbar-height))] lg:flex-row">
@@ -51,7 +54,10 @@ export function MarketWorkspacePage() {
         />
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <div className="p-3">
+          <PriceChart symbol={selected} tf={tf} onTf={setTf} height={340} />
+        </div>
         <MarketSnapshot
           symbol={selected}
           state={snapshot.state}

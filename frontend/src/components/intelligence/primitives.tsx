@@ -51,7 +51,7 @@ export function IntelTag({
   className?: string
 }) {
   const t = tone ?? toneForIntel(value)
-  const arrow = toneArrow(t)
+  const arrow = toneArrow(t, value)
   return (
     <span
       className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[11px] leading-none ${TONE_TAG[t]} ${className}`}

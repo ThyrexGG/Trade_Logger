@@ -66,13 +66,19 @@ export function toneText(tone: SentimentTone): string {
         : 'text-muted'
 }
 
+// States that describe *availability / progress*, not a market direction — these
+// must never get a ▲/▼ (a "▼ Provider unavailable" reads as bearish, which is wrong).
+const NON_DIRECTIONAL =
+  /\b(UNAVAIL|INSUFFICIENT|N\/?A|NOT APPLICABLE|PENDING|STALE|LOADING|WAITING|DEGRADED|OFFLINE|DISABLED|NOT CONFIGURED|NOT COMPUTED|NO DATA|NO HISTORY|COMPUTING|IDLE|SEED|DEMO)\b/
+
 /**
  * Arrow glyph for any tone string used anywhere in the app — the Sentiment
  * tones (up/down/flat/caution) and the legacy status tones
- * (positive/negative/warning/info/neutral). '' when there's no meaningful
- * direction (info / neutral / flat).
+ * (positive/negative/warning/info/neutral). Pass `value` so availability /
+ * progress states get no arrow. '' when there's no meaningful direction.
  */
-export function toneArrow(tone: string | null | undefined): string {
+export function toneArrow(tone: string | null | undefined, value?: string | null): string {
+  if (value && NON_DIRECTIONAL.test(value.toUpperCase())) return ''
   const t = (tone || '').toLowerCase()
   if (t === 'up' || t === 'positive') return '▲'
   if (t === 'down' || t === 'negative') return '▼'

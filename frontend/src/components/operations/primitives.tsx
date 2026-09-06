@@ -57,7 +57,7 @@ export function OpsStatusTag({
   size?: 'sm' | 'md'
 }) {
   const t = tone ?? opsTone(value)
-  const arrow = toneArrow(t)
+  const arrow = toneArrow(t, value)
   return (
     <span
       className={`inline-flex items-center gap-1 rounded border font-mono leading-none ${
