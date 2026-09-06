@@ -31,11 +31,13 @@ import analytics
 import database
 from api.schemas import (
     AnalyticsAvailable,
+    AnalyticsDayTradesResponse,
     AnalyticsFiltersEcho,
     AnalyticsPerformanceResponse,
     DailyPnl,
     DirectionStats,
     EquityAnchor,
+    JournalTradeItem,
     PeriodReturns,
     PerformanceMetrics,
     SymbolBreakdownRow,
@@ -268,6 +270,77 @@ def get_performance(
         matched_trades=int(len(filtered)),
         source="closed_trades",
         timestamp=_now(),
+    )
+
+
+def _trade_item(row: pd.Series) -> JournalTradeItem:
+    def _f(k: str) -> float:
+        try:
+            v = row.get(k)
+            return float(v) if v is not None and not pd.isna(v) else 0.0
+        except (TypeError, ValueError):
+            return 0.0
+
+    def _s(k: str) -> Optional[str]:
+        v = row.get(k)
+        if v is None or (isinstance(v, float) and pd.isna(v)):
+            return None
+        return str(v)
+
+    return JournalTradeItem(
+        trade_id=str(row.get("trade_id", "")),
+        account_id=str(row.get("account_id", "")),
+        symbol=str(row.get("symbol", "")).upper(),
+        direction=str(row.get("direction", "")).upper(),
+        volume=_f("volume"),
+        entry_price=_f("entry_price"),
+        exit_price=_f("exit_price"),
+        commission=_f("commission"),
+        swap=_f("swap"),
+        gross_profit=_f("gross_profit"),
+        net_profit=_f("net_profit"),
+        entry_time=pd.Timestamp(row["entry_time"]).isoformat() if row.get("entry_time") is not None else "",
+        exit_time=pd.Timestamp(row["exit_time"]).isoformat() if row.get("exit_time") is not None else "",
+        duration_minutes=_f("duration_minutes"),
+        setup_tag=_s("setup_tag"),
+        notes=_s("notes"),
+        rating=int(_f("rating")) or None,
+        chart_snapshot_url=_s("chart_snapshot_url"),
+    )
+
+
+@router.get("/day", response_model=AnalyticsDayTradesResponse)
+def get_day_trades(
+    date: str = Query(..., description="ISO date YYYY-MM-DD — trades whose exit_time falls on this day"),
+    account: Optional[str] = Query(default=None),
+    symbols: Optional[str] = Query(default=None, description="comma-separated symbols; omit for all"),
+) -> AnalyticsDayTradesResponse:
+    """Closed trades for one calendar day, honouring the same account / symbol
+    filters as `/performance`. Powers the calendar day drill-down. Read-only."""
+    day = _parse_date(date, "date")
+    df = _load_trades()
+
+    acc = (account or "").strip()
+    if not df.empty and acc and acc.upper() != "ALL":
+        if acc not in df["account_id"].astype(str).unique():
+            raise HTTPException(status_code=422, detail=f"Unknown account '{acc}'")
+        df = df[df["account_id"].astype(str) == acc]
+
+    if not df.empty and symbols and symbols.strip():
+        wanted = [s.strip().upper() for s in symbols.split(",") if s.strip()]
+        df = df[df["symbol"].astype(str).str.upper().isin(wanted)]
+
+    if not df.empty:
+        df = df[(df["exit_time"] >= day) & (df["exit_time"] < day + pd.Timedelta(days=1))]
+        df = df.sort_values(by="exit_time")
+
+    trades = [] if df.empty else [_trade_item(r) for _, r in df.iterrows()]
+    return AnalyticsDayTradesResponse(
+        date=day.date().isoformat(),
+        trades=trades,
+        count=len(trades),
+        wins=sum(1 for t in trades if t.net_profit > 0),
+        net_profit=round(sum(t.net_profit for t in trades), 2),
     )
 
 

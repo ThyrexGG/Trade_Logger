@@ -62,7 +62,6 @@ export function AnalyticsView({ data }: { data: AnalyticsPerformanceResponse }) 
   const initialBalance = data.filters_applied.initial_balance || 10000
   const symMax = Math.max(1, ...data.symbol_breakdown.map((r) => Math.abs(r.net_profit)))
   const tagMax = Math.max(1, ...data.tag_breakdown.map((r) => Math.abs(r.net_profit)))
-  const dayMax = Math.max(1, ...data.daily_pnl.map((d) => Math.abs(d.net_profit)))
 
   const scores = [
     { label: 'Profitability', v: clamp(50 + m.gain_pct * 2) },
@@ -109,6 +108,15 @@ export function AnalyticsView({ data }: { data: AnalyticsPerformanceResponse }) 
           sub={`W/L ratio ${m.win_loss_ratio.toFixed(2)}`}
         />
       </div>
+
+      <SectionCard title="Calendar">
+        <MonthlyCalendar
+          daily={data.daily_pnl}
+          initialBalance={initialBalance}
+          account={data.filters_applied.account}
+          symbols={data.filters_applied.symbols}
+        />
+      </SectionCard>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <SectionCard
@@ -211,44 +219,6 @@ export function AnalyticsView({ data }: { data: AnalyticsPerformanceResponse }) 
         </SectionCard>
       </div>
 
-      <SectionCard
-        title="Monthly calendar"
-        action={<span className="font-mono text-[11px] text-muted">daily P&amp;L</span>}
-      >
-        {data.daily_pnl.length === 0 ? (
-          <OpsUnavailable>No closed trades in range.</OpsUnavailable>
-        ) : (
-          <MonthlyCalendar daily={data.daily_pnl} initialBalance={initialBalance} />
-        )}
-      </SectionCard>
-
-      <SectionCard
-        title="Daily P&L"
-        action={<span className="font-mono text-[11px] text-muted">{data.daily_pnl.length} trading days</span>}
-      >
-        {data.daily_pnl.length === 0 ? (
-          <OpsUnavailable>No daily P&L in range.</OpsUnavailable>
-        ) : (
-          <div className="overflow-x-auto">
-            <div className="flex min-w-full items-end gap-0.5" style={{ height: 96 }}>
-              {data.daily_pnl.map((d) => {
-                const h = (Math.abs(d.net_profit) / dayMax) * 44
-                return (
-                  <div key={d.date} className="flex flex-1 flex-col items-center justify-center" style={{ minWidth: 6 }} title={`${d.date}: ${signedUsd(d.net_profit)} (${d.trades}t)`}>
-                    <div className="flex h-11 w-full items-end justify-center">
-                      {d.net_profit >= 0 ? <div className="w-full bg-positive/60" style={{ height: Math.max(1, h) }} /> : null}
-                    </div>
-                    <div className="h-px w-full bg-border" />
-                    <div className="flex h-11 w-full items-start justify-center">
-                      {d.net_profit < 0 ? <div className="w-full bg-negative/60" style={{ height: Math.max(1, h) }} /> : null}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-      </SectionCard>
     </div>
   )
 }

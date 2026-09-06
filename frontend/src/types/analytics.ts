@@ -121,3 +121,33 @@ export interface AnalyticsQuery {
   end?: string
   initial_balance?: number
 }
+
+export interface DayTrade {
+  trade_id: string
+  account_id: string
+  symbol: string
+  direction: string
+  volume: number
+  entry_price: number
+  exit_price: number
+  commission: number
+  swap: number
+  gross_profit: number
+  net_profit: number
+  entry_time: string
+  exit_time: string
+  duration_minutes: number
+  setup_tag: string | null
+  notes: string | null
+  rating: number | null
+  chart_snapshot_url: string | null
+}
+
+export interface AnalyticsDayTradesResponse {
+  date: string
+  trades: DayTrade[]
+  count: number
+  wins: number
+  net_profit: number
+  live_broker_transmission: string
+}

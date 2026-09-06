@@ -155,6 +155,30 @@ def test_equity_curve_traces_to_trades():
     assert abs(last - (10000 + d["metrics"]["total_net_pnl"])) < 0.02
 
 
+def test_day_trades_endpoint_matches_a_daily_bucket():
+    """GET /api/analytics/day returns the individual trades for one calendar
+    day; their count and net sum match that day's /performance bucket."""
+    perf = client.get("/api/analytics/performance?initial_balance=10000").json()
+    if perf["matched_trades"] == 0:
+        pytest.skip("need trades")
+    bucket = perf["daily_pnl"][0]
+    r = client.get(f"/api/analytics/day?date={bucket['date']}")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["date"] == bucket["date"]
+    assert body["count"] == bucket["trades"] == len(body["trades"])
+    assert abs(body["net_profit"] - bucket["net_profit"]) < 0.05
+    assert body["wins"] == bucket["wins"]
+    if body["trades"]:
+        t = body["trades"][0]
+        assert {"symbol", "direction", "entry_price", "exit_price", "net_profit", "exit_time"} <= set(t)
+
+
+def test_day_trades_bad_date_and_verbs():
+    assert client.get("/api/analytics/day?date=nonsense").status_code == 422
+    assert client.post("/api/analytics/day?date=2026-09-01").status_code == 405
+
+
 def test_daily_pnl_carries_wins_and_reconciles():
     """Each daily bucket exposes `wins` (for the calendar month summary) and the
     per-day wins/trades/net_profit sum back to the headline totals."""

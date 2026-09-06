@@ -721,6 +721,15 @@ class JournalTradeItem(BaseModel):
     chart_snapshot_url: Optional[str] = None
 
 
+class AnalyticsDayTradesResponse(BaseModel):
+    date: str
+    trades: List[JournalTradeItem]
+    count: int
+    wins: int
+    net_profit: float
+    live_broker_transmission: str = "BLOCKED"
+
+
 class JournalResponse(BaseModel):
     entries: List[JournalTradeItem]
     total_trades: int
