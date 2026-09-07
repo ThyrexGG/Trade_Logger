@@ -91,34 +91,45 @@ it turns the assistant from a summariser into something you actually reach for.
 
 ---
 
-### W2 — Decouple Streamlit from the backend
+### W2 — Retire Streamlit (D1: retire)
 
-**Why.** `import api.main` transitively imports `streamlit` — confirmed. Module-level
-`import streamlit as st` lives in `trading_workspace_cockpit.py`,
-`user_preferences.py`, `market_intelligence_command_center.py` (and others). The
-FastAPI server literally will not boot without `streamlit` installed. This blocks
-a clean Linux/container deployment (W7) and bloats the runtime.
+**Why.** `import api.main` transitively imports `streamlit` (via
+`routers/{market,watchlist,preferences,intelligence}.py` →
+`trading_workspace_cockpit` / `user_preferences` /
+`market_intelligence_command_center` → `ui_components` / `tradingview_widget`).
+The FastAPI server will not boot without `streamlit` installed — a Linux/deploy
+blocker (W7). D1 says the Streamlit terminal is replaced by the React SPA, so:
 
-**Scope.**
-- Trace the exact import chain from `api.main` to the first streamlit import
-  (likely via one shared module pulled for a helper function).
-- For each offending module, one of:
-  - **Lazy-import** streamlit inside the functions that use it (fastest, lowest risk).
-  - **Extract** the pure domain logic the API needs into a streamlit-free module,
-    leaving the Streamlit view as a thin consumer.
-- Add a CI check / test: `import api.main` in a venv **without** streamlit installed → must succeed.
-- Move `streamlit` to an optional/`dev` dependency group.
+**Scope (revised for retire).**
+1. **Extract** the pure, view-free logic the API actually calls into new
+   streamlit-free core modules:
+   - `TradingWorkspaceCockpit` data methods + `WATCHLIST_SYMBOLS` → a
+     `watchlist_data`-style module.
+   - `UserPreferencesManager` + `DEFAULT_PREFERENCES` → a prefs-store module.
+   - `UnifiedMarketIntelligenceAggregator` (+ the names `routers/intelligence.py`
+     pulls) → a market-intelligence-core module.
+   Verify none of the extracted methods actually reference `st.` (they are
+   data/aggregation classes that merely *live* in a streamlit file).
+2. Repoint every `api/` import to the new core modules.
+3. Add a test: `import api.main` with `streamlit` un-importable (monkeypatch
+   `sys.modules['streamlit'] = None`) → must still succeed, and the key
+   endpoints (`/api/watchlist`, `/api/preferences`, `/api/market/*`,
+   `/api/intelligence/*`) must still 200.
+4. **Delete** `app.py` + the Streamlit-only files (`ui_components.py`,
+   `tradingview_widget.py`, `command_palette.py`, `keyboard_shortcuts.py`,
+   `workspace_layout_manager.py`, `market_intelligence_ui.py`,
+   `asset_edge_scorecard.py`, `forward_evidence_cockpit.py`, the Streamlit
+   shells of the three extracted modules) once nothing imports them. Delete or
+   port the ~7 `tests/test_phase6x_*` Streamlit UI tests.
+5. Move `streamlit` out of `requirements.txt` (drop it entirely, or a
+   `requirements-legacy.txt`). Finish
+   `docs/STAGE_11_STREAMLIT_RETIREMENT_EVALUATION.md`.
 
-**Key decisions.**
-- Lazy-import vs extract — decide per module. Extract where the API needs
-  non-trivial logic; lazy-import where it's a leaf.
-- Do we keep the Streamlit terminal alive at all? (See §4 open decisions.) If it's
-  being fully retired, this becomes "delete", not "decouple" — much simpler.
-
-**Effort.** M (S if the answer is "retire Streamlit"; M if "keep it, just decouple").
-**Risk.** Low — mechanical, well-tested surface. Regression risk on the Streamlit
-side only, which matters only if Streamlit stays.
-**Depends on.** Nothing. Should land before W7.
+**Effort.** M. Do it in two commits: **W2a extract + repoint + boot test**
+(reversible, no deletions), then **W2b delete the Streamlit files**.
+**Risk.** Low–medium. The extract is mechanical; the deletion is large but comes
+after the boot test proves the API no longer needs any of it.
+**Depends on.** D1 (answered). Should land before W7.
 
 ---
 
@@ -343,12 +354,41 @@ W1 and W2 can run in parallel. W4 and W5 can run in parallel after W7.
 
 ---
 
-## 4. Open decisions (need your call before building)
+## 4. Open decisions
+
+### Answered (2026-09-07)
+
+- **D1 — Streamlit terminal → RETIRE.** The React SPA replaces it. W2 is now
+  *extract the pure logic the API needs into streamlit-free core modules, then
+  delete `app.py` + the Streamlit-only UI files*. `streamlit` moves to an
+  optional dependency. See W2 below (revised).
+- **D2 — Hosting → must be a free option.** Free tiers that can run an
+  *always-on* process (the sync gateway needs this — Render's free web service
+  sleeps after 15 min idle and is unsuitable):
+  - **Oracle Cloud Always Free** — a genuine always-on ARM VM (up to 4 vCPU /
+    24 GB on the Ampere free allotment), no time limit. Best fit; more setup.
+  - **Google Cloud free `e2-micro`** — one small always-on VM, us-regions only.
+  - **Fly.io** — small always-on VMs within a limited monthly free allowance.
+  - Frontend: **Cloudflare Pages / Netlify** free static hosting.
+  - Supabase (DB) already has a free tier. → leaning **Oracle Cloud Always Free
+    VM + Cloudflare Pages**; revisit at W7.
+- **D5 — auth: single-user now, but MULTI-USER is planned ("publish it for
+  other users too").** This is a scope change — the plan had multi-user out of
+  scope. Implications, to plan properly before W3:
+  - Auth needs registration / login / per-user sessions (a `users` table +
+    `sessions` table; opaque session tokens still work and stay revocable).
+  - Every data table needs a real `owner_id` and every query a tenant filter —
+    today `account_id` is broker-scoped, not user-scoped. This is the big one.
+  - The frozen research/execution layer and the sealed holdout stay shared and
+    read-only — they are not per-user.
+  - Rate limiting, abuse handling, and cost (AI tokens, data providers) all
+    change when strangers can sign up.
+  - **Recommendation:** ship **single-user opaque-session auth** for W3 to get
+    online safely, and treat "multi-tenant" as a separate later workstream (W8)
+    with its own plan — do **not** block going online on it.
 
 | # | Decision | Options / notes |
 |---|---|---|
-| D1 | **Streamlit terminal — keep or retire?** | If retiring: W2 becomes "delete the Streamlit modules", much simpler, and `docs/STAGE_11_STREAMLIT_RETIREMENT_EVALUATION.md` gets finished. If keeping: W2 is lazy-import/extract. |
-| D2 | **Hosting** | Self-managed VPS (cheapest, ~$5–10/mo, more ops) vs managed (Render/Railway/Fly, ~$7–20/mo, less ops). Recommendation: **managed** to start; move to a VPS later if cost/control matters. |
 | D3 | **Domain** | Buy a domain (`something.app` / `.trade` / `.xyz`) or use the host's subdomain. A real domain is ~$10–15/yr and makes HTTPS + Cloudflare clean. |
 | D4 | **Cloudflare in front?** | Free tier gives HTTPS, caching, basic DDoS, and **Cloudflare Access** (only your email can reach the origin — a second auth layer for near-zero effort). Recommendation: **yes**. |
 | D5 | **Auth token style** | Short-lived JWT + refresh (stateless, standard) vs one long opaque session token in an httpOnly cookie (simpler, revocable). Recommendation: **opaque session cookie** for a single-user app — simpler and revocable. |
@@ -364,9 +404,36 @@ W1 and W2 can run in parallel. W4 and W5 can run in parallel after W7.
 
 - **In-window audio chimes / HTML5 `<audio>` alerts** — your call, descoped.
 - **Live order submission / modification / cancellation** — permanent design block.
-- **Multi-user / teams / role separation** — single operator; not building it.
 - **Un-freezing or re-reading the sealed holdout / strategy contract.**
 - **Reviving MT5 as a web dependency** — stays env-only opt-in.
+- **Multi-user / multi-tenant** — *deferred, not cancelled* (D5: the user plans
+  to publish it for others). Tracked as **W8** below. It is a separate
+  workstream with its own plan and must not block W3→W7 (going online for one
+  user).
+
+---
+
+### W8 — Multi-tenant (deferred; own plan needed before starting)
+
+**Why.** D5 — the user intends to open TradeLogger to other users later. Doing
+this properly is a workstream, not a W3 tweak.
+
+**Scope sketch (to be planned, not yet committed).**
+- `users` + `sessions` tables; registration, email verify, password reset.
+- A real `owner_id` on every user-owned table (`closed_trades`, `open_positions`,
+  `journal_*`, `price_alerts`, watchlists, preferences, AI transcripts, …) and a
+  tenant filter on every query. Today's `account_id` is broker-scoped, not
+  user-scoped — this is the bulk of the work.
+- Per-user broker credentials (Capital.com) stored encrypted, never shared.
+- The frozen research/execution layer + sealed holdout stay **global and
+  read-only** — not per-tenant.
+- Per-user quotas: AI tokens, data-provider calls, storage.
+- Abuse / rate-limit / billing considerations once sign-up is open.
+- Admin surface (see users, disable an account).
+
+**Depends on.** W3 (auth) and W6 (Alembic) must be done first. Realistically
+after W7 (online for one user) is stable.
+**Effort.** L+ (this is comparable in size to all of W1–W7 combined).
 
 ---
 
