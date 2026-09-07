@@ -15,7 +15,7 @@ type ProvEnv = MacroEnvelope
 
 /** Honest provenance strip — demo/seeded data must never look like real data,
  *  and a provider outage must never look like "no evidence". */
-export function ProvenanceBanner({ env }: { env: ProvEnv | null }) {
+export function ProvenanceBanner({ env, quiet = false }: { env: ProvEnv | null; quiet?: boolean }) {
   if (!env) return null
   const st = env.provider_state ?? (env.provider_is_live ? 'LIVE' : env.provenance === 'unavailable' ? 'NONE' : 'SEED_DEMO')
   const live = st === 'LIVE' || st === 'LIVE_STALE'
@@ -28,6 +28,10 @@ export function ProvenanceBanner({ env }: { env: ProvEnv | null }) {
   const covCount = Object.values(cov).reduce((n, m) => n + (m?.length ?? 0), 0)
   const age = status?.hydrated_age_sec
   const nConflicts = env.conflicts?.length ?? 0
+
+  // Embedded under a page that already renders the canonical provenance strip:
+  // stay silent while data is nominally live, only surface when there's a caveat.
+  if (quiet && live && !stale && !conflict) return null
 
   const tone = live && !conflict
     ? 'border-positive/30 bg-positive/10 text-positive'

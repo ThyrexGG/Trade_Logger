@@ -59,8 +59,7 @@ export function PriceAlertsPage() {
         <p className="border-t border-border-subtle pt-3 text-[11px] text-muted">
           Alerts refresh every 60s (paused while the tab is hidden) to pick up
           daemon-side <code>TRIGGERED</code> transitions. Not exposed by this API:
-          alert editing (delete + recreate instead), per-account alerts, and the
-          custom notification-rules engine (still Streamlit-only).
+          alert editing (delete + recreate instead) and per-account alerts.
         </p>
       </div>
     </PageContainer>

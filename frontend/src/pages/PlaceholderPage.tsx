@@ -49,9 +49,8 @@ export function PlaceholderPage({ itemId }: PlaceholderPageProps) {
         </div>
 
         <p className="mt-5 text-sm leading-relaxed text-secondary">
-          This workspace is being migrated to the React terminal from the
-          authoritative TradeLogger backend. Until then, use the Streamlit
-          reference application for this feature.
+          This workspace does not have a dedicated page yet. Its data is served by
+          the authoritative TradeLogger backend and a view is planned.
         </p>
 
         <dl className="mt-5 grid gap-x-6 gap-y-2 border-t border-border-subtle pt-4 text-sm sm:grid-cols-[8rem_1fr]">

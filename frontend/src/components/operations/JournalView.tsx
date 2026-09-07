@@ -255,6 +255,11 @@ export function JournalView({
 
   const shown = filtered.slice(0, limit)
 
+  // With a single broker account, a column of identical 19-digit ids is pure
+  // noise — only surface the account filter + column when there's more than one.
+  const multiAccount = data.accounts.length > 1
+  const colCount = multiAccount ? 11 : 10
+
   if (data.entries.length === 0) {
     return (
       <SectionCard title="Trade journal">
@@ -280,15 +285,17 @@ export function JournalView({
           autoComplete="off"
           className="w-48 rounded border border-border bg-background px-2 py-1 text-xs text-primary placeholder:text-muted focus:border-accent focus:outline-none"
         />
-        <select
-          value={account}
-          onChange={(e) => { setAccount(e.target.value); setLimit(PAGE) }}
-          className="rounded border border-border bg-background px-2 py-1 text-xs text-primary"
-          aria-label="Filter by account"
-        >
-          <option value="all">All accounts</option>
-          {data.accounts.map((a) => <option key={a} value={a}>{a}</option>)}
-        </select>
+        {multiAccount ? (
+          <select
+            value={account}
+            onChange={(e) => { setAccount(e.target.value); setLimit(PAGE) }}
+            className="rounded border border-border bg-background px-2 py-1 text-xs text-primary"
+            aria-label="Filter by account"
+          >
+            <option value="all">All accounts</option>
+            {data.accounts.map((a) => <option key={a} value={a}>{a}</option>)}
+          </select>
+        ) : null}
         {(['all', 'win', 'loss'] as Outcome[]).map((o) => (
           <button
             key={o}
@@ -320,7 +327,7 @@ export function JournalView({
                 <th className="px-2 py-1.5 text-right font-medium">Net P&L</th>
                 <th className="px-2 py-1.5 text-left font-medium">Setup / note</th>
                 <th className="px-2 py-1.5 text-left font-medium">Rating</th>
-                <th className="px-2 py-1.5 text-left font-medium">Account</th>
+                {multiAccount ? <th className="px-2 py-1.5 text-left font-medium">Account</th> : null}
                 <th className="px-2 py-1.5 text-right font-medium">Edit</th>
               </tr>
             </thead>
@@ -363,7 +370,11 @@ export function JournalView({
                       ) : null}
                     </td>
                     <td className="px-2 py-1.5"><Stars n={e.rating} /></td>
-                    <td className="px-2 py-1.5 font-mono text-muted">{e.account_id}</td>
+                    {multiAccount ? (
+                      <td className="px-2 py-1.5 font-mono text-muted" title={e.account_id}>
+                        …{e.account_id.slice(-6)}
+                      </td>
+                    ) : null}
                     <td className="px-2 py-1.5 text-right">
                       <button
                         type="button"
@@ -376,7 +387,7 @@ export function JournalView({
                   </tr>
                   {isEditing ? (
                     <tr className="border-b border-border-subtle/60 bg-surface-elevated/20">
-                      <td colSpan={11} className="p-0">
+                      <td colSpan={colCount} className="p-0">
                         {/* sticky-left keeps the editor in view even while the wide
                             table is scrolled right on a phone */}
                         <div className="sticky left-0 w-[calc(100vw-2rem)] p-3 sm:w-auto sm:max-w-3xl">

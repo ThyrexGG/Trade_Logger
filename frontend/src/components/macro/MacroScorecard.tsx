@@ -706,7 +706,7 @@ export function MacroScorecard() {
         </div>
       </div>
 
-      {scorecard ? <ProvenanceBanner env={scorecard} /> : null}
+      {scorecard ? <ProvenanceBanner env={scorecard} quiet /> : null}
 
       {state === 'loading' ? (
         <div className="rounded-lg border border-border bg-surface p-6 text-center text-xs text-muted">

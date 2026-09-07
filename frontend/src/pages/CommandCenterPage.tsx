@@ -55,9 +55,8 @@ export function CommandCenterPage() {
           Aggregated from <code>analytics</code>, <code>positions</code>,
           <code> price_alerts</code>, market intelligence and forward evidence —
           one request, no per-section fan-out. Refreshes every 60s (paused while
-          the tab is hidden). Not included: the XAUUSD news / economic-calendar
-          engine (stays in Streamlit pending the macro-intelligence stage) and
-          research-note / snapshot writing.
+          the tab is hidden). For the full economic calendar and per-instrument
+          macro read, see <code>Macro Intelligence</code>.
         </p>
       </div>
     </PageContainer>

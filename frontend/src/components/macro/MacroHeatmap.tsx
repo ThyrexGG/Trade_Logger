@@ -55,7 +55,7 @@ export function MacroHeatmap() {
         })}
       </div>
 
-      {heatmap ? <ProvenanceBanner env={heatmap} /> : null}
+      {heatmap ? <ProvenanceBanner env={heatmap} quiet /> : null}
 
       {state === 'loading' ? (
         <div className="rounded-lg border border-border bg-surface p-6 text-center text-xs text-muted">
