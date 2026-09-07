@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { APP_VERSION } from '../../lib/appMeta'
+import { BottomNav } from './BottomNav'
 import { CommandPalette } from './CommandPalette'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
@@ -52,11 +53,11 @@ export function AppShell() {
           onOpenCommandPalette={() => setPaletteOpen(true)}
         />
 
-        <main id="main-content" className="flex-1">
+        <main id="main-content" className="flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom))] lg:pb-0">
           <Outlet />
         </main>
 
-        <footer className="border-t border-border-subtle bg-surface px-4 py-2.5 text-xs text-muted sm:px-6">
+        <footer className="hidden border-t border-border-subtle bg-surface px-4 py-2.5 text-xs text-muted sm:px-6 lg:block">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span>
               React shell → FastAPI adapter → authoritative Python engines
@@ -69,6 +70,7 @@ export function AppShell() {
         </footer>
       </div>
 
+      <BottomNav />
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
   )

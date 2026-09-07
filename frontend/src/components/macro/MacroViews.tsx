@@ -311,8 +311,8 @@ export function MacroCalendar({ data }: { data: MacroEventsResponse }) {
             : 'No events match the filters (the ForexFactory feed only covers the current week — set FMP_API_KEY for multi-week history).'}
         </OpsUnavailable>
       ) : (
-        <div className="max-h-[70vh] overflow-y-auto rounded border border-border-subtle">
-          <table className="w-full border-collapse text-[11px]">
+        <div className="max-h-[70vh] overflow-auto rounded border border-border-subtle">
+          <table className="w-full min-w-[34rem] border-collapse text-[11px]">
             <thead className="sticky top-0 z-10 bg-surface-elevated text-[10px] uppercase tracking-wide text-muted">
               <tr>
                 <th className="px-2 py-1.5 text-left font-medium">Time</th>

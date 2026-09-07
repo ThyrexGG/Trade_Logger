@@ -36,7 +36,7 @@ export function PageContainer({
             <p className="mt-1 max-w-2xl text-sm text-secondary">{description}</p>
           ) : null}
         </div>
-        {actions ? <div className="shrink-0">{actions}</div> : null}
+        {actions ? <div className="w-full min-w-0 sm:w-auto sm:shrink-0">{actions}</div> : null}
       </div>
       {children}
     </div>

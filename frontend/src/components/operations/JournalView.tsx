@@ -326,7 +326,7 @@ export function JournalView({
                       e.trade_id === focusTradeId ? 'bg-accent/5' : ''
                     }`}
                   >
-                    <td className="px-2 py-1.5 font-mono text-secondary">{e.exit_time.slice(0, 16).replace('T', ' ')}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 font-mono text-secondary">{e.exit_time.slice(0, 16).replace('T', ' ')}</td>
                     <td className="px-2 py-1.5">
                       <Link to={`/workspace/market?symbol=${encodeURIComponent(e.symbol)}`} className="font-mono font-semibold text-primary hover:text-accent">
                         {e.symbol}
