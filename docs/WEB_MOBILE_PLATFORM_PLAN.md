@@ -93,6 +93,16 @@ it turns the assistant from a summariser into something you actually reach for.
 
 ### W2 — Retire Streamlit (D1: retire)
 
+**Status: W2a SHIPPED (2026-09-07).** `api.main` now imports and serves with
+`streamlit` un-importable — `streamlit` (+ `ui_components`, `tradingview_widget`,
+`workspace_layout_manager`) is a guarded optional import in
+`trading_workspace_cockpit.py` and `market_intelligence_command_center.py`;
+`user_preferences.py` is fully streamlit-free (the `st.session_state` sync was
+dead weight). Test: `tests/test_stage17_no_streamlit.py` blocks the import and
+asserts `/api/{health,watchlist,preferences,market,intelligence}` still 200.
+**W2b (delete `app.py` + the Streamlit-only files, drop the dep, port the
+~7 `test_phase6x` UI tests) is not done yet.**
+
 **Why.** `import api.main` transitively imports `streamlit` (via
 `routers/{market,watchlist,preferences,intelligence}.py` →
 `trading_workspace_cockpit` / `user_preferences` /

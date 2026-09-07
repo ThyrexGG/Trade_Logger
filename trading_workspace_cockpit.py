@@ -17,7 +17,6 @@ Strict Safety Invariants:
 - Zero post-hoc strategy mutation or lookahead data leakage.
 """
 
-import streamlit as st
 import pandas as pd
 import numpy as np
 from datetime import datetime, timezone
@@ -25,11 +24,23 @@ from typing import Dict, List, Any, Optional
 
 import database
 import market_data
-import tradingview_widget
-import ui_components
 from xauusd_live_state_engine import XAUUSDLiveMTFStateEngine
-from workspace_layout_manager import WorkspaceLayoutManager
 from user_preferences import UserPreferencesManager
+
+# Streamlit is a legacy view-layer dependency (the Streamlit terminal is retired,
+# D1). The data methods used by the FastAPI app (`get_watchlist_data`,
+# `get_mtf_bias_hierarchy`, `get_symbol_context_metrics`) are view-free; the
+# `render_*` methods below still reference these and only work under Streamlit.
+try:  # pragma: no cover - legacy path
+    import streamlit as st  # type: ignore
+    import tradingview_widget  # type: ignore
+    import ui_components  # type: ignore
+    from workspace_layout_manager import WorkspaceLayoutManager  # type: ignore
+except Exception:  # pragma: no cover
+    st = None  # type: ignore
+    tradingview_widget = None  # type: ignore
+    ui_components = None  # type: ignore
+    WorkspaceLayoutManager = None  # type: ignore
 
 # Supported Watchlist Instruments
 WATCHLIST_SYMBOLS = [

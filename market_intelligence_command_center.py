@@ -39,13 +39,25 @@ from typing import Dict, List, Any, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-import streamlit as st
 
 import database
 import market_data
-import ui_components
-from ui_components import render_html
 from xauusd_market_conditions import FROZEN_CONTRACT_HASH
+
+# Streamlit is a legacy view-layer dependency (the Streamlit terminal is retired,
+# D1). The engines consumed by the FastAPI app
+# (`UnifiedMarketIntelligenceAggregator`, `AssetContextProfileEngine`) are
+# view-free; the `_render_*` methods below need Streamlit and only run under it.
+try:  # pragma: no cover - legacy path
+    import streamlit as st  # type: ignore
+    import ui_components  # type: ignore
+    from ui_components import render_html  # type: ignore
+except Exception:  # pragma: no cover
+    st = None  # type: ignore
+    ui_components = None  # type: ignore
+
+    def render_html(*_a, **_k):  # type: ignore
+        raise RuntimeError("render_html requires Streamlit, which is retired")
 
 # Phase 55 Engines
 from asset_edge_intelligence import (

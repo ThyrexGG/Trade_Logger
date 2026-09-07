@@ -3,8 +3,8 @@
 TradeLogger User Preferences Engine (Phase 61 / Fast Terminal Architecture)
 ===========================================================================
 Provides lightweight, reliable, high-speed user preference management.
-Features thread-safe process-level caching for sub-millisecond API reads,
-Streamlit session_state synchronization, and database persistence (SQLite / PostgreSQL).
+Features thread-safe process-level caching for sub-millisecond API reads
+and database persistence (SQLite / PostgreSQL). View-framework-free.
 
 Strict Safety Invariants:
 - NEVER stores credentials, API keys, or broker secrets.
@@ -16,7 +16,6 @@ import sqlite3
 import json
 import threading
 from typing import Dict, Any, Optional
-import streamlit as st
 import database
 
 DEFAULT_PREFERENCES: Dict[str, Any] = {
@@ -71,11 +70,6 @@ class UserPreferencesManager:
         global _PREFERENCES_CACHE
         with _PREFERENCES_LOCK:
             if _PREFERENCES_CACHE is not None and not force_reload:
-                try:
-                    if "user_preferences" not in st.session_state:
-                        st.session_state["user_preferences"] = dict(_PREFERENCES_CACHE)
-                except Exception:
-                    pass
                 return dict(_PREFERENCES_CACHE)
 
             # Cold load from DB
@@ -96,10 +90,6 @@ class UserPreferencesManager:
                 pass
 
             _PREFERENCES_CACHE = dict(prefs)
-            try:
-                st.session_state["user_preferences"] = prefs
-            except Exception:
-                pass
             return dict(_PREFERENCES_CACHE)
 
     @classmethod
@@ -120,12 +110,6 @@ class UserPreferencesManager:
             if _PREFERENCES_CACHE is None:
                 cls.initialize_preferences()
             _PREFERENCES_CACHE[key] = value
-
-        try:
-            if "user_preferences" in st.session_state:
-                st.session_state["user_preferences"][key] = value
-        except Exception:
-            pass
 
         if persist_to_db:
             try:
@@ -169,11 +153,6 @@ class UserPreferencesManager:
         global _PREFERENCES_CACHE
         with _PREFERENCES_LOCK:
             _PREFERENCES_CACHE = dict(DEFAULT_PREFERENCES)
-
-        try:
-            st.session_state["user_preferences"] = dict(DEFAULT_PREFERENCES)
-        except Exception:
-            pass
 
         try:
             conn = database.get_connection()
