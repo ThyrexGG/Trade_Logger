@@ -276,6 +276,19 @@ timebox it page-by-page.
 
 ### W6 — Alembic schema migrations
 
+**Status: SHIPPED (2026-09-07).** `alembic.ini` + `alembic/env.py` +
+`alembic/versions/0001_baseline_*.py`. `alembic` added to `requirements.txt`
+(pulls SQLAlchemy — used only as the migration runtime, no ORM models). `env.py`
+reads the DB URL from `database.get_db_url()` (single source of truth with the
+app; the Supabase URI never enters `alembic.ini`) or an `ALEMBIC_DATABASE_URL`
+override; **Postgres-only** — it refuses to run on the SQLite/pytest path. The
+existing at-boot `CREATE TABLE IF NOT EXISTS` / per-module table creation is
+kept as the fresh-DB bootstrap; Alembic owns only *structural* changes
+(renames, type/constraint changes, drops, backfills). `0001_baseline` is a
+deliberate no-op marker. Deploy: `alembic stamp 0001_baseline` once on the live
+Supabase DB, then `alembic upgrade head` in the update routine (`docs/DEPLOY.md`
+§6, rewritten from stub). Tests: `tests/test_stage19_migrations.py` (6).
+
 **Why.** Schema changes today are scattered `CREATE TABLE IF NOT EXISTS` /
 `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` blocks across many Python files, run at
 boot. That works for additive changes but can't do renames, constraint changes,

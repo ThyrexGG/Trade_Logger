@@ -1,0 +1,39 @@
+TradeLogger database migrations (Alembic) — workstream W6.
+
+WHAT ALEMBIC OWNS HERE
+  Only structural schema changes that the existing at-boot
+  `CREATE TABLE IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS` code cannot express
+  safely: column renames, type/constraint changes, drops, data backfills, and
+  anything that needs a defined order or a rollback.
+
+WHAT IT DOES NOT OWN
+  Fresh-database bootstrap. `database.init_db()` (core tables) and the per-module
+  `CREATE TABLE IF NOT EXISTS` blocks still build a new DB. `0001_baseline` is a
+  deliberate no-op marker for "the schema as it was when Alembic was added".
+
+CONFIG
+  The DB URL is NOT in alembic.ini. `env.py` reads it from
+  `database.get_db_url()` (the DATABASE_URL env var / .env), or from an explicit
+  `ALEMBIC_DATABASE_URL` override. Migrations are Postgres-only — there is no URL
+  on the local SQLite / pytest path and Alembic will refuse to run there.
+
+COMMON COMMANDS  (run from the project root, venv active)
+  alembic current                 # what revision the DB is at
+  alembic history --verbose       # all revisions
+  alembic upgrade head --sql      # PREVIEW the SQL, run nothing (do this first)
+  alembic upgrade head            # apply
+  alembic downgrade -1            # roll back one (if the revision supports it)
+  alembic revision -m "add X to Y"   # new empty revision -> hand-write op.execute()
+
+FIRST-TIME DEPLOY
+  Existing Supabase DB:  alembic stamp 0001_baseline   then   alembic upgrade head
+  Brand-new DB:          init_db() runs at API boot, then   alembic stamp head
+
+WRITING A REVISION
+  No ORM models exist — write raw SQL:
+      from alembic import op
+      def upgrade():
+          op.execute("ALTER TABLE closed_trades ALTER COLUMN rating SET DEFAULT 0")
+      def downgrade():
+          op.execute("...")
+  Always take a Supabase backup and run `--sql` first on anything non-additive.

@@ -5,7 +5,8 @@ over HTTPS, behind a passphrase. Supersedes the old `deployment_guide.md`
 (`streamlit run app.py`), which no longer applies.
 
 **Prerequisites done:** W1 (AI tools), W2 (Streamlit retired — backend is
-Linux-clean), W3 (auth). This guide is W6 (migrations) + W7 (hosting).
+Linux-clean), W3 (auth), W6 (Alembic migrations — §6). This guide is now just
+W7 (hosting).
 
 ---
 
@@ -237,21 +238,42 @@ on top of the app's own passphrase. Belt and braces.
 
 ---
 
-## 6. Migrations (W6) — before/around first deploy
+## 6. Migrations (W6) — SHIPPED
 
-Today the schema is built by `CREATE TABLE IF NOT EXISTS` at boot, which is fine
-for a fresh DB but can't do renames/constraint changes safely. Introduce Alembic:
+Alembic is wired in (`alembic.ini`, `alembic/env.py`, `alembic/versions/`).
 
-1. `pip install alembic` (add to `requirements.txt`).
-2. `alembic init alembic`; point `sqlalchemy.url` at the Supabase URI (env).
-3. `alembic revision --autogenerate -m "0001 baseline"` against the **live**
-   Supabase schema, then `alembic stamp head` (mark it applied without running).
-4. From then on: schema changes = a new revision; deploy step runs
-   `alembic upgrade head`.
-5. Keep the boot-time `CREATE TABLE IF NOT EXISTS` as the fresh-SQLite path only.
+**What it owns:** only *structural* schema changes that the at-boot
+`CREATE TABLE IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS` code can't do safely —
+renames, type/constraint changes, drops, ordered backfills.
+**What it doesn't own:** fresh-DB bootstrap. `database.init_db()` + the
+per-module `CREATE TABLE IF NOT EXISTS` blocks still build a new database.
+`0001_baseline` is a deliberate no-op marker for "the schema as of 2026-09-07".
 
-*(This section is a stub — W6 is not built yet. Do it before the schema needs
-its first real change post-deploy.)*
+Config: the DB URL is **not** in `alembic.ini` — `env.py` reads it from
+`database.get_db_url()` (i.e. `DATABASE_URL` in `.env`), or an explicit
+`ALEMBIC_DATABASE_URL`. Postgres-only; it refuses to run on the SQLite path.
+
+### 6.1 One-time, on the VM (existing Supabase DB)
+```bash
+cd ~/Trade_Logger
+.venv/bin/alembic current                 # (empty — not stamped yet)
+.venv/bin/alembic stamp 0001_baseline      # mark the baseline applied, runs no DDL
+.venv/bin/alembic upgrade head             # applies anything after the baseline
+.venv/bin/alembic current                  # -> 0001_baseline (head)
+```
+A brand-new database instead: let the API boot once (creates the tables), then
+`.venv/bin/alembic stamp head`.
+
+### 6.2 Adding a schema change later
+```bash
+.venv/bin/alembic revision -m "add stop_loss to closed_trades"
+# edit the new file in alembic/versions/ — raw SQL, no ORM models:
+#   def upgrade():   op.execute("ALTER TABLE closed_trades ADD COLUMN stop_loss double precision")
+#   def downgrade(): op.execute("ALTER TABLE closed_trades DROP COLUMN stop_loss")
+.venv/bin/alembic upgrade head --sql        # PREVIEW — run nothing
+# take a Supabase backup for anything non-additive, then:
+.venv/bin/alembic upgrade head
+```
 
 ---
 
@@ -262,7 +284,7 @@ ssh ubuntu@api.<yourdomain>
 cd ~/Trade_Logger
 git pull
 .venv/bin/pip install -r requirements.txt
-# alembic upgrade head        # once W6 exists
+.venv/bin/alembic upgrade head        # no-op when there are no new revisions
 sudo systemctl restart tradelogger-api
 journalctl -u tradelogger-api -n 50 --no-pager
 ```
@@ -278,6 +300,7 @@ Frontend redeploys automatically on push (Cloudflare Pages watches the repo).
 - [ ] `TL_AUTH_COOKIE_SECURE=1`, `TL_ALLOWED_ORIGINS` set to the real origin
 - [ ] `.env` is `chmod 600`, not in git (`git status` clean)
 - [ ] Cloudflare Access policy active on both hostnames
+- [ ] `alembic current` → `0001_baseline (head)` (DB is stamped — §6.1)
 - [ ] `systemctl is-enabled tradelogger-api` → `enabled`
 - [ ] Reboot the VM once; confirm the service comes back and the sync loop ticks
 - [ ] UptimeRobot / healthchecks.io pinging `/api/health` every 5 min
