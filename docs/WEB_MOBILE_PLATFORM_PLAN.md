@@ -149,10 +149,25 @@ after the boot test proves the API no longer needs any of it.
 
 ### W3 — Authentication, sessions & security hardening
 
-**Why.** `APP_PIN` (a single env var) is fine for localhost. The moment the port
-is reachable from the internet (the whole point of "going online"), anyone who
-finds it can read every trade, P&L figure, journal note, and see which providers
-are configured. This is now a **P0 blocker for going online**, not a P2.
+**Status: SHIPPED (2026-09-07).** `api/auth.py` + `api/routers/auth.py` + an
+`@app.middleware("http")` gate in `api/main.py`. Single passphrase → scrypt hash
+in `TL_AUTH_PASSWORD_HASH` (or plaintext `TL_AUTH_PASSWORD`, hashed at boot);
+`python -m api.auth` generates the hash. Login mints an opaque
+`secrets.token_urlsafe` token, stored SHA-256 only in a `sessions` table
+(default 30-day TTL, revocable). Rides in an httpOnly `tl_session` cookie or an
+`Authorization: Bearer` header. Every `/api/*` route is gated except
+`/api/health`, `/api/auth/*`, and the OpenAPI docs. Per-IP login rate-limit
+(5 tries / 15 min lockout). CORS reads `TL_ALLOWED_ORIGINS` (credentials only
+with an explicit list). **With no passphrase configured, auth is disabled and
+nothing changes** — local dev + the whole test suite are unaffected. Frontend:
+`AuthProvider` + `<AuthGate>` in `main.tsx` → `<LoginScreen>` when locked; a
+401 from any call bounces back to it; "Sign out" in the top bar. Break-glass:
+`TL_AUTH_DISABLED=1`. Tests: `tests/test_stage18_auth.py` (17).
+2FA (D6) and Cloudflare Access (D4) are additive layers, not yet built.
+
+**Why.** With the port reachable from the internet, anyone who finds it can read
+every trade, P&L figure, and journal note. This was a **P0 blocker for going
+online**. (There was no `APP_PIN` in the codebase — auth was simply absent.)
 
 **Scope.**
 - **Auth model — single-user, token-based** (not multi-user; there is one of you):

@@ -1,3 +1,4 @@
+import { useAuth } from '../../lib/auth'
 import { useHealth } from '../../lib/health'
 import { apiStatusView, systemStatusView } from '../../lib/status'
 import { MenuIcon, SearchIcon } from '../../lib/icons'
@@ -12,6 +13,7 @@ interface TopBarProps {
 
 /** Persistent header: breadcrumb (left), live status + command palette (right). */
 export function TopBar({ onOpenSidebar, onOpenCommandPalette }: TopBarProps) {
+  const { state: authState, logout } = useAuth()
   const { state, data } = useHealth()
   const api = apiStatusView(state)
   const system = systemStatusView(state)
@@ -73,6 +75,17 @@ export function TopBar({ onOpenSidebar, onOpenCommandPalette }: TopBarProps) {
           {isMac() ? '⌘' : 'Ctrl'} K
         </kbd>
       </button>
+
+      {authState === 'authed' ? (
+        <button
+          type="button"
+          onClick={() => void logout()}
+          className="rounded border border-border px-2 py-1.5 text-xs text-muted hover:border-border-subtle hover:text-primary"
+          title="Sign out"
+        >
+          Sign out
+        </button>
+      ) : null}
     </header>
   )
 }

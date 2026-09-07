@@ -4,14 +4,18 @@ TradeLogger FastAPI Primary Application Entry Point (Stage 2 Read-Only Vertical 
 Provides high-speed, typed, read-only adapter endpoints directly invoking
 authoritative Python calculation engines without logic duplication.
 """
+import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 import database
+from api import auth as _auth
 from api.routers import (
     health,
+    auth as auth_router,
     watchlist,
     market,
     preferences,
@@ -154,17 +158,51 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Enable CORS for React SPA (Vite dev port 5173, preview 4173)
+# --- CORS ---------------------------------------------------------------
+# In production set TL_ALLOWED_ORIGINS to the frontend origin(s), comma-separated
+# (e.g. "https://tradelogger.pages.dev"). With explicit origins we can send
+# credentials (the session cookie). With no list set we fall back to the open
+# dev config, which the browser forbids from carrying credentials.
+_cors_origins = [o.strip() for o in os.getenv("TL_ALLOWED_ORIGINS", "").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_cors_origins or ["*"],
+    allow_credentials=bool(_cors_origins),
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
+# --- auth gate ---------------------------------------------------------
+# Every /api/* route requires a valid session when auth is configured
+# (TL_AUTH_PASSWORD[_HASH] set). Health, the auth routes themselves, and the
+# OpenAPI docs are exempt. With no passphrase configured, auth is disabled and
+# nothing here changes — local dev and the test suite are unaffected.
+_AUTH_EXEMPT = {
+    "/", "/api/health",
+    "/api/auth/login", "/api/auth/logout", "/api/auth/status",
+    "/docs", "/redoc", "/openapi.json", "/favicon.ico",
+}
+
+
+@app.middleware("http")
+async def _auth_gate(request: Request, call_next):
+    if request.method == "OPTIONS" or not _auth.auth_enabled():
+        return await call_next(request)
+    path = request.url.path
+    if path in _AUTH_EXEMPT or path.startswith("/docs") or path.startswith("/redoc"):
+        return await call_next(request)
+    if not path.startswith("/api/"):
+        return await call_next(request)
+
+    bearer = request.headers.get("authorization", "")
+    token = bearer[7:].strip() if bearer.lower().startswith("bearer ") else request.cookies.get(_auth.cookie_name(), "")
+    if _auth.validate_token(token):
+        return await call_next(request)
+    return JSONResponse({"detail": "Authentication required."}, status_code=401)
+
 # Register Stage 2 & Stage 3 Routers
 app.include_router(health.router)
+app.include_router(auth_router.router)
 app.include_router(watchlist.router)
 app.include_router(market.router)
 app.include_router(preferences.router)

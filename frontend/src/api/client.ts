@@ -21,6 +21,28 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Session cookie must ride along on every request (same-origin in dev, and
+ * cross-origin in a hosted build where the API is on another domain).
+ */
+const CREDENTIALS: RequestCredentials = 'include'
+
+let onUnauthorized: (() => void) | null = null
+
+/** The auth layer registers a callback so a 401 anywhere bounces to the login screen. */
+export function setUnauthorizedHandler(fn: (() => void) | null): void {
+  onUnauthorized = fn
+}
+
+function noteResponse(response: Response): Response {
+  // The login/logout/status calls handle their own 401s — a wrong passphrase
+  // must not trigger the global "session expired" bounce.
+  if (response.status === 401 && onUnauthorized && !response.url.includes('/api/auth/')) {
+    onUnauthorized()
+  }
+  return response
+}
+
 export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
   const url = `${API_BASE_URL}${path}`
 
@@ -30,10 +52,12 @@ export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
       method: 'GET',
       headers: { Accept: 'application/json' },
       ...init,
+      credentials: CREDENTIALS,
     })
   } catch (cause) {
     throw new ApiError(`Network error contacting API at ${url}`, 0, { cause })
   }
+  noteResponse(response)
 
   if (!response.ok) {
     throw new ApiError(
@@ -80,10 +104,12 @@ export async function apiPost<T>(
       headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       ...init,
+      credentials: CREDENTIALS,
     })
   } catch (cause) {
     throw new ApiError(`Network error contacting API at ${url}`, 0, { cause })
   }
+  noteResponse(response)
 
   if (!response.ok) {
     const detail = await readErrorDetail(response)
@@ -110,10 +136,12 @@ export async function apiPut<T>(
       headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       ...init,
+      credentials: CREDENTIALS,
     })
   } catch (cause) {
     throw new ApiError(`Network error contacting API at ${url}`, 0, { cause })
   }
+  noteResponse(response)
 
   if (!response.ok) {
     const detail = await readErrorDetail(response)
@@ -140,10 +168,12 @@ export async function apiPatch<T>(
       headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       ...init,
+      credentials: CREDENTIALS,
     })
   } catch (cause) {
     throw new ApiError(`Network error contacting API at ${url}`, 0, { cause })
   }
+  noteResponse(response)
 
   if (!response.ok) {
     const detail = await readErrorDetail(response)
@@ -165,10 +195,12 @@ export async function apiDelete<T>(path: string, init?: RequestInit): Promise<T>
       method: 'DELETE',
       headers: { Accept: 'application/json' },
       ...init,
+      credentials: CREDENTIALS,
     })
   } catch (cause) {
     throw new ApiError(`Network error contacting API at ${url}`, 0, { cause })
   }
+  noteResponse(response)
 
   if (!response.ok) {
     const detail = await readErrorDetail(response)
