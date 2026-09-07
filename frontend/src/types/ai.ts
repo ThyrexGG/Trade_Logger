@@ -37,6 +37,14 @@ export interface AITurnUsage {
   total_tokens: number
 }
 
+/** One read-only tool the assistant ran to answer a message. */
+export interface AIToolCall {
+  tool: string
+  args: Record<string, unknown>
+  ms: number
+  ok: boolean
+}
+
 export interface AIChatResponse {
   ok: boolean
   reply: string | null
@@ -47,6 +55,7 @@ export interface AIChatResponse {
   context_sections_unavailable: string[]
   turn_usage: AITurnUsage | null
   usage: AIUsage | null
+  tool_calls: AIToolCall[] | null
   read_only: boolean
   live_broker_transmission: string
   timestamp: string

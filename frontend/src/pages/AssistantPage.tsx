@@ -188,6 +188,24 @@ export function AssistantPage() {
                     <ChatMarkdown text={t.content} />
                   )}
                 </div>
+                {t.tools && t.tools.length ? (
+                  <div className="flex flex-wrap items-center gap-1 pl-1 text-[10px] text-muted">
+                    <span className="uppercase tracking-wider">Looked up:</span>
+                    {t.tools.map((tc, j) => (
+                      <span
+                        key={j}
+                        title={`${JSON.stringify(tc.args)} · ${tc.ms}ms`}
+                        className={`rounded border px-1.5 py-0.5 font-mono ${
+                          tc.ok
+                            ? 'border-border bg-surface-elevated/60'
+                            : 'border-negative/30 bg-negative/10 text-negative'
+                        }`}
+                      >
+                        {tc.tool}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             ),
           )}

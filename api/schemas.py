@@ -1250,6 +1250,7 @@ class AIChatResponse(BaseModel):
     context_sections_unavailable: List[str] = []
     turn_usage: Optional[Dict[str, int]] = None       # {prompt_tokens, output_tokens, total_tokens} for this reply
     usage: Optional[Dict[str, Any]] = None            # running meter (day + session totals)
+    tool_calls: Optional[List[Dict[str, Any]]] = None  # read-only tool audit: [{tool, args, ms, ok}]
     read_only: bool = True
     live_broker_transmission: str = "BLOCKED"
     timestamp: str

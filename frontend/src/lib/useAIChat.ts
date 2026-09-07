@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getAIStatus, postAIChat } from '../api/ai'
-import type { AIChatMessage, AIChatResponse, AIUsage } from '../types/ai'
+import type { AIChatMessage, AIChatResponse, AIToolCall, AIUsage } from '../types/ai'
 
 export interface ChatTurn {
   role: 'user' | 'assistant'
@@ -10,6 +10,8 @@ export interface ChatTurn {
   /** set on an assistant turn that came back as an error */
   error?: boolean
   errorKind?: string | null
+  /** read-only tools the assistant ran for this reply */
+  tools?: AIToolCall[]
 }
 
 interface UseAIChatResult {
@@ -106,7 +108,12 @@ export function useAIChat(): UseAIChatResult {
         setTurns((prev) => [
           ...prev,
           res.ok && res.reply
-            ? { role: 'assistant', content: res.reply, at: Date.now() }
+            ? {
+                role: 'assistant',
+                content: res.reply,
+                at: Date.now(),
+                tools: res.tool_calls ?? undefined,
+              }
             : {
                 role: 'assistant',
                 content: res.error ?? 'The assistant could not respond.',

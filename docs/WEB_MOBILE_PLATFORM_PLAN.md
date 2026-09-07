@@ -48,6 +48,14 @@ Effort scale: **S** ≈ up to a day · **M** ≈ 2–4 days · **L** ≈ 1–2 w
 
 ### W1 — AI Assistant: tool-calling (dynamic queries)
 
+**Status: SHIPPED (2026-09-07).** SDK migrated to `google-genai`; 5 read-only
+allowlisted tools live (`query_trades`, `analytics_period`, `tag_record`,
+`macro_scorecard`, `journal_search`) via `api/ai_tools.py`; manual tool loop in
+`api/gemini_client.generate()` (max 4 rounds, then a forced text answer);
+per-call audit (`tool_calls: [{tool, args, ms, ok}]`) surfaced in the chat UI as
+a "Looked up:" chip row. `run_backtest` deferred (D8). Tests:
+`tests/test_stage16_ai_tools.py` + updated `test_stage15c`.
+
 **Why.** Today the assistant answers only from a fixed context snapshot. It
 cannot answer *"my average loss on GBPUSD during the London session"* or
 *"run a 20-trade backtest on USDJPY"*. This is the single highest-value upgrade —

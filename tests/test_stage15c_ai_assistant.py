@@ -64,12 +64,13 @@ def test_ai_modules_bind_no_execution_symbol():
     import api.routers.ai as router_mod
     import api.ai_context as ctx_mod
     import api.gemini_client as gem_mod
+    import api.ai_tools as tools_mod
 
     forbidden_names = {
         "execution_pipeline", "broker_adapter", "risk_gateway", "submit_order",
         "get_broker_adapter", "CanonicalExecutionRequest", "execution_recorder",
     }
-    for mod in (router_mod, ctx_mod, gem_mod):
+    for mod in (router_mod, ctx_mod, gem_mod, tools_mod):
         for name, value in vars(mod).items():
             assert name not in forbidden_names, f"{mod.__name__} binds {name}"
             if isinstance(value, types.ModuleType):
@@ -117,10 +118,11 @@ def stub_gemini(monkeypatch):
     """Force 'configured' and capture what would be sent, returning a canned reply."""
     captured = {}
 
-    def fake_generate(system_instruction, history, context_block):
+    def fake_generate(system_instruction, history, context_block, **kwargs):
         captured["system"] = system_instruction
         captured["history"] = history
         captured["context"] = context_block
+        captured["kwargs"] = kwargs
         return "I cannot place, modify or cancel orders. Here is what I see instead: ...", {"model": "stub"}
 
     monkeypatch.setattr("api.routers.ai.is_configured", lambda: True)

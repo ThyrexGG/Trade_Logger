@@ -67,8 +67,21 @@ def ai_chat(req: AIChatRequest) -> AIChatResponse:
     ctx = build_context()
     history = [{"role": m.role, "content": m.content} for m in req.messages]
 
+    from api import ai_tools
+
     try:
-        reply, meta = generate(SYSTEM_INSTRUCTION, history, context_as_prompt_block(ctx))
+        tool_decls = ai_tools.gemini_tool_declarations()
+    except Exception:
+        tool_decls = None
+
+    try:
+        reply, meta = generate(
+            SYSTEM_INSTRUCTION,
+            history,
+            context_as_prompt_block(ctx),
+            tools=tool_decls,
+            tool_dispatch=ai_tools.dispatch,
+        )
     except GeminiError as exc:
         kind_map = {
             "unavailable": "provider_unavailable",
@@ -100,5 +113,6 @@ def ai_chat(req: AIChatRequest) -> AIChatResponse:
         context_sections_unavailable=ctx["unavailable_sections"],
         turn_usage=turn_usage or None,
         usage=ai_usage.snapshot(),
+        tool_calls=meta.get("tool_calls") or None,
         timestamp=_now(),
     )
