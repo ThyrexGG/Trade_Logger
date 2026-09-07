@@ -39,3 +39,13 @@ createRoot(rootElement).render(
     </BrowserRouter>
   </StrictMode>,
 )
+
+// Register the PWA service worker in production builds only (the Vite dev server
+// doesn't serve /sw.js and a SW would only get in the way of HMR).
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      /* offline shell is a progressive enhancement — ignore registration errors */
+    })
+  })
+}
