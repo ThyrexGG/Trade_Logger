@@ -4,6 +4,7 @@ import type { DayTrade, DailyPnl } from '../../types/analytics'
 import type { JournalUpdateRequest } from '../../types/operations'
 import { getDayTrades } from '../../api/analytics'
 import { patchJournalEntry } from '../../api/operations'
+import { ChartSnapshot } from '../journal/ChartSnapshot'
 import { ScreenshotStrip } from '../journal/ScreenshotStrip'
 import { StarRating } from '../journal/StarRating'
 import { TagRecord, invalidateTagRecord } from '../journal/TagRecord'
@@ -54,12 +55,14 @@ function InlineTradeJournal({
   const [tag, setTag] = useState(trade.setup_tag ?? '')
   const [notes, setNotes] = useState(trade.notes ?? '')
   const [rating, setRating] = useState<number>(trade.rating ?? 0)
+  const [chartUrl, setChartUrl] = useState(trade.chart_snapshot_url ?? '')
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const dirty =
     tag.trim() !== (trade.setup_tag ?? '') ||
     notes !== (trade.notes ?? '') ||
-    rating !== (trade.rating ?? 0)
+    rating !== (trade.rating ?? 0) ||
+    chartUrl.trim() !== (trade.chart_snapshot_url ?? '')
 
   async function save() {
     if (saving || !dirty) return
@@ -69,6 +72,7 @@ function InlineTradeJournal({
     if (tag.trim() !== (trade.setup_tag ?? '')) body.setup_tag = tag.trim()
     if (notes !== (trade.notes ?? '')) body.notes = notes
     if (rating !== (trade.rating ?? 0)) body.rating = rating
+    if (chartUrl.trim() !== (trade.chart_snapshot_url ?? '')) body.chart_snapshot_url = chartUrl.trim()
     try {
       const res = await patchJournalEntry(trade.trade_id, body)
       if ('setup_tag' in body) invalidateTagRecord()
@@ -115,6 +119,18 @@ function InlineTradeJournal({
       <div className="flex items-center gap-2 text-[11px] text-muted">
         <span>Rating</span>
         <StarRating value={rating} onChange={setRating} disabled={saving} />
+      </div>
+      <div>
+        <label className="mb-1 block text-[10px] uppercase tracking-wide text-muted">Chart snapshot URL</label>
+        <input
+          value={chartUrl}
+          onChange={(e) => setChartUrl(e.target.value)}
+          disabled={saving}
+          maxLength={3_000}
+          placeholder="https://www.tradingview.com/x/…"
+          className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-primary placeholder:text-muted focus:border-accent focus:outline-none"
+        />
+        {chartUrl.trim() ? <div className="mt-1"><ChartSnapshot url={chartUrl} /></div> : null}
       </div>
       <div>
         <p className="mb-1 text-[10px] uppercase tracking-wide text-muted">Screenshots</p>
@@ -247,7 +263,8 @@ function DayDetail({
                       {t.rating ? <span className="ml-1 text-[10px] text-warning">{'★'.repeat(t.rating)}</span> : null}
                       {t.notes ? <span className="ml-1 text-[10px]">✎</span> : null}
                       {t.screenshot_count ? <span className="ml-1 text-[10px]">📷{t.screenshot_count}</span> : null}
-                      {!t.setup_tag && !t.notes && !t.rating && !t.screenshot_count ? (
+                      {t.chart_snapshot_url ? <span className="ml-1 text-[10px]">📈</span> : null}
+                      {!t.setup_tag && !t.notes && !t.rating && !t.screenshot_count && !t.chart_snapshot_url ? (
                         <span className="text-[10px] text-muted">add</span>
                       ) : null}
                     </td>

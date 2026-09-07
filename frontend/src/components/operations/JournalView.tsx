@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { JournalResponse, JournalTradeItem, JournalUpdateRequest } from '../../types/operations'
 import { OpsMetric, OpsUnavailable, SectionCard } from './primitives'
 import { formatUsd, timeAgo } from '../../lib/format'
 import { patchJournalEntry } from '../../api/operations'
+import { ChartSnapshot } from '../journal/ChartSnapshot'
 import { ScreenshotStrip } from '../journal/ScreenshotStrip'
 import { StarRating } from '../journal/StarRating'
 import { TagRecord, invalidateTagRecord } from '../journal/TagRecord'
@@ -128,10 +129,18 @@ function JournalEditor({
             value={chartUrl}
             onChange={(e) => setChartUrl(e.target.value)}
             disabled={saving}
-            maxLength={3_000_000}
+            maxLength={3_000}
             placeholder="https://www.tradingview.com/x/…"
             className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-xs text-primary placeholder:text-muted focus:border-accent focus:outline-none"
           />
+          <span className="mt-0.5 block text-[10px] text-muted">
+            Paste a TradingView snapshot link (Alt+S in TradingView) or a direct image URL.
+          </span>
+          {chartUrl.trim() ? (
+            <span className="mt-1 block">
+              <ChartSnapshot url={chartUrl} />
+            </span>
+          ) : null}
         </label>
       </div>
       <label className="block text-[11px] text-muted">
@@ -319,10 +328,10 @@ export function JournalView({
               {shown.map((e: JournalTradeItem) => {
                 const isEditing = editing === e.trade_id
                 return (
+                  <Fragment key={e.trade_id}>
                   <tr
-                    key={e.trade_id}
                     ref={e.trade_id === focusTradeId ? focusedRef : undefined}
-                    className={`border-b border-border-subtle/60 align-top ${
+                    className={`align-top ${isEditing ? '' : 'border-b border-border-subtle/60'} ${
                       e.trade_id === focusTradeId ? 'bg-accent/5' : ''
                     }`}
                   >
@@ -341,52 +350,49 @@ export function JournalView({
                     <td className={`px-2 py-1.5 text-right font-mono tabular-nums ${e.net_profit > 0 ? 'text-positive' : e.net_profit < 0 ? 'text-negative' : 'text-secondary'}`}>
                       {money(e.net_profit)}
                     </td>
-                    <td className="px-2 py-1.5 max-w-[16rem] text-secondary">
-                      {isEditing ? (
-                        <JournalEditor
-                          entry={e}
-                          onSaved={(updated) => {
-                            onEntryUpdated?.(updated)
-                            setEditing(null)
-                          }}
-                          onCancel={() => setEditing(null)}
-                        />
-                      ) : (
-                        <>
-                          {e.setup_tag ? <span className="mr-1 rounded bg-surface-elevated px-1 text-[10px] text-muted">{e.setup_tag}</span> : null}
-                          {e.notes ?? (e.setup_tag ? '' : <span className="text-muted">—</span>)}
-                          {e.chart_snapshot_url ? (
-                            <a
-                              href={e.chart_snapshot_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="ml-1 text-[10px] text-accent hover:underline"
-                            >
-                              chart ↗
-                            </a>
-                          ) : null}
-                          {e.screenshot_count ? (
-                            <span className="ml-1 text-[10px] text-muted">📷 {e.screenshot_count}</span>
-                          ) : null}
-                        </>
-                      )}
+                    <td className="max-w-[16rem] px-2 py-1.5 text-secondary">
+                      {e.setup_tag ? <span className="mr-1 rounded bg-surface-elevated px-1 text-[10px] text-muted">{e.setup_tag}</span> : null}
+                      {e.notes ?? (e.setup_tag ? '' : <span className="text-muted">—</span>)}
+                      {e.screenshot_count ? (
+                        <span className="ml-1 text-[10px] text-muted">📷 {e.screenshot_count}</span>
+                      ) : null}
+                      {e.chart_snapshot_url ? (
+                        <span className="ml-1 inline-block align-middle">
+                          <ChartSnapshot url={e.chart_snapshot_url} compact />
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-2 py-1.5"><Stars n={e.rating} /></td>
                     <td className="px-2 py-1.5 font-mono text-muted">{e.account_id}</td>
                     <td className="px-2 py-1.5 text-right">
-                      {isEditing ? (
-                        <span className="text-[10px] text-muted">editing…</span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setEditing(e.trade_id)}
-                          className="rounded border border-border px-1.5 py-0.5 text-[10px] text-secondary hover:border-accent/40 hover:text-accent"
-                        >
-                          Edit
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => setEditing(isEditing ? null : e.trade_id)}
+                        className="rounded border border-border px-1.5 py-0.5 text-[10px] text-secondary hover:border-accent/40 hover:text-accent"
+                      >
+                        {isEditing ? 'Close' : 'Edit'}
+                      </button>
                     </td>
                   </tr>
+                  {isEditing ? (
+                    <tr className="border-b border-border-subtle/60 bg-surface-elevated/20">
+                      <td colSpan={11} className="p-0">
+                        {/* sticky-left keeps the editor in view even while the wide
+                            table is scrolled right on a phone */}
+                        <div className="sticky left-0 w-[calc(100vw-2rem)] p-3 sm:w-auto sm:max-w-3xl">
+                          <JournalEditor
+                            entry={e}
+                            onSaved={(updated) => {
+                              onEntryUpdated?.(updated)
+                              setEditing(null)
+                            }}
+                            onCancel={() => setEditing(null)}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                  </Fragment>
                 )
               })}
             </tbody>
