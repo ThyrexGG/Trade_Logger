@@ -47,8 +47,11 @@ export function useOpenPositions(): UseOpenPositionsResult {
     const timer = window.setInterval(() => {
       if (!document.hidden) load()
     }, REFRESH_MS)
+    const onSynced = () => load()
+    window.addEventListener('tl:synced', onSynced)
     return () => {
       window.clearInterval(timer)
+      window.removeEventListener('tl:synced', onSynced)
       inFlight.current?.abort()
     }
   }, [nonce])

@@ -110,11 +110,16 @@ function useOpsResource<T>(
       if (!document.hidden && (!c || Date.now() - c.at > MOUNT_REUSE_MS)) load()
     }
     document.addEventListener('visibilitychange', onVisible)
+    // A broker catch-up sync just landed new rows — pull them in now rather
+    // than waiting for the slow interval.
+    const onSynced = () => load()
+    window.addEventListener('tl:synced', onSynced)
 
     return () => {
       disposed = true
       window.clearInterval(timer)
       document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('tl:synced', onSynced)
       controller?.abort()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -61,9 +61,14 @@ export function useAnalytics(query: AnalyticsQuery): UseAnalyticsResult {
         })
     }, DEBOUNCE_MS)
 
+    // A broker catch-up sync just landed new trades — recompute.
+    const onSynced = () => setNonce((n) => n + 1)
+    window.addEventListener('tl:synced', onSynced)
+
     return () => {
       disposed = true
       window.clearTimeout(timer)
+      window.removeEventListener('tl:synced', onSynced)
       controller.abort()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

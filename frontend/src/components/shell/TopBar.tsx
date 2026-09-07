@@ -1,5 +1,6 @@
 import { useAuth } from '../../lib/auth'
 import { useHealth } from '../../lib/health'
+import { useSyncOnOpen } from '../../lib/syncOnOpen'
 import { apiStatusView, systemStatusView } from '../../lib/status'
 import { MenuIcon, SearchIcon } from '../../lib/icons'
 import { isMac } from '../../lib/platform'
@@ -14,6 +15,7 @@ interface TopBarProps {
 /** Persistent header: breadcrumb (left), live status + command palette (right). */
 export function TopBar({ onOpenSidebar, onOpenCommandPalette }: TopBarProps) {
   const { state: authState, logout } = useAuth()
+  const { syncing } = useSyncOnOpen()
   const { state, data } = useHealth()
   const api = apiStatusView(state)
   const system = systemStatusView(state)
@@ -52,6 +54,16 @@ export function TopBar({ onOpenSidebar, onOpenCommandPalette }: TopBarProps) {
           />
         </span>
       </div>
+
+      {syncing ? (
+        <span
+          className="flex shrink-0 items-center gap-1.5 rounded border border-border bg-surface-elevated px-1.5 py-1 text-[11px] text-muted sm:px-2"
+          title="Catching up on broker data (trades, positions, balance)"
+        >
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" aria-hidden="true" />
+          <span className="hidden sm:inline">Syncing…</span>
+        </span>
+      ) : null}
 
       <span
         className="flex shrink-0 items-center gap-1.5 rounded border border-negative/40 bg-negative/10 px-1.5 py-1 sm:px-2"

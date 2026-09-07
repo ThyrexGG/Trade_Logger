@@ -19,6 +19,10 @@ export interface SyncStatusResponse {
   last_run: SyncRunResult | null
   generated_at: string
   ran?: SyncRunResult
+  /** run-if-stale only: set when no cycle was run */
+  skipped?: boolean
+  reason?: 'fresh' | 'in_progress' | 'auto_loop_on'
+  heartbeat_age_sec?: number | null
   safety_barrier: { live_automation_enabled: boolean; live_broker_transmission: string }
 }
 
@@ -30,6 +34,22 @@ export function getSyncStatus(signal?: AbortSignal): Promise<SyncStatusResponse>
 /** POST /api/system/sync/run — run one broker-sync cycle now (blocks a few seconds). */
 export function runSyncNow(signal?: AbortSignal): Promise<SyncStatusResponse> {
   return apiPost<SyncStatusResponse>('/api/system/sync/run', {}, { signal })
+}
+
+/**
+ * POST /api/system/sync/run-if-stale — run one cycle only if the last sync is
+ * older than `maxAgeMinutes`. Deduplicated server-side across tabs / devices /
+ * restarts. Called once on app load so a sleeping host still shows fresh data.
+ */
+export function runSyncIfStale(
+  maxAgeMinutes = 15,
+  signal?: AbortSignal,
+): Promise<SyncStatusResponse> {
+  return apiPost<SyncStatusResponse>(
+    `/api/system/sync/run-if-stale?max_age_minutes=${maxAgeMinutes}`,
+    {},
+    { signal },
+  )
 }
 
 /** PUT /api/system/sync — turn the background auto-sync loop on/off (persisted). */

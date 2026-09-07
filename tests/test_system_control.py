@@ -111,6 +111,55 @@ def test_sync_run_invokes_one_cycle(monkeypatch):
     assert body["last_run"]["source"] == "manual"
 
 
+def test_sync_run_if_stale_skips_when_fresh(monkeypatch):
+    from api import sync_service
+
+    calls = {"n": 0}
+
+    def _fake_cycle(known, logfn=None):
+        calls["n"] += 1
+        return {"errors": [], "mt5_ok": False, "capital_ok": True, "new_closed_trades": 0}
+
+    monkeypatch.setattr(sync_service.auto_sync, "run_sync_cycle", _fake_cycle)
+    monkeypatch.setattr(sync_service, "is_auto_enabled", lambda: False)
+    # heartbeat 2 minutes old -> a 15-minute window is still fresh
+    monkeypatch.setattr(sync_service, "_heartbeat_age_sec", lambda: 120.0)
+
+    body = client.post("/api/system/sync/run-if-stale?max_age_minutes=15").json()
+    assert calls["n"] == 0
+    assert body["skipped"] is True and body["reason"] == "fresh"
+
+
+def test_sync_run_if_stale_runs_when_stale(monkeypatch):
+    from api import sync_service
+
+    calls = {"n": 0}
+
+    def _fake_cycle(known, logfn=None):
+        calls["n"] += 1
+        return {"errors": [], "mt5_ok": False, "capital_ok": True, "new_closed_trades": 0}
+
+    monkeypatch.setattr(sync_service.auto_sync, "run_sync_cycle", _fake_cycle)
+    monkeypatch.setattr(sync_service, "is_auto_enabled", lambda: False)
+    monkeypatch.setattr(sync_service, "_heartbeat_age_sec", lambda: 3600.0)  # 1h old
+
+    body = client.post("/api/system/sync/run-if-stale?max_age_minutes=15").json()
+    assert calls["n"] == 1
+    assert body["ran"]["ok"] is True and body["ran"]["source"] == "open"
+
+
+def test_sync_run_if_stale_defers_to_auto_loop(monkeypatch):
+    from api import sync_service
+
+    monkeypatch.setattr(sync_service, "is_auto_enabled", lambda: True)
+    monkeypatch.setattr(
+        sync_service.auto_sync, "run_sync_cycle",
+        lambda *a, **k: pytest.fail("must not sync while the auto loop owns it"),
+    )
+    body = client.post("/api/system/sync/run-if-stale").json()
+    assert body["skipped"] is True and body["reason"] == "auto_loop_on"
+
+
 def test_sync_service_imports_no_execution_layer():
     import inspect
     from api import sync_service

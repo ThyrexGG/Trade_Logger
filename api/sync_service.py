@@ -104,6 +104,44 @@ def run_once(source: str = "manual") -> Dict[str, Any]:
         return result
 
 
+def _heartbeat_age_sec() -> Optional[float]:
+    """Seconds since the last completed cycle (any source), from the persisted
+    heartbeat — survives process restarts and is shared across tabs / the
+    standalone daemon. None if never run."""
+    try:
+        raw = database.get_setting(_HEARTBEAT_KEY, "")
+        if not raw:
+            return None
+        ts = datetime.fromisoformat(raw)
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - ts).total_seconds()
+    except Exception:
+        return None
+
+
+def run_if_stale(max_age_sec: int = 900) -> Dict[str, Any]:
+    """Run one cycle only if the last sync is older than ``max_age_sec``.
+
+    Deduplicated across browser tabs, devices and process restarts via the
+    persisted heartbeat, so opening the app on a host that sleeps (no always-on
+    loop) refreshes broker data once without every client triggering its own
+    cycle. Returns ``{"ran": <result>}`` or ``{"skipped": True, "reason": ...}``.
+    """
+    if is_auto_enabled():
+        return {"skipped": True, "reason": "auto_loop_on",
+                "heartbeat_age_sec": _heartbeat_age_sec()}
+    with _state_lock:
+        if _running:
+            return {"skipped": True, "reason": "in_progress",
+                    "heartbeat_age_sec": _heartbeat_age_sec()}
+    age = _heartbeat_age_sec()
+    if age is not None and age < max_age_sec:
+        return {"skipped": True, "reason": "fresh", "heartbeat_age_sec": round(age, 1)}
+    result = run_once(source="open")
+    return {"ran": result, "heartbeat_age_sec_before": round(age, 1) if age is not None else None}
+
+
 def _loop() -> None:
     while not _stop.is_set():
         if is_auto_enabled():

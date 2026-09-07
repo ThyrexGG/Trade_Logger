@@ -5,6 +5,7 @@ import App from './App'
 import { LoginScreen } from './components/auth/LoginScreen'
 import { AuthProvider, useAuth } from './lib/auth'
 import { HealthProvider } from './lib/health'
+import { SyncOnOpenProvider } from './lib/syncOnOpen'
 import './index.css'
 
 const rootElement = document.getElementById('root')
@@ -31,9 +32,11 @@ createRoot(rootElement).render(
     <BrowserRouter>
       <AuthProvider>
         <AuthGate>
-          <HealthProvider>
-            <App />
-          </HealthProvider>
+          <SyncOnOpenProvider>
+            <HealthProvider>
+              <App />
+            </HealthProvider>
+          </SyncOnOpenProvider>
         </AuthGate>
       </AuthProvider>
     </BrowserRouter>

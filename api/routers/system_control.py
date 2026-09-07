@@ -49,6 +49,17 @@ def run_sync_now() -> Dict[str, Any]:
     return _sync_payload({"ran": result})
 
 
+@router.post("/sync/run-if-stale")
+def run_sync_if_stale(max_age_minutes: int = 15) -> Dict[str, Any]:
+    """Run one cycle **only if** the last sync is older than ``max_age_minutes``
+    (clamped 1–240). Deduplicated across tabs / devices / restarts via the
+    persisted heartbeat. The frontend calls this once on load so a host that
+    sleeps (no always-on loop) still shows fresh broker data on open, without
+    every open triggering a redundant cycle. Data ingestion only."""
+    minutes = max(1, min(int(max_age_minutes), 240))
+    return _sync_payload(sync_service.run_if_stale(minutes * 60))
+
+
 @router.put("/sync")
 def set_sync_auto(body: SyncAutoToggle) -> Dict[str, Any]:
     """Turn the background auto-sync loop on or off (persisted). While it is on

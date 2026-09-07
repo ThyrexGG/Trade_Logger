@@ -59,9 +59,12 @@ export function useCommandCenter(): UseCommandCenterResult {
     const timer = window.setInterval(() => {
       if (!document.hidden) load()
     }, REFRESH_MS)
+    const onSynced = () => load()
+    window.addEventListener('tl:synced', onSynced)
     return () => {
       disposed = true
       window.clearInterval(timer)
+      window.removeEventListener('tl:synced', onSynced)
       controller?.abort()
     }
   }, [nonce])
