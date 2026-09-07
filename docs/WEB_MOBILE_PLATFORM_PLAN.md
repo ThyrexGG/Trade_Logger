@@ -229,6 +229,21 @@ candle chart's last price (nice, small).
 
 ### W5 — Mobile / PWA
 
+**Status: mostly SHIPPED (2026-09-07), out of order** — the user asked to pause
+deployment (W6/W7) and focus on the website.
+- **PWA shell** (`b7e0521`): `manifest.webmanifest` (standalone, dark theme),
+  icon set from the favicon (192/512/512-maskable/180-apple), `public/sw.js`
+  (network-first navigations + stale-while-revalidate for hashed assets, never
+  caches `/api/*`), registered in production builds only. Verified installable.
+- **Responsive pass** (`eb653ee`): a bottom 4-zone nav bar (`<BottomNav>`,
+  `lg:hidden`, safe-area aware — D9's recommendation), TopBar compacted on
+  phones, `PageContainer` action slot no longer overflows, the 7-column
+  economic-calendar table scrolls horizontally. 0 horizontal page overflow
+  verified at 390px across ~9 pages. Prior sessions had already done most table
+  `overflow-x-auto` + the off-canvas drawer sidebar.
+- **Still to do:** a deeper per-page polish pass (open-ended); **Web Push**
+  (D10) — deferred.
+
 **Why.** "Go mobile" = usable on a phone browser and installable to the home
 screen, working on cellular. The app is a React SPA already, so this is mostly a
 responsiveness + PWA-shell pass, not a rewrite.
