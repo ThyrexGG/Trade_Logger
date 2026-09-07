@@ -3,7 +3,6 @@
 Phase 61 - Test User Preferences Storage, Session Caching & SQLite Persistence
 """
 import pytest
-import streamlit as st
 from user_preferences import UserPreferencesManager, DEFAULT_PREFERENCES
 
 

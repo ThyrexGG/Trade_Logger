@@ -1,3 +1,7 @@
+# LEGACY (RETIRED): Streamlit view-layer module. The Streamlit terminal is
+# retired (platform plan D1) — the React SPA + FastAPI backend replace it.
+# Not imported by the shipped app; kept only for tests/legacy_streamlit/.
+# Needs: pip install -r requirements-streamlit-legacy.txt
 """
 TradeLogger Phase 57 — Market Intelligence Scanner & Economic Heatmap UI
 ========================================================================

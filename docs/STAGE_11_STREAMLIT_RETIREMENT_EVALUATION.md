@@ -279,8 +279,44 @@ immediate retirement.
 
 ---
 
-## 12. Verdict
+## 12. Verdict (2026-09-02)
 
 **Streamlit is retained.** No changes to source, dependencies, deployment,
 execution logic or safety mechanisms. The evaluation is recorded; the retirement
 decision is deferred to an explicit product-scope decision by the owner.
+
+---
+
+## 13. RETIREMENT EXECUTED — 2026-09-07 (owner decision D1)
+
+The owner made the product-scope call in `docs/WEB_MOBILE_PLATFORM_PLAN.md` (D1):
+**retire Streamlit.** The React SPA + FastAPI backend are now the product. MT5
+retirement (env-only opt-in) already removed the paper-execution concern from
+§11; the local-LLM market context is not being carried forward.
+
+Executed in workstream **W2** of the platform plan:
+
+- **W2a** (`2a523cc`) — `api.main` no longer needs `streamlit` to import.
+  `user_preferences.py` is streamlit-free; `trading_workspace_cockpit.py` and
+  `market_intelligence_command_center.py` guard `streamlit` /
+  `ui_components` / `tradingview_widget` / `workspace_layout_manager` as optional
+  imports. The data/engine classes the API calls are view-free.
+- **W2b** (this) —
+  - `app.py` **deleted** (the `streamlit run` entrypoint).
+  - `streamlit` + `plotly` moved out of `requirements.txt` into
+    `requirements-streamlit-legacy.txt`. The production install is
+    `requirements.txt` only.
+  - The 8 pure-view modules (`ui_components.py`, `tradingview_widget.py`,
+    `command_palette.py`, `keyboard_shortcuts.py`, `workspace_layout_manager.py`,
+    `market_intelligence_ui.py`, `asset_edge_scorecard.py`,
+    `forward_evidence_cockpit.py`) are kept but banner-marked LEGACY and are
+    imported by nothing in the shipped app.
+  - 24 Streamlit-coupled test files moved to `tests/legacy_streamlit/`, which
+    auto-skips at collection when `streamlit` is not installed (every deploy /
+    CI run). They still pass with the legacy extra installed.
+  - New guard test: `tests/test_stage17_no_streamlit.py` — a subprocess boots
+    `api.main` with `streamlit` **and** `plotly` un-importable and hits
+    `/api/{health,watchlist,preferences,market,intelligence,ai}`.
+
+`deployment_guide.md` (the "`streamlit run app.py`" doc) is superseded by the
+W7 section of `docs/WEB_MOBILE_PLATFORM_PLAN.md`.

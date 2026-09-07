@@ -1,0 +1,16 @@
+# Legacy Streamlit terminal — RETIRED (platform plan D1).
+#
+# The React SPA (frontend/) + FastAPI backend (api.main) replace the Streamlit
+# app. These packages are only needed to run the dormant legacy modules
+# (ui_components.py, tradingview_widget.py, command_palette.py,
+# keyboard_shortcuts.py, workspace_layout_manager.py, market_intelligence_ui.py,
+# asset_edge_scorecard.py, forward_evidence_cockpit.py) and the tests under
+# tests/legacy_streamlit/.
+#
+#   pip install -r requirements.txt -r requirements-streamlit-legacy.txt
+#
+# The production deploy installs requirements.txt only.
+
+-r requirements.txt
+streamlit>=1.30.0
+plotly>=5.18.0
