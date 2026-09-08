@@ -491,27 +491,81 @@ W1 and W2 can run in parallel. W4 and W5 can run in parallel after W7.
 
 ---
 
-### W8 — Multi-tenant (deferred; own plan needed before starting)
+### W8 — Multi-tenant (COMMITTED 2026-09-08 — building now)
 
-**Why.** D5 — the user intends to open TradeLogger to other users later. Doing
-this properly is a workstream, not a W3 tweak.
+**Why.** D5 — open TradeLogger to a handful of friends so each tracks their own
+trades. Doing this properly is a workstream, not a W3 tweak.
 
-**Scope sketch (to be planned, not yet committed).**
-- `users` + `sessions` tables; registration, email verify, password reset.
-- A real `owner_id` on every user-owned table (`closed_trades`, `open_positions`,
-  `journal_*`, `price_alerts`, watchlists, preferences, AI transcripts, …) and a
-  tenant filter on every query. Today's `account_id` is broker-scoped, not
-  user-scoped — this is the bulk of the work.
-- Per-user broker credentials (Capital.com) stored encrypted, never shared.
-- The frozen research/execution layer + sealed holdout stay **global and
-  read-only** — not per-tenant.
-- Per-user quotas: AI tokens, data-provider calls, storage.
-- Abuse / rate-limit / billing considerations once sign-up is open.
-- Admin surface (see users, disable an account).
+**Decisions (2026-09-08).**
+- **Auth:** Supabase Auth (free). Frontend uses `@supabase/supabase-js` for
+  signup/login (email + password); backend verifies the project JWT (HS256,
+  `SUPABASE_JWT_SECRET`) — no per-request network call. The single-passphrase
+  mode stays as the local-dev / fallback path (`TL_AUTH_MODE` selects).
+- **Signup gating:** `TL_SIGNUP_ALLOWLIST` env (comma-separated emails). The
+  backend provisions a `users` row only for an allowlisted email; anyone else
+  gets 403 even if they created a Supabase auth user. No invite table.
+- **Broker credentials:** per-user, stored **encrypted at rest** (Fernet,
+  `TL_CREDENTIAL_ENC_KEY`), one row per connection in `broker_connections`.
+  Each user gets the same auto-sync the owner has. New dep: `cryptography`.
+- **Shared vs per-tenant:** the frozen research/execution layer, sealed holdout,
+  macro intelligence (FRED/CFTC/calendar), historical candles, correlation
+  matrix, strategy/evidence research all stay **global and read-only**. Only the
+  journal-side tables become per-user.
+- **Audience:** friends only — invite-gated, no billing, no public signup,
+  comfortably inside every free tier (Supabase 500 MB DB / 50k MAU, Render free,
+  Cloudflare free).
 
-**Depends on.** W3 (auth) and W6 (Alembic) must be done first. Realistically
-after W7 (online for one user) is stable.
-**Effort.** L+ (this is comparable in size to all of W1–W7 combined).
+**Per-user tables** (gain `user_id TEXT NOT NULL`): `raw_deals`,
+`closed_trades`, `open_positions`, `account_metadata`, `price_alerts`,
+`journal_entries`, `journal_screenshots`. Per-user settings move to a new
+`user_settings(user_id, key, value)` table (sync heartbeat, `sync_auto_enabled`,
+preferences); `app_settings` stays global. New: `users`, `broker_connections`.
+
+**Phases (each = one PR / commit).**
+- **W8.1 — Identity backend.** `users` table; `api/identity.py` verifies the
+  Supabase JWT; allowlist provisioning (first-seen upsert, 403 if not listed);
+  `_auth_gate` middleware becomes dual-mode and stashes `request.state.user_id`.
+  Passphrase mode still the default. Tests: JWT valid/expired/wrong-secret,
+  allowlist allow/deny.
+- **W8.2 — Frontend auth swap.** `@supabase/supabase-js`; `src/lib/supabase.ts`;
+  rewrite `src/lib/auth.tsx` for Supabase sessions; login + "create account" UI;
+  `client.ts` attaches `Authorization: Bearer <access_token>` and refreshes once
+  on 401. Selected by `VITE_AUTH_MODE`.
+- **W8.3 — Schema migrations.** Alembic `0002` (users, user_settings,
+  broker_connections), `0003` (add nullable `user_id` + indexes), `0004`
+  (backfill existing rows to the owner), `0005` (set `user_id` NOT NULL). No
+  behaviour change yet. Fresh-DB bootstrap `CREATE TABLE`s updated to match.
+- **W8.4 — Data-layer tenant scoping.** Every `database.py` read/write for a
+  per-user table takes `user_id` and filters/sets it; every route resolves the
+  caller from `request.state.user_id`. `get_setting`/`set_setting` gain
+  user-scoped variants. Tenant-isolation tests per route (user A must never see
+  user B's rows). **The big phase.**
+- **W8.5 — Broker credentials.** `api/broker_credentials.py` (Fernet encrypt /
+  decrypt); `broker_connections` CRUD + "test" + "sync now" API
+  (`api/routers/connections.py`); `src/pages/ConnectionsPage.tsx`. Refactor
+  `capital_sync.sync_capital()` to take a credentials object instead of reading
+  env (env kept as the owner's local fallback). Secrets never leave the server.
+- **W8.6 — Per-user sync.** `sync_service` / `auto_sync` iterate active
+  `broker_connections` per user; heartbeat + `sync_auto_enabled` move to
+  `user_settings`; sync-on-open scopes to the caller. Syncs serialised for the
+  512 MB Render box.
+- **W8.7 — Hardening + review.** Signup rate-limit; minimal admin endpoint
+  (list users, disable one); DEPLOY.md + env docs; user runs `/code-review
+  ultra` on the branch before the URL is shared.
+
+**One-time setup the user does (Supabase dashboard).** Enable the Email auth
+provider; add the Cloudflare origin to redirect URLs; copy `Project URL`,
+`anon` key (→ frontend `.env.production`, public) and `JWT secret` (→ Render
+`SUPABASE_JWT_SECRET`, secret). Generate a Fernet key for
+`TL_CREDENTIAL_ENC_KEY`. Set `TL_SIGNUP_ALLOWLIST` and `TL_OWNER_EMAIL` on
+Render.
+
+**Guardrails unchanged.** No order path is added. `LIVE_AUTOMATION_ENABLED`
+stays `False`, `LIVE_BROKER_TRANSMISSION` stays `BLOCKED`. The frozen
+contract / holdout is not touched. Broker credentials are used only for
+Capital.com's read-only history endpoints.
+
+**Depends on.** W3 + W6 + W7 (all shipped). **Effort.** L+ — multi-session.
 
 ---
 
