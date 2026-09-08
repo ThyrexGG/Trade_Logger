@@ -82,3 +82,54 @@ def test_offline_sql_generation_reaches_baseline():
     assert proc.returncode == 0, proc.stderr
     assert "0001_baseline" in proc.stdout
     assert "alembic_version" in proc.stdout
+
+
+# --- W8.3 multi-tenant revisions -------------------------------------------
+
+_PER_USER_TABLES = (
+    "raw_deals", "closed_trades", "open_positions", "account_metadata",
+    "price_alerts", "journal_entries", "journal_screenshots",
+)
+
+
+def test_multitenant_revisions_are_linear():
+    script = ScriptDirectory.from_config(_cfg())
+    chain = [r.revision for r in script.walk_revisions()]  # head -> base
+    assert chain[-1] == "0001_baseline"
+    assert "0002_multitenant_user_id" in chain
+    assert "0003_multitenant_backfill_owner" in chain
+    # 0002 sits directly on the baseline; 0003 directly on 0002
+    assert script.get_revision("0002_multitenant_user_id").down_revision == "0001_baseline"
+    assert script.get_revision("0003_multitenant_backfill_owner").down_revision == "0002_multitenant_user_id"
+
+
+def test_0002_adds_user_id_column_for_every_per_user_table():
+    env = dict(os.environ)
+    env["ALEMBIC_DATABASE_URL"] = "postgresql://u:p@localhost/db"
+    env.pop("PYTEST_CURRENT_TEST", None)
+    proc = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head", "--sql"],
+        cwd=str(ROOT), env=env, capture_output=True, text=True, timeout=90,
+    )
+    assert proc.returncode == 0, proc.stderr
+    out = proc.stdout.lower()
+    for table in _PER_USER_TABLES:
+        assert f"alter table {table} add column if not exists user_id" in out
+        assert f"idx_{table}_user_id" in out
+
+
+def test_0003_backfill_is_offline_safe_and_irreversible():
+    script = ScriptDirectory.from_config(_cfg())
+    mod = script.get_revision("0003_multitenant_backfill_owner").module
+    with pytest.raises(NotImplementedError):
+        mod.downgrade()
+    # offline `--sql` must not blow up on the data-dependent step
+    env = dict(os.environ)
+    env["ALEMBIC_DATABASE_URL"] = "postgresql://u:p@localhost/db"
+    env.pop("PYTEST_CURRENT_TEST", None)
+    proc = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head", "--sql"],
+        cwd=str(ROOT), env=env, capture_output=True, text=True, timeout=90,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "0003 multitenant backfill" in proc.stdout
