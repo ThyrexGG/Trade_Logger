@@ -34,6 +34,27 @@ export function setUnauthorizedHandler(fn: (() => void) | null): void {
   onUnauthorized = fn
 }
 
+let authTokenProvider: (() => Promise<string | null>) | null = null
+
+/**
+ * The Supabase auth layer (W8) registers a getter for the current access token.
+ * When set, every request carries `Authorization: Bearer <token>`. Passphrase
+ * mode leaves this null and relies on the session cookie instead.
+ */
+export function setAuthTokenProvider(fn: (() => Promise<string | null>) | null): void {
+  authTokenProvider = fn
+}
+
+async function authHeaders(): Promise<Record<string, string>> {
+  if (!authTokenProvider) return {}
+  try {
+    const token = await authTokenProvider()
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  } catch {
+    return {}
+  }
+}
+
 function noteResponse(response: Response): Response {
   // The login/logout/status calls handle their own 401s — a wrong passphrase
   // must not trigger the global "session expired" bounce.
@@ -50,7 +71,7 @@ export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     response = await fetch(url, {
       method: 'GET',
-      headers: { Accept: 'application/json' },
+      headers: { Accept: 'application/json', ...(await authHeaders()) },
       ...init,
       credentials: CREDENTIALS,
     })
@@ -101,7 +122,7 @@ export async function apiPost<T>(
   try {
     response = await fetch(url, {
       method: 'POST',
-      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json', ...(await authHeaders()) },
       body: JSON.stringify(body),
       ...init,
       credentials: CREDENTIALS,
@@ -133,7 +154,7 @@ export async function apiPut<T>(
   try {
     response = await fetch(url, {
       method: 'PUT',
-      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json', ...(await authHeaders()) },
       body: JSON.stringify(body),
       ...init,
       credentials: CREDENTIALS,
@@ -165,7 +186,7 @@ export async function apiPatch<T>(
   try {
     response = await fetch(url, {
       method: 'PATCH',
-      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json', ...(await authHeaders()) },
       body: JSON.stringify(body),
       ...init,
       credentials: CREDENTIALS,
@@ -193,7 +214,7 @@ export async function apiDelete<T>(path: string, init?: RequestInit): Promise<T>
   try {
     response = await fetch(url, {
       method: 'DELETE',
-      headers: { Accept: 'application/json' },
+      headers: { Accept: 'application/json', ...(await authHeaders()) },
       ...init,
       credentials: CREDENTIALS,
     })

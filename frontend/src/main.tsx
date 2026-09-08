@@ -23,7 +23,7 @@ function AuthGate({ children }: { children: ReactNode }) {
       </div>
     )
   }
-  if (state === 'locked') return <LoginScreen />
+  if (state === 'locked' || state === 'pending') return <LoginScreen />
   return <>{children}</>
 }
 

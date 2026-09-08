@@ -14,7 +14,7 @@ interface TopBarProps {
 
 /** Persistent header: breadcrumb (left), live status + command palette (right). */
 export function TopBar({ onOpenSidebar, onOpenCommandPalette }: TopBarProps) {
-  const { state: authState, logout } = useAuth()
+  const { state: authState, user, logout } = useAuth()
   const { syncing } = useSyncOnOpen()
   const { state, data } = useHealth()
   const api = apiStatusView(state)
@@ -94,9 +94,11 @@ export function TopBar({ onOpenSidebar, onOpenCommandPalette }: TopBarProps) {
           type="button"
           onClick={() => void logout()}
           className="shrink-0 rounded border border-border px-2 py-1.5 text-xs text-muted hover:border-border-subtle hover:text-primary"
-          title="Sign out"
+          title={user ? `Signed in as ${user.email} — sign out` : 'Sign out'}
         >
-          <span className="hidden sm:inline">Sign out</span>
+          <span className="hidden max-w-[14ch] truncate sm:inline">
+            {user ? user.email : 'Sign out'}
+          </span>
           <span className="sm:hidden" aria-hidden="true">⎋</span>
         </button>
       ) : null}
