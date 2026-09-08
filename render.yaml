@@ -17,11 +17,16 @@ services:
     healthCheckPath: /api/health
     envVars:
       # --- runtime tuning for a small, sleeping instance ---
+      # PYTHON_VERSION must match local (3.14): its deferred annotation
+      # evaluation (PEP 649) is load-bearing for some modules; 3.13 crashes
+      # at import on a bare `X: Dict[str, Any]` where Any isn't in scope.
       - key: PYTHON_VERSION
-        value: 3.13.4
-      - key: TL_SKIP_WARMUP          # don't run the 7-route warm-up at boot
+        value: "3.14"
+      # don't run the 7-route warm-up at boot
+      - key: TL_SKIP_WARMUP
         value: "1"
-      - key: DB_POOL_ENABLED         # open/close per request — no stale pool after a sleep
+      # open/close per request — no stale pool after a sleep
+      - key: DB_POOL_ENABLED
         value: "0"
       # --- HTTPS + cross-site cookie (frontend is on another domain) ---
       - key: TL_AUTH_COOKIE_SECURE
