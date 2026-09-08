@@ -15,6 +15,7 @@ from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel, Field
 
 from api import auth
+from api import identity
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
@@ -34,6 +35,15 @@ class LoginResponse(BaseModel):
 class AuthStatusResponse(BaseModel):
     auth_required: bool
     authenticated: bool
+    mode: str  # "passphrase" | "supabase"
+    timestamp: str
+
+
+class MeResponse(BaseModel):
+    mode: str
+    authenticated: bool
+    user: dict | None = None
+    error: str | None = None
     timestamp: str
 
 
@@ -55,15 +65,59 @@ def _token_from(request: Request) -> str:
     return request.cookies.get(auth.cookie_name(), "")
 
 
+def _public_user(user: dict) -> dict:
+    return {
+        "id": user["id"],
+        "email": user["email"],
+        "display_name": user.get("display_name"),
+        "role": user.get("role", "member"),
+    }
+
+
 @router.get("/status", response_model=AuthStatusResponse)
 async def auth_status(request: Request) -> AuthStatusResponse:
-    required = auth.auth_enabled()
-    authed = (not required) or auth.validate_token(_token_from(request))
-    return AuthStatusResponse(auth_required=required, authenticated=authed, timestamp=_now())
+    mode = identity.auth_mode()
+    if mode == "supabase":
+        required = True
+        authed = identity.resolve_user(_token_from(request)) is not None
+    else:
+        required = auth.auth_enabled()
+        authed = (not required) or auth.validate_token(_token_from(request))
+    return AuthStatusResponse(
+        auth_required=required, authenticated=authed, mode=mode, timestamp=_now()
+    )
+
+
+@router.get("/me", response_model=MeResponse)
+async def auth_me(request: Request) -> MeResponse:
+    """Current user profile (supabase mode). Surfaces *why* a valid Supabase
+    session is still locked out — an un-invited email needs the owner to add
+    it to TL_SIGNUP_ALLOWLIST, which is a different fix from "log in again"."""
+    mode = identity.auth_mode()
+    if mode != "supabase":
+        return MeResponse(mode=mode, authenticated=True, user=None, timestamp=_now())
+
+    token = _token_from(request)
+    if not token:
+        return MeResponse(mode=mode, authenticated=False, timestamp=_now())
+    try:
+        user = identity.resolve_user_strict(token)
+        return MeResponse(mode=mode, authenticated=True, user=_public_user(user), timestamp=_now())
+    except identity.InvalidToken:
+        return MeResponse(mode=mode, authenticated=False, error="Session expired. Sign in again.", timestamp=_now())
+    except identity.NotAllowed as exc:
+        return MeResponse(mode=mode, authenticated=False, error=f"Access not granted: {exc}", timestamp=_now())
 
 
 @router.post("/login", response_model=LoginResponse)
 async def login(body: LoginRequest, request: Request, response: Response) -> LoginResponse:
+    if identity.auth_mode() == "supabase":
+        response.status_code = 400
+        return LoginResponse(
+            ok=False,
+            error="This server uses Supabase sign-in — log in through the app, not this endpoint.",
+            timestamp=_now(),
+        )
     if not auth.auth_enabled():
         return LoginResponse(ok=True, expires_at=None, timestamp=_now())
 

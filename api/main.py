@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 
 import database
 from api import auth as _auth
+from api import identity as _identity
 from api.routers import (
     health,
     auth as auth_router,
@@ -173,29 +174,61 @@ app.add_middleware(
 )
 
 # --- auth gate ---------------------------------------------------------
-# Every /api/* route requires a valid session when auth is configured
-# (TL_AUTH_PASSWORD[_HASH] set). Health, the auth routes themselves, and the
-# OpenAPI docs are exempt. With no passphrase configured, auth is disabled and
-# nothing here changes — local dev and the test suite are unaffected.
+# Every /api/* route requires a valid session when auth is configured. Health,
+# the auth routes themselves, and the OpenAPI docs are exempt.
+#
+#  * passphrase mode (default, W3): a session cookie / bearer token minted by
+#    /api/auth/login. With no passphrase configured, auth is disabled and
+#    local dev + the test suite are unaffected.
+#  * supabase mode (W8, TL_AUTH_MODE=supabase): a Supabase access token in the
+#    Authorization header, whose email must be invited (TL_SIGNUP_ALLOWLIST).
+#    The resolved user is stashed on request.state for the per-user data layer.
 _AUTH_EXEMPT = {
     "/", "/api/health",
-    "/api/auth/login", "/api/auth/logout", "/api/auth/status",
+    "/api/auth/login", "/api/auth/logout", "/api/auth/status", "/api/auth/me",
     "/docs", "/redoc", "/openapi.json", "/favicon.ico",
 }
 
 
+def _bearer(request: Request) -> str:
+    h = request.headers.get("authorization", "")
+    return h[7:].strip() if h.lower().startswith("bearer ") else ""
+
+
 @app.middleware("http")
 async def _auth_gate(request: Request, call_next):
-    if request.method == "OPTIONS" or not _auth.auth_enabled():
-        return await call_next(request)
-    path = request.url.path
-    if path in _AUTH_EXEMPT or path.startswith("/docs") or path.startswith("/redoc"):
-        return await call_next(request)
-    if not path.startswith("/api/"):
+    if request.method == "OPTIONS":
         return await call_next(request)
 
-    bearer = request.headers.get("authorization", "")
-    token = bearer[7:].strip() if bearer.lower().startswith("bearer ") else request.cookies.get(_auth.cookie_name(), "")
+    path = request.url.path
+    exempt = (
+        path in _AUTH_EXEMPT
+        or path.startswith("/docs")
+        or path.startswith("/redoc")
+        or not path.startswith("/api/")
+    )
+
+    if _identity.auth_mode() == "supabase":
+        if not _identity.supabase_enabled():
+            if exempt:
+                return await call_next(request)
+            return JSONResponse({"detail": "Auth is not configured on this server."}, status_code=503)
+        user = _identity.resolve_user(_bearer(request))
+        if user is not None:
+            request.state.user = user
+            request.state.user_id = user["id"]
+            return await call_next(request)
+        if exempt:
+            return await call_next(request)
+        return JSONResponse({"detail": "Authentication required."}, status_code=401)
+
+    # passphrase mode
+    if not _auth.auth_enabled():
+        return await call_next(request)
+    if exempt:
+        return await call_next(request)
+    bearer = _bearer(request)
+    token = bearer or request.cookies.get(_auth.cookie_name(), "")
     if _auth.validate_token(token):
         return await call_next(request)
     return JSONResponse({"detail": "Authentication required."}, status_code=401)

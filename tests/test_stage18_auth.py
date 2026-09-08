@@ -24,7 +24,12 @@ def test_auth_disabled_by_default(monkeypatch):
     c = TestClient(app)
     assert c.get("/api/watchlist").status_code == 200
     s = c.get("/api/auth/status").json()
-    assert s == {"auth_required": False, "authenticated": True, "timestamp": s["timestamp"]}
+    assert s == {
+        "auth_required": False,
+        "authenticated": True,
+        "mode": "passphrase",
+        "timestamp": s["timestamp"],
+    }
 
 
 # --- auth enabled -----------------------------------------------------
