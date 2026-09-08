@@ -110,13 +110,19 @@ Render free web services **do not require a credit card**.
 
 ### 3.1 Stamp the database for Alembic (one time)
 
-Render service → **Shell** tab:
+Render's **Shell is a paid feature**, so migrations are run **from your PC**
+against the same Supabase database (your local `.env` already has the
+`DATABASE_URL`):
+
 ```bash
+# on your machine, in the project folder
 alembic stamp 0001_baseline
 alembic current          # -> 0001_baseline (head)
 ```
-From now on, schema changes ride in `alembic/versions/` and the deploy runs
-`alembic upgrade head` (see §6).
+
+This writes one bookkeeping row. From now on, schema changes ride in
+`alembic/versions/` and you run `alembic upgrade head` locally after pushing
+them (see §6).
 
 ---
 
@@ -164,10 +170,11 @@ Both hosts auto-deploy on every push to `main`:
 - **Cloudflare Pages** rebuilds the frontend automatically.
 - **Render** rebuilds the backend automatically.
 
-When a change includes a **schema migration**, run this in the Render **Shell**
-after the deploy goes Live:
+When a change includes a **schema migration**, run this **from your PC** (Render
+free has no shell) right after pushing, before or just as the deploy goes Live:
 ```bash
-alembic upgrade head
+git pull                 # get the new alembic/versions/ file
+alembic upgrade head     # applies it to Supabase
 ```
 (There are no migrations after the baseline yet, so this is a no-op today.)
 
@@ -181,7 +188,7 @@ alembic upgrade head
 - [ ] `TL_ALLOWED_ORIGINS` on Render == the exact Pages origin
 - [ ] `DATABASE_URL` uses the Supabase **pooler** host (`...pooler.supabase.com:6543`)
 - [ ] Render region == Supabase region
-- [ ] `alembic current` → `0001_baseline (head)` in the Render shell
+- [ ] `alembic current` (run locally) → `0001_baseline (head)`
 - [ ] Open the app after ~20 min idle → it wakes (~30-60 s) and the "Syncing…" pill appears, then data is current
 - [ ] Optional: a free uptime pinger (UptimeRobot, healthchecks.io) hitting `/api/health` every ~10 min keeps the backend warmer and keeps Supabase from idling out
 
@@ -195,7 +202,7 @@ alembic upgrade head
   plaintext one.
 - **Auth misbehaving**: set `TL_AUTH_DISABLED=1` on Render → redeploy turns auth
   off entirely. Only do this briefly.
-- **Log out every device**: Render **Shell** →
+- **Log out every device**: run from your PC (same `DATABASE_URL`) →
   `python -c "from api import auth; print(auth.revoke_all_sessions())"`
 - **Bad backend deploy**: Render → the service → **Deploys** → find the last
   good one → **Redeploy**.
