@@ -1,5 +1,0 @@
-# SPA fallback for Cloudflare Pages / Netlify: every unknown path serves the
-# app shell so client-side routes (e.g. /workspace/analytics) work on a hard
-# refresh or a shared deep link. The service worker also does this once
-# registered; this covers the very first load.
-/*  /index.html  200
