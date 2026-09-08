@@ -21,7 +21,7 @@ services:
       # evaluation (PEP 649) is load-bearing for some modules; 3.13 crashes
       # at import on a bare `X: Dict[str, Any]` where Any isn't in scope.
       - key: PYTHON_VERSION
-        value: "3.14"
+        value: "3.14.3"   # the PYTHON_VERSION env var must be fully qualified
       # don't run the 7-route warm-up at boot
       - key: TL_SKIP_WARMUP
         value: "1"
