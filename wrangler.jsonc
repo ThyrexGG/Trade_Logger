@@ -1,0 +1,16 @@
+{
+  // Cloudflare static-assets deploy for the React frontend (Vite build output).
+  // No Worker code — `wrangler deploy` uploads ./frontend/dist as a static site.
+  //
+  // Cloudflare build settings for this repo:
+  //   Build command:  cd frontend && npm ci && npm run build
+  //   Deploy command: npx wrangler deploy
+  "name": "trade-logger",
+  "compatibility_date": "2026-09-08",
+  "assets": {
+    "directory": "./frontend/dist",
+    // serve /index.html (200) for any unmatched path so client-side routes
+    // survive a hard refresh / shared deep link
+    "not_found_handling": "single-page-application"
+  }
+}
