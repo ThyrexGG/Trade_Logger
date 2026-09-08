@@ -90,7 +90,7 @@ async def login(body: LoginRequest, request: Request, response: Response) -> Log
         value=token,
         max_age=max_age,
         httponly=True,
-        samesite="lax",
+        samesite=auth.cookie_samesite(),
         secure=auth.cookie_secure(),
         path="/",
     )
@@ -102,5 +102,11 @@ async def logout(request: Request, response: Response) -> LoginResponse:
     token = _token_from(request)
     if token:
         auth.revoke_token(token)
-    response.delete_cookie(auth.cookie_name(), path="/")
+    response.delete_cookie(
+        auth.cookie_name(),
+        path="/",
+        samesite=auth.cookie_samesite(),
+        secure=auth.cookie_secure(),
+        httponly=True,
+    )
     return LoginResponse(ok=True, timestamp=_now())

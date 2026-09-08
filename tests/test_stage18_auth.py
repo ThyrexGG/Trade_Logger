@@ -72,6 +72,24 @@ def test_login_then_access(authed_env):
     assert c.get("/api/auth/status").json()["authenticated"] is True
 
 
+def test_cookie_samesite_defaults_to_lax(authed_env):
+    c = TestClient(app)
+    r = c.post("/api/auth/login", json={"password": PASSPHRASE})
+    assert "samesite=lax" in r.headers["set-cookie"].lower()
+
+
+def test_cookie_samesite_none_forces_secure(authed_env, monkeypatch):
+    """Cross-site deploy (frontend and API on unrelated domains) needs
+    SameSite=None, which browsers only keep when the cookie is also Secure."""
+    monkeypatch.setenv("TL_AUTH_COOKIE_SAMESITE", "none")
+    monkeypatch.setenv("TL_AUTH_COOKIE_SECURE", "0")  # must be overridden to Secure
+    assert auth.cookie_samesite() == "none"
+    assert auth.cookie_secure() is True
+    r = TestClient(app).post("/api/auth/login", json={"password": PASSPHRASE})
+    sc = r.headers["set-cookie"].lower()
+    assert "samesite=none" in sc and "secure" in sc
+
+
 def test_bearer_token_is_accepted(authed_env):
     c = TestClient(app)
     token, _ = auth.create_session("test")

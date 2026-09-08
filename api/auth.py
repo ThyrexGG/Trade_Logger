@@ -64,7 +64,22 @@ def cookie_name() -> str:
     return _COOKIE_NAME
 
 
+def cookie_samesite() -> str:
+    """SameSite policy for the session cookie.
+
+    Default ``lax`` is right when the app and API share a site. Set
+    ``TL_AUTH_COOKIE_SAMESITE=none`` when they are on unrelated domains (e.g.
+    a ``*.pages.dev`` frontend calling a ``*.onrender.com`` API) — a Lax cookie
+    is not sent on those cross-site requests. ``none`` implies a Secure cookie.
+    """
+    v = _env("TL_AUTH_COOKIE_SAMESITE", "lax").lower()
+    return v if v in ("lax", "strict", "none") else "lax"
+
+
 def cookie_secure() -> bool:
+    # A SameSite=None cookie is only stored by browsers when it is also Secure.
+    if cookie_samesite() == "none":
+        return True
     return _env("TL_AUTH_COOKIE_SECURE", "1") not in ("0", "false", "no")
 
 

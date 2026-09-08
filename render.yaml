@@ -1,0 +1,60 @@
+# Render Blueprint — the TradeLogger API (FastAPI adapter).
+#
+# One free web service. The broker sync is NOT an always-on loop here: the
+# frontend calls /api/system/sync/run-if-stale on open, so a service that
+# sleeps when idle is fine. See docs/DEPLOY.md.
+#
+# Deploy: Render dashboard -> New -> Blueprint -> pick this repo. Then set the
+# secret env vars (marked `sync: false`) in the service's Environment tab.
+services:
+  - type: web
+    name: tradelogger-api
+    runtime: python
+    plan: free
+    # region: frankfurt        # uncomment + set to match your Supabase region
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      # --- runtime tuning for a small, sleeping instance ---
+      - key: PYTHON_VERSION
+        value: 3.13.4
+      - key: TL_SKIP_WARMUP          # don't run the 7-route warm-up at boot
+        value: "1"
+      - key: DB_POOL_ENABLED         # open/close per request — no stale pool after a sleep
+        value: "0"
+      # --- HTTPS + cross-site cookie (frontend is on another domain) ---
+      - key: TL_AUTH_COOKIE_SECURE
+        value: "1"
+      - key: TL_AUTH_COOKIE_SAMESITE
+        value: none
+      # --- macro providers (same as local) ---
+      - key: MACRO_DATA_PROVIDER
+        value: fred
+      - key: MACRO_COT_PROVIDER
+        value: cftc
+      - key: MACRO_CALENDAR_PROVIDER
+        value: forexfactory
+      # --- secrets: set these in the Render dashboard, never in git ---
+      - key: DATABASE_URL            # Supabase -> Connection pooling URI (port 6543)
+        sync: false
+      - key: TL_AUTH_PASSWORD_HASH   # python -m api.auth  (or set TL_AUTH_PASSWORD)
+        sync: false
+      - key: TL_ALLOWED_ORIGINS      # https://<your-project>.pages.dev
+        sync: false
+      - key: CAPITAL_API_KEY
+        sync: false
+      - key: CAPITAL_EMAIL
+        sync: false
+      - key: CAPITAL_PASSWORD
+        sync: false
+      - key: CAPITAL_ACCOUNT_ID
+        sync: false
+      - key: CAPITAL_IS_DEMO
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: FRED_API_KEY
+        sync: false
+      - key: FMP_API_KEY
+        sync: false
