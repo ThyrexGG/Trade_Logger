@@ -26,6 +26,8 @@ service-account*.json
 *.env.enc
 
 *.db
+*.db-shm
+*.db-wal
 
 # Temporary test and migration scripts in root
 /test_*.py

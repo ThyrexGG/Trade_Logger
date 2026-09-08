@@ -319,6 +319,27 @@ schema step.
 
 ### W7 — Deployment: online hosting + always-on sync gateway
 
+**Status: SHIPPED (2026-09-08).** Live at
+`https://trade-logger.tesbonnathyrak.workers.dev` (frontend) →
+`https://tradelogger-api.onrender.com` (API) → Supabase.
+- **Frontend:** Cloudflare Workers static assets (`wrangler.jsonc`,
+  `not_found_handling: single-page-application` for the SPA fallback;
+  `frontend/.env.production` bakes `VITE_API_BASE_URL`). Auto-deploys on push.
+- **Backend:** Render free web service (`render.yaml` Blueprint; Python 3.14.3;
+  `TL_SKIP_WARMUP=1`, `DB_POOL_ENABLED=0`). Sleeps after 15 min idle,
+  ~50 s cold-start wake. Auto-deploys on push.
+- **No always-on gateway** — the "always-on sync loop" requirement was removed
+  by the *sync-on-open* change (`e9f49bf`): the frontend calls
+  `/api/system/sync/run-if-stale` on load. Manual **Sync now** stays.
+- **Cross-site auth:** `TL_AUTH_COOKIE_SAMESITE=none` + `TL_ALLOWED_ORIGINS`
+  set to the Workers origin. Using plaintext `TL_AUTH_PASSWORD` on Render (the
+  scrypt hash paste was error-prone); can move back to `TL_AUTH_PASSWORD_HASH`.
+- **Migrations:** run locally against the prod `DATABASE_URL` (Render free has
+  no shell). DB stamped `0001_baseline`.
+- Full walkthrough + the free-tier caveats: `docs/DEPLOY.md`.
+- **Not done (optional):** uptime pinger to keep it warm; Cloudflare Access as
+  a second lock; a custom domain.
+
 **Why.** Two separate problems bundled:
 1. **Serve the app online** — a URL you can open from your phone, over HTTPS, authed.
 2. **Keep data collection running** when your PC is asleep — the auto-sync loop
