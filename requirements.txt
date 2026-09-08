@@ -13,4 +13,5 @@ yfinance>=0.2.36
 pydantic>=2.0.0
 fastapi>=0.100.0
 uvicorn>=0.22.0
+python-multipart>=0.0.9   # FastAPI form/upload parsing (journal screenshot endpoint)
 websockets>=12.0
