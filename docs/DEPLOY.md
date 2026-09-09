@@ -23,8 +23,16 @@ change so the backend does **not** need to be always-on.
         │                        sleeps after 15 min idle, wakes on request (~30-60 s)
         │                        broker sync runs on "app open if stale" + the manual button
         ▼
-  Supabase Postgres (free)
+  Neon Postgres (free)  ── scale-to-zero after 5 min idle, ~0.5 s wake
 ```
+
+> **DB note (2026-09-09):** the database moved from Supabase to **Neon**.
+> Supabase's free tier meters egress at 5 GB/mo, which a polling backend blows
+> through; Neon doesn't meter egress. Supabase is kept only for a future
+> multi-user Auth phase (W8), not for data. The migration script is
+> `migrate_to_neon.py` (gitignored). Neon free storage is 0.5 GB, so the
+> `historical_candles` cache is **not** on Neon — backtests need a scoped
+> re-ingest (`python -m market_data_ingest`).
 
 Why this works without an always-on box: opening the app calls
 `/api/system/sync/run-if-stale`, which runs one broker-sync cycle if the last
@@ -37,18 +45,22 @@ app is fully closed. (Everything reconciles the next time you open it.)
 
 ---
 
-## 1. Supabase — already done
+## 1. Neon Postgres — the database
 
-You are already on Supabase Postgres. You need one string:
-
-- Supabase dashboard → your project → **Connect** (top bar) → **Connection
-  pooling** → **Transaction** mode → copy the URI. It looks like
-  `postgresql://postgres.abcd:[YOUR-PASSWORD]@aws-0-<region>.pooler.supabase.com:6543/postgres`
-- Replace `[YOUR-PASSWORD]` with your database password.
-- Note the **region** in that hostname (e.g. `aws-0-eu-central-1`) — you'll put
-  Render in the same region so DB reads are fast.
+- [neon.tech](https://neon.tech) → sign in with GitHub (no card) → **New project**.
+- Region: match your Render region (see step 5) so DB reads are fast.
+- On the project page, **Connection string** panel → copy the **pooled** URI
+  (host contains `-pooler`). It looks like
+  `postgresql://neondb_owner:xxx@ep-name-pooler.<region>.aws.neon.tech/neondb?sslmode=require`
+- The connection pool in `database.py` validates idle sockets with `SELECT 1`,
+  so Neon's scale-to-zero is handled transparently (first query after idle
+  waits ~0.5 s).
 
 This URI is `DATABASE_URL` in step 3.
+
+**Migrating from an existing DB:** set `DEST_DATABASE_URL` to the new URI and run
+`python migrate_to_neon.py` (dry run), then `--run`. It copies the `public`
+schema, skips `historical_candles`, and is safe to re-run.
 
 ---
 
@@ -87,7 +99,7 @@ Render free web services **do not require a credit card**.
 
    | Key | Value |
    |---|---|
-   | `DATABASE_URL` | the Supabase pooler URI from step 1 |
+   | `DATABASE_URL` | the Neon pooled URI from step 1 |
    | `TL_AUTH_PASSWORD_HASH` | the hash from step 2 |
    | `TL_ALLOWED_ORIGINS` | *leave blank for now — you fill it in step 5* |
    | `CAPITAL_API_KEY` | from your local `.env` |
@@ -99,7 +111,7 @@ Render free web services **do not require a credit card**.
    | `FRED_API_KEY` | from local `.env` |
    | `FMP_API_KEY` | from local `.env` (optional) |
 
-5. **Settings** → set **Region** to match your Supabase region (step 1), if it
+5. **Settings** → set **Region** to match your Neon region (step 1), if it
    isn't already. Save (this triggers a redeploy).
 6. Wait for **Live**. Test from your phone (wifi off, on cellular):
    ```
@@ -111,8 +123,7 @@ Render free web services **do not require a credit card**.
 ### 3.1 Stamp the database for Alembic (one time)
 
 Render's **Shell is a paid feature**, so migrations are run **from your PC**
-against the same Supabase database (your local `.env` already has the
-`DATABASE_URL`):
+against the same database (your local `.env` already has the `DATABASE_URL`):
 
 ```bash
 # on your machine, in the project folder
@@ -174,7 +185,7 @@ When a change includes a **schema migration**, run this **from your PC** (Render
 free has no shell) right after pushing, before or just as the deploy goes Live:
 ```bash
 git pull                 # get the new alembic/versions/ file
-alembic upgrade head     # applies it to Supabase
+alembic upgrade head     # applies it to Neon
 ```
 (There are no migrations after the baseline yet, so this is a no-op today.)
 
@@ -186,11 +197,11 @@ alembic upgrade head     # applies it to Supabase
 - [ ] `https://…onrender.com/api/watchlist` → **401**
 - [ ] Pages URL shows the passphrase screen; the right passphrase logs you in and **stays** logged in on reload
 - [ ] `TL_ALLOWED_ORIGINS` on Render == the exact Pages origin
-- [ ] `DATABASE_URL` uses the Supabase **pooler** host (`...pooler.supabase.com:6543`)
-- [ ] Render region == Supabase region
+- [ ] `DATABASE_URL` uses the Neon **pooled** host (`...-pooler...neon.tech`)
+- [ ] Render region == Neon region
 - [ ] `alembic current` (run locally) → `0001_baseline (head)`
 - [ ] Open the app after ~20 min idle → it wakes (~30-60 s) and the "Syncing…" pill appears, then data is current
-- [ ] Optional: a free uptime pinger (UptimeRobot, healthchecks.io) hitting `/api/health` every ~10 min keeps the backend warmer and keeps Supabase from idling out
+- [ ] Optional: a free uptime pinger (UptimeRobot, healthchecks.io) hitting `/api/health` every ~10 min keeps the backend warmer — it does not touch the DB, so it won't burn Neon compute hours
 
 ---
 
@@ -218,7 +229,7 @@ alembic upgrade head     # applies it to Supabase
 | Cold start | ~30-60 s the first open after 15 min idle | An uptime pinger (§7) hides most of it |
 | Backend RAM | Render free = 512 MB. The app + pandas/scipy/sklearn is close to that; a heavy backtest could OOM and restart | Move the backend to Render **Starter** ($7/mo, 512 MB→ more) or a small VPS. Nothing else changes. |
 | Build minutes | Render free = 500 build-min/mo; a build is ~8 min | ~60 deploys/month — fine |
-| Supabase | Free project pauses after 7 days with **zero** activity | The uptime pinger's DB-touching routes, or just opening the app, keeps it alive |
+| Neon | Compute scales to zero after 5 min idle; ~192 compute-hrs/mo on free; 0.5 GB storage | Fine for normal use. Don't run a 24/7 loop that queries the DB every few minutes — it keeps the compute awake and burns the monthly hours. `historical_candles` stays off Neon (size). |
 
 ---
 

@@ -11,7 +11,7 @@ services:
     name: tradelogger-api
     runtime: python
     plan: free
-    # region: frankfurt        # uncomment + set to match your Supabase region
+    # region: singapore       # uncomment + set to match your Neon region
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/health
@@ -53,7 +53,7 @@ services:
       - key: MACRO_CALENDAR_PROVIDER
         value: forexfactory
       # --- secrets: set these in the Render dashboard, never in git ---
-      - key: DATABASE_URL            # Supabase -> Connection pooling URI (port 6543)
+      - key: DATABASE_URL            # Neon -> pooled connection URI (host has -pooler)
         sync: false
       - key: TL_AUTH_PASSWORD_HASH   # python -m api.auth  (or set TL_AUTH_PASSWORD)
         sync: false
