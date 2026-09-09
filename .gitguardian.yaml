@@ -10,3 +10,9 @@ version: 2
 secret:
   ignored-paths:
     - "tests/**"
+    # frontend/.env.production holds only PUBLIC build values that Vite bakes
+    # into the client bundle: the API base URL, and the Supabase project URL +
+    # anon (publishable) key. The anon key is designed to ship in browser code
+    # — access is gated by the backend allowlist and Supabase RLS, never by the
+    # key's secrecy. The service-role key and JWT secret are never here.
+    - "frontend/.env.production"
