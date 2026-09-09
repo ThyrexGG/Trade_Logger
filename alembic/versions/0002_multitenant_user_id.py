@@ -11,10 +11,12 @@ a nullable ``user_id TEXT`` here (plus an index):
     raw_deals, closed_trades, open_positions, account_metadata,
     price_alerts, journal_entries, journal_screenshots
 
-Nullable on purpose — existing rows are backfilled to the owner in
-``0003_multitenant_backfill_owner``, and the app's data layer (W8.4) starts
-writing it. A later revision tightens it to NOT NULL once every deployed path
-is known to set it.
+``NOT NULL DEFAULT 'local'`` — existing rows become tenant ``local`` (the
+single-user sentinel, see ``tenant.py``), which is exactly what the data layer
+(W8.4) reads and writes when no real user is bound. ``database.init_db()``
+performs the identical ``ADD COLUMN`` at boot, so this revision is a no-op on a
+box that has already booted the new code; it exists for operators who apply
+migrations first.
 
 New tables introduced by W8 (``users``, ``user_settings``,
 ``broker_connections``) follow the repo's existing pattern — created at
@@ -45,7 +47,10 @@ _TABLES: tuple[str, ...] = (
 
 def upgrade() -> None:
     for table in _TABLES:
-        op.execute(f'ALTER TABLE {table} ADD COLUMN IF NOT EXISTS user_id TEXT')
+        op.execute(
+            f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS "
+            f"user_id TEXT NOT NULL DEFAULT 'local'"
+        )
         op.execute(
             f'CREATE INDEX IF NOT EXISTS idx_{table}_user_id ON {table} (user_id)'
         )

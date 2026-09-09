@@ -115,6 +115,7 @@ def test_0002_adds_user_id_column_for_every_per_user_table():
     out = proc.stdout.lower()
     for table in _PER_USER_TABLES:
         assert f"alter table {table} add column if not exists user_id" in out
+        assert "default 'local'" in out
         assert f"idx_{table}_user_id" in out
 
 
@@ -132,4 +133,4 @@ def test_0003_backfill_is_offline_safe_and_irreversible():
         cwd=str(ROOT), env=env, capture_output=True, text=True, timeout=90,
     )
     assert proc.returncode == 0, proc.stderr
-    assert "0003 multitenant backfill" in proc.stdout
+    assert "0003: data migration" in proc.stdout

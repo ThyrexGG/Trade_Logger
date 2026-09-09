@@ -28,6 +28,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import database
+import tenant
 
 ACCOUNT_TABLES: tuple = ("closed_trades", "open_positions", "account_metadata",
                         "raw_deals", "price_alerts")
@@ -50,12 +51,17 @@ def _rows_as_dicts(cursor, rows) -> List[Dict[str, Any]]:
 def list_accounts() -> Dict[str, Dict[str, int]]:
     """Row counts per account_id, per table -- lets a caller see exactly
     what exists before choosing one to export/remove."""
+    uid = tenant.current_user_id()
     conn = database.get_connection()
     try:
         cursor = conn.cursor()
+        ph = database.get_sql_placeholder(conn)
         out: Dict[str, Dict[str, int]] = {}
         for table in ACCOUNT_TABLES:
-            cursor.execute(f"SELECT account_id, COUNT(*) FROM {table} GROUP BY account_id")
+            cursor.execute(
+                f"SELECT account_id, COUNT(*) FROM {table} WHERE user_id = {ph} GROUP BY account_id",
+                (uid,),
+            )
             for account_id, count in cursor.fetchall():
                 out.setdefault(str(account_id), {})[table] = int(count)
         return out
@@ -67,13 +73,17 @@ def export_account(account_id: str, output_dir: Optional[str] = None) -> str:
     """Read-only. Dumps every row across ACCOUNT_TABLES for ``account_id``
     into one timestamped JSON snapshot file and returns its path. Never
     deletes or modifies anything."""
+    uid = tenant.current_user_id()
     conn = database.get_connection()
     try:
         cursor = conn.cursor()
         placeholder = database.get_sql_placeholder(conn)
         tables: Dict[str, List[Dict[str, Any]]] = {}
         for table in ACCOUNT_TABLES:
-            cursor.execute(f"SELECT * FROM {table} WHERE account_id = {placeholder}", (account_id,))
+            cursor.execute(
+                f"SELECT * FROM {table} WHERE account_id = {placeholder} AND user_id = {placeholder}",
+                (account_id, uid),
+            )
             tables[table] = _rows_as_dicts(cursor, cursor.fetchall())
     finally:
         conn.close()
@@ -113,13 +123,17 @@ def remove_account(account_id: str, exported_file_path: str) -> Dict[str, int]:
         raise ValueError(f"Export file is for account_id={manifest.get('account_id')!r}, "
                         f"not {account_id!r} -- refusing to delete.")
 
+    uid = tenant.current_user_id()
     conn = database.get_connection()
     try:
         cursor = conn.cursor()
         placeholder = database.get_sql_placeholder(conn)
         deleted: Dict[str, int] = {}
         for table in ACCOUNT_TABLES:
-            cursor.execute(f"DELETE FROM {table} WHERE account_id = {placeholder}", (account_id,))
+            cursor.execute(
+                f"DELETE FROM {table} WHERE account_id = {placeholder} AND user_id = {placeholder}",
+                (account_id, uid),
+            )
             deleted[table] = cursor.rowcount if cursor.rowcount is not None and cursor.rowcount >= 0 else 0
         conn.commit()
         return deleted

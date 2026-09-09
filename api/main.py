@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 import database
+import tenant as _tenant
 from api import auth as _auth
 from api import identity as _identity
 from api.routers import (
@@ -217,7 +218,11 @@ async def _auth_gate(request: Request, call_next):
         if user is not None:
             request.state.user = user
             request.state.user_id = user["id"]
-            return await call_next(request)
+            token = _tenant.bind(user["id"])
+            try:
+                return await call_next(request)
+            finally:
+                _tenant.release(token)
         if exempt:
             return await call_next(request)
         return JSONResponse({"detail": "Authentication required."}, status_code=401)

@@ -188,10 +188,12 @@ def test_warm_preview_hits_no_database(monkeypatch):
 
 
 def test_warm_preview_reuses_open_position_cache():
-    """The endpoint shares database._DB_CACHE['open_positions_None'] with the positions route."""
+    """The endpoint shares the open-positions cache entry with the positions route."""
+    import tenant
     database.invalidate_db_cache("open_positions")
     database.get_open_positions(ttl_sec=2.0)  # same call/key the positions route uses -> warms it
-    assert "open_positions_None" in database._DB_CACHE
+    cache_key = f"open_positions:{tenant.current_user_id()}:None"
+    assert cache_key in database._DB_CACHE
     with patch("database.get_connection",
                side_effect=AssertionError("get_connection during cached preview window")):
         resp = client.post("/api/risk/preview", json=BASE_PAYLOAD)
@@ -230,7 +232,8 @@ def test_open_position_change_refreshes_within_ttl(monkeypatch):
 
     def fake_get(account_id=None, ttl_sec: float = 0.0):
         # emulate database._DB_CACHE TTL semantics around the mutable state
-        key = f"open_positions_{account_id}"
+        import tenant
+        key = f"open_positions:{tenant.current_user_id()}:{account_id}"
         if ttl_sec > 0 and key in database._DB_CACHE:
             df, ts = database._DB_CACHE[key]
             if time.time() - ts < ttl_sec:

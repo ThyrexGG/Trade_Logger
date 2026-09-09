@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 import pandas as pd
 from dotenv import load_dotenv
 
+import tenant  # per-request tenant context (W8.4); imports nothing from the app
+
 # MetaTrader 5 / Capital.com Database Handler
 # Supports PostgreSQL (Supabase / Cloud) with graceful SQLite fallback
 
@@ -811,7 +813,60 @@ def init_db(force: bool = False):
                 cursor.execute(f"ALTER TABLE {col_def[0]} ADD COLUMN {col_def[1]};")
             except Exception:
                 pass
-    
+
+    # The free-standing journal tables are TEXT/INTEGER only (engine-agnostic).
+    # Their CREATE lives in the Postgres branch above; mirror it here so a fresh
+    # SQLite database (the test suite) has them too.
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS journal_entries (
+            id TEXT PRIMARY KEY,
+            kind TEXT NOT NULL DEFAULT 'idea',
+            instrument TEXT,
+            title TEXT,
+            body TEXT,
+            tags TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS journal_screenshots (
+            id TEXT PRIMARY KEY,
+            trade_id TEXT NOT NULL,
+            filename TEXT,
+            mime TEXT NOT NULL,
+            byte_size INTEGER NOT NULL,
+            image_b64 TEXT NOT NULL,
+            caption TEXT,
+            created_at TEXT NOT NULL
+        )
+    """)
+    try:
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_journal_screenshots_trade ON journal_screenshots (trade_id)")
+    except Exception:
+        pass
+
+    # --- multi-user tenant column (W8.4) ---------------------------------
+    # Every journal-side table gets `user_id`. Single-user / passphrase / the
+    # test suite: all rows are tenant "local" (see tenant.py) and every query
+    # filters user_id='local' — identical behaviour to before, one tenant.
+    # Supabase multi-user stamps the real id from the request context. The
+    # DEFAULT is a safety net for a write that forgets to set it. Runs for both
+    # engines; Alembic 0002 is the same change for operators who run migrations.
+    _ifne = "IF NOT EXISTS " if is_postgres() else ""
+    for _t in ("raw_deals", "closed_trades", "open_positions", "account_metadata",
+               "price_alerts", "journal_entries", "journal_screenshots"):
+        try:
+            cursor.execute(
+                f"ALTER TABLE {_t} ADD COLUMN {_ifne}user_id TEXT NOT NULL DEFAULT 'local'"
+            )
+        except Exception:
+            pass
+        try:
+            cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_{_t}_user_id ON {_t} (user_id)")
+        except Exception:
+            pass
+
     _DB_INITIALIZED = True
     conn.commit()
     conn.close()
@@ -823,27 +878,30 @@ def save_raw_deals(deals):
     """
     if not deals:
         return
-        
+
+    uid = tenant.current_user_id()
+    deals = [{**d, "user_id": d.get("user_id") or uid} for d in deals]
+
     conn = get_connection()
     cursor = conn.cursor()
-    
+
     if is_postgres():
         query = """
-            INSERT INTO raw_deals 
-            (deal_id, account_id, symbol, type, volume, price, commission, swap, profit, timestamp, position_id)
-            VALUES 
-            (%(deal_id)s, %(account_id)s, %(symbol)s, %(type)s, %(volume)s, %(price)s, %(commission)s, %(swap)s, %(profit)s, %(timestamp)s, %(position_id)s)
+            INSERT INTO raw_deals
+            (deal_id, account_id, symbol, type, volume, price, commission, swap, profit, timestamp, position_id, user_id)
+            VALUES
+            (%(deal_id)s, %(account_id)s, %(symbol)s, %(type)s, %(volume)s, %(price)s, %(commission)s, %(swap)s, %(profit)s, %(timestamp)s, %(position_id)s, %(user_id)s)
             ON CONFLICT (deal_id) DO NOTHING
         """
         cursor.executemany(query, deals)
     else:
         cursor.executemany("""
-            INSERT OR IGNORE INTO raw_deals 
-            (deal_id, account_id, symbol, type, volume, price, commission, swap, profit, timestamp, position_id)
-            VALUES 
-            (:deal_id, :account_id, :symbol, :type, :volume, :price, :commission, :swap, :profit, :timestamp, :position_id)
+            INSERT OR IGNORE INTO raw_deals
+            (deal_id, account_id, symbol, type, volume, price, commission, swap, profit, timestamp, position_id, user_id)
+            VALUES
+            (:deal_id, :account_id, :symbol, :type, :volume, :price, :commission, :swap, :profit, :timestamp, :position_id, :user_id)
         """, deals)
-        
+
     conn.commit()
     conn.close()
 
@@ -854,18 +912,21 @@ def save_closed_trades(trades):
     """
     if not trades:
         return
-        
+
+    uid = tenant.current_user_id()
+    trades = [{**t, "user_id": t.get("user_id") or uid} for t in trades]
+
     conn = get_connection()
     cursor = conn.cursor()
-    
+
     if is_postgres():
         query = """
-            INSERT INTO closed_trades 
-            (trade_id, account_id, symbol, direction, volume, entry_price, exit_price, 
-             commission, swap, gross_profit, net_profit, entry_time, exit_time, duration_minutes, setup_tag)
-            VALUES 
-            (%(trade_id)s, %(account_id)s, %(symbol)s, %(direction)s, %(volume)s, %(entry_price)s, %(exit_price)s, 
-             %(commission)s, %(swap)s, %(gross_profit)s, %(net_profit)s, %(entry_time)s, %(exit_time)s, %(duration_minutes)s, %(setup_tag)s)
+            INSERT INTO closed_trades
+            (trade_id, account_id, symbol, direction, volume, entry_price, exit_price,
+             commission, swap, gross_profit, net_profit, entry_time, exit_time, duration_minutes, setup_tag, user_id)
+            VALUES
+            (%(trade_id)s, %(account_id)s, %(symbol)s, %(direction)s, %(volume)s, %(entry_price)s, %(exit_price)s,
+             %(commission)s, %(swap)s, %(gross_profit)s, %(net_profit)s, %(entry_time)s, %(exit_time)s, %(duration_minutes)s, %(setup_tag)s, %(user_id)s)
             ON CONFLICT (trade_id) DO UPDATE SET
                 account_id = EXCLUDED.account_id,
                 symbol = EXCLUDED.symbol,
@@ -885,12 +946,12 @@ def save_closed_trades(trades):
         cursor.executemany(query, trades)
     else:
         cursor.executemany("""
-            INSERT INTO closed_trades 
-            (trade_id, account_id, symbol, direction, volume, entry_price, exit_price, 
-             commission, swap, gross_profit, net_profit, entry_time, exit_time, duration_minutes, setup_tag)
-            VALUES 
-            (:trade_id, :account_id, :symbol, :direction, :volume, :entry_price, :exit_price, 
-             :commission, :swap, :gross_profit, :net_profit, :entry_time, :exit_time, :duration_minutes, :setup_tag)
+            INSERT INTO closed_trades
+            (trade_id, account_id, symbol, direction, volume, entry_price, exit_price,
+             commission, swap, gross_profit, net_profit, entry_time, exit_time, duration_minutes, setup_tag, user_id)
+            VALUES
+            (:trade_id, :account_id, :symbol, :direction, :volume, :entry_price, :exit_price,
+             :commission, :swap, :gross_profit, :net_profit, :entry_time, :exit_time, :duration_minutes, :setup_tag, :user_id)
             ON CONFLICT(trade_id) DO UPDATE SET
                 account_id = excluded.account_id,
                 symbol = excluded.symbol,
@@ -914,23 +975,25 @@ def save_closed_trades(trades):
 
 def get_last_deal_timestamp(account_id):
     """Returns the timestamp of the latest logged deal for a given account to fetch incrementally."""
+    uid = tenant.current_user_id()
     conn = get_connection()
     cursor = conn.cursor()
-    
+
     if is_postgres():
-        cursor.execute("SELECT MAX(timestamp) FROM raw_deals WHERE account_id = %s", (account_id,))
+        cursor.execute("SELECT MAX(timestamp) FROM raw_deals WHERE account_id = %s AND user_id = %s", (account_id, uid))
     else:
-        cursor.execute("SELECT MAX(timestamp) FROM raw_deals WHERE account_id = ?", (account_id,))
-        
+        cursor.execute("SELECT MAX(timestamp) FROM raw_deals WHERE account_id = ? AND user_id = ?", (account_id, uid))
+
     row = cursor.fetchone()
     result = row[0] if row else None
     conn.close()
     return result if result else 0
 
 def get_closed_trades(ttl_sec: float = 0.0):
-    """Returns all closed trades as a pandas DataFrame."""
+    """Returns the current tenant's closed trades as a pandas DataFrame."""
+    uid = tenant.current_user_id()
+    cache_key = f"closed_trades:{uid}"
     if ttl_sec > 0:
-        cache_key = "closed_trades"
         now_t = time.time()
         if cache_key in _DB_CACHE:
             cached_df, cached_time = _DB_CACHE[cache_key]
@@ -938,68 +1001,77 @@ def get_closed_trades(ttl_sec: float = 0.0):
                 return cached_df.copy()
 
     conn = get_connection()
-    df = pd.read_sql_query("SELECT * FROM closed_trades ORDER BY exit_time DESC", conn)
+    ph = get_sql_placeholder(conn)
+    df = pd.read_sql_query(
+        f"SELECT * FROM closed_trades WHERE user_id = {ph} ORDER BY exit_time DESC",
+        conn, params=(uid,),
+    )
     conn.close()
     if ttl_sec > 0:
-        _DB_CACHE["closed_trades"] = (df, time.time())
+        _DB_CACHE[cache_key] = (df, time.time())
     return df.copy()
 
 def update_setup_tag(trade_id, setup_tag):
-    """Updates the subjective setup tag for a specific trade."""
+    """Updates the subjective setup tag for a specific trade (current tenant only)."""
+    uid = tenant.current_user_id()
     conn = get_connection()
     cursor = conn.cursor()
-    
-    if is_postgres():
-        cursor.execute("UPDATE closed_trades SET setup_tag = %s WHERE trade_id = %s", (setup_tag, trade_id))
-    else:
-        cursor.execute("UPDATE closed_trades SET setup_tag = ? WHERE trade_id = ?", (setup_tag, trade_id))
-        
+    ph = get_sql_placeholder(conn)
+    cursor.execute(
+        f"UPDATE closed_trades SET setup_tag = {ph} WHERE trade_id = {ph} AND user_id = {ph}",
+        (setup_tag, trade_id, uid),
+    )
     conn.commit()
     conn.close()
     invalidate_db_cache("closed_trades")
 
 def save_open_positions(account_id, positions):
-    """Replaces current open positions for an account with the latest snapshot."""
+    """Replaces the current tenant's open positions for an account with the latest snapshot."""
+    uid = tenant.current_user_id()
+    positions = [{**p, "user_id": p.get("user_id") or uid} for p in (positions or [])]
+
     conn = get_connection()
     cursor = conn.cursor()
-    
-    # 1. Clear previous open positions for this account
-    if is_postgres():
-        cursor.execute("DELETE FROM open_positions WHERE account_id = %s", (account_id,))
-    else:
-        cursor.execute("DELETE FROM open_positions WHERE account_id = ?", (account_id,))
-        
+    ph = get_sql_placeholder(conn)
+
+    # 1. Clear previous open positions for this account (this tenant only)
+    cursor.execute(
+        f"DELETE FROM open_positions WHERE account_id = {ph} AND user_id = {ph}",
+        (account_id, uid),
+    )
+
     # 2. Insert active positions if any
     if positions:
         if is_postgres():
             query = """
-                INSERT INTO open_positions 
-                (position_id, account_id, symbol, direction, volume, entry_price, current_price, 
-                 sl, tp, floating_pnl, swap, open_time, updated_at)
-                VALUES 
-                (%(position_id)s, %(account_id)s, %(symbol)s, %(direction)s, %(volume)s, 
-                 %(entry_price)s, %(current_price)s, %(sl)s, %(tp)s, %(floating_pnl)s, 
-                 %(swap)s, %(open_time)s, %(updated_at)s)
+                INSERT INTO open_positions
+                (position_id, account_id, symbol, direction, volume, entry_price, current_price,
+                 sl, tp, floating_pnl, swap, open_time, updated_at, user_id)
+                VALUES
+                (%(position_id)s, %(account_id)s, %(symbol)s, %(direction)s, %(volume)s,
+                 %(entry_price)s, %(current_price)s, %(sl)s, %(tp)s, %(floating_pnl)s,
+                 %(swap)s, %(open_time)s, %(updated_at)s, %(user_id)s)
             """
             cursor.executemany(query, positions)
         else:
             cursor.executemany("""
-                INSERT OR REPLACE INTO open_positions 
-                (position_id, account_id, symbol, direction, volume, entry_price, current_price, 
-                 sl, tp, floating_pnl, swap, open_time, updated_at)
-                VALUES 
-                (:position_id, :account_id, :symbol, :direction, :volume, :entry_price, :current_price, 
-                 :sl, :tp, :floating_pnl, :swap, :open_time, :updated_at)
+                INSERT OR REPLACE INTO open_positions
+                (position_id, account_id, symbol, direction, volume, entry_price, current_price,
+                 sl, tp, floating_pnl, swap, open_time, updated_at, user_id)
+                VALUES
+                (:position_id, :account_id, :symbol, :direction, :volume, :entry_price, :current_price,
+                 :sl, :tp, :floating_pnl, :swap, :open_time, :updated_at, :user_id)
             """, positions)
-            
+
     conn.commit()
     conn.close()
     invalidate_db_cache("open_positions")
 
 def get_open_positions(account_id=None, ttl_sec: float = 0.0):
-    """Returns currently open positions as a pandas DataFrame."""
+    """Returns the current tenant's open positions as a pandas DataFrame."""
+    uid = tenant.current_user_id()
+    cache_key = f"open_positions:{uid}:{account_id}"
     if ttl_sec > 0:
-        cache_key = f"open_positions_{account_id}"
         now_t = time.time()
         if cache_key in _DB_CACHE:
             cached_df, cached_time = _DB_CACHE[cache_key]
@@ -1007,49 +1079,56 @@ def get_open_positions(account_id=None, ttl_sec: float = 0.0):
                 return cached_df.copy()
 
     conn = get_connection()
+    ph = get_sql_placeholder(conn)
     if account_id and account_id != "ALL":
-        if is_postgres():
-            df = pd.read_sql_query("SELECT * FROM open_positions WHERE account_id = %s ORDER BY open_time DESC", conn, params=(account_id,))
-        else:
-            df = pd.read_sql_query("SELECT * FROM open_positions WHERE account_id = ? ORDER BY open_time DESC", conn, params=(account_id,))
+        df = pd.read_sql_query(
+            f"SELECT * FROM open_positions WHERE user_id = {ph} AND account_id = {ph} ORDER BY open_time DESC",
+            conn, params=(uid, account_id),
+        )
     else:
-        df = pd.read_sql_query("SELECT * FROM open_positions ORDER BY open_time DESC", conn)
+        df = pd.read_sql_query(
+            f"SELECT * FROM open_positions WHERE user_id = {ph} ORDER BY open_time DESC",
+            conn, params=(uid,),
+        )
     conn.close()
     if ttl_sec > 0:
-        _DB_CACHE[f"open_positions_{account_id}"] = (df, time.time())
+        _DB_CACHE[cache_key] = (df, time.time())
     return df.copy()
 
 def save_account_balance(account_id, balance, equity, currency="USD"):
-    """Saves official live broker balance and equity for an account."""
+    """Saves official live broker balance and equity for an account (current tenant)."""
+    uid = tenant.current_user_id()
     conn = get_connection()
     cursor = conn.cursor()
     now_iso = datetime.now(timezone.utc).isoformat()
-    
+
     if is_postgres():
         query = """
-            INSERT INTO account_metadata (account_id, balance, equity, currency, updated_at)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO account_metadata (account_id, balance, equity, currency, updated_at, user_id)
+            VALUES (%s, %s, %s, %s, %s, %s)
             ON CONFLICT (account_id) DO UPDATE SET
                 balance = EXCLUDED.balance,
                 equity = EXCLUDED.equity,
                 currency = EXCLUDED.currency,
-                updated_at = EXCLUDED.updated_at
+                updated_at = EXCLUDED.updated_at,
+                user_id = EXCLUDED.user_id
         """
-        cursor.execute(query, (account_id, float(balance), float(equity), currency, now_iso))
+        cursor.execute(query, (account_id, float(balance), float(equity), currency, now_iso, uid))
     else:
         cursor.execute("""
-            INSERT OR REPLACE INTO account_metadata (account_id, balance, equity, currency, updated_at)
-            VALUES (?, ?, ?, ?, ?)
-        """, (account_id, float(balance), float(equity), currency, now_iso))
-        
+            INSERT OR REPLACE INTO account_metadata (account_id, balance, equity, currency, updated_at, user_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (account_id, float(balance), float(equity), currency, now_iso, uid))
+
     conn.commit()
     conn.close()
     invalidate_db_cache("account_balances")
 
 def get_account_balances(ttl_sec: float = 2.0):
-    """Returns a dict of {account_id: {'balance': float, 'equity': float, 'currency': str}} from database with fast TTL cache."""
+    """Returns {account_id: {'balance', 'equity', 'currency'}} for the current tenant."""
+    uid = tenant.current_user_id()
     now_t = time.time()
-    cache_key = "account_balances"
+    cache_key = f"account_balances:{uid}"
     if ttl_sec > 0 and cache_key in _DB_CACHE:
         cached_val, cached_time = _DB_CACHE[cache_key]
         if now_t - cached_time < ttl_sec:
@@ -1057,7 +1136,11 @@ def get_account_balances(ttl_sec: float = 2.0):
 
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT account_id, balance, equity, currency FROM account_metadata")
+    ph = get_sql_placeholder(conn)
+    cursor.execute(
+        f"SELECT account_id, balance, equity, currency FROM account_metadata WHERE user_id = {ph}",
+        (uid,),
+    )
     rows = cursor.fetchall()
     conn.close()
     
@@ -1074,35 +1157,43 @@ def get_account_balances(ttl_sec: float = 2.0):
 # ----------------- Price Alerts Management -----------------
 
 def create_price_alert(symbol, target_price, condition, account_id="ALL", notes=""):
-    """Creates a new price alert in the database."""
+    """Creates a new price alert for the current tenant."""
+    uid = tenant.current_user_id()
     conn = get_connection()
     cursor = conn.cursor()
     now_iso = datetime.now(timezone.utc).isoformat()
-    
+
     if is_postgres():
         cursor.execute("""
-            INSERT INTO price_alerts (symbol, target_price, condition, account_id, status, created_at, notes)
-            VALUES (%s, %s, %s, %s, 'ACTIVE', %s, %s)
+            INSERT INTO price_alerts (symbol, target_price, condition, account_id, status, created_at, notes, user_id)
+            VALUES (%s, %s, %s, %s, 'ACTIVE', %s, %s, %s)
             RETURNING id
-        """, (str(symbol).upper(), float(target_price), str(condition).upper(), account_id, now_iso, notes))
+        """, (str(symbol).upper(), float(target_price), str(condition).upper(), account_id, now_iso, notes, uid))
         alert_id = cursor.fetchone()[0]
     else:
         cursor.execute("""
-            INSERT INTO price_alerts (symbol, target_price, condition, account_id, status, created_at, notes)
-            VALUES (?, ?, ?, ?, 'ACTIVE', ?, ?)
-        """, (str(symbol).upper(), float(target_price), str(condition).upper(), account_id, now_iso, notes))
+            INSERT INTO price_alerts (symbol, target_price, condition, account_id, status, created_at, notes, user_id)
+            VALUES (?, ?, ?, ?, 'ACTIVE', ?, ?, ?)
+        """, (str(symbol).upper(), float(target_price), str(condition).upper(), account_id, now_iso, notes, uid))
         alert_id = cursor.lastrowid
-        
+
     conn.commit()
     conn.close()
     invalidate_db_cache("price_alerts")
     return alert_id
 
-def get_active_price_alerts():
-    """Returns a list of all ACTIVE price alerts."""
+def get_active_price_alerts(user_id: str = None):
+    """Returns ACTIVE price alerts. Defaults to the current tenant; pass
+    ``user_id`` explicitly (the per-user sync loop, W8.6) to target another."""
+    uid = tenant.resolve(user_id)
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, symbol, target_price, condition, account_id, notes, created_at FROM price_alerts WHERE status = 'ACTIVE'")
+    ph = get_sql_placeholder(conn)
+    cursor.execute(
+        f"SELECT id, symbol, target_price, condition, account_id, notes, created_at "
+        f"FROM price_alerts WHERE status = 'ACTIVE' AND user_id = {ph}",
+        (uid,),
+    )
     rows = cursor.fetchall()
     conn.close()
     
@@ -1129,43 +1220,49 @@ def get_all_price_alerts(limit=50, ttl_sec: float = 0.0):
     (``create_price_alert`` / ``delete_price_alert`` / ``mark_price_alert_triggered``)
     invalidate the ``price_alerts`` cache key.
     """
+    uid = tenant.current_user_id()
+    cache_key = f"price_alerts:{uid}"
     if ttl_sec > 0:
-        cached = _DB_CACHE.get("price_alerts")
+        cached = _DB_CACHE.get(cache_key)
         if cached and time.time() - cached[1] < ttl_sec and isinstance(cached[0], pd.DataFrame):
             return cached[0].copy()
 
     conn = get_connection()
-    if is_postgres():
-        df = pd.read_sql_query("SELECT * FROM price_alerts ORDER BY id DESC LIMIT %s", conn, params=(limit,))
-    else:
-        df = pd.read_sql_query("SELECT * FROM price_alerts ORDER BY id DESC LIMIT ?", conn, params=(limit,))
+    ph = get_sql_placeholder(conn)
+    df = pd.read_sql_query(
+        f"SELECT * FROM price_alerts WHERE user_id = {ph} ORDER BY id DESC LIMIT {ph}",
+        conn, params=(uid, limit),
+    )
     conn.close()
     if ttl_sec > 0:
-        _DB_CACHE["price_alerts"] = (df, time.time())
+        _DB_CACHE[cache_key] = (df, time.time())
     return df.copy()
 
 def mark_price_alert_triggered(alert_id):
-    """Marks a price alert as TRIGGERED."""
+    """Marks the current tenant's price alert as TRIGGERED."""
+    uid = tenant.current_user_id()
     conn = get_connection()
     cursor = conn.cursor()
+    ph = get_sql_placeholder(conn)
     now_iso = datetime.now(timezone.utc).isoformat()
-    if is_postgres():
-        cursor.execute("UPDATE price_alerts SET status = 'TRIGGERED', triggered_at = %s WHERE id = %s", (now_iso, int(alert_id)))
-    else:
-        cursor.execute("UPDATE price_alerts SET status = 'TRIGGERED', triggered_at = ? WHERE id = ?", (now_iso, int(alert_id)))
+    cursor.execute(
+        f"UPDATE price_alerts SET status = 'TRIGGERED', triggered_at = {ph} WHERE id = {ph} AND user_id = {ph}",
+        (now_iso, int(alert_id), uid),
+    )
     conn.commit()
     conn.close()
     invalidate_db_cache("price_alerts")
     return True
 
 def delete_price_alert(alert_id):
-    """Deletes a price alert from database."""
+    """Deletes the current tenant's price alert."""
+    uid = tenant.current_user_id()
     conn = get_connection()
     cursor = conn.cursor()
-    if is_postgres():
-        cursor.execute("DELETE FROM price_alerts WHERE id = %s", (int(alert_id),))
-    else:
-        cursor.execute("DELETE FROM price_alerts WHERE id = ?", (int(alert_id),))
+    ph = get_sql_placeholder(conn)
+    cursor.execute(
+        f"DELETE FROM price_alerts WHERE id = {ph} AND user_id = {ph}", (int(alert_id), uid)
+    )
     conn.commit()
     conn.close()
     invalidate_db_cache("price_alerts")
@@ -1174,10 +1271,11 @@ def delete_price_alert(alert_id):
 # ----------------- Trade Journal Snapshots & Notes -----------------
 
 def update_trade_journal(trade_id, chart_snapshot_url=None, setup_tag=None, notes=None, rating=None):
-    """Updates chart snapshot, setup category, notes, and rating for a closed trade."""
+    """Updates chart snapshot, setup category, notes, and rating for a closed trade (current tenant)."""
+    uid = tenant.current_user_id()
     conn = get_connection()
     cursor = conn.cursor()
-    
+
     updates = []
     params = []
     
@@ -1198,29 +1296,33 @@ def update_trade_journal(trade_id, chart_snapshot_url=None, setup_tag=None, note
         conn.close()
         return False
         
+    ph = "%s" if is_postgres() else "?"
     params.append(str(trade_id))
-    query = f"UPDATE closed_trades SET {', '.join(updates)} WHERE trade_id = {'%s' if is_postgres() else '?'}"
+    params.append(uid)
+    query = f"UPDATE closed_trades SET {', '.join(updates)} WHERE trade_id = {ph} AND user_id = {ph}"
     cursor.execute(query, tuple(params))
     conn.commit()
     conn.close()
+    invalidate_db_cache("closed_trades")
     return True
 
 
 # ----------------- Trade-journal screenshots -----------------
 
 def add_journal_screenshot(screenshot_id, trade_id, filename, mime, byte_size, image_b64, caption=None):
-    """Persist one journal screenshot (base64-encoded). Returns the id."""
+    """Persist one journal screenshot (base64-encoded) for the current tenant. Returns the id."""
     import datetime as _dt
+    uid = tenant.current_user_id()
     conn = get_connection()
     cur = conn.cursor()
     ph = "%s" if is_postgres() else "?"
     cur.execute(
         f"INSERT INTO journal_screenshots "
-        f"(id, trade_id, filename, mime, byte_size, image_b64, caption, created_at) "
-        f"VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})",
+        f"(id, trade_id, filename, mime, byte_size, image_b64, caption, created_at, user_id) "
+        f"VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})",
         (str(screenshot_id), str(trade_id), (filename or None), str(mime),
          int(byte_size), str(image_b64), (caption or None),
-         _dt.datetime.now(_dt.timezone.utc).isoformat()),
+         _dt.datetime.now(_dt.timezone.utc).isoformat(), uid),
     )
     conn.commit()
     conn.close()
@@ -1228,14 +1330,15 @@ def add_journal_screenshot(screenshot_id, trade_id, filename, mime, byte_size, i
 
 
 def list_journal_screenshots(trade_id):
-    """Metadata (no image bytes) for one trade's screenshots, oldest first."""
+    """Metadata (no image bytes) for one trade's screenshots, oldest first (current tenant)."""
+    uid = tenant.current_user_id()
     conn = get_connection()
     cur = conn.cursor()
     ph = "%s" if is_postgres() else "?"
     cur.execute(
         f"SELECT id, trade_id, filename, mime, byte_size, caption, created_at "
-        f"FROM journal_screenshots WHERE trade_id = {ph} ORDER BY created_at ASC",
-        (str(trade_id),),
+        f"FROM journal_screenshots WHERE trade_id = {ph} AND user_id = {ph} ORDER BY created_at ASC",
+        (str(trade_id), uid),
     )
     cols = [c[0] for c in cur.description]
     rows = [dict(zip(cols, r)) for r in cur.fetchall()]
@@ -1244,14 +1347,15 @@ def list_journal_screenshots(trade_id):
 
 
 def get_journal_screenshot(screenshot_id):
-    """One screenshot row including the base64 image bytes, or None."""
+    """One screenshot row including the base64 image bytes for the current tenant, or None."""
+    uid = tenant.current_user_id()
     conn = get_connection()
     cur = conn.cursor()
     ph = "%s" if is_postgres() else "?"
     cur.execute(
         f"SELECT id, trade_id, filename, mime, byte_size, image_b64, caption, created_at "
-        f"FROM journal_screenshots WHERE id = {ph}",
-        (str(screenshot_id),),
+        f"FROM journal_screenshots WHERE id = {ph} AND user_id = {ph}",
+        (str(screenshot_id), uid),
     )
     row = cur.fetchone()
     cols = [c[0] for c in cur.description] if cur.description else []
@@ -1260,10 +1364,14 @@ def get_journal_screenshot(screenshot_id):
 
 
 def delete_journal_screenshot(screenshot_id):
+    uid = tenant.current_user_id()
     conn = get_connection()
     cur = conn.cursor()
     ph = "%s" if is_postgres() else "?"
-    cur.execute(f"DELETE FROM journal_screenshots WHERE id = {ph}", (str(screenshot_id),))
+    cur.execute(
+        f"DELETE FROM journal_screenshots WHERE id = {ph} AND user_id = {ph}",
+        (str(screenshot_id), uid),
+    )
     n = cur.rowcount
     conn.commit()
     conn.close()
@@ -1271,10 +1379,15 @@ def delete_journal_screenshot(screenshot_id):
 
 
 def count_journal_screenshots():
-    """{owner_id: count} — one query, for the journal list view."""
+    """{trade_id: count} for the current tenant — one query, for the journal list view."""
+    uid = tenant.current_user_id()
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT trade_id, COUNT(*) FROM journal_screenshots GROUP BY trade_id")
+    ph = "%s" if is_postgres() else "?"
+    cur.execute(
+        f"SELECT trade_id, COUNT(*) FROM journal_screenshots WHERE user_id = {ph} GROUP BY trade_id",
+        (uid,),
+    )
     out = {str(r[0]): int(r[1]) for r in cur.fetchall()}
     conn.close()
     return out
@@ -1288,15 +1401,16 @@ def _now_iso():
 
 
 def create_journal_entry(entry_id, kind, instrument, title, body, tags):
+    uid = tenant.current_user_id()
     conn = get_connection()
     cur = conn.cursor()
     ph = "%s" if is_postgres() else "?"
     ts = _now_iso()
     cur.execute(
-        f"INSERT INTO journal_entries (id, kind, instrument, title, body, tags, created_at, updated_at) "
-        f"VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})",
+        f"INSERT INTO journal_entries (id, kind, instrument, title, body, tags, created_at, updated_at, user_id) "
+        f"VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})",
         (str(entry_id), str(kind or "idea"), (instrument or None), (title or None),
-         (body or ""), (",".join(tags) if tags else None), ts, ts),
+         (body or ""), (",".join(tags) if tags else None), ts, ts, uid),
     )
     conn.commit()
     conn.close()
@@ -1310,11 +1424,14 @@ def _entry_row_to_dict(cols, row):
 
 
 def list_journal_entries():
+    uid = tenant.current_user_id()
     conn = get_connection()
     cur = conn.cursor()
+    ph = "%s" if is_postgres() else "?"
     cur.execute(
-        "SELECT id, kind, instrument, title, body, tags, created_at, updated_at "
-        "FROM journal_entries ORDER BY updated_at DESC"
+        f"SELECT id, kind, instrument, title, body, tags, created_at, updated_at "
+        f"FROM journal_entries WHERE user_id = {ph} ORDER BY updated_at DESC",
+        (uid,),
     )
     cols = [c[0] for c in cur.description]
     rows = [_entry_row_to_dict(cols, r) for r in cur.fetchall()]
@@ -1323,13 +1440,14 @@ def list_journal_entries():
 
 
 def get_journal_entry(entry_id):
+    uid = tenant.current_user_id()
     conn = get_connection()
     cur = conn.cursor()
     ph = "%s" if is_postgres() else "?"
     cur.execute(
         f"SELECT id, kind, instrument, title, body, tags, created_at, updated_at "
-        f"FROM journal_entries WHERE id = {ph}",
-        (str(entry_id),),
+        f"FROM journal_entries WHERE id = {ph} AND user_id = {ph}",
+        (str(entry_id), uid),
     )
     row = cur.fetchone()
     cols = [c[0] for c in cur.description] if cur.description else []
@@ -1338,6 +1456,7 @@ def get_journal_entry(entry_id):
 
 
 def update_journal_entry(entry_id, **fields):
+    uid = tenant.current_user_id()
     allowed = ("kind", "instrument", "title", "body", "tags")
     sets, params = [], []
     ph = "%s" if is_postgres() else "?"
@@ -1353,9 +1472,13 @@ def update_journal_entry(entry_id, **fields):
     sets.append(f"updated_at = {ph}")
     params.append(_now_iso())
     params.append(str(entry_id))
+    params.append(uid)
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute(f"UPDATE journal_entries SET {', '.join(sets)} WHERE id = {ph}", tuple(params))
+    cur.execute(
+        f"UPDATE journal_entries SET {', '.join(sets)} WHERE id = {ph} AND user_id = {ph}",
+        tuple(params),
+    )
     n = cur.rowcount
     conn.commit()
     conn.close()
@@ -1363,11 +1486,18 @@ def update_journal_entry(entry_id, **fields):
 
 
 def delete_journal_entry(entry_id):
+    uid = tenant.current_user_id()
     conn = get_connection()
     cur = conn.cursor()
     ph = "%s" if is_postgres() else "?"
-    cur.execute(f"DELETE FROM journal_screenshots WHERE trade_id = {ph}", (str(entry_id),))
-    cur.execute(f"DELETE FROM journal_entries WHERE id = {ph}", (str(entry_id),))
+    cur.execute(
+        f"DELETE FROM journal_screenshots WHERE trade_id = {ph} AND user_id = {ph}",
+        (str(entry_id), uid),
+    )
+    cur.execute(
+        f"DELETE FROM journal_entries WHERE id = {ph} AND user_id = {ph}",
+        (str(entry_id), uid),
+    )
     n = cur.rowcount
     conn.commit()
     conn.close()
@@ -1375,10 +1505,14 @@ def delete_journal_entry(entry_id):
 
 
 def journal_entry_exists(entry_id):
+    uid = tenant.current_user_id()
     conn = get_connection()
     cur = conn.cursor()
     ph = "%s" if is_postgres() else "?"
-    cur.execute(f"SELECT 1 FROM journal_entries WHERE id = {ph}", (str(entry_id),))
+    cur.execute(
+        f"SELECT 1 FROM journal_entries WHERE id = {ph} AND user_id = {ph}",
+        (str(entry_id), uid),
+    )
     ok = cur.fetchone() is not None
     conn.close()
     return ok
