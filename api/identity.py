@@ -32,6 +32,7 @@ import json
 import os
 import threading
 import time
+import urllib.request
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -84,8 +85,20 @@ def _jwt_secret() -> str:
     return _env("SUPABASE_JWT_SECRET")
 
 
+def supabase_url() -> str:
+    """The project URL, e.g. ``https://abc.supabase.co`` (no trailing slash).
+
+    Used to discover the JWKS endpoint for the asymmetric (ES256/RS256)
+    signing keys and to pin the token issuer. Optional — if unset, the
+    issuer claim on a verified token is used for key discovery instead.
+    """
+    return _env("SUPABASE_URL").rstrip("/")
+
+
 def supabase_enabled() -> bool:
-    return auth_mode() == "supabase" and bool(_jwt_secret())
+    # Either signing scheme is enough to run: the legacy shared secret
+    # (HS256) or the project URL for the asymmetric keys (ES256/RS256).
+    return auth_mode() == "supabase" and bool(_jwt_secret() or supabase_url())
 
 
 def owner_email() -> str:
@@ -102,22 +115,122 @@ def signup_allowlist() -> set[str]:
     return emails
 
 
-# --- JWT (HS256, stdlib) -------------------------------------------------
+# --- JWT verification --------------------------------------------------
+#
+# Supabase issues access tokens under one of two signing schemes:
+#   * HS256 — the legacy project "JWT secret" (a shared symmetric key). Verified
+#     with stdlib HMAC, no network call.
+#   * ES256 / RS256 — the newer asymmetric signing keys. The public half is
+#     published at ``<project>/auth/v1/.well-known/jwks.json``; we fetch and
+#     cache it and verify with ``cryptography`` (already a dependency).
+# Both are accepted so a project on either scheme just works.
+
+_JWKS_TTL_SEC = 600
+_jwks_cache: Dict[str, tuple] = {}       # jwks_url -> ({kid: jwk}, monotonic_ts)
+_jwks_lock = threading.Lock()
+_ASYM_ALGS = {"ES256", "RS256"}
+
 
 def _b64url_decode(segment: str) -> bytes:
     pad = "=" * (-len(segment) % 4)
     return base64.urlsafe_b64decode(segment + pad)
 
 
-def decode_token(token: str, *, leeway: int = 30) -> Dict[str, Any]:
-    """Verify a Supabase HS256 access token and return its claims.
+def _b64url_uint(segment: str) -> int:
+    return int.from_bytes(_b64url_decode(segment), "big")
 
-    Raises :class:`InvalidToken` on any problem. No network call — the project
-    JWT secret is a shared symmetric key.
-    """
-    secret = _jwt_secret()
-    if not secret:
-        raise InvalidToken("SUPABASE_JWT_SECRET is not configured")
+
+def _jwks_url(issuer: str) -> str:
+    base = supabase_url() or (issuer or "").rstrip("/")
+    if not base:
+        raise InvalidToken("no issuer / SUPABASE_URL for signing-key discovery")
+    if base.endswith("/auth/v1"):
+        return f"{base}/.well-known/jwks.json"
+    return f"{base}/auth/v1/.well-known/jwks.json"
+
+
+def _fetch_jwks(url: str, *, force: bool = False) -> Dict[str, dict]:
+    now = time.monotonic()
+    if not force:
+        with _jwks_lock:
+            hit = _jwks_cache.get(url)
+            if hit and now - hit[1] < _JWKS_TTL_SEC:
+                return hit[0]
+    try:
+        req = urllib.request.Request(url, headers={"Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310 - https project URL
+            doc = json.loads(resp.read().decode("utf-8"))
+    except Exception as exc:  # noqa: BLE001 - network/parse
+        with _jwks_lock:
+            hit = _jwks_cache.get(url)
+        if hit:
+            return hit[0]      # serve stale rather than lock everyone out
+        raise InvalidToken(f"could not fetch signing keys: {exc}") from exc
+    keys = {k["kid"]: k for k in doc.get("keys", []) if k.get("kid")}
+    with _jwks_lock:
+        _jwks_cache[url] = (keys, now)
+    return keys
+
+
+def _public_key_from_jwk(jwk: Dict[str, Any]):
+    from cryptography.hazmat.primitives.asymmetric import ec, rsa
+
+    kty = jwk.get("kty")
+    if kty == "EC":
+        if jwk.get("crv") != "P-256":
+            raise InvalidToken(f"unsupported EC curve {jwk.get('crv')!r}")
+        return ec.EllipticCurvePublicNumbers(
+            _b64url_uint(jwk["x"]), _b64url_uint(jwk["y"]), ec.SECP256R1()
+        ).public_key()
+    if kty == "RSA":
+        return rsa.RSAPublicNumbers(
+            _b64url_uint(jwk["e"]), _b64url_uint(jwk["n"])
+        ).public_key()
+    raise InvalidToken(f"unsupported key type {kty!r}")
+
+
+def _verify_asymmetric(
+    signing_input: bytes, signature: bytes, alg: str, kid: str, issuer: str
+) -> None:
+    from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.asymmetric import ec, padding
+    from cryptography.hazmat.primitives.asymmetric import utils as asym_utils
+
+    if not kid:
+        raise InvalidToken("token header has no kid")
+    pinned = supabase_url()
+    if pinned and issuer and not issuer.rstrip("/").startswith(pinned):
+        raise InvalidToken("token issuer does not match SUPABASE_URL")
+
+    url = _jwks_url(issuer)
+    jwk = _fetch_jwks(url).get(kid) or _fetch_jwks(url, force=True).get(kid)
+    if jwk is None:
+        raise InvalidToken(f"no signing key for kid {kid!r}")
+
+    pub = _public_key_from_jwk(jwk)
+    try:
+        if alg == "ES256":
+            if len(signature) != 64:
+                raise InvalidToken("malformed ES256 signature")
+            der = asym_utils.encode_dss_signature(
+                int.from_bytes(signature[:32], "big"),
+                int.from_bytes(signature[32:], "big"),
+            )
+            pub.verify(der, signing_input, ec.ECDSA(hashes.SHA256()))
+        elif alg == "RS256":
+            pub.verify(signature, signing_input, padding.PKCS1v15(), hashes.SHA256())
+        else:  # pragma: no cover - guarded by caller
+            raise InvalidToken(f"unsupported alg {alg!r}")
+    except InvalidSignature as exc:
+        raise InvalidToken("bad signature") from exc
+    except (ValueError, TypeError) as exc:
+        raise InvalidToken(f"signature check failed: {exc}") from exc
+
+
+def decode_token(token: str, *, leeway: int = 30) -> Dict[str, Any]:
+    """Verify a Supabase access token (HS256 or ES256/RS256) and return its
+    claims. Raises :class:`InvalidToken` on any problem."""
     if not token or token.count(".") != 2:
         raise InvalidToken("not a JWT")
 
@@ -129,17 +242,21 @@ def decode_token(token: str, *, leeway: int = 30) -> Dict[str, Any]:
     except Exception as exc:  # noqa: BLE001
         raise InvalidToken(f"malformed JWT: {exc}") from exc
 
-    if header.get("alg") != "HS256":
-        # Supabase's newer asymmetric signing keys (ES256/RS256) are not
-        # supported here yet — a project using them must keep the legacy
-        # shared secret enabled.
-        raise InvalidToken(f"unsupported alg {header.get('alg')!r}")
+    alg = header.get("alg")
+    signing_input = f"{header_b64}.{payload_b64}".encode("ascii")
 
-    expected = hmac.new(secret.encode("utf-8"),
-                        f"{header_b64}.{payload_b64}".encode("ascii"),
-                        hashlib.sha256).digest()
-    if not hmac.compare_digest(expected, signature):
-        raise InvalidToken("bad signature")
+    if alg == "HS256":
+        secret = _jwt_secret()
+        if not secret:
+            raise InvalidToken("SUPABASE_JWT_SECRET is not configured")
+        expected = hmac.new(secret.encode("utf-8"), signing_input, hashlib.sha256).digest()
+        if not hmac.compare_digest(expected, signature):
+            raise InvalidToken("bad signature")
+    elif alg in _ASYM_ALGS:
+        _verify_asymmetric(signing_input, signature, alg, header.get("kid", ""),
+                           str(claims.get("iss") or ""))
+    else:
+        raise InvalidToken(f"unsupported alg {alg!r}")
 
     now = time.time()
     exp = claims.get("exp")

@@ -61,6 +61,17 @@ services:
         sync: false
       - key: TL_ALLOWED_ORIGINS      # https://<your-project>.pages.dev
         sync: false
+      # --- multi-user (W8 §10): only when TL_AUTH_MODE=supabase ---
+      - key: TL_AUTH_MODE            # 'supabase' to turn on invite-only multi-user; unset = passphrase
+        sync: false
+      - key: SUPABASE_URL            # https://<ref>.supabase.co — needed for the ES256/RS256 signing keys
+        sync: false
+      - key: SUPABASE_JWT_SECRET     # legacy HS256 secret; optional if the project uses asymmetric keys
+        sync: false
+      - key: TL_OWNER_EMAIL          # your email -> owner role + admin surface
+        sync: false
+      - key: TL_SIGNUP_ALLOWLIST     # comma-separated invited emails (include yours)
+        sync: false
       - key: CAPITAL_API_KEY
         sync: false
       - key: CAPITAL_EMAIL

@@ -242,16 +242,22 @@ Supabase (free; the DB stays on Neon — Supabase is used **only** for login):
 1. **Supabase** (the project you kept from the DB migration) → **Authentication
    → Providers → Email**: on, and turn **off** "Confirm email" (the backend
    allowlist is the real gate). **Project Settings → API**: copy the **Project
-   URL**, the **anon** key, and the **JWT Secret**. **Project Settings → Data
-   API → Exposed schemas**: clear it (nothing here uses PostgREST; this stops
-   the public anon key from exposing tables).
+   URL** and the **anon** key. **Project Settings → Data API → Exposed
+   schemas**: clear it (nothing here uses PostgREST; this stops the public anon
+   key from exposing tables).
 2. **Render** — add:
    - `TL_AUTH_MODE` = `supabase`
-   - `SUPABASE_JWT_SECRET` = *(the JWT Secret)*
+   - `SUPABASE_URL` = the Project URL (`https://<ref>.supabase.co`)
    - `TL_OWNER_EMAIL` = your email (gets the `owner` role + the admin surface)
-   - `TL_SIGNUP_ALLOWLIST` = comma-separated invited emails
+   - `TL_SIGNUP_ALLOWLIST` = comma-separated invited emails (include yours)
    - `TL_CREDENTIAL_ENC_KEY` = output of `python -m api.broker_credentials`
      (needed only if friends will connect their own broker)
+
+   The backend verifies access tokens against Supabase's signing keys. New
+   projects use **asymmetric keys (ES256/RS256)** — `SUPABASE_URL` is all the
+   backend needs (it fetches the public JWKS). Older projects on the **legacy
+   HS256** shared secret: set `SUPABASE_JWT_SECRET` instead (Project Settings →
+   API → JWT Settings). Setting both is fine.
 3. **Frontend** — in `frontend/.env.production` uncomment and fill
    `VITE_AUTH_MODE=supabase`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
    (public values), commit, push.
