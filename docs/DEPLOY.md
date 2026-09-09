@@ -269,7 +269,32 @@ account (`POST /api/admin/users/<id>/disable`).
 
 ---
 
-## 11. Alternative: one small VPS instead of two free services
+## 11. MetaTrader friends — the MT5 push agent (W9, optional)
+
+Capital.com connects to the hosted server directly (§10). MetaTrader brokers
+(**Exness**, IC Markets, Pepperstone, most prop firms) can't: the `MetaTrader5`
+library only talks to a terminal on the *same Windows machine*, and Render is
+Linux. So an MT5 friend runs a small agent on their own PC that reads MT5 and
+POSTs the data to `POST /api/ingest/mt5`.
+
+- The agent is `agent/mt5_push_agent.py` + `agent/README.md`. Send the friend
+  that folder (or point them at the repo).
+- **No server change is needed** — the `/api/ingest` router ships with the
+  backend and is gated by the normal auth. It works in both passphrase and
+  Supabase mode. Data ingestion only, no order path.
+- The friend fills `agent/mt5_agent_config.json` (server URL + their login),
+  runs `register_task.ps1` once to get a 15-minute scheduled task, and their
+  trades show up under account key `MT5_<their login>`.
+- Ids from a friend's push are tenant-prefixed internally, so two friends with
+  the same MT5 login number on different brokers never collide. The single-user
+  owner's local `mt5_sync.py` is unchanged (ids stay un-prefixed).
+
+The owner can also use the agent instead of running `mt5_sync.py` on the box —
+same endpoint.
+
+---
+
+## 12. Alternative: one small VPS instead of two free services
 
 If the 512 MB / cold-start limits get annoying, the whole thing also runs on a
 single ~€3.79/mo Hetzner VM (PayPal, no capacity lottery): `uvicorn` behind

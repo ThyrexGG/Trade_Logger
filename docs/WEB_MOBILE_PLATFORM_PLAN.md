@@ -504,6 +504,21 @@ owner-only `/api/admin/users`, deny-cache, docs.
 
 ---
 
+### W9 — MT5 push agent (SHIPPED 2026-09-09)
+
+MetaTrader brokers (Exness, prop firms) can't reach the Linux host — the
+`MetaTrader5` lib is terminal-local. A friend runs `agent/mt5_push_agent.py`
+on their Windows PC; it reads MT5 and POSTs to `POST /api/ingest/mt5`
+(auth-gated, dual-mode, no order path). `mt5_ingest.py` holds the shared
+transform/reconstruct half (extracted from `mt5_sync.py`, which now calls it);
+ids from a non-`local` tenant are prefixed `"<uid>:<account>_..."` so friends
+with the same MT5 login on different brokers never collide. Agent auth =
+Supabase password grant (or the shared passphrase). Setup + a Task Scheduler
+installer (`register_task.ps1`) in `agent/README.md`. See `docs/DEPLOY.md` §11.
+Tests: `test_stage25_mt5_ingest.py`.
+
+---
+
 ### W8 — original plan (COMMITTED 2026-09-08)
 
 **Why.** D5 — open TradeLogger to a handful of friends so each tracks their own

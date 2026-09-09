@@ -1,0 +1,23 @@
+{
+  "_comment": "Copy this file to mt5_agent_config.json and fill it in. Never commit the real one.",
+
+  "server_url": "https://your-tradelogger.onrender.com",
+
+  "_auth_multi_user": "If the owner turned on multi-user (Supabase) auth, fill these four:",
+  "supabase_url": "https://xxxxxxxxxxxx.supabase.co",
+  "supabase_anon_key": "eyJhbGci...the-public-anon-key...",
+  "email": "you@example.com",
+  "password": "your-tradelogger-login-password",
+
+  "_auth_single_user": "OR, if it is still the single shared passphrase, delete the 4 lines above and use this instead:",
+  "__passphrase": "the-shared-passphrase",
+
+  "_mt5_optional": "Only needed if the MT5 terminal is NOT already open and logged in:",
+  "mt5": {
+    "login": 0,
+    "password": "",
+    "server": ""
+  },
+
+  "poll_minutes": 15
+}

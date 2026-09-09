@@ -25,6 +25,11 @@ credentials.json
 service-account*.json
 *.env.enc
 
+# MT5 push agent — real config holds a broker/login password
+agent/mt5_agent_config.json
+agent/*_config.json
+!agent/mt5_agent_config.example.json
+
 *.db
 *.db-shm
 *.db-wal
