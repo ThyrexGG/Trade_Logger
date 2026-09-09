@@ -1,0 +1,12 @@
+# GitGuardian / ggshield configuration.
+#
+# Test files build fake credentials and mint dummy JWTs to exercise the auth
+# and broker-credential code paths (W8). Every value in tests/ is throwaway
+# fixture data — no test may contain a real secret by policy — so the secret
+# scanner skips that tree to stop false positives on names like `SECRET`,
+# `password`, `SUPABASE_JWT_SECRET`, and Fernet-shaped strings.
+version: 2
+
+secret:
+  ignored-paths:
+    - "tests/**"

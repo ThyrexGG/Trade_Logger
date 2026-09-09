@@ -15,7 +15,7 @@ import tenant
 from api import broker_credentials as bc
 from api import sync_service
 
-SECRET = {"api_key": "AK", "email": "u@x.com", "password": "pw"}
+FAKE_CREDS = {"api_key": "fake-api-key", "email": "u@example.test", "password": "fake-password"}
 
 
 @pytest.fixture()
@@ -61,14 +61,14 @@ def test_heartbeat_is_per_user(enc, monkeypatch):
     monkeypatch.setattr(sync_service.auto_sync, "run_sync_cycle", fake_cycle)
 
     with tenant.use("alice"):
-        bc.create_connection(secret=SECRET, account_id="A1")
+        bc.create_connection(secret=FAKE_CREDS, account_id="A1")
 
     sync_service.run_for_user("alice", source="test")
     assert sync_service._heartbeat_age_sec("alice") is not None
     assert sync_service._heartbeat_age_sec("bob") is None
     # the cycle ran bound to alice, with alice's creds
     assert seen and seen[0][0] == "alice"
-    assert seen[0][1]["api_key"] == "AK"
+    assert seen[0][1]["api_key"] == "fake-api-key"
 
 
 def test_run_for_user_without_connection_skips_non_local(enc, monkeypatch):
@@ -95,7 +95,7 @@ def test_run_if_stale_is_per_user(enc, monkeypatch):
     monkeypatch.setattr(sync_service.auto_sync, "run_sync_cycle",
                         lambda *a, **k: {"errors": [], "mt5_ok": False, "capital_ok": True, "new_closed_trades": 0})
     with tenant.use("alice"):
-        bc.create_connection(secret=SECRET, account_id="A1")
+        bc.create_connection(secret=FAKE_CREDS, account_id="A1")
 
     first = sync_service.run_if_stale(900, user_id="alice")
     assert "ran" in first

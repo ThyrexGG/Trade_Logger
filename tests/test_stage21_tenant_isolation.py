@@ -23,7 +23,7 @@ import tenant
 from api import identity
 from api.main import app
 
-SECRET = "test-supabase-jwt-secret-w84"
+FAKE_JWT_SECRET = "fake-fixture-jwt-secret"
 ALICE = "alice@example.com"
 BOB = "bob@example.com"
 
@@ -38,7 +38,7 @@ def _jwt(sub: str, email: str) -> str:
     h = _seg({"alg": "HS256", "typ": "JWT"})
     p = _seg({"sub": sub, "email": email, "aud": "authenticated",
               "iat": int(time.time()) - 5, "exp": int(time.time()) + 3600})
-    sig = hmac.new(SECRET.encode(), f"{h}.{p}".encode(), hashlib.sha256).digest()
+    sig = hmac.new(FAKE_JWT_SECRET.encode(), f"{h}.{p}".encode(), hashlib.sha256).digest()
     return f"{h}.{p}.{base64.urlsafe_b64encode(sig).rstrip(b'=').decode()}"
 
 
@@ -147,7 +147,7 @@ def test_passphrase_mode_is_the_local_tenant(clean_tenants):
 @pytest.fixture()
 def supa(monkeypatch, clean_tenants):
     monkeypatch.setenv("TL_AUTH_MODE", "supabase")
-    monkeypatch.setenv("SUPABASE_JWT_SECRET", SECRET)
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", FAKE_JWT_SECRET)
     monkeypatch.setenv("TL_SIGNUP_ALLOWLIST", f"{ALICE},{BOB}")
     monkeypatch.delenv("TL_OWNER_EMAIL", raising=False)
     identity._provision_cache.clear(); identity._deny_cache.clear()

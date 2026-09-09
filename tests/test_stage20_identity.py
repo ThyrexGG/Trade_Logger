@@ -19,7 +19,7 @@ import database
 from api import identity
 from api.main import app
 
-SECRET = "test-supabase-jwt-secret-value"
+FAKE_JWT_SECRET = "fake-fixture-jwt-secret"
 OWNER = "owner@example.com"
 FRIEND = "friend@example.com"
 STRANGER = "stranger@example.com"
@@ -29,7 +29,7 @@ def _seg(d: dict) -> str:
     return base64.urlsafe_b64encode(json.dumps(d).encode()).rstrip(b"=").decode()
 
 
-def _mint(claims: dict, *, secret: str = SECRET, alg: str = "HS256") -> str:
+def _mint(claims: dict, *, secret: str = FAKE_JWT_SECRET, alg: str = "HS256") -> str:
     header = _seg({"alg": alg, "typ": "JWT"})
     payload = _seg(claims)
     sig = hmac.new(secret.encode(), f"{header}.{payload}".encode(), hashlib.sha256).digest()
@@ -52,7 +52,7 @@ def _claims(sub: str, email: str, **over) -> dict:
 @pytest.fixture()
 def supa_env(monkeypatch):
     monkeypatch.setenv("TL_AUTH_MODE", "supabase")
-    monkeypatch.setenv("SUPABASE_JWT_SECRET", SECRET)
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", FAKE_JWT_SECRET)
     monkeypatch.setenv("TL_OWNER_EMAIL", OWNER)
     monkeypatch.setenv("TL_SIGNUP_ALLOWLIST", f"{FRIEND}, {OWNER}")
     monkeypatch.delenv("TL_AUTH_DISABLED", raising=False)

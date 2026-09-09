@@ -19,7 +19,7 @@ import database
 from api import identity
 from api.main import app
 
-SECRET = "admin-test-secret"
+FAKE_JWT_SECRET = "fake-fixture-jwt-secret"
 OWNER = "owner@example.com"
 FRIEND = "friend@example.com"
 
@@ -29,14 +29,14 @@ def _jwt(sub, email):
     h, p = seg({"alg": "HS256", "typ": "JWT"}), seg(
         {"sub": sub, "email": email, "aud": "authenticated",
          "iat": int(time.time()) - 5, "exp": int(time.time()) + 3600})
-    sig = hmac.new(SECRET.encode(), f"{h}.{p}".encode(), hashlib.sha256).digest()
+    sig = hmac.new(FAKE_JWT_SECRET.encode(), f"{h}.{p}".encode(), hashlib.sha256).digest()
     return f"{h}.{p}.{base64.urlsafe_b64encode(sig).rstrip(b'=').decode()}"
 
 
 @pytest.fixture()
 def supa(monkeypatch):
     monkeypatch.setenv("TL_AUTH_MODE", "supabase")
-    monkeypatch.setenv("SUPABASE_JWT_SECRET", SECRET)
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", FAKE_JWT_SECRET)
     monkeypatch.setenv("TL_OWNER_EMAIL", OWNER)
     monkeypatch.setenv("TL_SIGNUP_ALLOWLIST", f"{OWNER},{FRIEND}")
     monkeypatch.setattr(identity, "_DENY_TTL_SEC", 0)   # don't cache denials across asserts
