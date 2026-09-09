@@ -29,6 +29,11 @@ service-account*.json
 agent/mt5_agent_config.json
 agent/*_config.json
 !agent/mt5_agent_config.example.json
+# PyInstaller build output for the agent .exe
+agent/build/
+agent/dist/
+agent/*.spec
+agent/mt5_sync_hidden.vbs
 
 *.db
 *.db-shm

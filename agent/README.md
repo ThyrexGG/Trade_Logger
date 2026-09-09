@@ -1,89 +1,78 @@
-# TradeLogger MT5 Push Agent
+# TradeLogger MT5 Sync
 
-For people on a **MetaTrader 5** broker (Exness, IC Markets, Pepperstone, most
-prop firms). TradeLogger's hosted server runs on Linux and can't reach an MT5
-terminal directly, so this small script runs on **your** Windows PC, reads MT5,
-and sends your trade history to the server over HTTPS.
+For traders on a **MetaTrader 5** broker (Exness, IC Markets, Pepperstone,
+most prop firms). MetaTrader has no web API, so this small program runs on
+**your** Windows PC, reads MT5, and sends your trade history to TradeLogger
+over HTTPS.
 
-**What it does:** reads your closed deals, open positions and balance, POSTs
-them to the server.
-**What it does not do:** it never places, changes or closes a trade. There is
-no order path. It only ever writes your own data.
+- It **never** places, changes or closes a trade.
+- It only ever writes **your** data.
+- Your trades sync automatically every 15 minutes while your PC is on and
+  MetaTrader is running.
 
 ---
 
-## 1. Install
+## Setup (about 1 minute)
 
-You need the MT5 **terminal** installed and Python 3.9+.
+1. **Get the program** from whoever invited you: `tradelogger-mt5-sync.exe`.
+2. Put it in its own folder (e.g. `Documents\TradeLogger`).
+3. Open your **MetaTrader 5** terminal and log in to the account you want to track.
+4. **Double-click `tradelogger-mt5-sync.exe`.**
+5. Type your **TradeLogger email and password** (the login the owner invited).
 
-```powershell
-pip install MetaTrader5 requests
-```
+That's it. It checks the connection, installs a background task, and does a
+first sync. From then on it updates itself every 15 minutes.
 
-## 2. Configure
+> Windows may show a blue "Windows protected your PC" box the first time
+> (the program isn't code-signed). Click **More info -> Run anyway**.
 
-```powershell
-copy mt5_agent_config.example.json mt5_agent_config.json
-notepad mt5_agent_config.json
-```
+---
 
-Fill in:
+## Everyday use
 
-| Field | Where it comes from |
+Nothing. Leave your PC on with MetaTrader running and logged in. Check
+TradeLogger — your journal, analytics and positions fill in on their own.
+
+If you turn MetaTrader off, syncing pauses and catches up when it's back.
+
+---
+
+## Commands (optional)
+
+Open a terminal in the folder:
+
+| Command | Does |
 |---|---|
-| `server_url` | The TradeLogger URL the owner gave you (e.g. `https://tradelogger.onrender.com`) |
-| `supabase_url`, `supabase_anon_key` | The owner sends these (they're public values) |
-| `email`, `password` | The login **you** created on the TradeLogger sign-in page |
-| `poll_minutes` | How often to sync (15 is fine) |
+| `tradelogger-mt5-sync --check` | Test your login + MetaTrader connection |
+| `tradelogger-mt5-sync --once` | Sync one time right now |
+| `tradelogger-mt5-sync --uninstall` | Remove the background task (your synced data stays) |
+| `tradelogger-mt5-sync --daemon` | Keep syncing in this window (Mac/Linux, or if the task won't install) |
 
-If the owner is still on the **single shared passphrase** (no sign-in page),
-delete the four Supabase/email lines and set `"passphrase"` instead
-(rename `"__passphrase"` to `"passphrase"`).
+---
 
-The `mt5` block is only needed if your terminal is **not** already open and
-logged in. If MT5 is running with your account, leave `login` as `0`.
+## Running from source instead of the .exe
 
-## 3. Test
+Needs Python 3.9+ and the MetaTrader 5 terminal.
 
-Open your MT5 terminal and log in to the account you want to track, then:
-
-```powershell
-python mt5_push_agent.py --check      # config + login + MT5 connection
-python mt5_push_agent.py --once       # one real sync
+```
+pip install MetaTrader5 requests
+python mt5_push_agent.py            # runs the same wizard
 ```
 
-Your trades should appear in TradeLogger within a minute. The first run pulls
-your full history (back to 2020) and can take a little longer.
-
-## 4. Keep it running
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\register_task.ps1
-```
-
-This registers a Windows scheduled task that runs `--once` every 15 minutes
-while you're logged in. Remove it with:
-
-```powershell
-Unregister-ScheduledTask -TaskName "TradeLogger MT5 Push Agent" -Confirm:$false
-```
-
-Or skip the task and just leave a terminal open with:
-
-```powershell
-python mt5_push_agent.py --daemon
-```
+`--config path\to\file.json` points at a specific config. See
+`mt5_agent_config.example.json` for every field — you normally don't need it,
+the wizard writes `mt5_agent_config.json` for you.
 
 ---
 
 ## Notes
 
-- **Incremental.** After the first run the agent asks the server for the
-  timestamp of your newest stored deal and only sends newer ones.
-- **Account key.** Your data is filed under `MT5_<your login number>`. Running
-  the agent from two PCs for the same MT5 account is fine — it's idempotent.
-- **Security.** `mt5_agent_config.json` holds your password. Keep it on your
-  own machine; it is git-ignored in this repo and should never be shared.
-- **Symbols.** Broker suffixes (`XAUUSD.pro`, `EURUSD.m`) are normalised
-  server-side so your stats line up with everyone else's.
-- **Balance/deposit rows** and non-trade deal types are ignored automatically.
+- **Incremental.** After the first run it only sends deals newer than what
+  the server already has.
+- **Account key.** Your data is filed under `MT5_<your login number>`.
+- **Your password** is stored in `mt5_agent_config.json` in this folder, on
+  your machine only. Keep the folder to yourself.
+- **Symbols.** Broker suffixes (`XAUUSD.pro`, `EURUSD.m`) are normalised so
+  your stats line up. Balance/deposit rows are ignored.
+- The program contains no secrets — only the public TradeLogger and Supabase
+  URLs.

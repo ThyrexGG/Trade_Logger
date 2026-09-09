@@ -283,20 +283,26 @@ library only talks to a terminal on the *same Windows machine*, and Render is
 Linux. So an MT5 friend runs a small agent on their own PC that reads MT5 and
 POSTs the data to `POST /api/ingest/mt5`.
 
-- The agent is `agent/mt5_push_agent.py` + `agent/README.md`. Send the friend
-  that folder (or point them at the repo).
 - **No server change is needed** — the `/api/ingest` router ships with the
   backend and is gated by the normal auth. It works in both passphrase and
   Supabase mode. Data ingestion only, no order path.
-- The friend fills `agent/mt5_agent_config.json` (server URL + their login),
-  runs `register_task.ps1` once to get a 15-minute scheduled task, and their
-  trades show up under account key `MT5_<their login>`.
-- Ids from a friend's push are tenant-prefixed internally, so two friends with
-  the same MT5 login number on different brokers never collide. The single-user
-  owner's local `mt5_sync.py` is unchanged (ids stay un-prefixed).
+- **Build the .exe** (once, on Windows): `agent/build_agent.ps1` →
+  `agent/dist/tradelogger-mt5-sync.exe`. The public API + Supabase URLs are
+  baked in (`CONFIG_DEFAULTS` in `agent/mt5_push_agent.py`) — update those and
+  rebuild if a URL changes. Host the .exe wherever friends can download it
+  (GitHub Releases, a drive); it contains no secrets.
+- **The friend** double-clicks the .exe, types their TradeLogger email +
+  password. The wizard writes `mt5_agent_config.json`, installs a
+  Task-Scheduler job (`schtasks` + a hidden VBS launcher, every 15 min), and
+  does a first sync. Full friend-facing steps: `agent/README.md`.
+- Their trades land under account key `MT5_<their login>`. Ids from a friend's
+  push are tenant-prefixed internally, so two friends with the same MT5 login
+  number on different brokers never collide. The owner's local `mt5_sync.py` is
+  unchanged (ids stay un-prefixed).
 
-The owner can also use the agent instead of running `mt5_sync.py` on the box —
-same endpoint.
+The owner can also run the agent (`--daemon`, or the wizard) instead of
+`mt5_sync.py` — same endpoint. Advanced/manual setup and the single-user
+passphrase path are in `agent/mt5_agent_config.example.json`.
 
 ---
 
