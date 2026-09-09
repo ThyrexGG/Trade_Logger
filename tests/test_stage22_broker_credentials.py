@@ -147,14 +147,14 @@ def supa(monkeypatch, enc):
     monkeypatch.setenv("SUPABASE_JWT_SECRET", jwt_secret)
     monkeypatch.setenv("TL_SIGNUP_ALLOWLIST", "alice@example.com,bob@example.com")
     monkeypatch.delenv("TL_OWNER_EMAIL", raising=False)
-    identity._provision_cache.clear()
+    identity._provision_cache.clear(); identity._deny_cache.clear()
     identity.ensure_users_table()
     conn = database.get_connection()
     conn.cursor().execute("DELETE FROM users WHERE email LIKE '%@example.com'")
     conn.commit()
     conn.close()
     yield jwt_secret
-    identity._provision_cache.clear()
+    identity._provision_cache.clear(); identity._deny_cache.clear()
 
 
 def test_http_connections_isolated(supa):

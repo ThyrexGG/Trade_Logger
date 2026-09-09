@@ -37,6 +37,7 @@ from api.routers import (
     accounts,
     system_control,
     connections,
+    admin,
 )
 
 def _warm_up() -> None:
@@ -261,6 +262,7 @@ app.include_router(trade_setup.router)
 app.include_router(accounts.router)
 app.include_router(system_control.router)
 app.include_router(connections.router)
+app.include_router(admin.router)
 
 
 @app.get("/")

@@ -233,7 +233,43 @@ alembic upgrade head     # applies it to Neon
 
 ---
 
-## 10. Alternative: one small VPS instead of two free services
+## 10. Multi-user — inviting friends (W8, optional)
+
+The single-user passphrase deploy above is the default. To let a handful of
+invited people each track their own trades on the one instance, switch auth to
+Supabase (free; the DB stays on Neon — Supabase is used **only** for login):
+
+1. **Supabase** (the project you kept from the DB migration) → **Authentication
+   → Providers → Email**: on, and turn **off** "Confirm email" (the backend
+   allowlist is the real gate). **Project Settings → API**: copy the **Project
+   URL**, the **anon** key, and the **JWT Secret**. **Project Settings → Data
+   API → Exposed schemas**: clear it (nothing here uses PostgREST; this stops
+   the public anon key from exposing tables).
+2. **Render** — add:
+   - `TL_AUTH_MODE` = `supabase`
+   - `SUPABASE_JWT_SECRET` = *(the JWT Secret)*
+   - `TL_OWNER_EMAIL` = your email (gets the `owner` role + the admin surface)
+   - `TL_SIGNUP_ALLOWLIST` = comma-separated invited emails
+   - `TL_CREDENTIAL_ENC_KEY` = output of `python -m api.broker_credentials`
+     (needed only if friends will connect their own broker)
+3. **Frontend** — in `frontend/.env.production` uncomment and fill
+   `VITE_AUTH_MODE=supabase`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+   (public values), commit, push.
+4. **Migrate the DB** once, after you've signed in through Supabase so your
+   owner row exists: `alembic upgrade head` (0003 re-owns the old `local` rows
+   to you). Break-glass: set `TL_AUTH_MODE` back to `passphrase` to return to
+   the single-user gate instantly.
+
+Each user then adds their Capital.com connection under **Operations →
+Connections** (encrypted at rest); sync-on-open and the auto-sync toggle are
+per-user. The owner sees everyone at `GET /api/admin/users` and can disable an
+account (`POST /api/admin/users/<id>/disable`).
+
+**Before sharing the URL:** run `/code-review ultra` on the branch.
+
+---
+
+## 11. Alternative: one small VPS instead of two free services
 
 If the 512 MB / cold-start limits get annoying, the whole thing also runs on a
 single ~€3.79/mo Hetzner VM (PayPal, no capacity lottery): `uvicorn` behind

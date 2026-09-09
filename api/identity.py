@@ -54,6 +54,12 @@ _PROVISION_TTL_SEC = 60
 _provision_cache: Dict[str, tuple] = {}   # user_id -> (user_dict, monotonic_ts)
 _provision_cache_lock = threading.Lock()
 
+# A valid Supabase token whose email is not invited is refused every request.
+# Cache that "no" briefly so a client retrying in a loop doesn't re-hit the
+# allowlist + DB each time (cheap DoS guard for the invite-only surface).
+_DENY_TTL_SEC = 30
+_deny_cache: Dict[str, tuple] = {}        # user_id -> (reason, monotonic_ts)
+
 
 class InvalidToken(Exception):
     """The bearer token is missing, malformed, expired or wrongly signed."""
@@ -330,15 +336,25 @@ def resolve_user_strict(token: str) -> Dict[str, Any]:
         hit = _provision_cache.get(uid)
         if hit and now - hit[1] < _PROVISION_TTL_SEC:
             return hit[0]
-    user = provision_user(claims)
+        deny = _deny_cache.get(uid)
+        if deny and now - deny[1] < _DENY_TTL_SEC:
+            raise NotAllowed(deny[0])
+    try:
+        user = provision_user(claims)
+    except NotAllowed as exc:
+        with _provision_cache_lock:
+            _deny_cache[uid] = (str(exc), now)
+        raise
     with _provision_cache_lock:
         _provision_cache[uid] = (user, now)
+        _deny_cache.pop(uid, None)
     return user
 
 
 def _forget(user_id: str) -> None:
     with _provision_cache_lock:
         _provision_cache.pop(user_id, None)
+        _deny_cache.pop(user_id, None)
 
 
 def current_user_id(request) -> str:

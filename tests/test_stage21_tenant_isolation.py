@@ -150,7 +150,7 @@ def supa(monkeypatch, clean_tenants):
     monkeypatch.setenv("SUPABASE_JWT_SECRET", SECRET)
     monkeypatch.setenv("TL_SIGNUP_ALLOWLIST", f"{ALICE},{BOB}")
     monkeypatch.delenv("TL_OWNER_EMAIL", raising=False)
-    identity._provision_cache.clear()
+    identity._provision_cache.clear(); identity._deny_cache.clear()
     identity.ensure_users_table()
     conn = database.get_connection()
     cur = conn.cursor()
@@ -158,7 +158,7 @@ def supa(monkeypatch, clean_tenants):
     conn.commit()
     conn.close()
     yield
-    identity._provision_cache.clear()
+    identity._provision_cache.clear(); identity._deny_cache.clear()
 
 
 def test_http_requests_are_tenant_scoped(supa):

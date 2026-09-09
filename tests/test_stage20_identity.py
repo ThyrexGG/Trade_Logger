@@ -56,10 +56,10 @@ def supa_env(monkeypatch):
     monkeypatch.setenv("TL_OWNER_EMAIL", OWNER)
     monkeypatch.setenv("TL_SIGNUP_ALLOWLIST", f"{FRIEND}, {OWNER}")
     monkeypatch.delenv("TL_AUTH_DISABLED", raising=False)
-    identity._provision_cache.clear()
+    identity._provision_cache.clear(); identity._deny_cache.clear()
     _wipe_users()
     yield
-    identity._provision_cache.clear()
+    identity._provision_cache.clear(); identity._deny_cache.clear()
     _wipe_users()
 
 

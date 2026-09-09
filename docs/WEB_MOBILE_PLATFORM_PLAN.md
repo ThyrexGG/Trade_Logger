@@ -491,7 +491,20 @@ W1 and W2 can run in parallel. W4 and W5 can run in parallel after W7.
 
 ---
 
-### W8 — Multi-tenant (COMMITTED 2026-09-08 — building now)
+### W8 — Multi-tenant (W8.1–W8.7 SHIPPED 2026-09-09)
+
+All seven phases are on `main`. Inert until `TL_AUTH_MODE=supabase` +
+`VITE_AUTH_MODE=supabase`. See `docs/DEPLOY.md` §10 for the switch-on steps.
+W8.1 identity (`api/identity.py`, dual-mode gate). W8.2 frontend Supabase
+sign-in. W8.3 Alembic `0002`/`0003` (`user_id` column + owner hand-over).
+W8.4 `tenant.py` context var + every journal table / query scoped. W8.5
+`api/broker_credentials.py` (Fernet) + `/api/connections` + ConnectionsPage.
+W8.6 per-user sync (`sync_service.run_for_user`, `user_settings`). W8.7
+owner-only `/api/admin/users`, deny-cache, docs.
+
+---
+
+### W8 — original plan (COMMITTED 2026-09-08)
 
 **Why.** D5 — open TradeLogger to a handful of friends so each tracks their own
 trades. Doing this properly is a workstream, not a W3 tweak.
