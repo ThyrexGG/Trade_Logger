@@ -10,7 +10,7 @@ interface UseOpenPositionsResult {
   refetch: () => void
 }
 
-const REFRESH_MS = 30_000
+const REFRESH_MS = 45_000
 
 /** Read-only open positions for exposure context. One request, slow refresh. */
 export function useOpenPositions(): UseOpenPositionsResult {

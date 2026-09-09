@@ -21,6 +21,7 @@ module. It only reads broker state and writes rows to the local journal DB.
 """
 from __future__ import annotations
 
+import os
 import threading
 import time
 from datetime import datetime, timezone
@@ -29,7 +30,14 @@ from typing import Any, Dict, Optional
 import auto_sync
 import database
 
-INTERVAL_SEC = 30
+# Auto-loop cadence. Was 30s — far tighter than broker data actually moves, and
+# every cycle does a full closed-trades read + position rewrite, so on a metered
+# DB backend the loop alone can dominate egress. 120s is still well inside a
+# useful "live-ish" window. Override with TL_SYNC_INTERVAL_SEC.
+try:
+    INTERVAL_SEC = max(15, int(os.getenv("TL_SYNC_INTERVAL_SEC", "120")))
+except (TypeError, ValueError):
+    INTERVAL_SEC = 120
 _AUTO_SETTING_KEY = "sync_auto_enabled"
 _HEARTBEAT_KEY = "inprocess_sync_heartbeat"
 

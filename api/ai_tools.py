@@ -58,7 +58,7 @@ def _s(v: Any) -> Optional[str]:
 
 
 def _closed_trades() -> pd.DataFrame:
-    df = database.get_closed_trades(ttl_sec=5.0)
+    df = database.get_closed_trades(ttl_sec=database.CACHE_TTL_CLOSED_TRADES)
     if not isinstance(df, pd.DataFrame) or df.empty:
         return pd.DataFrame()
     df = df.copy()

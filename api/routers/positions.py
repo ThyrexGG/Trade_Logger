@@ -18,7 +18,7 @@ async def get_open_positions() -> PositionsResponse:
     Returns active paper/shadow open positions enriched with real-time PnL,
     R-multiple, and MAE/MFE excursion metrics with short TTL caching.
     """
-    df_open = database.get_open_positions(ttl_sec=2.0)
+    df_open = database.get_open_positions(ttl_sec=database.CACHE_TTL_OPEN_POSITIONS)
     items: List[PositionItem] = []
     total_pnl = 0.0
 

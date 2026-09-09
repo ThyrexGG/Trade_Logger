@@ -22,7 +22,7 @@ interface HealthContextValue {
 
 const HealthContext = createContext<HealthContextValue | null>(null)
 
-const POLL_INTERVAL_MS = 30_000
+const POLL_INTERVAL_MS = 60_000
 
 /**
  * Polls /api/health on a slow interval and shares the result app-wide.

@@ -133,7 +133,7 @@ async def lifespan(_app: FastAPI):
                         await asyncio.to_thread(build_context, True)
                 except Exception:
                     pass
-                await asyncio.sleep(60)
+                await asyncio.sleep(300)
 
         try:
             ai_ctx_task = asyncio.create_task(_keep_ai_context_warm())

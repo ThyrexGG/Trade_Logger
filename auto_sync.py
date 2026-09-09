@@ -79,7 +79,7 @@ def run_sync_cycle(known_trade_ids: set, logfn=log) -> dict:
 
     # 3. Newly closed trades -> push notifications
     try:
-        current_df = database.get_closed_trades()
+        current_df = database.get_closed_trades(ttl_sec=database.CACHE_TTL_CLOSED_TRADES)
         if not current_df.empty:
             new_trades = current_df[~current_df["trade_id"].isin(known_trade_ids)]
             result["new_closed_trades"] = int(len(new_trades))

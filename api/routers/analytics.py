@@ -56,7 +56,7 @@ def _now() -> str:
 
 def _load_trades() -> pd.DataFrame:
     """The authoritative closed-trade population, dates parsed exactly as `app.py`."""
-    df = database.get_closed_trades(ttl_sec=5.0)
+    df = database.get_closed_trades(ttl_sec=database.CACHE_TTL_CLOSED_TRADES)
     if df is None or df.empty:
         return pd.DataFrame()
     df = df.copy()
@@ -352,7 +352,7 @@ def get_day_trades(
 
 def _official_balance(acc_label: str) -> Optional[float]:
     try:
-        balances = database.get_account_balances() or {}
+        balances = database.get_account_balances(ttl_sec=database.CACHE_TTL_ACCOUNT_BALANCES) or {}
     except Exception:
         return None
     if acc_label != "ALL":

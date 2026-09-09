@@ -11,6 +11,28 @@ from dotenv import load_dotenv
 
 _DB_CACHE = {}
 
+# --- read-path cache TTLs (seconds) ------------------------------------------
+# The trade / position / balance / alert tables are WRITE-INVALIDATED: every
+# save_*/update_*/delete_* clears the matching cache key, so a generous TTL
+# never serves data a write has superseded — between writes the rows genuinely
+# do not change. A short TTL only meant every dashboard poll (~30-60s cadence)
+# and every background sync cycle was a cache miss that re-pulled a whole table
+# from Postgres. On a metered backend (Supabase egress, 2026-09) that repeated
+# full-table transfer is the bulk of the bill. Callers on the hot path pass
+# these explicitly; the function defaults are left untouched so nothing outside
+# the adapter layer changes behaviour. Override per key via env, no redeploy.
+def _ttl_env(name: str, default: float) -> float:
+    try:
+        v = float((os.getenv(name) or "").strip() or default)
+        return v if v >= 0 else default
+    except (TypeError, ValueError):
+        return default
+
+CACHE_TTL_CLOSED_TRADES = _ttl_env("TL_TTL_CLOSED_TRADES", 120.0)
+CACHE_TTL_OPEN_POSITIONS = _ttl_env("TL_TTL_OPEN_POSITIONS", 20.0)
+CACHE_TTL_ACCOUNT_BALANCES = _ttl_env("TL_TTL_ACCOUNT_BALANCES", 20.0)
+CACHE_TTL_PRICE_ALERTS = _ttl_env("TL_TTL_PRICE_ALERTS", 30.0)
+
 def invalidate_db_cache(prefix=None):
     if prefix is None:
         _DB_CACHE.clear()

@@ -25,9 +25,21 @@ services:
       # don't run the 7-route warm-up at boot
       - key: TL_SKIP_WARMUP
         value: "1"
-      # open/close per request — no stale pool after a sleep
+      # Keep a small connection pool. `get_connection()` validates an idle
+      # pooled socket with `SELECT 1` before handing it back, so a wake from
+      # Render's sleep is handled — and reconnecting per query was hammering
+      # the DB with TLS handshakes (egress). MIN=0 lets the pool drain to
+      # nothing while the service is idle.
       - key: DB_POOL_ENABLED
+        value: "1"
+      - key: DB_POOL_MIN
         value: "0"
+      - key: DB_POOL_MAX
+        value: "6"
+      # Broker auto-sync loop cadence when the toggle is on (default 120s).
+      # Prefer leaving the toggle OFF on free hosting — sync-on-open covers it.
+      - key: TL_SYNC_INTERVAL_SEC
+        value: "120"
       # --- HTTPS + cross-site cookie (frontend is on another domain) ---
       - key: TL_AUTH_COOKIE_SECURE
         value: "1"

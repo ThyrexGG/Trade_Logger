@@ -138,7 +138,7 @@ def get_journal() -> JournalResponse:
     (execution facts + subjective setup_tag / notes / rating). No write path
     is exposed by the current backend, so this surface is read-only.
     """
-    df = database.get_closed_trades(ttl_sec=5.0)
+    df = database.get_closed_trades(ttl_sec=database.CACHE_TTL_CLOSED_TRADES)
     try:
         sc_counts = database.count_journal_screenshots()
     except Exception:
@@ -412,7 +412,7 @@ def journal_tag_stats() -> Dict[str, Any]:
     honest 'is this setup working for me' read — win rate + net-P&L expectancy on
     every trade you tagged. (R-multiple expectancy vs a base rate needs a
     stop-loss per trade, which closed_trades does not store.)"""
-    df = database.get_closed_trades(ttl_sec=5.0)
+    df = database.get_closed_trades(ttl_sec=database.CACHE_TTL_CLOSED_TRADES)
     stats: Dict[str, Dict[str, Any]] = {}
     if isinstance(df, pd.DataFrame) and not df.empty:
         for _, r in df.iterrows():
@@ -606,7 +606,7 @@ def get_system() -> OperationsSystemResponse:
     )
 
     try:
-        df_open = database.get_open_positions(ttl_sec=2.0)
+        df_open = database.get_open_positions(ttl_sec=database.CACHE_TTL_OPEN_POSITIONS)
         open_count = 0 if df_open is None or df_open.empty else int(len(df_open))
     except Exception:
         open_count = 0

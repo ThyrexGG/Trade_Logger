@@ -85,7 +85,7 @@ def _session_clock(now: datetime) -> CCSessionClock:
 
 # --- section builders --------------------------------------------------
 def _load_trades() -> pd.DataFrame:
-    df = database.get_closed_trades(ttl_sec=5.0)
+    df = database.get_closed_trades(ttl_sec=database.CACHE_TTL_CLOSED_TRADES)
     if df is None or df.empty:
         return pd.DataFrame()
     df = df.copy()
@@ -120,7 +120,7 @@ def _daily_and_account(now: datetime):
     all_m = analytics.calculate_performance_metrics(df.sort_values("exit_time"), 10000.0)
     official = None
     try:
-        balances = database.get_account_balances() or {}
+        balances = database.get_account_balances(ttl_sec=database.CACHE_TTL_ACCOUNT_BALANCES) or {}
         if balances:
             official = round(float(sum(b["balance"] for b in balances.values())), 2)
     except Exception:
@@ -135,7 +135,7 @@ def _daily_and_account(now: datetime):
 
 
 def _positions_section() -> CCPositions:
-    df = database.get_open_positions(ttl_sec=2.0)
+    df = database.get_open_positions(ttl_sec=database.CACHE_TTL_OPEN_POSITIONS)
     if df is None or df.empty:
         return CCPositions(total_open=0, total_floating_pnl=0.0, long_count=0, short_count=0, by_symbol=[])
     by_sym: Dict[str, Dict[str, Any]] = {}
@@ -162,7 +162,7 @@ def _positions_section() -> CCPositions:
 
 
 def _alerts_section() -> CCAlerts:
-    df = database.get_all_price_alerts(limit=50, ttl_sec=8.0)
+    df = database.get_all_price_alerts(limit=50, ttl_sec=database.CACHE_TTL_PRICE_ALERTS)
     if df is None or df.empty:
         return CCAlerts(active=0, triggered=0, triggered_recent=[])
     active = triggered = 0
