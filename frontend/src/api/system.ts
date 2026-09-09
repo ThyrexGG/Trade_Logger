@@ -18,10 +18,11 @@ export interface SyncStatusResponse {
   interval_seconds: number
   last_run: SyncRunResult | null
   generated_at: string
-  ran?: SyncRunResult
+  ran?: SyncRunResult | SyncRunResult[]
+  connections?: number
   /** run-if-stale only: set when no cycle was run */
   skipped?: boolean
-  reason?: 'fresh' | 'in_progress' | 'auto_loop_on'
+  reason?: 'fresh' | 'in_progress' | 'auto_loop_on' | 'no_connection'
   heartbeat_age_sec?: number | null
   safety_barrier: { live_automation_enabled: boolean; live_broker_transmission: string }
 }

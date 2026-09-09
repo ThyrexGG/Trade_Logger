@@ -42,11 +42,14 @@ def _inprocess_sync_active() -> bool:
         return False
 
 
-def run_sync_cycle(known_trade_ids: set, logfn=log) -> dict:
+def run_sync_cycle(known_trade_ids: set, logfn=log, creds: dict | None = None) -> dict:
     """One sync iteration — Capital.com trade/position sync, closed-trade push
     alerts, and price-alert checks (plus MT5 only if MT5_ENABLED). Shared by
     this standalone daemon and the API server's in-process sync service.
-    `known_trade_ids` is mutated in place with any newly seen closed trades."""
+    `known_trade_ids` is mutated in place with any newly seen closed trades.
+    `creds` (W8.6): a specific user's Capital.com credentials; None uses the
+    CAPITAL_* environment (single-user / owner). MT5 always uses the local
+    terminal and is unaffected."""
     result = {"mt5_ok": False, "mt5_skipped": False, "capital_ok": False,
               "new_closed_trades": 0, "errors": []}
 
@@ -70,7 +73,7 @@ def run_sync_cycle(known_trade_ids: set, logfn=log) -> dict:
 
     # 2. Sync Capital.com
     try:
-        result["capital_ok"] = bool(capital_sync.sync_capital())
+        result["capital_ok"] = bool(capital_sync.sync_capital(creds=creds))
         logfn("Capital.com Sync: SUCCESS" if result["capital_ok"]
               else "Capital.com Sync: Completed (no new trades)")
     except Exception as e:  # noqa: BLE001

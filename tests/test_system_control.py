@@ -98,7 +98,7 @@ def test_sync_run_invokes_one_cycle(monkeypatch):
     from api import sync_service
     calls = {"n": 0}
 
-    def _fake_cycle(known, logfn=None):
+    def _fake_cycle(known, logfn=None, creds=None):
         calls["n"] += 1
         return {"errors": [], "mt5_ok": False, "capital_ok": True, "new_closed_trades": 0}
 
@@ -116,14 +116,14 @@ def test_sync_run_if_stale_skips_when_fresh(monkeypatch):
 
     calls = {"n": 0}
 
-    def _fake_cycle(known, logfn=None):
+    def _fake_cycle(known, logfn=None, creds=None):
         calls["n"] += 1
         return {"errors": [], "mt5_ok": False, "capital_ok": True, "new_closed_trades": 0}
 
     monkeypatch.setattr(sync_service.auto_sync, "run_sync_cycle", _fake_cycle)
-    monkeypatch.setattr(sync_service, "is_auto_enabled", lambda: False)
+    monkeypatch.setattr(sync_service, "is_auto_enabled", lambda *a, **k: False)
     # heartbeat 2 minutes old -> a 15-minute window is still fresh
-    monkeypatch.setattr(sync_service, "_heartbeat_age_sec", lambda: 120.0)
+    monkeypatch.setattr(sync_service, "_heartbeat_age_sec", lambda *a, **k: 120.0)
 
     body = client.post("/api/system/sync/run-if-stale?max_age_minutes=15").json()
     assert calls["n"] == 0
@@ -135,13 +135,13 @@ def test_sync_run_if_stale_runs_when_stale(monkeypatch):
 
     calls = {"n": 0}
 
-    def _fake_cycle(known, logfn=None):
+    def _fake_cycle(known, logfn=None, creds=None):
         calls["n"] += 1
         return {"errors": [], "mt5_ok": False, "capital_ok": True, "new_closed_trades": 0}
 
     monkeypatch.setattr(sync_service.auto_sync, "run_sync_cycle", _fake_cycle)
-    monkeypatch.setattr(sync_service, "is_auto_enabled", lambda: False)
-    monkeypatch.setattr(sync_service, "_heartbeat_age_sec", lambda: 3600.0)  # 1h old
+    monkeypatch.setattr(sync_service, "is_auto_enabled", lambda *a, **k: False)
+    monkeypatch.setattr(sync_service, "_heartbeat_age_sec", lambda *a, **k: 3600.0)  # 1h old
 
     body = client.post("/api/system/sync/run-if-stale?max_age_minutes=15").json()
     assert calls["n"] == 1
@@ -151,7 +151,7 @@ def test_sync_run_if_stale_runs_when_stale(monkeypatch):
 def test_sync_run_if_stale_defers_to_auto_loop(monkeypatch):
     from api import sync_service
 
-    monkeypatch.setattr(sync_service, "is_auto_enabled", lambda: True)
+    monkeypatch.setattr(sync_service, "is_auto_enabled", lambda *a, **k: True)
     monkeypatch.setattr(
         sync_service.auto_sync, "run_sync_cycle",
         lambda *a, **k: pytest.fail("must not sync while the auto loop owns it"),

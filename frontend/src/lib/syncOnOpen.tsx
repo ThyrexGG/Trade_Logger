@@ -47,8 +47,11 @@ export function SyncOnOpenProvider({ children }: { children: ReactNode }) {
     setSyncing(true)
     runSyncIfStale(STALE_MINUTES)
       .then((res) => {
-        if (res.ran?.ok) {
-          window.dispatchEvent(new CustomEvent('tl:synced', { detail: res.ran }))
+        // `ran` is one cycle result, or an array (a user with several broker
+        // connections). Fire `tl:synced` if any cycle brought in data.
+        const runs = Array.isArray(res.ran) ? res.ran : res.ran ? [res.ran] : []
+        if (runs.some((r) => r?.ok)) {
+          window.dispatchEvent(new CustomEvent('tl:synced', { detail: runs }))
         }
       })
       .catch(() => {

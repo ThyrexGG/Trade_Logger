@@ -52,8 +52,10 @@ export function useSyncControl(onSynced?: () => void): UseSyncControlResult {
     try {
       const r = await runSyncNow()
       setStatus(r)
-      if (r.ran?.ok) onSyncedRef.current?.()
-      if (r.ran && !r.ran.ok) setError(r.ran.errors[0] ?? 'Sync completed with errors')
+      const runs = Array.isArray(r.ran) ? r.ran : r.ran ? [r.ran] : []
+      if (runs.some((x) => x.ok)) onSyncedRef.current?.()
+      const failed = runs.find((x) => !x.ok)
+      if (failed) setError(failed.errors[0] ?? 'Sync completed with errors')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sync failed')
     } finally {

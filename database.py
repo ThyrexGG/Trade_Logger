@@ -846,6 +846,9 @@ def init_db(force: bool = False):
     except Exception:
         pass
 
+    # Per-user settings (W8.6) — broker-sync heartbeat + auto-sync toggle.
+    _ensure_user_settings(cursor)
+
     # --- multi-user tenant column (W8.4) ---------------------------------
     # Every journal-side table gets `user_id`. Single-user / passphrase / the
     # test suite: all rows are tenant "local" (see tenant.py) and every query
@@ -1612,6 +1615,93 @@ def set_setting(key, value):
     except Exception as e:
         print(f"Error saving setting {key}: {e}")
         return False
+
+
+# ----------------- Per-user settings (W8.6) -----------------
+# `user_settings` (user_id, key, value) holds settings that are per-tenant:
+# the broker-sync heartbeat and the auto-sync toggle. `app_settings` stays
+# global. The table is created in init_db()'s shared block.
+
+def _ensure_user_settings(cursor):
+    cursor.execute(
+        "CREATE TABLE IF NOT EXISTS user_settings ("
+        " user_id TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL,"
+        " PRIMARY KEY (user_id, key))"
+    )
+
+
+def get_user_setting(key, default="", user_id=None):
+    uid = tenant.resolve(user_id)
+    cache_key = f"usetting_{uid}_{key}"
+    if cache_key in _DB_CACHE:
+        val, ts = _DB_CACHE[cache_key]
+        if time.time() - ts < 15.0:
+            return val
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        _ensure_user_settings(cur)
+        ph = get_sql_placeholder(conn)
+        cur.execute(
+            f"SELECT value FROM user_settings WHERE user_id = {ph} AND key = {ph}",
+            (uid, key),
+        )
+        row = cur.fetchone()
+        conn.close()
+        res = row[0] if row else default
+        _DB_CACHE[cache_key] = (res, time.time())
+        return res
+    except Exception as e:  # noqa: BLE001
+        print(f"Error reading user_setting {key}: {e}")
+        return default
+
+
+def set_user_setting(key, value, user_id=None):
+    uid = tenant.resolve(user_id)
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        _ensure_user_settings(cur)
+        ph = get_sql_placeholder(conn)
+        val = str(value)
+        if is_postgres():
+            cur.execute(
+                "INSERT INTO user_settings (user_id, key, value) VALUES (%s, %s, %s) "
+                "ON CONFLICT (user_id, key) DO UPDATE SET value = EXCLUDED.value",
+                (uid, key, val),
+            )
+        else:
+            cur.execute(
+                "INSERT OR REPLACE INTO user_settings (user_id, key, value) VALUES (?, ?, ?)",
+                (uid, key, val),
+            )
+        conn.commit()
+        conn.close()
+        _DB_CACHE[f"usetting_{uid}_{key}"] = (val, time.time())
+        return True
+    except Exception as e:  # noqa: BLE001
+        print(f"Error saving user_setting {key}: {e}")
+        return False
+
+
+def user_ids_with_setting(key, value):
+    """Every user_id whose ``user_settings[key]`` equals ``value`` — for the
+    per-user sync loop to find who has auto-sync on."""
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        _ensure_user_settings(cur)
+        ph = get_sql_placeholder(conn)
+        cur.execute(
+            f"SELECT user_id FROM user_settings WHERE key = {ph} AND value = {ph}",
+            (key, str(value)),
+        )
+        rows = [r[0] for r in cur.fetchall()]
+        conn.close()
+        return rows
+    except Exception:
+        return []
+
 
 # ----------------- Super App Chart Drawings Database -----------------
 
