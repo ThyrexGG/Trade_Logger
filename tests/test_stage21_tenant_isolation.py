@@ -57,7 +57,10 @@ def clean_tenants():
     ph = database.get_sql_placeholder(conn)
     for t in ("closed_trades", "raw_deals", "open_positions", "account_metadata",
               "price_alerts", "journal_entries", "journal_screenshots"):
-        cur.execute(f"DELETE FROM {t} WHERE user_id IN ({ph}, {ph})", ("alice", "bob"))
+        cur.execute(
+            f"DELETE FROM {t} WHERE user_id IN ({ph}, {ph}, {ph}, {ph})",
+            ("alice", "bob", "u-alice", "u-bob"),
+        )
     conn.commit()
     conn.close()
     database.invalidate_db_cache()

@@ -243,6 +243,14 @@ export const ZONES: Zone[] = [
         icon: CpuIcon,
         status: 'live',
       },
+      {
+        id: 'operations.connections',
+        label: 'Connections',
+        description: 'Your broker connection — credentials encrypted at rest.',
+        path: '/operations/connections',
+        icon: ShieldIcon,
+        status: 'live',
+      },
     ],
   },
 ]

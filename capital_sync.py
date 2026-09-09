@@ -83,28 +83,44 @@ def get_session():
     except Exception:
         return None
 
-def sync_capital():
-    # Reload .env freshly
-    load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
+def sync_capital(creds: dict | None = None):
+    """Sync one Capital.com account into the journal DB.
 
-    api_key = os.getenv("CAPITAL_API_KEY")
-    email = os.getenv("CAPITAL_EMAIL")
-    password = os.getenv("CAPITAL_PASSWORD")
-    account_id = os.getenv("CAPITAL_ACCOUNT_ID")
-    is_demo = str(os.getenv("CAPITAL_IS_DEMO", "false")).strip().lower() == "true"
+    ``creds`` (multi-user, W8.5): ``{api_key, email, password, account_id,
+    is_demo}`` for a specific user's connection — the caller has already bound
+    the tenant context so ``database.*`` writes land under the right user.
 
-    # Try Streamlit Cloud secrets as fallback if running on cloud
-    try:
-        import streamlit as st
-        if hasattr(st, "secrets") and len(st.secrets) > 0:
-            api_key = st.secrets.get("CAPITAL_API_KEY", api_key) or api_key
-            email = st.secrets.get("CAPITAL_EMAIL", email) or email
-            password = st.secrets.get("CAPITAL_PASSWORD", password) or password
-            account_id = str(st.secrets.get("CAPITAL_ACCOUNT_ID", account_id) or account_id or "")
-            if "CAPITAL_IS_DEMO" in st.secrets:
-                is_demo = str(st.secrets["CAPITAL_IS_DEMO"]).strip().lower() == "true"
-    except Exception:
-        pass
+    ``creds=None`` (single-user / owner fallback): read the credentials from
+    the environment (``CAPITAL_*``), exactly as before.
+    """
+    if creds:
+        api_key = creds.get("api_key")
+        email = creds.get("email")
+        password = creds.get("password")
+        account_id = creds.get("account_id")
+        is_demo = bool(creds.get("is_demo"))
+    else:
+        # Reload .env freshly
+        load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
+
+        api_key = os.getenv("CAPITAL_API_KEY")
+        email = os.getenv("CAPITAL_EMAIL")
+        password = os.getenv("CAPITAL_PASSWORD")
+        account_id = os.getenv("CAPITAL_ACCOUNT_ID")
+        is_demo = str(os.getenv("CAPITAL_IS_DEMO", "false")).strip().lower() == "true"
+
+        # Try Streamlit Cloud secrets as fallback if running on cloud
+        try:
+            import streamlit as st
+            if hasattr(st, "secrets") and len(st.secrets) > 0:
+                api_key = st.secrets.get("CAPITAL_API_KEY", api_key) or api_key
+                email = st.secrets.get("CAPITAL_EMAIL", email) or email
+                password = st.secrets.get("CAPITAL_PASSWORD", password) or password
+                account_id = str(st.secrets.get("CAPITAL_ACCOUNT_ID", account_id) or account_id or "")
+                if "CAPITAL_IS_DEMO" in st.secrets:
+                    is_demo = str(st.secrets["CAPITAL_IS_DEMO"]).strip().lower() == "true"
+        except Exception:
+            pass
 
     # Strip any extra accidental surrounding quotes from .env strings
     if api_key: api_key = api_key.strip('"\'')

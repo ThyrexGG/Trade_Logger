@@ -44,6 +44,7 @@ const AssistantPage = page(() => import('./pages/AssistantPage'), 'AssistantPage
 const JournalPage = page(() => import('./pages/JournalPage'), 'JournalPage')
 const AuditPage = page(() => import('./pages/AuditPage'), 'AuditPage')
 const SystemHealthPage = page(() => import('./pages/SystemHealthPage'), 'SystemHealthPage')
+const ConnectionsPage = page(() => import('./pages/ConnectionsPage'), 'ConnectionsPage')
 
 /** Item routes whose page is implemented for real (not a placeholder). */
 const LIVE_ITEM_PAGES: Record<string, ReactElement> = {
@@ -67,6 +68,7 @@ const LIVE_ITEM_PAGES: Record<string, ReactElement> = {
   'operations.journal': <JournalPage />,
   'operations.audit': <AuditPage />,
   'operations.system': <SystemHealthPage />,
+  'operations.connections': <ConnectionsPage />,
 }
 
 /**
