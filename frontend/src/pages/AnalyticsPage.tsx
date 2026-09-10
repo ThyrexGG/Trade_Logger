@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAnalytics } from '../lib/useAnalytics'
+import { useSyncControl } from '../lib/useSyncControl'
 import type { AnalyticsQuery } from '../types/analytics'
 import { PageContainer } from '../components/shell/PageContainer'
 import { AnalyticsControls } from '../components/analytics/AnalyticsControls'
@@ -20,6 +21,8 @@ import {
 export function AnalyticsPage() {
   const [query, setQuery] = useState<AnalyticsQuery>({ initial_balance: 10000 })
   const { state, data, error, refreshing, refetch } = useAnalytics(query)
+  const sync = useSyncControl(refetch)
+  const syncing = sync.syncing || sync.status?.cycle_in_progress
 
   const available = useMemo(
     () => data?.available ?? { accounts: [], symbols: [], date_min: null, date_max: null },
@@ -33,6 +36,16 @@ export function AnalyticsPage() {
       actions={
         <div className="flex flex-wrap items-center gap-2">
           {refreshing ? <span className="text-[11px] text-muted" aria-live="polite">Updating…</span> : null}
+          {sync.error ? <span className="text-[11px] text-warning" aria-live="polite">{sync.error}</span> : null}
+          <button
+            type="button"
+            onClick={() => void sync.syncNow()}
+            disabled={syncing}
+            className="rounded border border-accent/40 bg-accent/10 px-2.5 py-1 text-xs text-accent hover:bg-accent/20 disabled:opacity-50"
+            title="Pull the latest closed trades from the broker now, then refresh"
+          >
+            {syncing ? 'Syncing…' : 'Sync now'}
+          </button>
           <Link to="/operations/journal" className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover">
             Journal
           </Link>
@@ -69,7 +82,7 @@ export function AnalyticsPage() {
 
         <p className="border-t border-border-subtle pt-3 text-[11px] text-muted">
           Source: <code>closed_trades</code> via <code>analytics.calculate_performance_metrics</code>.
-          Data comes in through the broker sync (Positions → Sync now). Research-analytics
+          Data comes in through the broker sync (the <strong>Sync now</strong> button above, or Positions). Research-analytics
           (R-multiples, execution stress, confluence) is a separate Research Lab workflow.
         </p>
       </div>
