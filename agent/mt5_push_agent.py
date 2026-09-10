@@ -49,7 +49,7 @@ try:
 except ImportError:
     mt5 = None  # type: ignore
 
-AGENT_VERSION = "1.1.1"
+AGENT_VERSION = "1.1.2"
 TASK_NAME = "TradeLogger MT5 Sync"
 HISTORY_FALLBACK_START = datetime(2020, 1, 1, tzinfo=timezone.utc)
 
@@ -403,15 +403,46 @@ def install_task(poll_minutes: int = 15) -> bool:
 
 
 def uninstall_task() -> None:
-    if platform.system() == "Windows":
-        subprocess.run(["schtasks", "/Delete", "/F", "/TN", TASK_NAME],
-                       capture_output=True, text=True)
-    for f in ("mt5_sync_hidden.vbs",):
+    if platform.system() != "Windows":
+        print("  nothing to remove (no background task on this OS).")
+        return
+
+    # 1. delete the scheduled task — and actually check it worked
+    res = subprocess.run(["schtasks", "/Delete", "/F", "/TN", TASK_NAME],
+                         capture_output=True, text=True)
+    out = (res.stderr or res.stdout or "").strip()
+    if res.returncode == 0:
+        print(f"  removed the scheduled task '{TASK_NAME}'.")
+    elif "cannot find" in out.lower() or "does not exist" in out.lower():
+        print(f"  scheduled task '{TASK_NAME}' was already gone.")
+    else:
+        print(f"  ! could not delete the scheduled task: {out}")
+        print("    open Task Scheduler, find 'TradeLogger MT5 Sync', right-click -> Delete.")
+
+    # 2. stop any OTHER copy still running (a stuck sync would relaunch MT5
+    #    once more) — never this process, or we'd die before finishing
+    if getattr(sys, "frozen", False):
+        subprocess.run(
+            ["taskkill", "/F", "/IM", Path(sys.executable).name,
+             "/FI", f"PID ne {os.getpid()}"],
+            capture_output=True, text=True,
+        )
+
+    # 3. remove the hidden launcher + stale lock
+    for f in ("mt5_sync_hidden.vbs", ".sync.lock"):
         try:
             (app_dir() / f).unlink()
         except OSError:
             pass
-    print(f"  removed the background task '{TASK_NAME}'. Your synced data stays in TradeLogger.")
+
+    # 4. confirm
+    check = subprocess.run(["schtasks", "/Query", "/TN", TASK_NAME],
+                           capture_output=True, text=True)
+    if check.returncode != 0:
+        print("  confirmed: the task is gone. MetaTrader 5 will not be reopened anymore.")
+        print("  (your trades already in TradeLogger stay. you can delete this folder.)")
+    else:
+        print("  ! the task still shows in Task Scheduler — remove it there manually.")
 
 
 # --------------------------------------------------------------------------- #
