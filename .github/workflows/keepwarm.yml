@@ -1,0 +1,42 @@
+name: keep-warm
+
+# Pings the Render backend so it doesn't spin down (free tier sleeps after
+# ~15 min idle -> a ~50 s cold start on the next visit).
+#
+# Window: 00:00-16:00 UTC = ~07:00-23:00 in Cambodia (UTC+7). Render's free
+# tier also caps total running time at ~750 h/month, so we deliberately let it
+# sleep overnight rather than pin it awake 24/7. Widen the hour range in the
+# cron below if friends in other timezones need it later.
+#
+# GitHub's scheduled runs are best-effort and can be delayed 5-15 min under
+# load; that's fine for a keep-warm. Trigger manually any time from the
+# Actions tab ("Run workflow") to wake it on demand.
+
+on:
+  schedule:
+    - cron: "*/10 0-16 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: keep-warm
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Wake the backend
+        run: |
+          url="https://tradelogger-api.onrender.com/api/health"
+          for i in 1 2 3 4; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 120 "$url" || echo 000)
+            echo "attempt $i: HTTP $code"
+            if [ "$code" = "200" ]; then
+              echo "backend awake"
+              exit 0
+            fi
+            sleep 25
+          done
+          echo "::warning::backend did not return 200 after 4 attempts"
+          exit 1

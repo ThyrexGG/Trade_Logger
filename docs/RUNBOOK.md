@@ -178,6 +178,14 @@ python -m alembic upgrade head   # only if you added a migration
 `passphrase`. Break-glass is always `passphrase` — the app keeps working, data
 intact.
 
+**Keep-warm:** `.github/workflows/keepwarm.yml` pings `/api/health` every ~10
+min, 07:00-23:00 Cambodia time, so Render doesn't cold-start (~50 s) on the
+first visit. It sleeps overnight on purpose (Render free caps total run time
+at ~750 h/month). Wake it on demand from the repo's **Actions** tab -> keep-warm
+-> **Run workflow**. Widen the `cron` hour range if friends are in other
+timezones. The real fix for cold starts is Render **Starter ($7/mo)** — no
+sleep, more CPU.
+
 **Invite a friend:** add their email to `TL_SIGNUP_ALLOWLIST` on Render, save,
 wait for redeploy. Send them the URL (Capital.com) or the `.exe` (MT5).
 
