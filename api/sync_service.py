@@ -37,6 +37,7 @@ from typing import Any, Dict, List, Optional
 import auto_sync
 import database
 import tenant
+from api import identity as _identity
 
 try:
     INTERVAL_SEC = max(15, int(os.getenv("TL_SYNC_INTERVAL_SEC", "120")))
@@ -163,6 +164,24 @@ def _run_cycle(user_id: str, creds: Optional[Dict[str, Any]], source: str) -> Di
         return result
 
 
+def _env_fallback_ok(uid: str) -> bool:
+    """The ``CAPITAL_*`` env credentials back exactly one tenant with no saved
+    connection: the single-user ``local`` tenant, or the configured owner
+    (``TL_OWNER_EMAIL``) — so an owner who re-owned the old single-user rows
+    keeps syncing from the Render env, exactly as before, with no extra setup.
+    Friends always need their own ``broker_connections`` row."""
+    if uid == tenant.LOCAL_USER_ID:
+        return True
+    email = _identity.owner_email()
+    if not email:
+        return False
+    try:
+        u = _identity.get_user(uid)
+        return bool(u and str(u.get("email", "")).lower() == email)
+    except Exception:
+        return False
+
+
 def run_for_user(user_id: Optional[str] = None, source: str = "manual") -> Dict[str, Any]:
     """Sync every active connection for ``user_id`` (default: the current
     tenant). Falls back to the ``CAPITAL_*`` env credentials for the local /
@@ -176,7 +195,7 @@ def run_for_user(user_id: Optional[str] = None, source: str = "manual") -> Dict[
             "connections": len(results),
         }
     # no saved connection: env-credential path (owner / single-user only)
-    if uid == tenant.LOCAL_USER_ID:
+    if _env_fallback_ok(uid):
         return {"ran": _run_cycle(uid, None, source), "connections": 0}
     return {"skipped": True, "reason": "no_connection", "user_id": uid}
 

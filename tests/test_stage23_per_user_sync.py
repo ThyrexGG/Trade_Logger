@@ -91,6 +91,43 @@ def test_local_owner_falls_back_to_env(enc, monkeypatch):
     assert calls["creds"] is None          # env path
 
 
+def test_real_owner_also_falls_back_to_env(enc, monkeypatch):
+    """An owner who re-owned the old single-user rows keeps syncing from the
+    CAPITAL_* env with no saved connection — friends do not."""
+    from api import identity
+
+    monkeypatch.setenv("TL_OWNER_EMAIL", "boss@example.test")
+    identity.ensure_users_table()
+    conn = database.get_connection()
+    cur = conn.cursor()
+    ph = database.get_sql_placeholder(conn)
+    cur.execute(f"DELETE FROM users WHERE id IN ({ph}, {ph})", ("u-owner", "u-friend"))
+    now = "2026-01-01T00:00:00"
+    for uid, email, role in [("u-owner", "boss@example.test", "owner"),
+                             ("u-friend", "pal@example.test", "member")]:
+        cur.execute(
+            f"INSERT INTO users (id, email, display_name, role, status, created_at, last_seen_at) "
+            f"VALUES ({ph}, {ph}, NULL, {ph}, 'active', {ph}, {ph})",
+            (uid, email, role, now, now),
+        )
+    conn.commit()
+    conn.close()
+
+    seen = []
+    monkeypatch.setattr(
+        sync_service.auto_sync, "run_sync_cycle",
+        lambda known, logfn=None, creds=None: seen.append(creds)
+        or {"errors": [], "mt5_ok": False, "capital_ok": True, "new_closed_trades": 0},
+    )
+
+    out_owner = sync_service.run_for_user("u-owner", source="test")
+    assert out_owner["connections"] == 0 and seen == [None]      # env path
+
+    out_friend = sync_service.run_for_user("u-friend", source="test")
+    assert out_friend.get("skipped") is True
+    assert out_friend["reason"] == "no_connection"
+
+
 def test_run_if_stale_is_per_user(enc, monkeypatch):
     monkeypatch.setattr(sync_service.auto_sync, "run_sync_cycle",
                         lambda *a, **k: {"errors": [], "mt5_ok": False, "capital_ok": True, "new_closed_trades": 0})
