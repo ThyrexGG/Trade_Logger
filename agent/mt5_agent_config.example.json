@@ -1,17 +1,15 @@
 {
-  "_comment": "You normally do NOT need this file — just run the program and follow the wizard. It writes mt5_agent_config.json for you. This example is only for manual/advanced setups. Never commit the real one.",
+  "_comment": "You normally do NOT need this file — run the program and follow the wizard, it writes mt5_agent_config.json for you. This example is only for manual / advanced setups. Never commit the real one.",
 
-  "_normal": "The program already knows the TradeLogger + Supabase URLs. The wizard only asks for these two:",
+  "_normal": "The program already knows the TradeLogger URL. The wizard only asks for these two:",
   "email": "you@example.com",
   "password": "your-tradelogger-login-password",
 
-  "_overrides": "Set any of these to override the built-in defaults:",
+  "_overrides": "Optional — override the built-in defaults:",
   "server_url": "https://tradelogger-api.onrender.com",
-  "supabase_url": "https://wutzxzophrfkqpylcswc.supabase.co",
-  "supabase_anon_key": "eyJhbGci...public-anon-key...",
   "poll_minutes": 15,
 
-  "_single_user": "If the site still uses one shared passphrase (no sign-in page), delete email/password/supabase_* above and use this instead:",
+  "_single_user": "If the site still uses one shared passphrase (no sign-in page), delete email/password above and use this instead:",
   "__passphrase": "the-shared-passphrase",
 
   "_mt5": "Only if the MT5 terminal is NOT already open and logged in:",

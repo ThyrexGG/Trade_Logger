@@ -233,43 +233,42 @@ alembic upgrade head     # applies it to Neon
 
 ---
 
-## 10. Multi-user — inviting friends (W8, optional)
+## 10. Multi-user — inviting friends (W10, optional)
 
 The single-user passphrase deploy above is the default. To let a handful of
 invited people each track their own trades on the one instance, switch auth to
-Supabase (free; the DB stays on Neon — Supabase is used **only** for login):
+**multiuser** — first-party email + password, no third party. Identity lives in
+the same Neon database as everything else; sessions are the same opaque cookie
+the passphrase gate already uses.
 
-1. **Supabase** (the project you kept from the DB migration) → **Authentication
-   → Providers → Email**: on, and turn **off** "Confirm email" (the backend
-   allowlist is the real gate). **Project Settings → API**: copy the **Project
-   URL** and the **anon** key. **Project Settings → Data API → Exposed
-   schemas**: clear it (nothing here uses PostgREST; this stops the public anon
-   key from exposing tables).
-2. **Render** — add:
-   - `TL_AUTH_MODE` = `supabase`
-   - `SUPABASE_URL` = the Project URL (`https://<ref>.supabase.co`)
+1. **Render** — add three env vars:
+   - `TL_AUTH_MODE` = `multiuser`
    - `TL_OWNER_EMAIL` = your email (gets the `owner` role + the admin surface)
-   - `TL_SIGNUP_ALLOWLIST` = comma-separated invited emails (include yours)
-   - `TL_CREDENTIAL_ENC_KEY` = output of `python -m api.broker_credentials`
-     (needed only if friends will connect their own broker)
+   - `TL_SIGNUP_ALLOWLIST` = comma-separated invited emails, **including yours**
+   - (optional) `TL_CREDENTIAL_ENC_KEY` = output of `python -m api.broker_credentials`
+     — only if friends will connect their own Capital.com account. Save a copy.
 
-   The backend verifies access tokens against Supabase's signing keys. New
-   projects use **asymmetric keys (ES256/RS256)** — `SUPABASE_URL` is all the
-   backend needs (it fetches the public JWKS). Older projects on the **legacy
-   HS256** shared secret: set `SUPABASE_JWT_SECRET` instead (Project Settings →
-   API → JWT Settings). Setting both is fine.
-3. **Frontend** — in `frontend/.env.production` uncomment and fill
-   `VITE_AUTH_MODE=supabase`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
-   (public values), commit, push.
-4. **Migrate the DB** once, after you've signed in through Supabase so your
-   owner row exists: `alembic upgrade head` (0003 re-owns the old `local` rows
-   to you). Break-glass: set `TL_AUTH_MODE` back to `passphrase` to return to
-   the single-user gate instantly.
+   Nothing else. No external service, no keys to rotate.
+2. **Frontend** — `frontend/.env.production` already sets `VITE_AUTH_MODE=multiuser`.
+   If it's still `passphrase` on your branch, set it, commit, push.
+3. **Sign up as owner** — open the app, **Create account**, register with your
+   `TL_OWNER_EMAIL`. You're in as owner.
+4. **Re-own your history** — once, after step 3, locally with `.env`
+   `DATABASE_URL` pointing at Neon: `python -m alembic upgrade head`. Migration
+   `0003` moves the old `local` rows onto your account; `0004` adds the auth
+   columns (a no-op if the app booted first).
+
+Break-glass: set `TL_AUTH_MODE` back to `passphrase` on Render — instant return
+to the single shared-passphrase app, all data intact.
 
 Each user then adds their Capital.com connection under **Operations →
-Connections** (encrypted at rest); sync-on-open and the auto-sync toggle are
-per-user. The owner sees everyone at `GET /api/admin/users` and can disable an
-account (`POST /api/admin/users/<id>/disable`).
+Connections** (encrypted at rest), or runs the MT5 agent (§11); sync-on-open
+and the auto-sync toggle are per-user. The owner sees everyone at
+`GET /api/admin/users` and can disable an account
+(`POST /api/admin/users/<id>/disable`, effective within ~30 s).
+
+Passwords are scrypt-hashed; sign-in and sign-up are per-IP rate-limited. A
+disabled account is locked out on its next request.
 
 **Before sharing the URL:** run `/code-review ultra` on the branch.
 
@@ -284,13 +283,13 @@ Linux. So an MT5 friend runs a small agent on their own PC that reads MT5 and
 POSTs the data to `POST /api/ingest/mt5`.
 
 - **No server change is needed** — the `/api/ingest` router ships with the
-  backend and is gated by the normal auth. It works in both passphrase and
-  Supabase mode. Data ingestion only, no order path.
+  backend and is gated by the normal auth. It works in every auth mode. Data
+  ingestion only, no order path.
 - **Build the .exe** (once, on Windows): `agent/build_agent.ps1` →
-  `agent/dist/tradelogger-mt5-sync.exe`. The public API + Supabase URLs are
-  baked in (`CONFIG_DEFAULTS` in `agent/mt5_push_agent.py`) — update those and
-  rebuild if a URL changes. Host the .exe wherever friends can download it
-  (GitHub Releases, a drive); it contains no secrets.
+  `agent/dist/tradelogger-mt5-sync.exe`. The public API URL is baked in
+  (`CONFIG_DEFAULTS` in `agent/mt5_push_agent.py`) — update it and rebuild if
+  the URL changes. Host the .exe wherever friends can download it (GitHub
+  Releases, a drive); it contains no secrets.
 - **The friend** double-clicks the .exe, types their TradeLogger email +
   password. The wizard writes `mt5_agent_config.json`, installs a
   Task-Scheduler job (`schtasks` + a hidden VBS launcher, every 15 min), and

@@ -74,5 +74,4 @@ the wizard writes `mt5_agent_config.json` for you.
   your machine only. Keep the folder to yourself.
 - **Symbols.** Broker suffixes (`XAUUSD.pro`, `EURUSD.m`) are normalised so
   your stats line up. Balance/deposit rows are ignored.
-- The program contains no secrets — only the public TradeLogger and Supabase
-  URLs.
+- The program contains no secrets — only the public TradeLogger URL.

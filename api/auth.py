@@ -99,6 +99,13 @@ def hash_password(password: str, *, salt: Optional[bytes] = None) -> str:
     return f"scrypt${salt.hex()}${dk.hex()}"
 
 
+def verify_hash(password: str, stored: str) -> bool:
+    """True if ``password`` matches a ``scrypt$salt$hash`` string. Public so the
+    multi-user identity layer can check per-account password hashes with the
+    same KDF the single-user gate uses."""
+    return _verify_against_hash(password, stored)
+
+
 def _verify_against_hash(password: str, stored: str) -> bool:
     try:
         scheme, salt_hex, hash_hex = stored.split("$", 2)
@@ -162,10 +169,20 @@ def _ensure_sessions_table() -> None:
                     label TEXT,
                     created_at TEXT NOT NULL,
                     expires_at TEXT NOT NULL,
-                    last_seen_at TEXT NOT NULL
+                    last_seen_at TEXT NOT NULL,
+                    user_id TEXT NOT NULL DEFAULT 'local'
                 )
                 """
             )
+            # existing single-user deployments: add the column in place
+            try:
+                cur.execute(
+                    "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS user_id TEXT NOT NULL DEFAULT 'local'"
+                    if database.is_postgres()
+                    else "ALTER TABLE sessions ADD COLUMN user_id TEXT NOT NULL DEFAULT 'local'"
+                )
+            except Exception:
+                conn.rollback()
             conn.commit()
             _sessions_ready = True
         finally:
@@ -180,8 +197,12 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def create_session(label: str = "") -> Tuple[str, str]:
-    """Returns (raw_token, expires_at_iso). Only the hash is stored."""
+def create_session(label: str = "", user_id: str = "local") -> Tuple[str, str]:
+    """Returns (raw_token, expires_at_iso). Only the hash is stored.
+
+    ``user_id`` ties the session to an account in multi-user mode; it stays
+    ``"local"`` for the single-user passphrase gate.
+    """
     _ensure_sessions_table()
     token = secrets.token_urlsafe(_TOKEN_BYTES)
     now = _now()
@@ -191,14 +212,51 @@ def create_session(label: str = "") -> Tuple[str, str]:
         cur = conn.cursor()
         ph = _ph(conn)
         cur.execute(
-            f"INSERT INTO sessions (token_hash, label, created_at, expires_at, last_seen_at) "
-            f"VALUES ({ph}, {ph}, {ph}, {ph}, {ph})",
-            (_hash_token(token), (label or "")[:120], now.isoformat(), expires.isoformat(), now.isoformat()),
+            f"INSERT INTO sessions (token_hash, label, created_at, expires_at, last_seen_at, user_id) "
+            f"VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph})",
+            (_hash_token(token), (label or "")[:120], now.isoformat(),
+             expires.isoformat(), now.isoformat(), user_id or "local"),
         )
         conn.commit()
     finally:
         conn.close()
     return token, expires.isoformat()
+
+
+def session_user(token: str) -> Optional[str]:
+    """The account id a live session token belongs to, or ``None`` if the token
+    is unknown or expired. Expired rows are pruned on the way out."""
+    if not token:
+        return None
+    _ensure_sessions_table()
+    th = _hash_token(token)
+    conn = database.get_connection()
+    try:
+        cur = conn.cursor()
+        ph = _ph(conn)
+        cur.execute(f"SELECT expires_at, user_id FROM sessions WHERE token_hash = {ph}", (th,))
+        row = cur.fetchone()
+        if not row:
+            return None
+        try:
+            expires = datetime.fromisoformat(str(row[0]))
+        except ValueError:
+            return None
+        if expires <= _now():
+            cur.execute(f"DELETE FROM sessions WHERE token_hash = {ph}", (th,))
+            conn.commit()
+            return None
+        try:
+            cur.execute(
+                f"UPDATE sessions SET last_seen_at = {ph} WHERE token_hash = {ph}",
+                (_now().isoformat(), th),
+            )
+            conn.commit()
+        except Exception:
+            pass
+        return str(row[1] or "local")
+    finally:
+        conn.close()
 
 
 def validate_token(token: str) -> bool:

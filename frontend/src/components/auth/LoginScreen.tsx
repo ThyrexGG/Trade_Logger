@@ -4,15 +4,15 @@ import { useAuth } from '../../lib/auth'
 /**
  * Full-screen gate shown when the app is locked. Renders one of three things:
  *  - passphrase mode  → the single-user passphrase form (W3)
- *  - supabase mode / locked  → email + password, with a "create account" toggle
- *  - supabase mode / pending → signed in, but this email is not invited yet
+ *  - multiuser mode / locked  → email + password, with a "create account" toggle
+ *  - multiuser mode / pending → signed in, but this email is not invited yet
  */
 export function LoginScreen() {
   const { mode } = useAuth()
   return (
     <div className="flex min-h-screen items-center justify-center bg-[var(--color-background)] px-4">
       <div className="w-full max-w-sm rounded-lg border border-border bg-surface p-6 shadow-lg">
-        {mode === 'supabase' ? <SupabaseForm /> : <PassphraseForm />}
+        {mode === 'multiuser' ? <MultiUserForm /> : <PassphraseForm />}
       </div>
     </div>
   )
@@ -76,7 +76,7 @@ function PassphraseForm() {
   )
 }
 
-function SupabaseForm() {
+function MultiUserForm() {
   const { state, accessMessage, signIn, signUp, recheck, logout } = useAuth()
 
   const [tab, setTab] = useState<'signin' | 'signup'>('signin')

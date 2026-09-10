@@ -7,29 +7,37 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { getAuthStatus, getMe, login as apiLogin, logout as apiLogout, type AuthUser } from '../api/auth'
-import { setAuthTokenProvider, setUnauthorizedHandler } from '../api/client'
-import { AUTH_MODE, currentAccessToken, supabase } from './supabase'
+import {
+  getAuthStatus,
+  getMe,
+  login as apiLogin,
+  logout as apiLogout,
+  signup as apiSignup,
+  type AuthMode,
+  type AuthUser,
+} from '../api/auth'
+import { ApiError, setUnauthorizedHandler } from '../api/client'
+import { AUTH_MODE } from './supabase'
 
 /**
  * loading = still checking · open = no auth configured · authed = logged in ·
- * locked = sign-in required · pending = signed in with Supabase but this email
- * is not invited yet (or access could not be verified).
+ * locked = sign-in required · pending = signed in but this email is not on the
+ * invite list yet (or access could not be verified).
  */
 type AuthState = 'loading' | 'open' | 'authed' | 'locked' | 'pending'
 
 interface AuthContextValue {
   state: AuthState
-  mode: 'passphrase' | 'supabase'
+  mode: AuthMode
   user: AuthUser | null
   /** Set when state === 'pending' — why access is not granted. */
   accessMessage: string | null
   /** passphrase mode */
   loginPassphrase: (password: string) => Promise<void>
-  /** supabase mode */
+  /** multiuser mode */
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string) => Promise<{ needsConfirmation: boolean }>
-  /** supabase mode — re-check access (used by the "pending" retry button) */
+  /** multiuser mode — re-check access (the "pending" retry button) */
   recheck: () => void
   logout: () => Promise<void>
 }
@@ -55,8 +63,6 @@ function PassphraseAuthProvider({ children }: { children: ReactNode }) {
       })
       .catch(() => {
         if (signal?.aborted) return
-        // status endpoint is unauthenticated — a failure here is a network/server
-        // problem, not a lockout. Let the app render and surface its own errors.
         setState('open')
       })
   }, [])
@@ -74,7 +80,7 @@ function PassphraseAuthProvider({ children }: { children: ReactNode }) {
 
   const loginPassphrase = useCallback(
     async (password: string) => {
-      await apiLogin(password) // throws ApiError on 401/429 — caller shows the message
+      await apiLogin(password)
       await refresh()
     },
     [refresh],
@@ -108,107 +114,96 @@ function PassphraseAuthProvider({ children }: { children: ReactNode }) {
 }
 
 // ---------------------------------------------------------------------------
-// Supabase mode (W8, multi-user).
+// Multi-user mode (W10) — invite-only email + password, first-party.
+// The session is an httpOnly cookie set by the API; there is no client token.
 // ---------------------------------------------------------------------------
 
-function SupabaseAuthProvider({ children }: { children: ReactNode }) {
+function MultiUserAuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>('loading')
   const [user, setUser] = useState<AuthUser | null>(null)
   const [accessMessage, setAccessMessage] = useState<string | null>(null)
   const evaluating = useRef(false)
 
   const evaluate = useCallback(async () => {
-    if (!supabase || evaluating.current) return
+    if (evaluating.current) return
     evaluating.current = true
     try {
-      const token = await currentAccessToken()
-      if (!token) {
+      const me = await getMe()
+      if (me.authenticated && me.user) {
+        setUser(me.user)
+        setAccessMessage(null)
+        setState('authed')
+      } else if (me.error) {
+        // A session exists but is not usable (ended, or not invited).
+        setUser(null)
+        setAccessMessage(me.error)
+        setState(me.error.toLowerCase().includes('invite') ? 'pending' : 'locked')
+      } else {
         setUser(null)
         setAccessMessage(null)
         setState('locked')
-        return
       }
-      try {
-        const me = await getMe()
-        if (me.authenticated && me.user) {
-          setUser(me.user)
-          setAccessMessage(null)
-          setState('authed')
-        } else {
-          setUser(null)
-          setAccessMessage(me.error ?? 'Access has not been granted for this account.')
-          setState('pending')
-        }
-      } catch {
-        // We hold a real Supabase session but couldn't reach the API to verify
-        // the invite (Render cold-start, flaky network). Don't drop the user to
-        // the login form — show a retryable "verifying access" panel.
-        setUser(null)
-        setAccessMessage("Couldn't reach the server to verify your access. It may still be waking up.")
-        setState('pending')
-      }
+    } catch {
+      // Couldn't reach the API (Render cold-start, flaky network). Don't force
+      // the login form — offer a retry.
+      setUser(null)
+      setAccessMessage("Couldn't reach the server. It may still be waking up.")
+      setState('pending')
     } finally {
       evaluating.current = false
     }
   }, [])
 
-  // Register the bearer-token provider once, for the whole app.
   useEffect(() => {
-    setAuthTokenProvider(currentAccessToken)
-    return () => setAuthTokenProvider(null)
-  }, [])
-
-  useEffect(() => {
-    if (!supabase) {
-      setState('locked')
-      return
-    }
     void evaluate()
-    const { data } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_OUT') {
-        setUser(null)
-        setAccessMessage(null)
-        setState('locked')
-        return
-      }
-      // SIGNED_IN, TOKEN_REFRESHED, USER_UPDATED, INITIAL_SESSION
-      void evaluate()
-    })
-    return () => data.subscription.unsubscribe()
   }, [evaluate])
 
   useEffect(() => {
     setUnauthorizedHandler(() => {
-      // A 401 slipped through mid-session — try one refresh, then re-evaluate.
-      void (async () => {
-        try {
-          await supabase?.auth.refreshSession()
-        } catch {
-          /* fall through */
-        }
-        void evaluate()
-      })()
+      setUser(null)
+      setState('locked')
     })
     return () => setUnauthorizedHandler(null)
-  }, [evaluate])
-
-  const signIn = useCallback(async (email: string, password: string) => {
-    if (!supabase) throw new Error('Auth is not configured.')
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
-    if (error) throw new Error(error.message)
-    // onAuthStateChange fires evaluate()
   }, [])
 
-  const signUp = useCallback(async (email: string, password: string) => {
-    if (!supabase) throw new Error('Auth is not configured.')
-    const { data, error } = await supabase.auth.signUp({ email: email.trim(), password })
-    if (error) throw new Error(error.message)
-    return { needsConfirmation: !data.session && !!data.user }
-  }, [])
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      try {
+        await apiLogin(password, email.trim())
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 403) {
+          setAccessMessage(err.message)
+          setState('pending')
+          return
+        }
+        throw err // 401/429 -> the form shows the message
+      }
+      await evaluate()
+    },
+    [evaluate],
+  )
+
+  const signUp = useCallback(
+    async (email: string, password: string) => {
+      try {
+        await apiSignup(email.trim(), password)
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 403) {
+          setAccessMessage(err.message)
+          setState('pending')
+          return { needsConfirmation: false }
+        }
+        throw err // 409 (email taken) / 422 (weak) -> the form shows the message
+      }
+      await evaluate()
+      return { needsConfirmation: false }
+    },
+    [evaluate],
+  )
 
   const logout = useCallback(async () => {
     try {
-      await supabase?.auth.signOut()
+      await apiLogout()
     } finally {
       setUser(null)
       setAccessMessage(null)
@@ -220,7 +215,7 @@ function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         state,
-        mode: 'supabase',
+        mode: 'multiuser',
         user,
         accessMessage,
         loginPassphrase: notInThisMode('Passphrase sign-in'),
@@ -236,8 +231,8 @@ function SupabaseAuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  return AUTH_MODE === 'supabase' ? (
-    <SupabaseAuthProvider>{children}</SupabaseAuthProvider>
+  return AUTH_MODE === 'multiuser' ? (
+    <MultiUserAuthProvider>{children}</MultiUserAuthProvider>
   ) : (
     <PassphraseAuthProvider>{children}</PassphraseAuthProvider>
   )

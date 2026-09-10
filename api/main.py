@@ -190,6 +190,7 @@ app.add_middleware(
 _AUTH_EXEMPT = {
     "/", "/api/health",
     "/api/auth/login", "/api/auth/logout", "/api/auth/status", "/api/auth/me",
+    "/api/auth/signup",
     "/docs", "/redoc", "/openapi.json", "/favicon.ico",
 }
 
@@ -211,6 +212,21 @@ async def _auth_gate(request: Request, call_next):
         or path.startswith("/redoc")
         or not path.startswith("/api/")
     )
+
+    if _identity.auth_mode() == "multiuser":
+        tok = _bearer(request) or request.cookies.get(_auth.cookie_name(), "")
+        user = _identity.resolve_session_user(tok)
+        if user is not None:
+            request.state.user = user
+            request.state.user_id = user["id"]
+            bound = _tenant.bind(user["id"])
+            try:
+                return await call_next(request)
+            finally:
+                _tenant.release(bound)
+        if exempt:
+            return await call_next(request)
+        return JSONResponse({"detail": "Authentication required."}, status_code=401)
 
     if _identity.auth_mode() == "supabase":
         if not _identity.supabase_enabled():

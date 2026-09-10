@@ -519,6 +519,34 @@ Tests: `test_stage25_mt5_ingest.py`.
 
 ---
 
+### W10 — native email + password auth (SHIPPED 2026-09-10)
+
+Supabase Auth was dropped after it blocked the switch-on three times (DB egress
+cap, then auth egress cap, then the 2-free-projects-per-account limit).
+Identity is now **first-party**: `TL_AUTH_MODE=multiuser` → sign-up / sign-in
+against the `users` table (scrypt via `api/auth`), an opaque session token in
+the same httpOnly cookie the passphrase gate uses (`sessions.user_id` ties it
+to an account), invite-only via `TL_SIGNUP_ALLOWLIST` + `TL_OWNER_EMAIL`. No
+external service, no JWT, no keys to rotate — everything on Neon.
+
+Backend: `identity.create_account / verify_credentials / resolve_session_user`;
+`auth.session_user` + `create_session(user_id=)`; `_auth_gate` gets a
+`multiuser` branch; `POST /api/auth/signup` + `/login` (now takes `email`,
+returns `token` in the body for the MT5 agent) + `/me` + `/status`. Supabase
+mode (W8) kept as a dormant legacy path. Alembic `0004` (password_hash,
+sessions.user_id — no-op if app booted first). Frontend: `MultiUserAuthProvider`
+(cookie-based, no client token, no supabase-js — dependency removed),
+`VITE_AUTH_MODE=multiuser`, `src/lib/supabase.ts` reduced to a mode flag.
+Agent: `Auth` posts email+password to `/api/auth/login`, uses the returned
+token; `CONFIG_DEFAULTS` no longer carries Supabase values. Tests:
+`test_stage28_native_auth.py` (14). `docs/DEPLOY.md` §10 rewritten.
+
+**Switch-on = 3 Render env vars** (`TL_AUTH_MODE=multiuser`, `TL_OWNER_EMAIL`,
+`TL_SIGNUP_ALLOWLIST`) + `VITE_AUTH_MODE=multiuser` (already in
+`.env.production`) + sign up as owner + `alembic upgrade head`.
+
+---
+
 ### W8 — original plan (COMMITTED 2026-09-08)
 
 **Why.** D5 — open TradeLogger to a handful of friends so each tracks their own

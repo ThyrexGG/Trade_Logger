@@ -53,25 +53,15 @@ AGENT_VERSION = "1.1.0"
 TASK_NAME = "TradeLogger MT5 Sync"
 HISTORY_FALLBACK_START = datetime(2020, 1, 1, tzinfo=timezone.utc)
 
-# Public, non-secret defaults baked into the build so a friend only has to
+# Public, non-secret default baked into the build so a friend only has to
 # type their own email + password. A mt5_agent_config.json next to the
 # program overrides any of these.
 CONFIG_DEFAULTS: Dict[str, Any] = {
     "server_url": "https://tradelogger-api.onrender.com",
-    "supabase_url": "https://wutzxzophrfkqpylcswc.supabase.co",
-    "supabase_anon_key": (
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
-        "eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1dHp4em9waHJma3FweWxjc3djIiwicm9sZSI6"
-        "ImFub24iLCJpYXQiOjE3ODc4ODY4OTUsImV4cCI6MjEwMzQ2Mjg5NX0."
-        "HXH3OKcx6kvGuaSm1Z53w2ER8XGiZKQJuyprXe6_--Q"
-    ),
     "poll_minutes": 15,
 }
 
-_SAVE_KEYS = (
-    "server_url", "supabase_url", "supabase_anon_key",
-    "email", "password", "passphrase", "poll_minutes",
-)
+_SAVE_KEYS = ("server_url", "email", "password", "passphrase", "poll_minutes")
 
 
 # --------------------------------------------------------------------------- #
@@ -97,8 +87,6 @@ def load_config(path: Optional[Path] = None) -> Dict[str, Any]:
             sys.exit(f"{p.name} is not valid JSON: {exc}")
         cfg.update({k: v for k, v in raw.items() if not k.startswith("_")})
     cfg["server_url"] = str(cfg.get("server_url", "")).rstrip("/")
-    if cfg.get("supabase_url"):
-        cfg["supabase_url"] = str(cfg["supabase_url"]).rstrip("/")
     try:
         cfg["poll_minutes"] = max(5, int(cfg.get("poll_minutes", 15)))
     except (TypeError, ValueError):
@@ -107,18 +95,13 @@ def load_config(path: Optional[Path] = None) -> Dict[str, Any]:
 
 
 def config_status(cfg: Dict[str, Any]) -> Tuple[bool, str]:
-    """(_complete_, _mode_). Mode is 'supabase' or 'passphrase'."""
+    """(_complete_, _mode_). Mode is 'multiuser' or 'passphrase'."""
     if not cfg.get("server_url"):
         return False, ""
     if cfg.get("passphrase"):
         return True, "passphrase"
-    if (
-        cfg.get("supabase_url")
-        and cfg.get("supabase_anon_key")
-        and cfg.get("email")
-        and cfg.get("password")
-    ):
-        return True, "supabase"
+    if cfg.get("email") and cfg.get("password"):
+        return True, "multiuser"
     return False, ""
 
 
@@ -138,6 +121,15 @@ def _require_requests() -> None:
         sys.exit("The 'requests' package is missing. Run:  pip install requests")
 
 
+def _msg(resp) -> str:
+    """Human-readable error out of a FastAPI response body."""
+    try:
+        body = resp.json()
+        return str(body.get("error") or body.get("detail") or resp.text)[:200]
+    except Exception:
+        return (resp.text or "")[:200]
+
+
 # --------------------------------------------------------------------------- #
 #  Auth  ->  a bearer token for the TradeLogger API
 # --------------------------------------------------------------------------- #
@@ -147,61 +139,37 @@ class Auth:
         self.cfg = cfg
         _, self._mode = config_status(cfg)
         self._token: Optional[str] = None
-        self._refresh: Optional[str] = None
+        # Sessions last ~30 days server-side; re-login well before then.
         self._expires_at = 0.0
 
     def bearer(self) -> str:
         if self._token and time.time() < self._expires_at - 60:
             return self._token
-        if self._mode == "supabase":
-            self._supabase_login()
-        else:
-            self._passphrase_login()
+        self._login()
         return self._token or ""
 
-    def _supabase_login(self) -> None:
-        base = self.cfg["supabase_url"]
-        headers = {"apikey": self.cfg["supabase_anon_key"], "Content-Type": "application/json"}
-        if self._refresh:
-            r = requests.post(
-                f"{base}/auth/v1/token?grant_type=refresh_token",
-                headers=headers, json={"refresh_token": self._refresh}, timeout=20,
-            )
-            if r.status_code == 200:
-                self._store(r.json())
-                return
+    def _login(self) -> None:
+        if self._mode == "multiuser":
+            payload = {"email": self.cfg["email"], "password": self.cfg["password"]}
+        else:
+            payload = {"password": self.cfg["passphrase"]}
         r = requests.post(
-            f"{base}/auth/v1/token?grant_type=password",
-            headers=headers,
-            json={"email": self.cfg["email"], "password": self.cfg["password"]},
-            timeout=20,
+            f"{self.cfg['server_url']}/api/auth/login", json=payload, timeout=20
         )
-        if r.status_code != 200:
+        if r.status_code in (401, 403):
             sys.exit(
-                "TradeLogger login failed. Check your email and password.\n"
-                f"    (server said {r.status_code}: {r.text[:200]})"
+                "TradeLogger login failed. Check your email and password"
+                + (" (and that the owner has invited you)." if self._mode == "multiuser" else ".")
+                + f"\n    (server said {r.status_code}: {_msg(r)})"
             )
-        self._store(r.json())
-
-    def _store(self, data: Dict[str, Any]) -> None:
-        self._token = data.get("access_token")
-        self._refresh = data.get("refresh_token") or self._refresh
-        self._expires_at = time.time() + float(data.get("expires_in", 3600))
-        if not self._token:
-            sys.exit("Login response had no access token.")
-
-    def _passphrase_login(self) -> None:
-        r = requests.post(
-            f"{self.cfg['server_url']}/api/auth/login",
-            json={"password": self.cfg["passphrase"]}, timeout=20,
-        )
         if r.status_code != 200:
-            sys.exit(f"Passphrase login failed ({r.status_code}): {r.text[:200]}")
+            sys.exit(f"Login failed ({r.status_code}): {_msg(r)}")
         body = r.json()
-        self._token = body.get("token") or body.get("access_token")
-        self._expires_at = time.time() + 3600
+        self._token = body.get("token")
+        # server default TTL is 30 days; refresh conservatively every ~20h
+        self._expires_at = time.time() + 20 * 3600
         if not self._token:
-            sys.exit("Login endpoint returned no token.")
+            sys.exit("Login response contained no session token.")
 
 
 # --------------------------------------------------------------------------- #

@@ -33,10 +33,12 @@ import os
 import threading
 import time
 import urllib.request
+import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import database
+from api import auth as _auth
 
 # The user id every row is stamped with when the server runs in single-user
 # ``passphrase`` mode (local dev, the test suite, the current live deploy).
@@ -67,7 +69,15 @@ class InvalidToken(Exception):
 
 
 class NotAllowed(Exception):
-    """A valid Supabase user whose email is not invited (or is disabled)."""
+    """A valid user whose email is not invited, or whose account is disabled."""
+
+
+class EmailTaken(Exception):
+    """Sign-up for an email that already has an account."""
+
+
+class BadCredentials(Exception):
+    """Wrong email / password at native sign-in."""
 
 
 # --- env ------------------------------------------------------------------
@@ -77,8 +87,15 @@ def _env(name: str, default: str = "") -> str:
 
 
 def auth_mode() -> str:
+    """``passphrase`` (default, single-user W3), ``multiuser`` (native
+    email+password, W10), or ``supabase`` (external JWT, W8 — kept but no
+    longer the recommended path)."""
     v = _env("TL_AUTH_MODE", "passphrase").lower()
-    return "supabase" if v == "supabase" else "passphrase"
+    return v if v in ("supabase", "multiuser") else "passphrase"
+
+
+def native_enabled() -> bool:
+    return auth_mode() == "multiuser"
 
 
 def _jwt_secret() -> str:
@@ -305,10 +322,20 @@ def ensure_users_table() -> None:
                     role TEXT NOT NULL DEFAULT 'member',
                     status TEXT NOT NULL DEFAULT 'active',
                     created_at TEXT NOT NULL,
-                    last_seen_at TEXT NOT NULL
+                    last_seen_at TEXT NOT NULL,
+                    password_hash TEXT
                 )
                 """
             )
+            # native email+password (W10): existing W8 tables gain the column
+            try:
+                cur.execute(
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT"
+                    if database.is_postgres()
+                    else "ALTER TABLE users ADD COLUMN password_hash TEXT"
+                )
+            except Exception:
+                conn.rollback()
             conn.commit()
             _users_ready = True
         finally:
@@ -430,6 +457,106 @@ def provision_user(claims: Dict[str, Any]) -> Dict[str, Any]:
         conn.close()
 
 
+# --- native email + password (W10) -----------------------------------
+
+def _norm_email(email: str) -> str:
+    return str(email or "").strip().lower()
+
+
+def create_account(email: str, password: str, display_name: str = "") -> Dict[str, Any]:
+    """Register a new local account. Invite-only: the email must be on
+    ``TL_SIGNUP_ALLOWLIST`` (or be ``TL_OWNER_EMAIL``).
+
+    Raises :class:`NotAllowed` (not invited), :class:`EmailTaken`, or
+    ``ValueError`` (weak input).
+    """
+    email = _norm_email(email)
+    if "@" not in email or len(email) > 254:
+        raise ValueError("enter a valid email address")
+    if len(password or "") < 8:
+        raise ValueError("password must be at least 8 characters")
+
+    allow = signup_allowlist()
+    if not allow:
+        raise NotAllowed("sign-up is not open on this server")
+    if email not in allow:
+        raise NotAllowed(f"{email} is not on the invite list")
+
+    ensure_users_table()
+    now = _now_iso()
+    role = "owner" if email == owner_email() else "member"
+    uid = uuid.uuid4().hex
+    pw_hash = _auth.hash_password(password)
+    display = (display_name or "").strip()[:120] or None
+
+    conn = database.get_connection()
+    try:
+        cur = conn.cursor()
+        ph = _ph(conn)
+        cur.execute(f"SELECT id FROM users WHERE lower(email) = {ph}", (email,))
+        if cur.fetchone():
+            raise EmailTaken(email)
+        cur.execute(
+            f"INSERT INTO users (id, email, display_name, role, status, created_at, last_seen_at, password_hash) "
+            f"VALUES ({ph}, {ph}, {ph}, {ph}, 'active', {ph}, {ph}, {ph})",
+            (uid, email, display, role, now, now, pw_hash),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return {
+        "id": uid, "email": email, "display_name": display, "role": role,
+        "status": "active", "created_at": now, "last_seen_at": now,
+    }
+
+
+def verify_credentials(email: str, password: str) -> Dict[str, Any]:
+    """Return the account for a correct email + password.
+
+    Raises :class:`BadCredentials` (unknown email or wrong password) or
+    :class:`NotAllowed` (account disabled).
+    """
+    email = _norm_email(email)
+    ensure_users_table()
+    conn = database.get_connection()
+    try:
+        cur = conn.cursor()
+        ph = _ph(conn)
+        cur.execute(
+            f"SELECT {_USER_COLS}, password_hash FROM users WHERE lower(email) = {ph}",
+            (email,),
+        )
+        row = cur.fetchone()
+        if not row or not row[-1]:
+            raise BadCredentials("invalid email or password")
+        user = _row_to_user(row[:-1])
+        if not _auth.verify_hash(password, str(row[-1])):
+            raise BadCredentials("invalid email or password")
+        if user["status"] == "disabled":
+            raise NotAllowed("this account has been disabled")
+        now = _now_iso()
+        cur.execute(f"UPDATE users SET last_seen_at = {ph} WHERE id = {ph}", (now, user["id"]))
+        conn.commit()
+        user["last_seen_at"] = now
+        return user
+    finally:
+        conn.close()
+
+
+def resolve_session_user(token: str) -> Optional[Dict[str, Any]]:
+    """The account a native session cookie/token belongs to, or ``None``.
+
+    ``None`` covers an unknown/expired session and a since-disabled account.
+    """
+    uid = _auth.session_user(token)
+    if not uid or uid == LOCAL_USER_ID:
+        return None
+    user = get_user(uid)
+    if user is None or user.get("status") == "disabled":
+        return None
+    return user
+
+
 # --- request-time resolution -----------------------------------------
 
 def resolve_user(token: str) -> Optional[Dict[str, Any]]:
@@ -477,9 +604,9 @@ def _forget(user_id: str) -> None:
 def current_user_id(request) -> str:
     """The id every per-user row for this request is scoped to.
 
-    ``supabase`` mode: the authenticated user's id (the middleware has already
-    put it on ``request.state``). ``passphrase`` / auth-disabled mode: the
-    fixed :data:`LOCAL_USER_ID`.
+    ``multiuser`` / ``supabase`` mode: the authenticated account's id (the
+    middleware has already put it on ``request.state``). ``passphrase`` /
+    auth-disabled mode: the fixed :data:`LOCAL_USER_ID`.
     """
     uid = getattr(getattr(request, "state", None), "user_id", None)
     return uid or LOCAL_USER_ID

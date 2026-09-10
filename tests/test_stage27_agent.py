@@ -27,7 +27,6 @@ def agent():
 def test_defaults_load_without_a_config_file(agent, tmp_path):
     cfg = agent.load_config(tmp_path / "nope.json")
     assert cfg["server_url"].startswith("https://")
-    assert cfg["supabase_url"].startswith("https://")
     assert cfg["poll_minutes"] == 15
     # nothing personal yet -> not complete
     assert agent.config_status(cfg) == (False, "")
@@ -46,7 +45,7 @@ def test_config_file_overrides_and_completes(agent, tmp_path):
     assert cfg["server_url"] == "https://example.test"     # trailing slash trimmed
     assert cfg["poll_minutes"] == 30
     assert "_comment" not in cfg
-    assert agent.config_status(cfg) == (True, "supabase")
+    assert agent.config_status(cfg) == (True, "multiuser")
 
 
 def test_passphrase_mode_is_complete_without_supabase(agent, tmp_path):

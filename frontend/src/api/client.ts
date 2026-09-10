@@ -93,7 +93,10 @@ export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
 /** Best-effort extraction of a human-readable message from a FastAPI error body. */
 async function readErrorDetail(response: Response): Promise<string | null> {
   try {
-    const body = (await response.json()) as { detail?: unknown }
+    const body = (await response.json()) as { detail?: unknown; error?: unknown }
+    // Some endpoints (auth) return a 200-shaped model with `error` and set the
+    // status code; others use FastAPI's `detail`.
+    if (typeof body?.error === 'string' && body.error) return body.error
     const detail = body?.detail
     if (typeof detail === 'string') return detail
     if (Array.isArray(detail)) {
