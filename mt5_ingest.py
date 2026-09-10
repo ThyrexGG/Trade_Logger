@@ -153,74 +153,85 @@ def reconstruct_positions(
     cursor = conn.cursor()
     ph = database.get_sql_placeholder(conn)
 
-    trades_to_save: List[Dict[str, Any]] = []
+    # Fetch every leg for this batch of positions in a handful of round-trips
+    # (one per 500 ids) instead of one query per position — a historical
+    # backfill can touch thousands of positions, and a per-position query
+    # loop is what makes the ingest request time out on the free tier.
+    by_pos: Dict[str, List[tuple]] = {p: [] for p in position_ids}
     try:
-        for pos_id in position_ids:
+        for i in range(0, len(position_ids), 500):
+            batch = position_ids[i:i + 500]
+            marks = ", ".join([ph] * len(batch))
             cursor.execute(
                 f"""
-                SELECT type, volume, price, commission, swap, profit, timestamp, symbol
+                SELECT position_id, type, volume, price, commission, swap, profit, timestamp, symbol
                 FROM raw_deals
-                WHERE position_id = {ph} AND user_id = {ph}
-                ORDER BY timestamp ASC
+                WHERE user_id = {ph} AND position_id IN ({marks})
+                ORDER BY position_id ASC, timestamp ASC
                 """,
-                (pos_id, uid),
+                (uid, *batch),
             )
-            deals = cursor.fetchall()
-            if not deals:
-                continue
-
-            first_deal_type = deals[0][0]  # "BUY" | "SELL"
-            trade_direction = "LONG" if first_deal_type == "BUY" else "SHORT"
-            symbol = clean_symbol(deals[0][7])
-
-            entries: List[tuple] = []
-            exits: List[tuple] = []
-            total_commission = total_swap = total_profit = 0.0
-            for deal_type, volume, price, commission, swap, profit, ts, _sym in deals:
-                total_commission += commission
-                total_swap += swap
-                total_profit += profit
-                (entries if deal_type == first_deal_type else exits).append(
-                    (volume, price, ts)
-                )
-
-            total_entry_vol = sum(e[0] for e in entries)
-            total_exit_vol = sum(x[0] for x in exits)
-            if total_entry_vol <= 0 or total_exit_vol < total_entry_vol * 0.999:
-                # still open — do not write a closed trade yet
-                continue
-
-            avg_entry = sum(v * p for v, p, _ in entries) / total_entry_vol
-            avg_exit = sum(v * p for v, p, _ in exits) / total_exit_vol
-            entry_epoch = entries[0][2]
-            exit_epoch = exits[-1][2]
-            net_profit = total_profit + total_commission + total_swap
-
-            trades_to_save.append(
-                {
-                    "trade_id": pos_id,
-                    "account_id": account_id,
-                    "symbol": symbol,
-                    "direction": trade_direction,
-                    "volume": total_entry_vol,
-                    "entry_price": avg_entry,
-                    "exit_price": avg_exit,
-                    "commission": total_commission,
-                    "swap": total_swap,
-                    "gross_profit": total_profit,
-                    "net_profit": net_profit,
-                    "entry_time": datetime.fromtimestamp(
-                        entry_epoch, tz=timezone.utc
-                    ).isoformat(),
-                    "exit_time": datetime.fromtimestamp(
-                        exit_epoch, tz=timezone.utc
-                    ).isoformat(),
-                    "duration_minutes": (exit_epoch - entry_epoch) / 60.0,
-                    "setup_tag": None,
-                }
-            )
+            for row in cursor.fetchall():
+                by_pos.setdefault(row[0], []).append(row[1:])
     finally:
         conn.close()
+
+    trades_to_save: List[Dict[str, Any]] = []
+    for pos_id in position_ids:
+        deals = by_pos.get(pos_id) or []
+        if not deals:
+            continue
+
+        first_deal_type = deals[0][0]  # "BUY" | "SELL"
+        trade_direction = "LONG" if first_deal_type == "BUY" else "SHORT"
+        symbol = clean_symbol(deals[0][7])
+
+        entries: List[tuple] = []
+        exits: List[tuple] = []
+        total_commission = total_swap = total_profit = 0.0
+        for deal_type, volume, price, commission, swap, profit, ts, _sym in deals:
+            total_commission += commission
+            total_swap += swap
+            total_profit += profit
+            (entries if deal_type == first_deal_type else exits).append(
+                (volume, price, ts)
+            )
+
+        total_entry_vol = sum(e[0] for e in entries)
+        total_exit_vol = sum(x[0] for x in exits)
+        if total_entry_vol <= 0 or total_exit_vol < total_entry_vol * 0.999:
+            # still open — do not write a closed trade yet
+            continue
+
+        avg_entry = sum(v * p for v, p, _ in entries) / total_entry_vol
+        avg_exit = sum(v * p for v, p, _ in exits) / total_exit_vol
+        entry_epoch = entries[0][2]
+        exit_epoch = exits[-1][2]
+        net_profit = total_profit + total_commission + total_swap
+
+        trades_to_save.append(
+            {
+                "trade_id": pos_id,
+                "account_id": account_id,
+                "symbol": symbol,
+                "direction": trade_direction,
+                "volume": total_entry_vol,
+                "entry_price": avg_entry,
+                "exit_price": avg_exit,
+                "commission": total_commission,
+                "swap": total_swap,
+                "gross_profit": total_profit,
+                "net_profit": net_profit,
+                "entry_time": datetime.fromtimestamp(
+                    entry_epoch, tz=timezone.utc
+                ).isoformat(),
+                "exit_time": datetime.fromtimestamp(
+                    exit_epoch, tz=timezone.utc
+                ).isoformat(),
+                "duration_minutes": (exit_epoch - entry_epoch) / 60.0,
+                "setup_tag": None,
+            }
+        )
 
     if trades_to_save:
         database.save_closed_trades(trades_to_save)

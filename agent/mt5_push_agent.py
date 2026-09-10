@@ -49,7 +49,7 @@ try:
 except ImportError:
     mt5 = None  # type: ignore
 
-AGENT_VERSION = "1.1.0"
+AGENT_VERSION = "1.1.1"
 TASK_NAME = "TradeLogger MT5 Sync"
 HISTORY_FALLBACK_START = datetime(2020, 1, 1, tzinfo=timezone.utc)
 
@@ -267,40 +267,82 @@ def read_snapshot(server_cursor_ts: int) -> Dict[str, Any]:
 #  Sync
 # --------------------------------------------------------------------------- #
 def get_cursor(cfg: Dict[str, Any], auth: "Auth", account_id: str) -> int:
-    r = requests.get(
-        f"{cfg['server_url']}/api/ingest/mt5/cursor",
-        params={"account": account_id},
-        headers={"Authorization": f"Bearer {auth.bearer()}"},
-        timeout=20,
-    )
-    if r.status_code == 401:
-        sys.exit("Server rejected the login (401). Ask the owner to confirm your email is on the invite list.")
-    if r.status_code != 200:
-        print(f"  ! cursor lookup failed ({r.status_code}); doing a full history pull")
-        return 0
-    return int(r.json().get("last_deal_timestamp") or 0)
+    delay = 3
+    r = None
+    for attempt in range(1, 6):
+        try:
+            r = requests.get(
+                f"{cfg['server_url']}/api/ingest/mt5/cursor",
+                params={"account": account_id},
+                headers={"Authorization": f"Bearer {auth.bearer()}"},
+                timeout=60,
+            )
+        except requests.RequestException:
+            r = None
+        if r is not None and r.status_code == 401:
+            sys.exit("Server rejected the login (401). Ask the owner to confirm your email is on the invite list.")
+        if r is not None and r.status_code == 200:
+            return int(r.json().get("last_deal_timestamp") or 0)
+        if attempt < 5:
+            print(f"  waking the server (attempt {attempt}/5); retry in {delay}s")
+            time.sleep(delay)
+            delay = min(delay * 2, 30)
+    code = r.status_code if r is not None else "no response"
+    print(f"  ! cursor lookup failed ({code}); doing a full history pull")
+    return 0
+
+
+#: legs per POST. Small on purpose — the server runs on a 512 MB free tier
+#: and a fresh account can have thousands of legs of back-history. A big
+#: batch there is a gateway 502, not a faster sync.
+PUSH_CHUNK = 400
+#: transient upstream states worth retrying (Render cold-start / brief 502)
+_RETRY_CODES = {429, 500, 502, 503, 504}
+
+
+def _post_chunk(cfg: Dict[str, Any], auth: "Auth", body: Dict[str, Any]) -> "requests.Response":
+    """POST one chunk, retrying a few times on a cold-start / gateway blip."""
+    delay = 3
+    for attempt in range(1, 6):
+        try:
+            r = requests.post(
+                f"{cfg['server_url']}/api/ingest/mt5",
+                json=body,
+                headers={"Authorization": f"Bearer {auth.bearer()}"},
+                timeout=120,
+            )
+        except requests.RequestException as exc:
+            if attempt == 5:
+                raise
+            print(f"  network error ({exc.__class__.__name__}); retry in {delay}s")
+            time.sleep(delay)
+            delay = min(delay * 2, 30)
+            continue
+        if r.status_code in _RETRY_CODES and attempt < 5:
+            print(f"  server busy ({r.status_code}); retry in {delay}s "
+                  f"(attempt {attempt}/5)")
+            time.sleep(delay)
+            delay = min(delay * 2, 30)
+            continue
+        return r
+    return r
 
 
 def push(cfg: Dict[str, Any], auth: "Auth", snapshot: Dict[str, Any]) -> None:
     payload = {k: v for k, v in snapshot.items() if not k.startswith("_")}
     deals = payload.pop("deals")
-    chunk = 5000
-    chunks = [deals[i:i + chunk] for i in range(0, len(deals), chunk)] or [[]]
+    chunks = [deals[i:i + PUSH_CHUNK] for i in range(0, len(deals), PUSH_CHUNK)] or [[]]
+    total = len(chunks)
     for idx, part in enumerate(chunks):
         body = {**payload, "deals": part}
-        if idx < len(chunks) - 1:           # snapshot only on the final chunk
+        if idx < total - 1:                  # snapshot only on the final chunk
             body = {**body, "balance": None, "positions": None}
-        r = requests.post(
-            f"{cfg['server_url']}/api/ingest/mt5",
-            json=body,
-            headers={"Authorization": f"Bearer {auth.bearer()}"},
-            timeout=60,
-        )
+        r = _post_chunk(cfg, auth, body)
         if r.status_code != 200:
             sys.exit(f"Upload failed ({r.status_code}): {r.text[:300]}")
         s = r.json()
         print(
-            f"  chunk {idx + 1}/{len(chunks)}: +{s.get('raw_deals', 0)} deals, "
+            f"  chunk {idx + 1}/{total}: +{s.get('raw_deals', 0)} deals, "
             f"{s.get('closed_trades', 0)} closed trades, "
             f"{s.get('open_positions', 0)} open positions"
         )

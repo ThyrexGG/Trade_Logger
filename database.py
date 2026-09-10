@@ -889,14 +889,22 @@ def save_raw_deals(deals):
     cursor = conn.cursor()
 
     if is_postgres():
-        query = """
-            INSERT INTO raw_deals
-            (deal_id, account_id, symbol, type, volume, price, commission, swap, profit, timestamp, position_id, user_id)
-            VALUES
-            (%(deal_id)s, %(account_id)s, %(symbol)s, %(type)s, %(volume)s, %(price)s, %(commission)s, %(swap)s, %(profit)s, %(timestamp)s, %(position_id)s, %(user_id)s)
-            ON CONFLICT (deal_id) DO NOTHING
-        """
-        cursor.executemany(query, deals)
+        # execute_values sends the whole batch in one (paged) round-trip —
+        # psycopg2's plain executemany is a per-row loop, which turns a
+        # historical backfill of thousands of legs into a multi-minute request
+        # (and a gateway 502 on the free tier). Same rows, one statement.
+        from psycopg2.extras import execute_values
+        _cols = ("deal_id", "account_id", "symbol", "type", "volume", "price",
+                 "commission", "swap", "profit", "timestamp", "position_id", "user_id")
+        rows = [tuple(d.get(c) for c in _cols) for d in deals]
+        execute_values(
+            cursor,
+            "INSERT INTO raw_deals "
+            "(deal_id, account_id, symbol, type, volume, price, commission, swap, profit, timestamp, position_id, user_id) "
+            "VALUES %s ON CONFLICT (deal_id) DO NOTHING",
+            rows,
+            page_size=1000,
+        )
     else:
         cursor.executemany("""
             INSERT OR IGNORE INTO raw_deals
@@ -923,13 +931,20 @@ def save_closed_trades(trades):
     cursor = conn.cursor()
 
     if is_postgres():
-        query = """
+        # Batched in one paged round-trip — see save_raw_deals for why.
+        from psycopg2.extras import execute_values
+        _cols = ("trade_id", "account_id", "symbol", "direction", "volume",
+                 "entry_price", "exit_price", "commission", "swap", "gross_profit",
+                 "net_profit", "entry_time", "exit_time", "duration_minutes",
+                 "setup_tag", "user_id")
+        rows = [tuple(t.get(c) for c in _cols) for t in trades]
+        execute_values(
+            cursor,
+            """
             INSERT INTO closed_trades
             (trade_id, account_id, symbol, direction, volume, entry_price, exit_price,
              commission, swap, gross_profit, net_profit, entry_time, exit_time, duration_minutes, setup_tag, user_id)
-            VALUES
-            (%(trade_id)s, %(account_id)s, %(symbol)s, %(direction)s, %(volume)s, %(entry_price)s, %(exit_price)s,
-             %(commission)s, %(swap)s, %(gross_profit)s, %(net_profit)s, %(entry_time)s, %(exit_time)s, %(duration_minutes)s, %(setup_tag)s, %(user_id)s)
+            VALUES %s
             ON CONFLICT (trade_id) DO UPDATE SET
                 account_id = EXCLUDED.account_id,
                 symbol = EXCLUDED.symbol,
@@ -945,8 +960,10 @@ def save_closed_trades(trades):
                 exit_time = EXCLUDED.exit_time,
                 duration_minutes = EXCLUDED.duration_minutes,
                 setup_tag = COALESCE(EXCLUDED.setup_tag, closed_trades.setup_tag)
-        """
-        cursor.executemany(query, trades)
+            """,
+            rows,
+            page_size=1000,
+        )
     else:
         cursor.executemany("""
             INSERT INTO closed_trades
