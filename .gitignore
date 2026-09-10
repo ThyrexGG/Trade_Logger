@@ -34,6 +34,7 @@ agent/build/
 agent/dist/
 agent/*.spec
 agent/mt5_sync_hidden.vbs
+agent/.sync.lock
 
 *.db
 *.db-shm

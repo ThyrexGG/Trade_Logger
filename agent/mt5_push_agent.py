@@ -375,10 +375,44 @@ def uninstall_task() -> None:
 # --------------------------------------------------------------------------- #
 #  First-run wizard
 # --------------------------------------------------------------------------- #
-def _pause_if_interactive() -> None:
+_LOCK_STALE_SEC = 600
+
+
+def _acquire_run_lock() -> Optional[Path]:
+    """Stop the scheduled task from stacking: if a sync started less than
+    ~10 min ago and hasn't cleared its lock, this run bows out."""
+    lock = app_dir() / ".sync.lock"
     try:
-        if sys.stdin and sys.stdin.isatty():
-            input("\nPress Enter to close.")
+        if lock.exists() and (time.time() - lock.stat().st_mtime) < _LOCK_STALE_SEC:
+            return None
+        lock.write_text(str(os.getpid()), encoding="utf-8")
+        return lock
+    except OSError:
+        return lock  # can't manage the lock — proceed rather than stall
+
+
+def _release_run_lock(lock: Optional[Path]) -> None:
+    try:
+        if lock is not None:
+            lock.unlink()
+    except OSError:
+        pass
+
+
+def _is_interactive() -> bool:
+    """A real console (double-clicked or run from a terminal) vs the hidden
+    scheduled task (launched by wscript with no console)."""
+    try:
+        return bool(sys.stdin and sys.stdin.isatty())
+    except (ValueError, OSError):
+        return False
+
+
+def _pause_if_interactive() -> None:
+    if not _is_interactive():
+        return
+    try:
+        input("\nPress Enter to close.")
     except (EOFError, OSError):
         pass
 
@@ -433,26 +467,14 @@ def run_setup() -> None:
         print("  it will retry automatically on the schedule.")
 
     print("\nAll set. Keep MetaTrader 5 running and logged in; TradeLogger updates itself.")
-    _pause_if_interactive()
 
 
 # --------------------------------------------------------------------------- #
 #  Entry point
 # --------------------------------------------------------------------------- #
-def main() -> None:
-    ap = argparse.ArgumentParser(description="TradeLogger MT5 sync agent", add_help=True)
-    ap.add_argument("--config", type=Path, default=None)
-    g = ap.add_mutually_exclusive_group()
-    g.add_argument("--setup", action="store_true", help="first-run wizard (default on a fresh install)")
-    g.add_argument("--once", action="store_true", help="one sync, then exit")
-    g.add_argument("--daemon", action="store_true", help="sync now, then loop forever")
-    g.add_argument("--check", action="store_true", help="verify login + MT5 connection only")
-    g.add_argument("--uninstall", action="store_true", help="remove the background task")
-    args = ap.parse_args()
-
+def _dispatch(args: argparse.Namespace) -> None:
     if args.uninstall:
         uninstall_task()
-        _pause_if_interactive()
         return
 
     cfg = load_config(args.config)
@@ -475,7 +497,6 @@ def main() -> None:
         acc = mt5.account_info()
         print(f"MT5   : OK — account {acc.login} ({getattr(acc, 'company', '')})")
         mt5.shutdown()
-        _pause_if_interactive()
         return
 
     if args.daemon:
@@ -492,11 +513,46 @@ def main() -> None:
         return
 
     # --once  (also what the scheduled task runs)
+    lock = _acquire_run_lock()
+    if lock is None:
+        print("another sync is already running — skipping.")
+        return
     try:
         sync_once(cfg, auth)
     except SystemExit as exc:
         print(f"sync did not finish: {exc}")
-        sys.exit(1)
+        raise SystemExit(1) from None
+    finally:
+        _release_run_lock(lock)
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description="TradeLogger MT5 sync agent", add_help=True)
+    ap.add_argument("--config", type=Path, default=None)
+    g = ap.add_mutually_exclusive_group()
+    g.add_argument("--setup", action="store_true", help="first-run wizard (default on a fresh install)")
+    g.add_argument("--once", action="store_true", help="one sync, then exit")
+    g.add_argument("--daemon", action="store_true", help="sync now, then loop forever")
+    g.add_argument("--check", action="store_true", help="verify login + MT5 connection only")
+    g.add_argument("--uninstall", action="store_true", help="remove the background task")
+    args = ap.parse_args()
+
+    # Whatever happens — success, a handled error, or an unexpected crash — a
+    # double-clicked window must stay open long enough to read the message.
+    # The hidden scheduled task (no console) is unaffected.
+    try:
+        _dispatch(args)
+    except SystemExit as exc:
+        if isinstance(exc.code, str):     # sys.exit("message")
+            print(exc.code)
+        _pause_if_interactive()
+        raise SystemExit(exc.code if isinstance(exc.code, int) else (0 if not exc.code else 1))
+    except KeyboardInterrupt:
+        raise SystemExit(130)
+    except Exception as exc:  # noqa: BLE001 - last-resort so the window doesn't vanish
+        print(f"\nUnexpected error: {exc!r}")
+        _pause_if_interactive()
+        raise SystemExit(1)
     _pause_if_interactive()
 
 
