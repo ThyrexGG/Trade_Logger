@@ -2,7 +2,7 @@ import { lazy, Suspense, type ComponentType, type ReactElement } from 'react'
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/shell/AppShell'
 import { RouteFallback } from './components/shell/RouteFallback'
-import { ALL_NAV_ITEMS } from './lib/navigation'
+import { ALL_NAV_ITEMS, IS_FRIENDS_TIER } from './lib/navigation'
 // The default landing view and the lightweight zone/overview pages stay in the
 // main bundle so the first paint after load needs no extra round-trip.
 import { MarketWorkspacePage } from './pages/MarketWorkspacePage'
@@ -76,11 +76,17 @@ const LIVE_ITEM_PAGES: Record<string, ReactElement> = {
  * Nested item routes are generated from the navigation model so future stages
  * only swap a placeholder for a real page.
  */
+// The friends build only has the picked-over ZONES list (see navigation.ts),
+// so its zone-overview pages would otherwise show empty or reference hidden
+// pages — send them straight to the first item they're actually allowed to
+// see instead. The full (local/owner) build is untouched.
+const DEFAULT_LANDING = IS_FRIENDS_TIER ? ALL_NAV_ITEMS[0]?.path ?? '/' : '/workspace'
+
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<AppShell />}>
-        <Route index element={<Navigate to="/workspace" replace />} />
+        <Route index element={<Navigate to={DEFAULT_LANDING} replace />} />
 
         <Route
           element={
@@ -89,10 +95,30 @@ export default function App() {
             </Suspense>
           }
         >
-          <Route path="workspace" element={<MarketWorkspacePage />} />
-          <Route path="research" element={<ZoneOverviewPage zoneId="research" />} />
-          <Route path="evidence" element={<EvidenceCommandCenterPage />} />
-          <Route path="operations" element={<OperationsOverviewPage />} />
+          {IS_FRIENDS_TIER ? (
+            <>
+              <Route path="workspace" element={<Navigate to={DEFAULT_LANDING} replace />} />
+              <Route path="research" element={<Navigate to={DEFAULT_LANDING} replace />} />
+              <Route path="evidence" element={<Navigate to={DEFAULT_LANDING} replace />} />
+              <Route path="operations" element={<Navigate to={DEFAULT_LANDING} replace />} />
+            </>
+          ) : (
+            <>
+              <Route path="workspace" element={<MarketWorkspacePage />} />
+              <Route path="research" element={<ZoneOverviewPage zoneId="research" />} />
+              <Route path="evidence" element={<EvidenceCommandCenterPage />} />
+              <Route path="operations" element={<OperationsOverviewPage />} />
+              <Route
+                path="research/intelligence/asset/:symbol"
+                element={<AssetProfilePage />}
+              />
+              {/* Edge Audit was merged into the Backtest workspace — keep old links working. */}
+              <Route
+                path="research/audit"
+                element={<Navigate to="/research/backtest" replace />}
+              />
+            </>
+          )}
 
           {ALL_NAV_ITEMS.map((item) => (
             <Route
@@ -103,17 +129,6 @@ export default function App() {
               }
             />
           ))}
-
-          <Route
-            path="research/intelligence/asset/:symbol"
-            element={<AssetProfilePage />}
-          />
-
-          {/* Edge Audit was merged into the Backtest workspace — keep old links working. */}
-          <Route
-            path="research/audit"
-            element={<Navigate to="/research/backtest" replace />}
-          />
 
           <Route path="*" element={<NotFoundPage />} />
         </Route>

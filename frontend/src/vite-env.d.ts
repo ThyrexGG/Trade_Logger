@@ -7,6 +7,8 @@ interface ImportMetaEnv {
   readonly VITE_DEV_API_PROXY_TARGET?: string
   /** 'multiuser' enables invite-only email+password auth (W10); anything else = the single-user passphrase gate. */
   readonly VITE_AUTH_MODE?: string
+  /** 'friends' hides the research/execution-review pages from the sidebar and routes (see lib/navigation.ts); anything else = the full app. */
+  readonly VITE_APP_TIER?: string
 }
 
 interface ImportMeta {

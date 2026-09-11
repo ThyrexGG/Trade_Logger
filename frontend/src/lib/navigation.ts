@@ -32,7 +32,20 @@ export interface NavItem {
   path: string
   icon: IconComponent
   status: PageStatus
+  /** Visible in the stripped-down "friends" build (see IS_FRIENDS_TIER below).
+   * Unset/false = hidden there; always visible in the full (local/owner) build. */
+  friendsVisible?: boolean
 }
+
+/**
+ * Two builds share this one codebase: the full app (local dev, the owner) and
+ * a stripped-down "friends" build for the online deploy, toggled by a
+ * build-time env flag — no second deployment, no second copy of the code.
+ * Every consumer of ZONES/ALL_NAV_ITEMS below (sidebar, breadcrumbs, bottom
+ * nav, zone overview pages, and App.tsx's route generation) reads the
+ * already-filtered list, so a hidden page has no route at all in that build.
+ */
+export const IS_FRIENDS_TIER = import.meta.env.VITE_APP_TIER === 'friends'
 
 export interface Zone {
   id: string
@@ -44,7 +57,7 @@ export interface Zone {
   items: NavItem[]
 }
 
-export const ZONES: Zone[] = [
+const ALL_ZONES: Zone[] = [
   {
     id: 'workspace',
     label: 'Trading Workspace',
@@ -92,6 +105,7 @@ export const ZONES: Zone[] = [
         path: '/workspace/positions',
         icon: ScaleIcon,
         status: 'live',
+        friendsVisible: true,
       },
       {
         id: 'workspace.alerts',
@@ -100,6 +114,7 @@ export const ZONES: Zone[] = [
         path: '/workspace/alerts',
         icon: BellIcon,
         status: 'live',
+        friendsVisible: true,
       },
       {
         id: 'workspace.analytics',
@@ -108,6 +123,7 @@ export const ZONES: Zone[] = [
         path: '/workspace/analytics',
         icon: ChartIcon,
         status: 'live',
+        friendsVisible: true,
       },
       {
         id: 'workspace.assistant',
@@ -226,6 +242,7 @@ export const ZONES: Zone[] = [
         path: '/operations/journal',
         icon: BookIcon,
         status: 'live',
+        friendsVisible: true,
       },
       {
         id: 'operations.audit',
@@ -250,10 +267,20 @@ export const ZONES: Zone[] = [
         path: '/operations/connections',
         icon: ShieldIcon,
         status: 'live',
+        friendsVisible: true,
       },
     ],
   },
 ]
+
+/** The friends build only ever sees `friendsVisible` items; empty zones drop out. */
+function forFriends(zones: Zone[]): Zone[] {
+  return zones
+    .map((zone) => ({ ...zone, items: zone.items.filter((item) => item.friendsVisible) }))
+    .filter((zone) => zone.items.length > 0)
+}
+
+export const ZONES: Zone[] = IS_FRIENDS_TIER ? forFriends(ALL_ZONES) : ALL_ZONES
 
 export const ALL_NAV_ITEMS: NavItem[] = ZONES.flatMap((zone) => zone.items)
 
