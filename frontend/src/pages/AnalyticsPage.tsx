@@ -67,7 +67,7 @@ export function AnalyticsPage() {
             <SectionError message={error ?? 'The analytics service could not be reached.'} onRetry={refetch} />
           </div>
         ) : data ? (
-          <>
+          <div className="tl-fade-in space-y-4">
             {error ? (
               <p className="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[11px] text-warning">
                 {/HTTP\s*4/.test(error) || error.includes('422')
@@ -77,13 +77,12 @@ export function AnalyticsPage() {
             ) : null}
             <AnalyticsControls available={available} query={query} onChange={setQuery} />
             <AnalyticsView data={data} />
-          </>
+          </div>
         ) : null}
 
         <p className="border-t border-border-subtle pt-3 text-[11px] text-muted">
           Source: <code>closed_trades</code> via <code>analytics.calculate_performance_metrics</code>.
-          Data comes in through the broker sync (the <strong>Sync now</strong> button above, or Positions). Research-analytics
-          (R-multiples, execution stress, confluence) is a separate Research Lab workflow.
+          Data comes in through the broker sync (the <strong>Sync now</strong> button above).
         </p>
       </div>
     </PageContainer>

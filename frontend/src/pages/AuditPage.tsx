@@ -23,9 +23,6 @@ export function AuditPage() {
       actions={
         <div className="flex flex-wrap items-center gap-2">
           {refreshing ? <span className="text-[11px] text-muted" aria-live="polite">Refreshing…</span> : null}
-          <Link to="/evidence/governance" className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover">
-            Evidence Governance
-          </Link>
           <Link to="/operations/system" className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover">
             System
           </Link>

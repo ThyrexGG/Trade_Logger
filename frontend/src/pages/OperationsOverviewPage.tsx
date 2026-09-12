@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useHealth } from '../lib/health'
 import { useOpenPositions } from '../lib/useOpenPositions'
-import { useAudit, useJournal, useSystemOps } from '../lib/useOperations'
+import { useJournal, useSystemOps } from '../lib/useOperations'
 import { PageContainer } from '../components/shell/PageContainer'
 import {
   OpsMetric,
@@ -18,24 +18,22 @@ function money(v: number): string {
 
 /**
  * `/operations` overview. Every card is backed by a real endpoint — system
- * health, safety-gate status, open-position count, latest journal trade and
- * latest audit event. Nothing is fabricated; a section with no data says so.
+ * health, safety-gate status, open-position count and latest journal trade.
+ * Nothing is fabricated; a section with no data says so.
  */
 export function OperationsOverviewPage() {
   const health = useHealth()
   const system = useSystemOps()
   const positions = useOpenPositions()
   const journal = useJournal()
-  const audit = useAudit()
 
   const latestTrade = journal.data?.entries[0] ?? null
-  const latestEvent = audit.data?.events[0] ?? null
   const gate = system.data?.safety_gate
 
   return (
     <PageContainer
       title="Operations"
-      description="Operational overview — positions, journal, audit and system health. Read-only."
+      description="Operational overview — positions, journal and system health. Read-only."
     >
       <div className="space-y-4">
         <OpsSafetyBanner
@@ -65,7 +63,7 @@ export function OperationsOverviewPage() {
           />
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-2">
           <SectionCard title="System" action={<Link to="/operations/system" className="text-[11px] text-secondary hover:text-primary">Open →</Link>}>
             {system.data ? (
               <dl className="space-y-1.5 text-xs">
@@ -92,29 +90,10 @@ export function OperationsOverviewPage() {
               <p className="text-xs text-muted">No journal entries.</p>
             )}
           </SectionCard>
-
-          <SectionCard title="Latest audit event" action={<Link to="/operations/audit" className="text-[11px] text-secondary hover:text-primary">Open →</Link>}>
-            {audit.state === 'loading' && !audit.data ? (
-              <p className="text-xs text-muted">Loading…</p>
-            ) : latestEvent ? (
-              <div className="text-xs">
-                <p className="font-mono font-semibold text-primary">{latestEvent.symbol ?? '—'} · {latestEvent.side ?? '—'}</p>
-                <p className="mt-1 flex gap-1.5">
-                  <OpsStatusTag value={latestEvent.mode ?? '—'} size="sm" />
-                  <OpsStatusTag value={latestEvent.state ?? '—'} size="sm" />
-                </p>
-                <p className="mt-1 text-muted">{timeAgo(latestEvent.created_at ?? undefined) ?? '—'} · {audit.data?.total_records.toLocaleString()} records</p>
-              </div>
-            ) : (
-              <p className="text-xs text-muted">No audit events.</p>
-            )}
-          </SectionCard>
         </div>
 
         <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-border-subtle pt-3 text-[11px] text-muted">
-          <span>Operational data — separate from historical research and forward evidence.</span>
-          <Link to="/workspace/positions" className="text-secondary hover:text-primary">Positions →</Link>
-          <Link to="/evidence" className="text-secondary hover:text-primary">Forward Evidence →</Link>
+          <span>Operational data — separate from historical research.</span>
           <Link to="/research/intelligence" className="text-secondary hover:text-primary">Market Intelligence →</Link>
         </div>
       </div>

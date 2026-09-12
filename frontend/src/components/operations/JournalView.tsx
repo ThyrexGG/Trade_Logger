@@ -5,9 +5,10 @@ import { OpsMetric, OpsUnavailable, SectionCard } from './primitives'
 import { formatUsd, timeAgo } from '../../lib/format'
 import { patchJournalEntry } from '../../api/operations'
 import { ChartSnapshot } from '../journal/ChartSnapshot'
-import { ScreenshotStrip } from '../journal/ScreenshotStrip'
+import { ScreenshotStrip, type ScreenshotStripHandle } from '../journal/ScreenshotStrip'
 import { StarRating } from '../journal/StarRating'
 import { TagRecord, invalidateTagRecord } from '../journal/TagRecord'
+import { useToast } from '../../lib/toast'
 
 type Outcome = 'all' | 'win' | 'loss'
 const PAGE = 40
@@ -71,6 +72,8 @@ function JournalEditor({
   const [rating, setRating] = useState<number>(entry.rating ?? 0)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const stripRef = useRef<ScreenshotStripHandle>(null)
+  const toast = useToast()
 
   const norm = (s: string) => s.trim()
   const dirty =
@@ -92,6 +95,7 @@ function JournalEditor({
     try {
       const res = await patchJournalEntry(entry.trade_id, body)
       if ('setup_tag' in body) invalidateTagRecord()
+      toast.success(`${entry.symbol} journal entry saved`)
       onSaved(res.entry)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed')
@@ -100,7 +104,19 @@ function JournalEditor({
   }
 
   return (
-    <div className="space-y-2 rounded border border-accent/30 bg-surface-elevated/40 p-3">
+    <div
+      className="space-y-2 rounded border border-accent/30 bg-surface-elevated/40 p-3"
+      onPaste={(e) => {
+        // Ctrl+V anywhere in the editor (not just while the strip has focus)
+        // routes an image to the screenshot strip; text paste is untouched.
+        const item = [...(e.clipboardData?.items ?? [])].find((i) => i.type.startsWith('image/'))
+        const file = item?.getAsFile()
+        if (file) {
+          e.preventDefault()
+          stripRef.current?.upload(file)
+        }
+      }}
+    >
       <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <label className="block text-[11px] text-muted">
           Setup tag
@@ -163,7 +179,7 @@ function JournalEditor({
       <div>
         <p className="text-[11px] text-muted">Screenshots</p>
         <div className="mt-1">
-          <ScreenshotStrip tradeId={entry.trade_id} />
+          <ScreenshotStrip ref={stripRef} tradeId={entry.trade_id} />
         </div>
       </div>
 

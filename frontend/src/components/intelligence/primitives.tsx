@@ -246,11 +246,42 @@ export function SectionError({
   )
 }
 
+/** Loading placeholder: a handful of pulsing gray bars, widths varied so the
+ * shape reads as text lines (and the last one shorter) instead of a static
+ * gray block. Drop-in for any "loading" branch — existing call sites are
+ * unaffected by this visual-only change. */
 export function SkeletonRows({ rows = 4 }: { rows?: number }) {
   return (
-    <div className="space-y-2" aria-hidden="true">
+    <div className="space-y-2.5" aria-hidden="true">
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="h-4 w-full rounded bg-surface-elevated" />
+        <div
+          key={i}
+          className="h-4 animate-pulse rounded bg-surface-elevated"
+          style={{ width: i === rows - 1 && rows > 1 ? '55%' : `${92 - (i % 3) * 7}%` }}
+        />
+      ))}
+    </div>
+  )
+}
+
+/** A single pulsing rectangle — for a chart, card or any block-shaped area
+ * that isn't a list of text lines. */
+export function SkeletonBlock({ className = 'h-28 w-full' }: { className?: string }) {
+  return <div className={`animate-pulse rounded-lg bg-surface-elevated ${className}`} aria-hidden="true" />
+}
+
+/** A row of pulsing stat-tile placeholders, matching the OpsMetric /
+ * grid-of-numbers shape used across Analytics, Operations and Command
+ * Center summary rows — so the loading state doesn't jump when real numbers
+ * land. */
+export function SkeletonMetrics({ count = 4 }: { count?: number }) {
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-hidden="true">
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="space-y-1.5 rounded-lg border border-border-subtle bg-surface p-3">
+          <div className="h-2.5 w-2/3 animate-pulse rounded bg-surface-elevated" />
+          <div className="h-4 w-1/2 animate-pulse rounded bg-surface-elevated" />
+        </div>
       ))}
     </div>
   )

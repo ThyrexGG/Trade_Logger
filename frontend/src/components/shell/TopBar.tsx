@@ -4,6 +4,7 @@ import { useSyncOnOpen } from '../../lib/syncOnOpen'
 import { apiStatusView, systemStatusView } from '../../lib/status'
 import { MenuIcon, SearchIcon } from '../../lib/icons'
 import { isMac } from '../../lib/platform'
+import { Tooltip } from '../common/Tooltip'
 import { Breadcrumbs } from './Breadcrumbs'
 import { StatusDot } from './StatusDot'
 
@@ -23,14 +24,16 @@ export function TopBar({ onOpenSidebar, onOpenCommandPalette }: TopBarProps) {
 
   return (
     <header className="sticky top-0 z-20 flex h-[var(--tl-topbar-height)] items-center gap-2 border-b border-border-subtle bg-surface/95 px-3 backdrop-blur sm:gap-3 sm:px-4">
-      <button
-        type="button"
-        onClick={onOpenSidebar}
-        className="rounded p-1.5 text-muted hover:bg-surface-hover hover:text-primary lg:hidden"
-        aria-label="Open navigation"
-      >
-        <MenuIcon />
-      </button>
+      <Tooltip label="Open navigation">
+        <button
+          type="button"
+          onClick={onOpenSidebar}
+          className="rounded p-1.5 text-muted hover:bg-surface-hover hover:text-primary lg:hidden"
+          aria-label="Open navigation"
+        >
+          <MenuIcon />
+        </button>
+      </Tooltip>
 
       <div className="min-w-0 flex-1 truncate">
         <Breadcrumbs />
@@ -56,51 +59,52 @@ export function TopBar({ onOpenSidebar, onOpenCommandPalette }: TopBarProps) {
       </div>
 
       {syncing ? (
-        <span
-          className="flex shrink-0 items-center gap-1.5 rounded border border-border bg-surface-elevated px-1.5 py-1 text-[11px] text-muted sm:px-2"
-          title="Catching up on broker data (trades, positions, balance)"
-        >
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" aria-hidden="true" />
-          <span className="hidden sm:inline">Syncing…</span>
-        </span>
+        <Tooltip label="Catching up on broker data (trades, positions, balance)">
+          <span className="flex shrink-0 items-center gap-1.5 rounded border border-border bg-surface-elevated px-1.5 py-1 text-[11px] text-muted sm:px-2">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" aria-hidden="true" />
+            <span className="hidden sm:inline">Syncing…</span>
+          </span>
+        </Tooltip>
       ) : null}
 
-      <span
-        className="flex shrink-0 items-center gap-1.5 rounded border border-negative/40 bg-negative/10 px-1.5 py-1 sm:px-2"
-        title="Live broker transmission is permanently blocked (fail-closed)"
-      >
-        <span aria-hidden="true">🔒</span>
-        <span className="font-mono text-[11px] font-semibold text-negative">
-          <span className="hidden sm:inline">LIVE </span>
-          {safety}
+      <Tooltip label="Live broker transmission is permanently blocked (fail-closed) — nothing here can place, modify or cancel a real order">
+        <span className="flex shrink-0 items-center gap-1.5 rounded border border-negative/40 bg-negative/10 px-1.5 py-1 sm:px-2">
+          <span aria-hidden="true">🔒</span>
+          <span className="font-mono text-[11px] font-semibold text-negative">
+            <span className="hidden sm:inline">LIVE </span>
+            {safety}
+          </span>
         </span>
-      </span>
+      </Tooltip>
 
-      <button
-        type="button"
-        onClick={onOpenCommandPalette}
-        className="flex shrink-0 items-center gap-2 rounded border border-border bg-surface-elevated px-2 py-1.5 text-xs text-secondary hover:border-border-subtle hover:text-primary sm:px-2.5"
-        aria-label="Open command palette"
-      >
-        <SearchIcon className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Search</span>
-        <kbd className="hidden rounded bg-surface px-1.5 py-0.5 font-mono text-[10px] text-muted sm:inline">
-          {isMac() ? '⌘' : 'Ctrl'} K
-        </kbd>
-      </button>
-
-      {authState === 'authed' ? (
+      <Tooltip label={`Search everything — pages, symbols, actions (${isMac() ? '⌘' : 'Ctrl'}+K)`}>
         <button
           type="button"
-          onClick={() => void logout()}
-          className="shrink-0 rounded border border-border px-2 py-1.5 text-xs text-muted hover:border-border-subtle hover:text-primary"
-          title={user ? `Signed in as ${user.email} — sign out` : 'Sign out'}
+          onClick={onOpenCommandPalette}
+          className="flex shrink-0 items-center gap-2 rounded border border-border bg-surface-elevated px-2 py-1.5 text-xs text-secondary hover:border-border-subtle hover:text-primary sm:px-2.5"
+          aria-label="Open command palette"
         >
-          <span className="hidden max-w-[14ch] truncate sm:inline">
-            {user ? user.email : 'Sign out'}
-          </span>
-          <span className="sm:hidden" aria-hidden="true">⎋</span>
+          <SearchIcon className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Search</span>
+          <kbd className="hidden rounded bg-surface px-1.5 py-0.5 font-mono text-[10px] text-muted sm:inline">
+            {isMac() ? '⌘' : 'Ctrl'} K
+          </kbd>
         </button>
+      </Tooltip>
+
+      {authState === 'authed' ? (
+        <Tooltip label={user ? `Signed in as ${user.email} — click to sign out` : 'Sign out'}>
+          <button
+            type="button"
+            onClick={() => void logout()}
+            className="shrink-0 rounded border border-border px-2 py-1.5 text-xs text-muted hover:border-border-subtle hover:text-primary"
+          >
+            <span className="hidden max-w-[14ch] truncate sm:inline">
+              {user ? user.email : 'Sign out'}
+            </span>
+            <span className="sm:hidden" aria-hidden="true">⎋</span>
+          </button>
+        </Tooltip>
       ) : null}
     </header>
   )

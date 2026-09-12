@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom'
 import { useHealth } from '../lib/health'
 import { useSystemOps } from '../lib/useOperations'
 import { PageContainer } from '../components/shell/PageContainer'
@@ -26,12 +25,6 @@ export function SystemHealthPage() {
       actions={
         <div className="flex flex-wrap items-center gap-2">
           {ops.refreshing ? <span className="text-[11px] text-muted" aria-live="polite">Refreshing…</span> : null}
-          <Link to="/operations/audit" className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover">
-            Audit
-          </Link>
-          <Link to="/evidence" className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover">
-            Evidence
-          </Link>
           <button
             type="button"
             onClick={() => { health.refetch(); ops.refetch() }}

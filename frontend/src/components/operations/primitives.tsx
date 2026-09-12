@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { toneArrow } from '../../lib/sentiment'
-export { SectionCard, SectionError, SkeletonRows } from '../intelligence/primitives'
+export { SectionCard, SectionError, SkeletonRows, SkeletonBlock, SkeletonMetrics } from '../intelligence/primitives'
 export { HashChip } from '../evidence/primitives'
 
 export type OpsTone = 'positive' | 'negative' | 'warning' | 'info' | 'neutral'
@@ -70,6 +70,46 @@ export function OpsStatusTag({
   )
 }
 
+const REDUCED_MOTION = () =>
+  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
+function decimalsOf(n: number): number {
+  const s = String(n)
+  const i = s.indexOf('.')
+  return i === -1 ? 0 : s.length - i - 1
+}
+
+/** Animates from whatever it last showed to `value` over ~500ms (ease-out).
+ * Skips straight to the target if the visitor prefers reduced motion. */
+function CountUp({ value, durationMs = 500 }: { value: number; durationMs?: number }) {
+  const [display, setDisplay] = useState(value)
+  const currentRef = useRef(value)
+
+  useEffect(() => {
+    const from = currentRef.current
+    const to = value
+    if (from === to || REDUCED_MOTION()) {
+      currentRef.current = to
+      setDisplay(to)
+      return
+    }
+    const start = performance.now()
+    let raf = 0
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / durationMs)
+      const eased = 1 - (1 - t) ** 3
+      const next = from + (to - from) * eased
+      currentRef.current = next
+      setDisplay(next)
+      if (t < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [value, durationMs])
+
+  return <>{display.toFixed(decimalsOf(value))}</>
+}
+
 export function OpsMetric({
   label,
   value,
@@ -85,7 +125,7 @@ export function OpsMetric({
     <div className="rounded border border-border-subtle bg-surface-elevated/30 px-3 py-2">
       <p className="flex items-center text-[10px] uppercase tracking-wider text-muted">{label}</p>
       <p className={`mt-0.5 font-mono text-lg tabular-nums ${tone ? TEXT[tone] : 'text-primary'}`}>
-        {value}
+        {typeof value === 'number' ? <CountUp value={value} /> : value}
       </p>
       {sub ? <p className="text-[10px] text-muted">{sub}</p> : null}
     </div>

@@ -52,6 +52,72 @@ body {
   border-radius: 2px;
 }
 
+/* Every link/button/input gets a smooth transition on the properties that
+   normally just snap on hover/focus/disable — zero server cost (this is a
+   browser paint, not a request), and it's the single line that makes the
+   whole app feel less abrupt. Layout properties are deliberately excluded
+   (nothing here can cause reflow jank). Reduced-motion below clamps it. */
+a,
+button,
+input,
+select,
+textarea,
+[role='button'] {
+  transition-property: background-color, border-color, color, opacity, transform, box-shadow;
+  transition-duration: 150ms;
+  transition-timing-function: ease;
+}
+
+/* Toast enter animation (lib/toast.tsx). Reduced-motion below clamps this to
+   effectively instant, same as every other transition/animation in the app. */
+@keyframes tl-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.tl-toast {
+  animation: tl-toast-in 180ms ease-out;
+}
+
+/* Page-enter fade (AppShell — keyed by route so it replays on navigation). */
+@keyframes tl-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.tl-page-in {
+  animation: tl-page-in 200ms ease-out;
+}
+
+/* Content-ready fade — the moment a skeleton resolves into real data. */
+@keyframes tl-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.tl-fade-in {
+  animation: tl-fade-in 220ms ease-out;
+}
+
+/* A quiet hover lift for clickable cards / nav rows — a couple of pixels,
+   not a bounce. */
+.tl-hover-lift {
+  transition-property: background-color, border-color, color, transform, box-shadow;
+  transition-duration: 150ms;
+}
+.tl-hover-lift:hover {
+  transform: translateY(-1px);
+}
+
 /* Respect reduced-motion preferences for the few transitions we use. */
 @media (prefers-reduced-motion: reduce) {
   *,

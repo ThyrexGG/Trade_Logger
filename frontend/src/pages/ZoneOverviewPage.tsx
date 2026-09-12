@@ -30,7 +30,7 @@ export function ZoneOverviewPage({ zoneId }: ZoneOverviewPageProps) {
             <li key={item.id}>
               <Link
                 to={item.path}
-                className="flex h-full items-start gap-3 rounded-lg border border-border bg-surface p-4 transition-colors hover:border-border-subtle hover:bg-surface-elevated"
+                className="tl-hover-lift flex h-full items-start gap-3 rounded-lg border border-border bg-surface p-4 hover:border-border-subtle hover:bg-surface-elevated hover:shadow-md"
               >
                 <span className="mt-0.5 shrink-0 rounded-md border border-border-subtle bg-surface-elevated p-2 text-accent">
                   <Icon className="h-4 w-4" />

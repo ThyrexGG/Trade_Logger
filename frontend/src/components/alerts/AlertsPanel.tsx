@@ -5,6 +5,10 @@ import { createAlert, deleteAlert } from '../../api/alerts'
 import { SectionCard } from '../intelligence/primitives'
 import { OpsMetric, OpsStatusTag, OpsUnavailable } from '../operations/primitives'
 import { formatUsd, parseNumberInput, timeAgo } from '../../lib/format'
+import { useToast } from '../../lib/toast'
+
+/** Negative, ever-decreasing — never collides with a real (positive) server id. */
+let nextTempId = -1
 
 const CONDITIONS: { value: AlertCondition; label: string }[] = [
   { value: 'ABOVE', label: 'Rises to / above (≥)' },
@@ -24,15 +28,23 @@ export function AlertsSummary({ data }: { data: AlertsResponse }) {
 
 /**
  * Price-alert create + list. Monitoring only — no order / execution control.
- * Create and delete each fire one request and then `onChanged()` (a single
- * authoritative refetch); there is no optimistic client-side alert state.
+ * Both create and delete update the list **immediately** (optimistic, via
+ * `setLocal`) instead of waiting on the create/delete request and then a
+ * fresh GET — the row appears (or disappears) the instant you act, and rolls
+ * back with an error toast if the server actually rejects it. `onChanged`
+ * is kept only as a light background reconcile, not the thing that draws
+ * the row. A create-validation error (bad symbol, etc.) stays inline next to
+ * the form instead of a toast — the user needs to read it and fix the field,
+ * not watch it vanish in a few seconds.
  */
 export function AlertsPanel({
   data,
   onChanged,
+  setLocal,
 }: {
   data: AlertsResponse
   onChanged: () => void
+  setLocal: (updater: (prev: AlertsResponse | null) => AlertsResponse | null) => void
 }) {
   const [symbol, setSymbol] = useState('')
   const [price, setPrice] = useState('')
@@ -40,9 +52,7 @@ export function AlertsPanel({
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-  const [flash, setFlash] = useState<string | null>(null)
-  const [deletingId, setDeletingId] = useState<number | null>(null)
-  const [rowError, setRowError] = useState<string | null>(null)
+  const toast = useToast()
 
   const parsedPrice = useMemo(() => parseNumberInput(price), [price])
   const symbolClean = symbol.trim().toUpperCase()
@@ -52,9 +62,29 @@ export function AlertsPanel({
   async function submit(e: FormEvent) {
     e.preventDefault()
     if (!canSubmit || parsedPrice === null) return
+    const tempId = nextTempId--
+    const optimistic: AlertItem = {
+      id: tempId,
+      symbol: symbolClean,
+      target_price: parsedPrice,
+      condition,
+      status: 'ACTIVE',
+      account_id: '',
+      notes: notes.trim() || null,
+      created_at: new Date().toISOString(),
+      triggered_at: null,
+    }
     setSubmitting(true)
     setFormError(null)
-    setFlash(null)
+    setLocal((prev) =>
+      prev ? { ...prev, alerts: [optimistic, ...prev.alerts], total: prev.total + 1, active: prev.active + 1 } : prev,
+    )
+    // Clear the form right away — the row is already on screen.
+    const [savedSymbol, savedPrice, savedCondition, savedNotes] = [symbol, price, condition, notes]
+    setSymbol('')
+    setPrice('')
+    setNotes('')
+    setCondition('ABOVE')
     try {
       const res = await createAlert({
         symbol: symbolClean,
@@ -62,15 +92,21 @@ export function AlertsPanel({
         condition,
         notes: notes.trim() || undefined,
       })
-      setFlash(
-        `Alert set: ${res.alert.symbol} ${res.alert.condition} ${formatUsd(res.alert.target_price)}`,
+      setLocal((prev) =>
+        prev ? { ...prev, alerts: prev.alerts.map((a) => (a.id === tempId ? res.alert : a)) } : prev,
       )
-      setSymbol('')
-      setPrice('')
-      setNotes('')
-      setCondition('ABOVE')
-      onChanged()
+      toast.success(`Alert set: ${res.alert.symbol} ${res.alert.condition} ${formatUsd(res.alert.target_price)}`)
+      onChanged() // quiet background reconcile — the row is already correct on screen
     } catch (err) {
+      // Roll back the optimistic row and the counts, and give the text back
+      // so nothing typed is lost.
+      setLocal((prev) =>
+        prev ? { ...prev, alerts: prev.alerts.filter((a) => a.id !== tempId), total: prev.total - 1, active: prev.active - 1 } : prev,
+      )
+      setSymbol(savedSymbol)
+      setPrice(savedPrice)
+      setCondition(savedCondition)
+      setNotes(savedNotes)
       setFormError(err instanceof Error ? err.message : 'Could not create the alert')
     } finally {
       setSubmitting(false)
@@ -78,18 +114,37 @@ export function AlertsPanel({
   }
 
   async function remove(alert: AlertItem) {
-    if (deletingId !== null) return
-    setDeletingId(alert.id)
-    setRowError(null)
-    setFlash(null)
+    const idx = data.alerts.findIndex((a) => a.id === alert.id)
+    setLocal((prev) =>
+      prev
+        ? {
+            ...prev,
+            alerts: prev.alerts.filter((a) => a.id !== alert.id),
+            total: prev.total - 1,
+            active: alert.status === 'ACTIVE' ? prev.active - 1 : prev.active,
+            triggered: alert.status === 'TRIGGERED' ? prev.triggered - 1 : prev.triggered,
+          }
+        : prev,
+    )
     try {
       await deleteAlert(alert.id)
-      setFlash(`Deleted alert #${alert.id} (${alert.symbol})`)
-      onChanged()
+      toast.success(`Deleted alert #${alert.id} (${alert.symbol})`)
+      onChanged() // quiet background reconcile
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : `Could not delete alert #${alert.id}`)
-    } finally {
-      setDeletingId(null)
+      // Put it back where it was.
+      setLocal((prev) => {
+        if (!prev) return prev
+        const alerts = [...prev.alerts]
+        alerts.splice(Math.min(idx, alerts.length), 0, alert)
+        return {
+          ...prev,
+          alerts,
+          total: prev.total + 1,
+          active: alert.status === 'ACTIVE' ? prev.active + 1 : prev.active,
+          triggered: alert.status === 'TRIGGERED' ? prev.triggered + 1 : prev.triggered,
+        }
+      })
+      toast.error(err instanceof Error ? err.message : `Could not delete alert #${alert.id}`)
     }
   }
 
@@ -173,22 +228,10 @@ export function AlertsPanel({
         </form>
       </SectionCard>
 
-      {flash ? (
-        <p className="rounded border border-positive/30 bg-positive/10 px-2 py-1 text-[11px] text-positive" role="status">
-          {flash}
-        </p>
-      ) : null}
-
       <SectionCard
         title="Your price alerts"
         action={<span className="font-mono text-[11px] text-muted">{data.source} · {data.total}</span>}
       >
-        {rowError ? (
-          <p className="mb-2 rounded border border-negative/30 bg-negative/10 px-2 py-1 text-[11px] text-negative" role="alert">
-            {rowError}
-          </p>
-        ) : null}
-
         {data.alerts.length === 0 ? (
           <OpsUnavailable>
             No price alerts yet. Set a target above — the background sync
@@ -210,8 +253,10 @@ export function AlertsPanel({
                 </tr>
               </thead>
               <tbody>
-                {data.alerts.map((a) => (
-                  <tr key={a.id} className="border-b border-border-subtle/60 align-top">
+                {data.alerts.map((a) => {
+                  const pending = a.id < 0 // optimistic row, server hasn't confirmed the id yet
+                  return (
+                  <tr key={a.id} className={`border-b border-border-subtle/60 align-top ${pending ? 'opacity-60' : ''}`}>
                     <td className="px-2 py-1.5 font-mono font-semibold text-primary">{a.symbol}</td>
                     <td className="px-2 py-1.5 font-mono text-secondary">
                       {a.condition === 'ABOVE' ? '≥ above' : '≤ below'}
@@ -220,7 +265,14 @@ export function AlertsPanel({
                       {formatUsd(a.target_price)}
                     </td>
                     <td className="px-2 py-1.5">
-                      <OpsStatusTag value={a.status} size="sm" />
+                      {pending ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-muted">
+                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" aria-hidden="true" />
+                          Saving…
+                        </span>
+                      ) : (
+                        <OpsStatusTag value={a.status} size="sm" />
+                      )}
                     </td>
                     <td className="px-2 py-1.5 max-w-[16rem] text-secondary">
                       {a.notes ?? <span className="text-muted">—</span>}
@@ -235,14 +287,16 @@ export function AlertsPanel({
                       <button
                         type="button"
                         onClick={() => remove(a)}
-                        disabled={deletingId !== null}
+                        disabled={pending}
+                        title={pending ? 'Still saving — wait a moment before deleting' : undefined}
                         className="rounded border border-border px-1.5 py-0.5 text-[10px] text-secondary hover:border-negative/40 hover:text-negative disabled:opacity-40"
                       >
-                        {deletingId === a.id ? 'Deleting…' : 'Delete'}
+                        Delete
                       </button>
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>

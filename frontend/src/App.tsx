@@ -2,7 +2,7 @@ import { lazy, Suspense, type ComponentType, type ReactElement } from 'react'
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/shell/AppShell'
 import { RouteFallback } from './components/shell/RouteFallback'
-import { ALL_NAV_ITEMS, IS_FRIENDS_TIER } from './lib/navigation'
+import { ALL_NAV_ITEMS, IS_FRIENDS_TIER, ZONES } from './lib/navigation'
 // The default landing view and the lightweight zone/overview pages stay in the
 // main bundle so the first paint after load needs no extra round-trip.
 import { MarketWorkspacePage } from './pages/MarketWorkspacePage'
@@ -24,49 +24,28 @@ function page(loader: () => Promise<Record<string, ComponentType>>, key: string)
 const RiskGatewayPage = page(() => import('./pages/RiskGatewayPage'), 'RiskGatewayPage')
 const IntelligencePage = page(() => import('./pages/IntelligencePage'), 'IntelligencePage')
 const AssetProfilePage = page(() => import('./pages/AssetProfilePage'), 'AssetProfilePage')
-const ForwardEvidencePage = page(() => import('./pages/ForwardEvidencePage'), 'ForwardEvidencePage')
-const EvidenceStatisticsPage = page(() => import('./pages/EvidenceStatisticsPage'), 'EvidenceStatisticsPage')
-const EvidenceGovernancePage = page(() => import('./pages/EvidenceGovernancePage'), 'EvidenceGovernancePage')
-const StrategyLabPage = page(() => import('./pages/StrategyLabPage'), 'StrategyLabPage')
-const StrategyDiscoveryPage = page(
-  () => import('./pages/StrategyDiscoveryPage'),
-  'StrategyDiscoveryPage',
-)
-const TradeSetupPage = page(() => import('./pages/TradeSetupPage'), 'TradeSetupPage')
-const BacktestWorkspacePage = page(() => import('./pages/BacktestWorkspacePage'), 'BacktestWorkspacePage')
 const CryptoCarryPage = page(() => import('./pages/CryptoCarryPage'), 'CryptoCarryPage')
 const MacroIntelligencePage = page(() => import('./pages/MacroIntelligencePage'), 'MacroIntelligencePage')
-const PositionsPage = page(() => import('./pages/PositionsPage'), 'PositionsPage')
 const PriceAlertsPage = page(() => import('./pages/PriceAlertsPage'), 'PriceAlertsPage')
 const AnalyticsPage = page(() => import('./pages/AnalyticsPage'), 'AnalyticsPage')
 const CommandCenterPage = page(() => import('./pages/CommandCenterPage'), 'CommandCenterPage')
 const AssistantPage = page(() => import('./pages/AssistantPage'), 'AssistantPage')
 const JournalPage = page(() => import('./pages/JournalPage'), 'JournalPage')
-const AuditPage = page(() => import('./pages/AuditPage'), 'AuditPage')
 const SystemHealthPage = page(() => import('./pages/SystemHealthPage'), 'SystemHealthPage')
 const ConnectionsPage = page(() => import('./pages/ConnectionsPage'), 'ConnectionsPage')
 
 /** Item routes whose page is implemented for real (not a placeholder). */
 const LIVE_ITEM_PAGES: Record<string, ReactElement> = {
   'workspace.command-center': <CommandCenterPage />,
-  'workspace.trade-setup': <TradeSetupPage />,
   'workspace.market': <MarketWorkspacePage />,
   'workspace.risk': <RiskGatewayPage />,
-  'workspace.positions': <PositionsPage />,
   'workspace.alerts': <PriceAlertsPage />,
   'workspace.analytics': <AnalyticsPage />,
   'workspace.assistant': <AssistantPage />,
   'research.intelligence': <IntelligencePage />,
-  'research.strategy': <StrategyLabPage />,
-  'research.discovery': <StrategyDiscoveryPage />,
-  'research.backtest': <BacktestWorkspacePage />,
   'research.crypto-carry': <CryptoCarryPage />,
   'research.macro': <MacroIntelligencePage />,
-  'evidence.forward': <ForwardEvidencePage />,
-  'evidence.statistics': <EvidenceStatisticsPage />,
-  'evidence.governance': <EvidenceGovernancePage />,
   'operations.journal': <JournalPage />,
-  'operations.audit': <AuditPage />,
   'operations.system': <SystemHealthPage />,
   'operations.connections': <ConnectionsPage />,
 }
@@ -74,13 +53,14 @@ const LIVE_ITEM_PAGES: Record<string, ReactElement> = {
 /**
  * Routing foundation. All routes render inside the persistent <AppShell>.
  * Nested item routes are generated from the navigation model so future stages
- * only swap a placeholder for a real page.
+ * only swap a placeholder for a real page. A zone (workspace/research/
+ * evidence/operations) can be entirely absent — either because the friends
+ * build filtered it out, or because every item under it was removed from
+ * navigation.ts directly — so its bare zone-index route (and the default
+ * landing) are resolved from `ZONES` itself rather than assumed to exist.
  */
-// The friends build only has the picked-over ZONES list (see navigation.ts),
-// so its zone-overview pages would otherwise show empty or reference hidden
-// pages — send them straight to the first item they're actually allowed to
-// see instead. The full (local/owner) build is untouched.
-const DEFAULT_LANDING = IS_FRIENDS_TIER ? ALL_NAV_ITEMS[0]?.path ?? '/' : '/workspace'
+const zoneIds = new Set(ZONES.map((z) => z.id))
+const DEFAULT_LANDING = !IS_FRIENDS_TIER && zoneIds.has('workspace') ? '/workspace' : ALL_NAV_ITEMS[0]?.path ?? '/'
 
 export default function App() {
   return (
@@ -95,30 +75,25 @@ export default function App() {
             </Suspense>
           }
         >
-          {IS_FRIENDS_TIER ? (
-            <>
-              <Route path="workspace" element={<Navigate to={DEFAULT_LANDING} replace />} />
-              <Route path="research" element={<Navigate to={DEFAULT_LANDING} replace />} />
-              <Route path="evidence" element={<Navigate to={DEFAULT_LANDING} replace />} />
-              <Route path="operations" element={<Navigate to={DEFAULT_LANDING} replace />} />
-            </>
-          ) : (
-            <>
-              <Route path="workspace" element={<MarketWorkspacePage />} />
-              <Route path="research" element={<ZoneOverviewPage zoneId="research" />} />
-              <Route path="evidence" element={<EvidenceCommandCenterPage />} />
-              <Route path="operations" element={<OperationsOverviewPage />} />
-              <Route
-                path="research/intelligence/asset/:symbol"
-                element={<AssetProfilePage />}
-              />
-              {/* Edge Audit was merged into the Backtest workspace — keep old links working. */}
-              <Route
-                path="research/audit"
-                element={<Navigate to="/research/backtest" replace />}
-              />
-            </>
-          )}
+          <Route
+            path="workspace"
+            element={zoneIds.has('workspace') ? <MarketWorkspacePage /> : <Navigate to={DEFAULT_LANDING} replace />}
+          />
+          <Route
+            path="research"
+            element={zoneIds.has('research') ? <ZoneOverviewPage zoneId="research" /> : <Navigate to={DEFAULT_LANDING} replace />}
+          />
+          <Route
+            path="evidence"
+            element={zoneIds.has('evidence') ? <EvidenceCommandCenterPage /> : <Navigate to={DEFAULT_LANDING} replace />}
+          />
+          <Route
+            path="operations"
+            element={zoneIds.has('operations') ? <OperationsOverviewPage /> : <Navigate to={DEFAULT_LANDING} replace />}
+          />
+          {zoneIds.has('research') ? (
+            <Route path="research/intelligence/asset/:symbol" element={<AssetProfilePage />} />
+          ) : null}
 
           {ALL_NAV_ITEMS.map((item) => (
             <Route

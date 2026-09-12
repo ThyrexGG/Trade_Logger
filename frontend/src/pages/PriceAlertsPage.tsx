@@ -15,7 +15,7 @@ import {
  * the existing `auto_sync` daemon; there is no order / execution control here.
  */
 export function PriceAlertsPage() {
-  const { state, data, error, refreshing, refetch } = useAlerts()
+  const { state, data, error, refreshing, refetch, setLocal } = useAlerts()
 
   return (
     <PageContainer
@@ -45,15 +45,15 @@ export function PriceAlertsPage() {
             <SectionError message={error ?? 'The alerts service could not be reached.'} onRetry={refetch} />
           </div>
         ) : data ? (
-          <>
+          <div className="tl-fade-in space-y-4">
             {state === 'error' && error ? (
               <p className="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[11px] text-warning">
                 Showing last good alert list — refresh failed: {error}
               </p>
             ) : null}
             <AlertsSummary data={data} />
-            <AlertsPanel data={data} onChanged={refetch} />
-          </>
+            <AlertsPanel data={data} onChanged={refetch} setLocal={setLocal} />
+          </div>
         ) : null}
 
         <p className="border-t border-border-subtle pt-3 text-[11px] text-muted">

@@ -1,13 +1,26 @@
-import { Link, useSearchParams } from 'react-router-dom'
+import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useJournal } from '../lib/useOperations'
 import { PageContainer } from '../components/shell/PageContainer'
 import { JournalSummary, JournalView } from '../components/operations/JournalView'
+import { JournalFeed } from '../components/journal/JournalFeed'
 import { FreeEntries } from '../components/journal/FreeEntries'
 import {
   OpsSafetyBanner,
   SectionError,
   SkeletonRows,
 } from '../components/operations/primitives'
+
+type ViewMode = 'feed' | 'table'
+const VIEW_KEY = 'tl.journal.view'
+
+function loadView(): ViewMode {
+  try {
+    return localStorage.getItem(VIEW_KEY) === 'table' ? 'table' : 'feed'
+  } catch {
+    return 'feed'
+  }
+}
 
 /**
  * Trade journal (`/operations/journal`). Read view over the authoritative
@@ -19,6 +32,19 @@ export function JournalPage() {
   const { state, data, error, refreshing, refetch, applyEntry } = useJournal()
   const [params] = useSearchParams()
   const focusTradeId = params.get('trade')
+  // A deep-link from the calendar ("?trade=...") wants the highlighted-row
+  // scroll-to behaviour the table view has — honour that regardless of the
+  // remembered preference; a plain visit to the page uses it as normal.
+  const [view, setView] = useState<ViewMode>(() => (focusTradeId ? 'table' : loadView()))
+
+  function changeView(v: ViewMode) {
+    setView(v)
+    try {
+      localStorage.setItem(VIEW_KEY, v)
+    } catch {
+      /* private browsing / storage blocked — the choice just won't stick */
+    }
+  }
 
   return (
     <PageContainer
@@ -27,12 +53,22 @@ export function JournalPage() {
       actions={
         <div className="flex flex-wrap items-center gap-2">
           {refreshing ? <span className="text-[11px] text-muted" aria-live="polite">Refreshing…</span> : null}
-          <Link to="/workspace/positions" className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover">
-            Positions
-          </Link>
-          <Link to="/operations/audit" className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover">
-            Audit
-          </Link>
+          <div className="flex overflow-hidden rounded border border-border text-xs">
+            <button
+              type="button"
+              onClick={() => changeView('feed')}
+              className={`px-2.5 py-1 ${view === 'feed' ? 'bg-accent/10 text-accent' : 'text-secondary hover:bg-surface-hover'}`}
+            >
+              Feed
+            </button>
+            <button
+              type="button"
+              onClick={() => changeView('table')}
+              className={`border-l border-border px-2.5 py-1 ${view === 'table' ? 'bg-accent/10 text-accent' : 'text-secondary hover:bg-surface-hover'}`}
+            >
+              Table
+            </button>
+          </div>
           <button type="button" onClick={refetch} className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover">
             Refresh
           </button>
@@ -51,16 +87,20 @@ export function JournalPage() {
             <SectionError message={error ?? 'The journal service could not be reached.'} onRetry={refetch} />
           </div>
         ) : data ? (
-          <>
+          <div className="tl-fade-in space-y-4">
             {state === 'error' && error ? (
               <p className="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[11px] text-warning">
                 Showing last good journal — refresh failed: {error}
               </p>
             ) : null}
             <JournalSummary data={data} />
-            <JournalView data={data} onEntryUpdated={applyEntry} focusTradeId={focusTradeId} />
+            {view === 'feed' ? (
+              <JournalFeed data={data} onEntryUpdated={applyEntry} />
+            ) : (
+              <JournalView data={data} onEntryUpdated={applyEntry} focusTradeId={focusTradeId} />
+            )}
             <FreeEntries />
-          </>
+          </div>
         ) : null}
 
         <p className="border-t border-border-subtle pt-3 text-[11px] text-muted">

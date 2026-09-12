@@ -54,7 +54,11 @@ export function AppShell() {
         />
 
         <main id="main-content" className="flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom))] lg:pb-0">
-          <Outlet />
+          {/* Keyed by pathname (not full location) so it replays on a real page
+              change but not on a same-page filter/query update. */}
+          <div key={location.pathname} className="tl-page-in">
+            <Outlet />
+          </div>
         </main>
 
         <footer className="hidden border-t border-border-subtle bg-surface px-4 py-2.5 text-xs text-muted sm:px-6 lg:block">

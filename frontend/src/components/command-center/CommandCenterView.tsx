@@ -110,10 +110,7 @@ export function CommandCenterView({ data }: { data: CommandCenterOverviewRespons
         </SectionCard>
 
         {/* Positions */}
-        <SectionCard
-          title="Open positions"
-          action={<Link to="/workspace/positions" className="font-mono text-[11px] text-accent hover:underline">positions →</Link>}
-        >
+        <SectionCard title="Open positions">
           {degraded.has('positions') || !pos ? (
             <Degraded name="positions" />
           ) : pos.total_open === 0 ? (
@@ -242,10 +239,7 @@ export function CommandCenterView({ data }: { data: CommandCenterOverviewRespons
         </SectionCard>
 
         {/* Research */}
-        <SectionCard
-          title="Research state"
-          action={<Link to="/evidence/forward" className="font-mono text-[11px] text-accent hover:underline">evidence →</Link>}
-        >
+        <SectionCard title="Research state">
           {degraded.has('research_state') || !research ? (
             <Degraded name="research_state" />
           ) : (
