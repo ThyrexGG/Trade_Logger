@@ -7,6 +7,7 @@ import {
   ChartIcon,
   CpuIcon,
   GaugeIcon,
+  GiftIcon,
   LayersIcon,
   ScaleIcon,
   ShieldIcon,
@@ -70,6 +71,7 @@ const ALL_ZONES: Zone[] = [
         path: '/workspace/command-center',
         icon: GaugeIcon,
         status: 'live',
+        friendsVisible: true,
       },
       {
         id: 'workspace.market',
@@ -78,6 +80,7 @@ const ALL_ZONES: Zone[] = [
         path: '/workspace/market',
         icon: ChartIcon,
         status: 'live',
+        friendsVisible: true,
       },
       {
         id: 'workspace.risk',
@@ -86,6 +89,7 @@ const ALL_ZONES: Zone[] = [
         path: '/workspace/risk',
         icon: ShieldIcon,
         status: 'live',
+        friendsVisible: true,
       },
       {
         id: 'workspace.alerts',
@@ -94,7 +98,6 @@ const ALL_ZONES: Zone[] = [
         path: '/workspace/alerts',
         icon: BellIcon,
         status: 'live',
-        friendsVisible: true,
       },
       {
         id: 'workspace.analytics',
@@ -180,6 +183,15 @@ const ALL_ZONES: Zone[] = [
         description: 'Your broker connection — credentials encrypted at rest.',
         path: '/operations/connections',
         icon: ShieldIcon,
+        status: 'live',
+        friendsVisible: true,
+      },
+      {
+        id: 'operations.partners',
+        label: 'Partners',
+        description: "Brokers and prop firms we vouch for — some are referral links.",
+        path: '/operations/partners',
+        icon: GiftIcon,
         status: 'live',
         friendsVisible: true,
       },

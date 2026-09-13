@@ -145,6 +145,16 @@ export function BellIcon(props: IconProps) {
   )
 }
 
+export function GiftIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <rect x="4" y="9" width="16" height="11" rx="1" />
+      <path d="M4 13h16M12 9v11" />
+      <path d="M12 9c-1.5 0-3-1-3-2.5S10 4 11.5 4 12 6 12 9zM12 9c1.5 0 3-1 3-2.5S14 4 12.5 4 12 6 12 9z" />
+    </Base>
+  )
+}
+
 export function MenuIcon(props: IconProps) {
   return (
     <Base {...props}>
