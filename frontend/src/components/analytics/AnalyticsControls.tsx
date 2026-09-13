@@ -3,6 +3,7 @@ import type { AnalyticsAvailable, AnalyticsQuery } from '../../types/analytics'
 import { SectionCard } from '../intelligence/primitives'
 import { Tooltip } from '../common/Tooltip'
 import { parseNumberInput } from '../../lib/format'
+import { saveInitialBalance } from '../../api/analytics'
 
 /**
  * Filter bar for the analytics population: account, symbols, date range,
@@ -27,11 +28,12 @@ export function AnalyticsControls({
     setBalanceText(String(query.initial_balance ?? 10000))
   }, [query.initial_balance])
 
-  // A single selected account carries its own detected starting balance
-  // (current synced balance minus all-time net P&L) — prefill it once per
-  // account switch instead of making everyone type their own balance every
-  // time. Re-typing the field by hand overrides it for that account; picking
-  // a different account re-triggers detection.
+  // A single selected account prefills its starting balance once per account
+  // switch: the user's own saved value (POST .../initial-balance) always wins
+  // if one exists — that's not a guess, it's what they told the app — else
+  // the auto-detected suggestion (synced balance minus all-time P&L). Typing
+  // in the field by hand overrides it for that account and saves the new
+  // value (debounced below); picking a different account re-applies.
   const appliedFor = useRef<string | null>(null)
   useEffect(() => {
     const acct = query.account
@@ -40,12 +42,26 @@ export function AnalyticsControls({
       return
     }
     if (appliedFor.current === acct) return
-    if (available.suggested_initial_balance == null) return
-    appliedFor.current = acct
-    setAutoFilled(true)
-    onChange({ ...query, initial_balance: available.suggested_initial_balance })
+    if (available.saved_initial_balance != null) {
+      appliedFor.current = acct
+      setAutoFilled(false)
+      onChange({ ...query, initial_balance: available.saved_initial_balance })
+    } else if (available.suggested_initial_balance != null) {
+      appliedFor.current = acct
+      setAutoFilled(true)
+      onChange({ ...query, initial_balance: available.suggested_initial_balance })
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query.account, available.suggested_initial_balance])
+  }, [query.account, available.saved_initial_balance, available.suggested_initial_balance])
+
+  // Debounced save of a hand-typed balance — waits for typing to pause so
+  // every keystroke doesn't fire its own request.
+  const saveTimer = useRef<number | null>(null)
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) window.clearTimeout(saveTimer.current)
+    }
+  }, [])
 
   const toggleSymbol = (sym: string) => {
     const has = selectedSymbols.includes(sym)
@@ -121,7 +137,14 @@ export function AnalyticsControls({
               setBalanceText(e.target.value)
               setAutoFilled(false)
               const n = parseNumberInput(e.target.value)
-              if (n !== null && n > 0) onChange({ ...query, initial_balance: n })
+              if (n === null || n <= 0) return
+              onChange({ ...query, initial_balance: n })
+              const acct = query.account
+              if (!acct || acct === 'ALL') return
+              if (saveTimer.current) window.clearTimeout(saveTimer.current)
+              saveTimer.current = window.setTimeout(() => {
+                void saveInitialBalance(acct, n)
+              }, 800)
             }}
             inputMode="decimal"
             className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-xs tabular-nums text-primary focus:border-accent focus:outline-none"

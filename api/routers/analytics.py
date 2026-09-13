@@ -29,6 +29,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 import analytics
 import database
+import tenant
 from api.schemas import (
     AnalyticsAvailable,
     AnalyticsDayTradesResponse,
@@ -52,6 +53,24 @@ _MAX_EQUITY_POINTS = 400
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _initial_balance_key(account: str) -> str:
+    """Scoped by tenant + account so one user's saved starting balance for
+    an account never leaks into another user's view of an (unrelated, or
+    same-labelled) account — app_settings itself is a plain global
+    key-value store with no tenant column of its own."""
+    return f"analytics_initial_balance::{tenant.current_user_id()}::{account}"
+
+
+def _get_saved_initial_balance(account: str) -> Optional[float]:
+    raw = database.get_setting(_initial_balance_key(account), "")
+    if not raw:
+        return None
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
 
 
 def _load_trades() -> pd.DataFrame:
@@ -180,15 +199,18 @@ def get_performance(
     # back it out from its real synced balance: current balance minus every
     # trade's net P&L is the implied balance before the first trade.
     suggested_balance: Optional[float] = None
+    saved_balance: Optional[float] = None
     if acc_label != "ALL":
         entry = database.get_account_balances().get(acc_label)
         if entry is not None:
             total_net = float(acc_df["net_profit"].sum()) if not acc_df.empty else 0.0
             suggested_balance = round(float(entry["balance"]) - total_net, 2)
+        saved_balance = _get_saved_initial_balance(acc_label)
 
     available = AnalyticsAvailable(
         accounts=all_accounts, symbols=avail_symbols, date_min=date_min, date_max=date_max,
         suggested_initial_balance=suggested_balance,
+        saved_initial_balance=saved_balance,
     )
 
     # --- symbol filter ---
@@ -289,6 +311,21 @@ def get_performance(
         source="closed_trades",
         timestamp=_now(),
     )
+
+
+@router.post("/initial-balance")
+def set_initial_balance(
+    account: str = Query(..., description="account_id this starting balance applies to"),
+    value: float = Query(..., gt=0, description="the starting balance to remember for this account"),
+) -> Dict[str, Any]:
+    """Saves a starting balance for one account so it survives a reload —
+    scoped to this account and this tenant, never shared or global. This is
+    the user's own override; it always wins over the auto-detected
+    suggestion in the `available.saved_initial_balance` field above."""
+    if not math.isfinite(value):
+        raise HTTPException(status_code=422, detail="value must be finite")
+    database.set_setting(_initial_balance_key(account.strip()), value)
+    return {"account": account.strip(), "initial_balance": value}
 
 
 def _trade_item(row: pd.Series) -> JournalTradeItem:

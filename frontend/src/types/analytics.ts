@@ -97,6 +97,8 @@ export interface AnalyticsAvailable {
   date_max: string | null
   /** Set only for one selected account: its synced balance minus all-time net P&L — a prefill guess, not a fact. */
   suggested_initial_balance: number | null
+  /** The user's own saved value for this account, if they've set one — always wins over the suggestion above. */
+  saved_initial_balance: number | null
 }
 
 export interface AnalyticsPerformanceResponse {

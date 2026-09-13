@@ -1079,6 +1079,10 @@ class AnalyticsAvailable(BaseModel):
     # any deposit/withdrawal in between throws it off — so the UI offers it
     # as a prefill, never as a fact the user can't override.
     suggested_initial_balance: Optional[float] = None
+    # The user's own saved override for this account (POST .../initial-balance),
+    # if any — always takes priority over the auto-detected suggestion above,
+    # since it's literally what they told the app rather than a guess.
+    saved_initial_balance: Optional[float] = None
 
 
 class AnalyticsPerformanceResponse(BaseModel):
