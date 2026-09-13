@@ -39,6 +39,7 @@ from api.routers import (
     connections,
     admin,
     ingest,
+    referrals,
 )
 
 def _warm_up() -> None:
@@ -281,6 +282,7 @@ app.include_router(system_control.router)
 app.include_router(connections.router)
 app.include_router(admin.router)
 app.include_router(ingest.router)
+app.include_router(referrals.router)
 
 
 @app.get("/")
