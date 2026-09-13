@@ -33,7 +33,18 @@ first sync. From then on it updates itself every 15 minutes.
 Nothing. Leave your PC on with MetaTrader running and logged in. Check
 TradeLogger — your journal, analytics and positions fill in on their own.
 
-If you turn MetaTrader off, syncing pauses and catches up when it's back.
+If you turn MetaTrader off, syncing pauses and catches up when it's back —
+it will **not** reopen MetaTrader for you. If the terminal isn't running
+when a sync is due, that cycle is skipped quietly and tried again next time.
+
+---
+
+## Uninstalling
+
+Double-click **`Uninstall TradeLogger Sync.bat`** in the same folder as the
+program. It removes the background task; your data already in TradeLogger
+stays. (It's written the first time you set up, and gets added automatically
+the next time it runs if you're on an older install that doesn't have it yet.)
 
 ---
 
@@ -45,7 +56,7 @@ Open a terminal in the folder:
 |---|---|
 | `tradelogger-mt5-sync --check` | Test your login + MetaTrader connection |
 | `tradelogger-mt5-sync --once` | Sync one time right now |
-| `tradelogger-mt5-sync --uninstall` | Remove the background task (your synced data stays) |
+| `tradelogger-mt5-sync --uninstall` | Same as the .bat file above — remove the background task (your synced data stays) |
 | `tradelogger-mt5-sync --daemon` | Keep syncing in this window (Mac/Linux, or if the task won't install) |
 
 ---

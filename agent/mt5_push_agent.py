@@ -49,7 +49,7 @@ try:
 except ImportError:
     mt5 = None  # type: ignore
 
-AGENT_VERSION = "1.1.2"
+AGENT_VERSION = "1.2.0"
 TASK_NAME = "TradeLogger MT5 Sync"
 HISTORY_FALLBACK_START = datetime(2020, 1, 1, tzinfo=timezone.utc)
 
@@ -183,8 +183,37 @@ def _require_mt5() -> None:
         )
 
 
+def _mt5_terminal_running() -> bool:
+    """Whether an MT5 terminal process looks alive already.
+
+    Checked *before* calling `mt5.initialize()` because that call will
+    happily launch a brand-new terminal window itself if none is running —
+    which is exactly the "why does MetaTrader keep popping up" annoyance
+    during a silent background sync. Every white-labelled MT5 build (broker
+    re-skins, prop-firm terminals, ...) still ships MetaQuotes' actual
+    binary under the hood, so checking for the two real process names
+    catches effectively everyone regardless of the Start Menu shortcut's
+    branding.
+    """
+    if platform.system() != "Windows":
+        return True  # can't check cheaply elsewhere; let initialize() decide
+    try:
+        out = subprocess.run(
+            ["tasklist"], capture_output=True, text=True, timeout=10,
+        ).stdout.lower()
+        return "terminal64.exe" in out or "terminal.exe" in out
+    except Exception:
+        return True  # can't tell -- don't block a sync that might work fine
+
+
 def mt5_connect(cfg: Dict[str, Any]) -> None:
     _require_mt5()
+    if not _mt5_terminal_running():
+        sys.exit(
+            "MetaTrader 5 isn't running — skipping this sync (it will NOT be\n"
+            "    opened automatically). Open the terminal and log in; the next\n"
+            "    sync picks up where it left off."
+        )
     m = cfg.get("mt5") or {}
     login, password, server = m.get("login"), m.get("password"), m.get("server")
     ok = False
@@ -368,9 +397,17 @@ def sync_once(cfg: Dict[str, Any], auth: "Auth") -> None:
 # --------------------------------------------------------------------------- #
 #  Background task (Windows Task Scheduler, via a hidden VBS launcher)
 # --------------------------------------------------------------------------- #
+def _self_invocation() -> str:
+    """Quoted "how to run this exact program again" prefix, shared by the
+    hidden scheduled-task launcher and the double-clickable Uninstall.bat."""
+    if getattr(sys, "frozen", False):
+        return f'"{sys.executable}"'
+    return f'"{sys.executable}" "{Path(__file__).resolve()}"'
+
+
 def _runner_command() -> str:
     if getattr(sys, "frozen", False):
-        return f'"{sys.executable}" --once'
+        return f"{_self_invocation()} --once"
     pyw = Path(sys.executable).with_name("pythonw.exe")
     exe = str(pyw) if pyw.exists() else sys.executable
     return f'"{exe}" "{Path(__file__).resolve()}" --once'
@@ -379,6 +416,33 @@ def _runner_command() -> str:
 def _vbs_line(command: str) -> str:
     """A one-line VBS that runs `command` with no visible window."""
     return f'CreateObject("WScript.Shell").Run "{command.replace(chr(34), chr(34) * 2)}", 0, False\n'
+
+
+UNINSTALL_BAT_NAME = "Uninstall TradeLogger Sync.bat"
+
+
+def write_uninstall_shortcut() -> Path:
+    """A literal, double-clickable file sitting right next to the program —
+    no command line, no CLI flag to remember, no digging through Task
+    Scheduler. `--uninstall` always existed but only as a terminal argument,
+    which is no help to someone who doesn't know what a terminal is; this is
+    the actual fix for that. Rewritten idempotently on every setup and every
+    sync so an install made before this existed self-heals without anyone
+    re-running the wizard."""
+    bat = app_dir() / UNINSTALL_BAT_NAME
+    content = (
+        "@echo off\r\n"
+        "echo Removing the TradeLogger background sync...\r\n"
+        f"{_self_invocation()} --uninstall\r\n"
+        "echo.\r\n"
+        "pause\r\n"
+    )
+    try:
+        if not bat.exists() or bat.read_text(encoding="utf-8", errors="ignore") != content:
+            bat.write_text(content, encoding="utf-8")
+    except OSError:
+        pass  # not load-bearing -- --uninstall from a terminal still works
+    return bat
 
 
 def install_task(poll_minutes: int = 15) -> bool:
@@ -394,7 +458,9 @@ def install_task(poll_minutes: int = 15) -> bool:
         capture_output=True, text=True,
     )
     if res.returncode == 0:
+        write_uninstall_shortcut()
         print(f"  background task '{TASK_NAME}' installed — syncs every {poll_minutes} min while this PC is on.")
+        print(f"  to remove it later, double-click '{UNINSTALL_BAT_NAME}' in this folder.")
         return True
     print("  could not install the background task:")
     print(f"    {(res.stderr or res.stdout).strip()}")
@@ -428,8 +494,8 @@ def uninstall_task() -> None:
             capture_output=True, text=True,
         )
 
-    # 3. remove the hidden launcher + stale lock
-    for f in ("mt5_sync_hidden.vbs", ".sync.lock"):
+    # 3. remove the hidden launcher, the uninstall shortcut, and stale lock
+    for f in ("mt5_sync_hidden.vbs", ".sync.lock", UNINSTALL_BAT_NAME):
         try:
             (app_dir() / f).unlink()
         except OSError:
@@ -587,6 +653,11 @@ def _dispatch(args: argparse.Namespace) -> None:
 
     if not complete:
         sys.exit("Not configured yet. Run the program with no arguments to set it up.")
+
+    # Self-heal: an install made before Uninstall.bat existed gets one here,
+    # on its next ordinary run, without anyone having to redo the wizard.
+    if platform.system() == "Windows":
+        write_uninstall_shortcut()
 
     auth = Auth(cfg)
 
