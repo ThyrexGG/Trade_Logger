@@ -547,6 +547,45 @@ token; `CONFIG_DEFAULTS` no longer carries Supabase values. Tests:
 
 ---
 
+### W11 — friends-tier nav rework, monetization surfacing, MT5 agent polish, rebrand (SHIPPED 2026-09-14)
+
+Smaller follow-on polish after W8–W10, all user-driven fixes/requests rather
+than a single planned workstream:
+
+- **Nav** (`frontend/src/lib/navigation.ts`): friends build swaps **Price
+  Alerts** out of the workspace zone for **Command Center, Market, Risk
+  Gateway** (`friendsVisible` flags only — routing/sidebar/palette all derive
+  from the filtered list already).
+- **Partners page** (`frontend/src/pages/PartnersPage.tsx`,
+  `/operations/partners`) — the 5ers affiliate link + referral-bonus claim
+  card (shipped earlier this session as a card at the bottom of Connections)
+  gets its own nav entry; it was getting missed where it lived. Connections
+  keeps a pointer link to it.
+- **Analytics starting-balance persistence** — `POST
+  /api/analytics/initial-balance`, tenant+account-scoped via the existing
+  `app_settings` table; fixes a real bug (typed value reset to 10000 on
+  every reload). `tests/test_analytics_saved_balance.py`.
+- **AI Assistant kill switch** — `TL_AI_ASSISTANT_ENABLED=0` on the
+  production Blueprint (`render.yaml`); local/dev unaffected
+  (`api/gemini_client.py::is_configured()`).
+- **MT5 agent (`agent/mt5_push_agent.py`, now v1.3.0) — two real bugs**:
+  (1) it was auto-popping MetaTrader open in the foreground every 15-minute
+  sync when the terminal was closed — fixed by minimizing the newly-launched
+  window (Win32 `SW_MINIMIZE`, watched for on a background thread) instead of
+  either leaving it in the foreground or skipping the sync; verified live via
+  `IsIconic()` on both source and the rebuilt `.exe`. (2) uninstalling only
+  ever worked via a `--uninstall` CLI flag — added a real double-clickable
+  `Uninstall TradeLogger Sync.bat`, self-healing on every run.
+- **Gold/black/gray rebrand, app icon pass** — the app UI's rebrand (tokens,
+  fonts, WCAG-fixed buttons, restrained glow) happened earlier in the same
+  session; this added the missing piece — `frontend/public/{favicon,
+  icon-192,icon-512,icon-maskable-512,apple-touch-icon}.png` recolored from
+  the old teal/blue candlestick mark to gold/gray-on-black (procedurally
+  generated, Pillow), plus `manifest.webmanifest` + `index.html` `theme-color`
+  meta brought off their stale pre-rebrand values.
+
+---
+
 ### W8 — original plan (COMMITTED 2026-09-08)
 
 **Why.** D5 — open TradeLogger to a handful of friends so each tracks their own

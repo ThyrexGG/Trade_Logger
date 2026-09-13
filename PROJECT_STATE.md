@@ -1,6 +1,6 @@
 # PROJECT STATE & ARCHITECTURAL RECORD
 **TradeLogger Terminal - Living System Memory**
-*Last Updated: 3 September 2026, Session 46 (React SPA Migration Stages 4–11 + Stage 10 gate; FX risk fix; Streamlit retirement eval; Stages 12–14 journal/alerts/analytics; Stage 15 Intelligence Layer; Stage 18 Market & Macro Intelligence foundation)*
+*Last Updated: 14 September 2026 (§21 — web/mobile platform W8–W10 multi-tenant + native auth + MT5 push-agent shipped since this file's last sync, plus friends-tier nav rework, Partners/referral page, MT5 agent background-launch fix, gold/black/gray rebrand — see §21 and `docs/WEB_MOBILE_PLATFORM_PLAN.md` for the authoritative detail)*
 
 > **HOW TO USE THIS FILE**
 > Start any new AI session with: *"Read PROJECT_STATE.md and continue where we left off."*
@@ -1151,3 +1151,69 @@ phases (see each phase's own `docs/PHASE_*.md` for full detail).*
   BUY/SELL/ENTRY. Holdout `UNTOUCHED`; live automation `DISABLED`; broker
   transmission `BLOCKED`. `PROFITABLE_TRADING_EDGE_FOUND` unchanged
   (`FOUND` on crypto funding carry; intraday remains no-edge).
+
+---
+
+## 21. Web/Mobile Platform — nav rework, monetization, MT5 agent polish, rebrand
+
+This file's §9 (React SPA Migration) was last synced 3 September 2026 and does
+not cover the platform workstreams shipped since — **W8** (multi-tenant,
+per-user broker connections, encrypted credentials), **W9** (MT5 push-agent
+`.exe` for brokers with no cloud API), and **W10** (native email+password
+auth, replacing Supabase after it repeatedly hit free-tier caps) — all
+committed 2026-09-08 through 2026-09-10. `docs/WEB_MOBILE_PLATFORM_PLAN.md` is
+the authoritative record for those; this section only logs what changed after
+them, in this session:
+
+- **Friends-tier navigation reshuffle** (`frontend/src/lib/navigation.ts`) —
+  the online ("friends") build's workspace zone now shows **Command Center,
+  Market and Risk Gateway** (the actual daily-use tools) instead of **Price
+  Alerts**, which stays live for the local/owner build only. Purely a
+  `friendsVisible` flag flip; routing, sidebar, breadcrumbs and the command
+  palette all derive from the same filtered list, so no other file changed.
+- **Partners page** (`frontend/src/pages/PartnersPage.tsx`,
+  `/operations/partners`) — the 5ers-affiliate-link + referral-bonus-claim
+  card used to live buried at the bottom of Connections; it's now its own
+  nav entry (new `GiftIcon`). Connections keeps a "Don't have an account?"
+  link pointing there. Backend (`api/referrals.py`,
+  `api/routers/referrals.py`) unchanged from when it shipped — self-reported
+  claims, owner reviews/verifies by hand against the partner's dashboard.
+- **Analytics starting-balance persistence** — `POST
+  /api/analytics/initial-balance` (tenant + account scoped via a namespaced
+  key in the existing generic `app_settings` table). A typed starting balance
+  used to reset to 10000 on every reload; it now round-trips and takes
+  priority over the auto-detected suggestion. `tests/test_analytics_saved_balance.py`.
+- **AI Assistant kill switch** — `api/gemini_client.py`'s `is_configured()`
+  also checks `TL_AI_ASSISTANT_ENABLED` (default on); `render.yaml` sets it
+  to `"0"` for the production Blueprint. Local/dev keeps the assistant.
+- **MT5 push-agent (`agent/mt5_push_agent.py`) — two real bugs fixed**,
+  `AGENT_VERSION` now `1.3.0`:
+  1. *Auto-reopening MetaTrader* — `mt5.initialize()` launches a brand-new
+     terminal window on its own if none is running, which was popping
+     MetaTrader open every 15 minutes. Fix (not a skip — sync must still
+     happen): `mt5_connect()` snapshots running terminal PIDs first; if
+     none, a background thread polls for the newly-launched process and
+     minimizes its window (Win32 `ShowWindow`/`SW_MINIMIZE`) the instant it
+     appears, instead of after the whole cold-start sat in the user's face.
+     A terminal the user already had open is never touched. Verified live
+     end-to-end (source + the rebuilt frozen `.exe`) via `IsIconic()`.
+  2. *Uninstall required Task Scheduler by hand* — `--uninstall` only ever
+     existed as a CLI flag, no help to someone who doesn't use a terminal.
+     `write_uninstall_shortcut()` now writes a real double-clickable
+     `Uninstall TradeLogger Sync.bat` next to the exe, generated on setup
+     and self-healed on every ordinary run (so a pre-existing install gets
+     one without redoing the wizard).
+- **Gold/black/gray rebrand completed** — `frontend/src/styles/tokens.css`
+  (dark: `--tl-background:#0a0a0a`, accent `#f0b90b`/`#b8860b` gold-bronze
+  glow; light: WCAG-verified `#7a5c00` accent), Manrope/JetBrains Mono
+  actually loaded (`index.html` was referencing fonts it never fetched),
+  WCAG-contrast-fixed CTA buttons (`--tl-gradient-ink`), restrained glass-glow
+  opacities matching a black-and-gold fintech reference. This session's
+  addition: **app icon/favicon/manifest recolored to match** — the old
+  teal/blue candlestick mark (`frontend/public/{favicon,icon-*,apple-touch-icon}.png`)
+  replaced with a gold/gray candlestick-and-uptrend mark on the same
+  `#0a0a0a`/`#1f1f1f` radial background as the app shell, generated
+  procedurally (Pillow) at 512/192/180px + a full-bleed maskable-512
+  variant; `manifest.webmanifest` and `index.html`'s `theme-color` meta
+  (dark + light) updated off their stale pre-rebrand values
+  (`#0a0e17`/`#f4f6fb`) to match the current tokens.
