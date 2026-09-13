@@ -66,18 +66,24 @@
 
   /* Background glow blobs (AppShell) — separate from the semantic accent
      colors above (those carry meaning elsewhere: tags, status text) so this
-     is purely decorative. Blue → violet, matching the reference concept's
-     card-glow palette rather than the app's teal/green brand accent. */
-  --tl-glow-a: #3b82f6; /* blue */
-  --tl-glow-b: #8b5cf6; /* violet */
-  --tl-glow-c: #06b6d4; /* cyan */
-  /* Gradient CTA (login/sign-up primary buttons, per the reference concept).
-     Built from the glow tokens above, so it re-tints with them automatically
-     per theme — defined once here, resolved per-scope at use time. */
+     is purely decorative. Built FROM the app's own teal accent + a warm
+     gold counterpoint + a deep navy anchor — not blue-to-violet, which is
+     the default palette of every AI-app-builder template right now and
+     reads as generic rather than as this app's own identity. */
+  --tl-glow-a: #00d9a3; /* teal — the app's own accent, softened for a glow */
+  --tl-glow-b: #e0b44c; /* warm gold — trading-floor counterpoint to the teal */
+  --tl-glow-c: #2563eb; /* deep navy-blue — cool anchor, not the dominant note */
+  /* Gradient CTA (login/sign-up primary buttons). Built from the glow tokens
+     above, so it re-tints with them automatically per theme — defined once
+     here, resolved per-scope at use time. */
   --tl-gradient-primary: linear-gradient(135deg, var(--tl-glow-a) 0%, var(--tl-glow-b) 100%);
 
-  /* Typography */
-  --tl-font-sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto,
+  /* Typography — Manrope (distinctive geometric sans, not the Inter every
+     AI-generated app ships with by default) for UI text; JetBrains Mono
+     for anything numeric/tabular, which a trading terminal has a lot of.
+     Loaded via Google Fonts in index.html; the system-font fallbacks below
+     only apply before that loads or if it fails. */
+  --tl-font-sans: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
     Helvetica, Arial, sans-serif;
   --tl-font-mono: 'JetBrains Mono', 'Fira Code', 'Roboto Mono', Consolas, monospace;
 
@@ -118,9 +124,9 @@
 
     --tl-focus: #1d4ed8;
 
-    --tl-glow-a: #60a5fa;
-    --tl-glow-b: #a78bfa;
-    --tl-glow-c: #22d3ee;
+    --tl-glow-a: #2dd4bf;
+    --tl-glow-b: #eab308;
+    --tl-glow-c: #60a5fa;
   }
 }
 
@@ -154,9 +160,9 @@
 
   --tl-focus: #1d4ed8;
 
-  --tl-glow-a: #60a5fa;
-  --tl-glow-b: #a78bfa;
-  --tl-glow-c: #22d3ee;
+  --tl-glow-a: #2dd4bf;
+  --tl-glow-b: #eab308;
+  --tl-glow-c: #60a5fa;
 }
 
 /* Explicit "dark" from the toggle wins over the OS reporting light — same
@@ -190,7 +196,7 @@
 
   --tl-focus: #38bdf8;
 
-  --tl-glow-a: #3b82f6;
-  --tl-glow-b: #8b5cf6;
-  --tl-glow-c: #06b6d4;
+  --tl-glow-a: #00d9a3;
+  --tl-glow-b: #e0b44c;
+  --tl-glow-c: #2563eb;
 }
