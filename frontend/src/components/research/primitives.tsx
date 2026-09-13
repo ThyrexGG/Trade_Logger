@@ -185,6 +185,16 @@ export function Sparkline({
     setHover(Math.round(ratio * lastIdx))
   }
 
+  // Pointer capture: once a touch starts tracking the curve, keep delivering
+  // pointermove to this element even if the finger drifts a pixel outside
+  // its exact bounds mid-drag — without this a real touch drag (unlike a
+  // mouse, which stays precisely where you put it) loses tracking the
+  // moment the contact point wobbles off the element.
+  const onDown = (e: PointerEvent<HTMLDivElement>) => {
+    containerRef.current?.setPointerCapture(e.pointerId)
+    updateHover(e)
+  }
+
   const point = hover !== null ? sampled[hover] : null
   const leftPct = hover !== null ? (hover / lastIdx) * 100 : 0
   const topPct = point ? (yOf(point.equity) / h) * 100 : 0
@@ -195,9 +205,13 @@ export function Sparkline({
     <div>
       <div
         ref={containerRef}
-        className="relative touch-none"
+        // pan-y (not `touch-none`): a touch-drag across the chart tracks the
+        // curve horizontally, but a vertical swipe that merely starts on the
+        // chart while scrolling the page must still scroll the page —
+        // `touch-none` was swallowing that gesture entirely on a phone.
+        className="relative touch-pan-y select-none"
         onPointerMove={updateHover}
-        onPointerDown={updateHover}
+        onPointerDown={onDown}
         onPointerLeave={() => setHover(null)}
       >
         <svg
