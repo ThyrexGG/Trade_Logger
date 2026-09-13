@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import { classifySentiment, toneArrow } from '../../lib/sentiment'
 export { SectionCard, SectionError, SkeletonRows } from '../intelligence/primitives'
 export { HashChip } from '../evidence/primitives'
@@ -109,20 +109,43 @@ export function ResearchSafetyBanner({ broker = 'BLOCKED' }: { broker?: string }
   )
 }
 
+export interface SparklinePoint {
+  time: string
+  equity: number
+  /** Optional extra context for the hover tooltip (analytics passes both; a plain equity curve can omit them). */
+  netProfit?: number
+  symbol?: string
+}
+
+function formatSparklineTime(iso: string): { date: string; time: string | null } {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return { date: iso.slice(0, 10), time: null }
+  const hasTime = iso.length > 10
+  return {
+    date: d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }),
+    time: hasTime ? d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : null,
+  }
+}
+
 /**
- * Minimal equity-curve sparkline. Plots real (time, equity) points only — no
+ * Equity-curve sparkline. Plots real (time, equity) points only — no
  * smoothing, no synthetic interpolation. Down-samples for rendering while
- * keeping the first and last real points.
+ * keeping the first and last real points. Hoverable: tracks the pointer to
+ * the nearest real point and shows a glass-panel tooltip with its date,
+ * balance, and (when the caller has it) the trade that produced it.
  */
 export function Sparkline({
   points,
   height = 120,
   render = 320,
 }: {
-  points: { time: string; equity: number }[]
+  points: SparklinePoint[]
   height?: number
   render?: number
 }) {
+  const [hover, setHover] = useState<number | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
   if (points.length < 2) {
     return <ResearchUnavailable>Not enough equity points to plot.</ResearchUnavailable>
   }
@@ -143,47 +166,124 @@ export function Sparkline({
   const first = sampled[0].equity
   const last = sampled[sampled.length - 1].equity
   const up = last >= first
+  const lastIdx = sampled.length - 1
+
+  const yOf = (equity: number) => h - ((equity - min) / range) * h
 
   const d = sampled
-    .map((p, i) => {
-      const x = (i / (sampled.length - 1)) * w
-      const y = h - ((p.equity - min) / range) * h
-      return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`
-    })
+    .map((p, i) => `${i === 0 ? 'M' : 'L'}${((i / lastIdx) * w).toFixed(1)},${yOf(p.equity).toFixed(1)}`)
     .join(' ')
 
-  const baselineY = h - ((first - min) / range) * h
+  const baselineY = yOf(first)
+
+  const updateHover = (e: PointerEvent<HTMLDivElement>) => {
+    const el = containerRef.current
+    if (!el || lastIdx === 0) return
+    const rect = el.getBoundingClientRect()
+    if (rect.width === 0) return
+    const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
+    setHover(Math.round(ratio * lastIdx))
+  }
+
+  const point = hover !== null ? sampled[hover] : null
+  const leftPct = hover !== null ? (hover / lastIdx) * 100 : 0
+  const topPct = point ? (yOf(point.equity) / h) * 100 : 0
+  const side = leftPct > 70 ? 'right' : leftPct < 30 ? 'left' : 'center'
+  const fmt = point ? formatSparklineTime(point.time) : null
 
   return (
     <div>
-      <svg
-        viewBox={`0 0 ${w} ${h}`}
-        preserveAspectRatio="none"
-        className="h-32 w-full"
-        role="img"
-        aria-label={`Equity curve from ${first.toFixed(2)} to ${last.toFixed(
-          2,
-        )} over ${points.length} points`}
+      <div
+        ref={containerRef}
+        className="relative touch-none"
+        onPointerMove={updateHover}
+        onPointerDown={updateHover}
+        onPointerLeave={() => setHover(null)}
       >
-        <line
-          x1="0"
-          x2={w}
-          y1={baselineY}
-          y2={baselineY}
-          stroke="currentColor"
-          className="text-border"
-          strokeWidth="1"
-          strokeDasharray="4 4"
-        />
-        <path
-          d={d}
-          fill="none"
-          stroke="currentColor"
-          className={up ? 'text-positive' : 'text-negative'}
-          strokeWidth="2"
-          vectorEffect="non-scaling-stroke"
-        />
-      </svg>
+        <svg
+          viewBox={`0 0 ${w} ${h}`}
+          preserveAspectRatio="none"
+          className="h-32 w-full"
+          role="img"
+          aria-label={`Equity curve from ${first.toFixed(2)} to ${last.toFixed(
+            2,
+          )} over ${points.length} points`}
+        >
+          <line
+            x1="0"
+            x2={w}
+            y1={baselineY}
+            y2={baselineY}
+            stroke="currentColor"
+            className="text-border"
+            strokeWidth="1"
+            strokeDasharray="4 4"
+          />
+          {hover !== null ? (
+            <line
+              x1={(hover / lastIdx) * w}
+              x2={(hover / lastIdx) * w}
+              y1="0"
+              y2={h}
+              stroke="currentColor"
+              className="text-border-subtle"
+              strokeWidth="1"
+              strokeDasharray="3 3"
+              vectorEffect="non-scaling-stroke"
+            />
+          ) : null}
+          <path
+            d={d}
+            fill="none"
+            stroke="currentColor"
+            className={up ? 'text-positive' : 'text-negative'}
+            strokeWidth="2"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+
+        {point ? (
+          <>
+            <div
+              aria-hidden="true"
+              className={`pointer-events-none absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[var(--tl-surface)] shadow ${
+                up ? 'bg-positive' : 'bg-negative'
+              }`}
+              style={{ left: `${leftPct}%`, top: `${topPct}%` }}
+            />
+            {/* Glassmorphism: a translucent, blurred panel so the curve stays
+               visible underneath — reads correctly in both themes because
+               --tl-glass-* is redefined per theme in tokens.css, not hardcoded here. */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute top-1 z-10 min-w-[8rem] rounded-lg px-2.5 py-1.5 text-[11px] shadow-lg backdrop-blur-md transition-opacity duration-100"
+              style={{
+                left: side === 'center' ? `${leftPct}%` : side === 'left' ? '0%' : undefined,
+                right: side === 'right' ? '0%' : undefined,
+                transform: side === 'center' ? 'translateX(-50%)' : undefined,
+                background: 'var(--tl-glass-bg)',
+                border: '1px solid var(--tl-glass-border)',
+                boxShadow: `0 8px 24px var(--tl-glass-shadow)`,
+              }}
+            >
+              <div className="font-mono text-muted">
+                {fmt?.date}
+                {fmt?.time ? <span className="ml-1 opacity-70">{fmt.time}</span> : null}
+              </div>
+              <div className={`font-mono text-sm font-semibold ${up ? 'text-positive' : 'text-negative'}`}>
+                ${point.equity.toFixed(2)}
+              </div>
+              {point.netProfit !== undefined ? (
+                <div className="font-mono text-[10px] text-secondary">
+                  {point.symbol ? `${point.symbol} · ` : ''}
+                  {point.netProfit >= 0 ? '+' : ''}
+                  {point.netProfit.toFixed(2)}
+                </div>
+              ) : null}
+            </div>
+          </>
+        ) : null}
+      </div>
       <div className="mt-1 flex justify-between font-mono text-[10px] tabular-nums text-muted">
         <span>{sampled[0].time.slice(0, 10)}</span>
         <span>

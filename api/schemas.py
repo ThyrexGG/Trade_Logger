@@ -1073,6 +1073,12 @@ class AnalyticsAvailable(BaseModel):
     symbols: List[str]
     date_min: Optional[str] = None
     date_max: Optional[str] = None
+    # Only set for a single selected account (not "ALL"): its current synced
+    # broker balance minus the net P&L of every closed trade it has, i.e. the
+    # implied balance right before its first trade. A best-effort estimate —
+    # any deposit/withdrawal in between throws it off — so the UI offers it
+    # as a prefill, never as a fact the user can't override.
+    suggested_initial_balance: Optional[float] = None
 
 
 class AnalyticsPerformanceResponse(BaseModel):

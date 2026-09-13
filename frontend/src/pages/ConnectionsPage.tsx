@@ -9,6 +9,30 @@ import {
   testConnection,
   type BrokerConnection,
 } from '../api/connections'
+import {
+  exportAccount,
+  listAccounts,
+  listExports,
+  removeAccount,
+  restoreAccount,
+  type AccountRowCounts,
+  type ExportSnapshot,
+} from '../api/accounts'
+import { useToast } from '../lib/toast'
+import { invalidateAllCaches } from '../lib/dataCache'
+
+/**
+ * Every other page's data (Analytics, Journal, Command Center, ...) is served
+ * from `dataCache`'s stale-while-revalidate cache, which has no way to know a
+ * whole account's rows just got deleted or brought back server-side. Drop
+ * every cached entry and fire the app's existing "data changed" signal so a
+ * page that's currently open refetches immediately instead of showing rows
+ * that no longer (or now again) exist.
+ */
+function announceAccountDataChanged() {
+  invalidateAllCaches()
+  window.dispatchEvent(new CustomEvent('tl:synced'))
+}
 
 /**
  * Broker Connections (`/operations/connections`). Each user stores their own
@@ -163,8 +187,240 @@ export function ConnectionsPage() {
             />
           </>
         )}
+
+        <AccountDataDangerZone />
       </div>
     </PageContainer>
+  )
+}
+
+/**
+ * "Clear my data" — a clean slate for one account_id: exports a full JSON
+ * snapshot to disk on the server, then deletes every row for that account
+ * across closed_trades / open_positions / account_metadata / raw_deals /
+ * price_alerts (account_management.py enforces export-before-delete, not
+ * this component). Independent of the broker-connections feature above —
+ * this works even when TL_CREDENTIAL_ENC_KEY isn't set, since it operates
+ * on already-synced history, not stored credentials.
+ *
+ * Every clear leaves a snapshot behind that the "Recoverable snapshots"
+ * section below can replay back in — restoring is additive (rows that
+ * already exist are left alone), so it's safe to click more than once.
+ */
+function AccountDataDangerZone() {
+  const toast = useToast()
+  const [accounts, setAccounts] = useState<Record<string, AccountRowCounts>>({})
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [target, setTarget] = useState<string | null>(null)
+  const [confirmText, setConfirmText] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const [exports, setExports] = useState<ExportSnapshot[]>([])
+  const [exportsLoading, setExportsLoading] = useState(true)
+  const [restoringPath, setRestoringPath] = useState<string | null>(null)
+
+  const load = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const res = await listAccounts(signal)
+      if (signal?.aborted) return
+      setAccounts(res.accounts ?? {})
+      setLoadError(null)
+    } catch (e) {
+      if (!signal?.aborted) setLoadError(e instanceof Error ? e.message : 'Failed to load account data.')
+    } finally {
+      if (!signal?.aborted) setLoading(false)
+    }
+  }, [])
+
+  const loadExports = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const res = await listExports(undefined, signal)
+      if (signal?.aborted) return
+      setExports(res.exports ?? [])
+    } catch {
+      /* the danger-zone card still works without this list; fail quiet */
+    } finally {
+      if (!signal?.aborted) setExportsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    const c = new AbortController()
+    void load(c.signal)
+    void loadExports(c.signal)
+    return () => c.abort()
+  }, [load, loadExports])
+
+  const openConfirm = (accountId: string) => {
+    setTarget(accountId)
+    setConfirmText('')
+  }
+
+  const clearAccount = async (accountId: string) => {
+    setBusy(true)
+    try {
+      const { export_path } = await exportAccount(accountId)
+      const { deleted_rows } = await removeAccount(accountId, export_path)
+      const total = Object.values(deleted_rows).reduce((a, b) => a + b, 0)
+      toast.success(`Cleared ${accountId}: ${total} row${total === 1 ? '' : 's'} deleted — snapshot saved, restorable below.`)
+      setTarget(null)
+      announceAccountDataChanged()
+      await Promise.all([load(), loadExports()])
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : `Could not clear ${accountId}.`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const restoreSnapshot = async (snapshot: ExportSnapshot) => {
+    setRestoringPath(snapshot.export_path)
+    try {
+      const { restored_rows } = await restoreAccount(snapshot.export_path)
+      const total = Object.values(restored_rows).reduce((a, b) => a + b, 0)
+      if (total === 0) {
+        toast.info(`Nothing to restore for ${snapshot.account_id} — it's already all back.`)
+      } else {
+        toast.success(`Restored ${snapshot.account_id}: ${total} row${total === 1 ? '' : 's'} brought back.`)
+      }
+      if (total > 0) announceAccountDataChanged()
+      await load()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : `Could not restore ${snapshot.account_id}.`)
+    } finally {
+      setRestoringPath(null)
+    }
+  }
+
+  const ids = Object.keys(accounts).sort()
+
+  return (
+    <div className="rounded-lg border border-negative/30 bg-negative/5">
+      <div className="border-b border-negative/20 px-4 py-2 text-xs font-medium text-negative">
+        Danger zone — clear account data
+      </div>
+      <div className="px-4 py-3">
+        <p className="text-[11px] text-muted">
+          Deletes every closed trade, open position, account snapshot, raw deal and price alert stored under an
+          account. A snapshot is saved on the server first and listed under "Recoverable snapshots" below — clearing
+          isn't permanent, restoring brings the exact rows back.
+        </p>
+
+        {loading ? (
+          <p className="mt-3 text-xs text-muted">Loading…</p>
+        ) : loadError ? (
+          <p className="mt-3 rounded border border-negative/40 bg-negative/10 px-2 py-1 text-[11px] text-negative">
+            {loadError}
+          </p>
+        ) : ids.length === 0 ? (
+          <p className="mt-3 text-xs text-muted">No account data recorded yet.</p>
+        ) : (
+          <ul className="mt-3 divide-y divide-negative/10">
+            {ids.map((id) => {
+              const counts = accounts[id]
+              const total = Object.values(counts).reduce((a, b) => a + b, 0)
+              const breakdown = Object.entries(counts)
+                .filter(([, n]) => n > 0)
+                .map(([table, n]) => `${n} ${table.replace(/_/g, ' ')}`)
+                .join(' · ')
+              return (
+                <li key={id} className="py-2.5">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-mono text-sm text-primary">{id}</div>
+                      <div className="text-[11px] text-muted">{total} row{total === 1 ? '' : 's'} — {breakdown || 'nothing left'}</div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={busy || total === 0}
+                      onClick={() => openConfirm(id)}
+                      className="rounded border border-negative/40 px-2 py-1 text-xs text-negative hover:bg-negative/10 disabled:opacity-50"
+                    >
+                      Clear this account
+                    </button>
+                  </div>
+
+                  {target === id ? (
+                    <div className="mt-2 rounded border border-negative/30 bg-surface p-3">
+                      <p className="text-[11px] text-secondary">
+                        This deletes all {total} row{total === 1 ? '' : 's'} for{' '}
+                        <span className="font-mono text-primary">{id}</span> (a snapshot is saved first — restorable
+                        below). Type the account id to confirm.
+                      </p>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <input
+                          value={confirmText}
+                          onChange={(e) => setConfirmText(e.target.value)}
+                          placeholder={id}
+                          className="rounded border border-border bg-surface-elevated px-2 py-1 font-mono text-xs text-primary outline-none focus:border-negative"
+                        />
+                        <button
+                          type="button"
+                          disabled={busy || confirmText !== id}
+                          onClick={() => void clearAccount(id)}
+                          className="rounded bg-negative px-2.5 py-1 text-xs font-medium text-white disabled:opacity-40"
+                        >
+                          {busy ? 'Clearing…' : 'Delete permanently'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => setTarget(null)}
+                          className="rounded border border-border px-2.5 py-1 text-xs text-secondary hover:bg-surface-hover"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </li>
+              )
+            })}
+          </ul>
+        )}
+
+        <div className="mt-4 border-t border-negative/15 pt-3">
+          <div className="text-xs font-medium text-secondary">Recoverable snapshots</div>
+          <p className="mt-1 text-[11px] text-muted">
+            Every "Clear this account" leaves one of these behind. Restoring is additive — rows that are already
+            there are left alone, so it's safe to click more than once.
+          </p>
+
+          {exportsLoading ? (
+            <p className="mt-2 text-xs text-muted">Loading…</p>
+          ) : exports.length === 0 ? (
+            <p className="mt-2 text-xs text-muted">No snapshots yet.</p>
+          ) : (
+            <ul className="mt-2 divide-y divide-border-subtle">
+              {exports.map((snap) => {
+                const total = Object.values(snap.row_counts).reduce((a, b) => a + b, 0)
+                const restoring = restoringPath === snap.export_path
+                return (
+                  <li key={snap.export_path} className="flex flex-wrap items-center gap-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-mono text-sm text-primary">{snap.account_id}</div>
+                      <div className="text-[11px] text-muted">
+                        {total} row{total === 1 ? '' : 's'} ·{' '}
+                        {snap.exported_at ? new Date(snap.exported_at).toLocaleString() : 'unknown time'}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={restoringPath !== null}
+                      onClick={() => void restoreSnapshot(snap)}
+                      className="rounded border border-border px-2 py-1 text-xs text-primary hover:bg-surface-hover disabled:opacity-50"
+                    >
+                      {restoring ? 'Restoring…' : 'Restore'}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
 

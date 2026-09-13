@@ -134,7 +134,14 @@ export function AnalyticsView({ data }: { data: AnalyticsPerformanceResponse }) 
             <OpsUnavailable>Not enough closed trades to plot a curve.</OpsUnavailable>
           ) : (
             <div className="text-primary">
-              <Sparkline points={data.equity_curve.map((p) => ({ time: p.time, equity: p.equity }))} />
+              <Sparkline
+                points={data.equity_curve.map((p) => ({
+                  time: p.time,
+                  equity: p.equity,
+                  netProfit: p.net_profit,
+                  symbol: p.symbol,
+                }))}
+              />
               <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-[11px]">
                 <span className="text-muted">Total P&L <span className={m.total_net_pnl >= 0 ? 'text-positive' : 'text-negative'}>{signedUsd(m.total_net_pnl)}</span></span>
                 <span className="text-muted">Balance <span className="text-primary">{formatUsd(balance)}</span></span>

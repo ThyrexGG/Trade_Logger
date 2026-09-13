@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { AnalyticsAvailable, AnalyticsQuery } from '../../types/analytics'
 import { SectionCard } from '../intelligence/primitives'
+import { Tooltip } from '../common/Tooltip'
 import { parseNumberInput } from '../../lib/format'
 
 /**
@@ -19,11 +20,32 @@ export function AnalyticsControls({
 }) {
   const selectedSymbols = query.symbols ?? []
   const [balanceText, setBalanceText] = useState(String(query.initial_balance ?? 10000))
+  const [autoFilled, setAutoFilled] = useState(false)
 
   // keep the local balance field in sync if the query is reset elsewhere
   useEffect(() => {
     setBalanceText(String(query.initial_balance ?? 10000))
   }, [query.initial_balance])
+
+  // A single selected account carries its own detected starting balance
+  // (current synced balance minus all-time net P&L) — prefill it once per
+  // account switch instead of making everyone type their own balance every
+  // time. Re-typing the field by hand overrides it for that account; picking
+  // a different account re-triggers detection.
+  const appliedFor = useRef<string | null>(null)
+  useEffect(() => {
+    const acct = query.account
+    if (!acct || acct === 'ALL') {
+      setAutoFilled(false)
+      return
+    }
+    if (appliedFor.current === acct) return
+    if (available.suggested_initial_balance == null) return
+    appliedFor.current = acct
+    setAutoFilled(true)
+    onChange({ ...query, initial_balance: available.suggested_initial_balance })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query.account, available.suggested_initial_balance])
 
   const toggleSymbol = (sym: string) => {
     const has = selectedSymbols.includes(sym)
@@ -83,11 +105,21 @@ export function AnalyticsControls({
         </div>
 
         <label className="block text-[11px] text-muted">
-          Starting balance ($)
+          <span className="inline-flex items-center gap-1">
+            Starting balance ($)
+            {autoFilled ? (
+              <Tooltip label="Detected from this account's synced balance minus its all-time P&L. Edit it if you know the real figure — a deposit or withdrawal in between would throw this off.">
+                <span className="cursor-help rounded bg-accent/10 px-1 text-[9px] font-semibold uppercase tracking-wide text-accent">
+                  auto
+                </span>
+              </Tooltip>
+            ) : null}
+          </span>
           <input
             value={balanceText}
             onChange={(e) => {
               setBalanceText(e.target.value)
+              setAutoFilled(false)
               const n = parseNumberInput(e.target.value)
               if (n !== null && n > 0) onChange({ ...query, initial_balance: n })
             }}

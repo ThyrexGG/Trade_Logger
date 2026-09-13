@@ -14,6 +14,17 @@ interface CacheSlot {
 // loaded once this session; a background refresh keeps it honest.
 const cache = new Map<string, CacheSlot>()
 
+/**
+ * Drops every cached resource so the next read of any key is a genuine
+ * miss — for an action that can invalidate data this cache has no way to
+ * know about on its own (e.g. deleting/restoring a whole account's rows
+ * server-side). Pair with dispatching `tl:synced` so pages already mounted
+ * refetch immediately instead of waiting for their next mount.
+ */
+export function invalidateAllCaches(): void {
+  cache.clear()
+}
+
 export interface CachedResource<T> {
   state: LoadState
   data: T | null
@@ -85,10 +96,24 @@ export function useCachedResource<T>(
     // (e.g. toggling a filter back to what it was a moment ago) should also
     // render instantly rather than waiting for this effect's own fetch.
     const primed = cache.get(key)
-    if ((primed?.data ?? null) !== data) {
-      setData((primed?.data as T) ?? null)
-      setState(primed?.data ? 'ready' : 'loading')
-      hasData.current = Boolean(primed?.data)
+    if (primed?.data != null) {
+      if (primed.data !== data) {
+        setData(primed.data as T)
+        setState('ready')
+        hasData.current = true
+      }
+    } else if (debounceMs === 0 || !hasData.current) {
+      // No cache for this key. With no debounce (or nothing on screen yet
+      // regardless), a plain loading state is correct. But a debounced hook
+      // with something already showing (e.g. a live-typed filter field
+      // changing the key on every keystroke) must NOT blank to a skeleton
+      // here — that would unmount the very input being typed into, losing
+      // focus and the keystroke, before the debounce even gets to fire.
+      // Leave the current data/state alone; `load()` below (once the
+      // debounce elapses) marks it `refreshing` instead.
+      setData(null)
+      setState('loading')
+      hasData.current = false
     }
 
     const load = () => {

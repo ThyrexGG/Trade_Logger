@@ -10,7 +10,7 @@ the caller. This router never touches MT5/Capital.com credentials, never
 imports an execution/broker/risk module, and never places, modifies, or
 cancels an order.
 """
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -53,3 +53,25 @@ def remove_account(account_id: str,
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {"account_id": account_id, "deleted_rows": deleted}
+
+
+@router.get("/exports")
+def list_exports(account_id: Optional[str] = Query(None, description="Filter to one account_id's snapshots.")) -> Dict[str, Any]:
+    """Lists export snapshots on disk that this caller could restore --
+    newest first. Feeds the "undo" step in the UI after a removal."""
+    return {"exports": am.list_exports(account_id)}
+
+
+@router.post("/restore")
+def restore_account(exported_file_path: str = Query(..., description=(
+                       "Path from POST .../export or GET .../exports -- the "
+                       "snapshot to replay back into the database."))
+                    ) -> Dict[str, Any]:
+    """Re-inserts every row from an export snapshot. Additive only -- a row
+    whose primary key already exists is left alone, never overwritten.
+    Refuses (HTTP 400) if the snapshot belongs to a different tenant."""
+    try:
+        restored = am.restore_account(exported_file_path)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"restored_rows": restored}

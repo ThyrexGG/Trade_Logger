@@ -25,7 +25,7 @@ export function AnalyticsPage() {
   const syncing = sync.syncing || sync.status?.cycle_in_progress
 
   const available = useMemo(
-    () => data?.available ?? { accounts: [], symbols: [], date_min: null, date_max: null },
+    () => data?.available ?? { accounts: [], symbols: [], date_min: null, date_max: null, suggested_initial_balance: null },
     [data],
   )
 

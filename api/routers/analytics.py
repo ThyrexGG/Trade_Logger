@@ -156,7 +156,12 @@ def get_performance(
         raise HTTPException(status_code=422, detail="initial_balance must be finite")
 
     df = _load_trades()
-    all_accounts = sorted(df["account_id"].astype(str).unique()) if not df.empty else []
+    # An account is selectable here as soon as it's connected (has a balance
+    # row from a sync), even before its first closed trade — otherwise a
+    # freshly-linked account with no history yet has no way to show up.
+    traded_accounts = set(df["account_id"].astype(str).unique()) if not df.empty else set()
+    known_accounts = set(database.get_account_balances().keys())
+    all_accounts = sorted(traded_accounts | known_accounts)
 
     # --- account filter ---
     acc = (account or "").strip()
@@ -169,8 +174,21 @@ def get_performance(
     avail_symbols = sorted(acc_df["symbol"].astype(str).str.upper().unique()) if not acc_df.empty else []
     date_min = acc_df["exit_time"].min().date().isoformat() if not acc_df.empty else None
     date_max = acc_df["exit_time"].max().date().isoformat() if not acc_df.empty else None
+
+    # "Starting balance" can't come from closed_trades (it only ever records
+    # trade-level P&L, never a deposit) — but for one selected account we can
+    # back it out from its real synced balance: current balance minus every
+    # trade's net P&L is the implied balance before the first trade.
+    suggested_balance: Optional[float] = None
+    if acc_label != "ALL":
+        entry = database.get_account_balances().get(acc_label)
+        if entry is not None:
+            total_net = float(acc_df["net_profit"].sum()) if not acc_df.empty else 0.0
+            suggested_balance = round(float(entry["balance"]) - total_net, 2)
+
     available = AnalyticsAvailable(
         accounts=all_accounts, symbols=avail_symbols, date_min=date_min, date_max=date_max,
+        suggested_initial_balance=suggested_balance,
     )
 
     # --- symbol filter ---
