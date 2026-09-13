@@ -1,12 +1,20 @@
 import { useAuth } from '../../lib/auth'
 import { useHealth } from '../../lib/health'
 import { useSyncOnOpen } from '../../lib/syncOnOpen'
+import { useTheme } from '../../lib/theme'
 import { apiStatusView, systemStatusView } from '../../lib/status'
-import { MenuIcon, SearchIcon } from '../../lib/icons'
+import { MenuIcon, MonitorIcon, MoonIcon, SearchIcon, SunIcon } from '../../lib/icons'
 import { isMac } from '../../lib/platform'
 import { Tooltip } from '../common/Tooltip'
 import { Breadcrumbs } from './Breadcrumbs'
 import { StatusDot } from './StatusDot'
+
+const THEME_ICON = { light: SunIcon, dark: MoonIcon, system: MonitorIcon } as const
+const THEME_LABEL = {
+  system: 'Theme: following your system — click for light',
+  light: 'Theme: light — click for dark',
+  dark: 'Theme: dark — click to follow your system',
+} as const
 
 interface TopBarProps {
   onOpenSidebar: () => void
@@ -18,12 +26,17 @@ export function TopBar({ onOpenSidebar, onOpenCommandPalette }: TopBarProps) {
   const { state: authState, user, logout } = useAuth()
   const { syncing } = useSyncOnOpen()
   const { state, data } = useHealth()
+  const { choice, cycle } = useTheme()
   const api = apiStatusView(state)
   const system = systemStatusView(state)
   const safety = data?.live_broker_transmission ?? 'BLOCKED'
+  const ThemeIcon = THEME_ICON[choice]
 
   return (
-    <header className="sticky top-0 z-20 flex h-[var(--tl-topbar-height)] items-center gap-2 border-b border-border-subtle bg-surface/95 px-3 backdrop-blur sm:gap-3 sm:px-4">
+    <header
+      className="sticky top-0 z-20 flex h-[var(--tl-topbar-height)] items-center gap-2 px-3 backdrop-blur-xl sm:gap-3 sm:px-4"
+      style={{ background: 'var(--tl-glass-bg)', borderBottom: '1px solid var(--tl-glass-border)' }}
+    >
       <Tooltip label="Open navigation">
         <button
           type="button"
@@ -75,6 +88,17 @@ export function TopBar({ onOpenSidebar, onOpenCommandPalette }: TopBarProps) {
             {safety}
           </span>
         </span>
+      </Tooltip>
+
+      <Tooltip label={THEME_LABEL[choice]}>
+        <button
+          type="button"
+          onClick={cycle}
+          className="shrink-0 rounded p-1.5 text-muted hover:bg-surface-hover hover:text-primary"
+          aria-label={THEME_LABEL[choice]}
+        >
+          <ThemeIcon className="h-4 w-4" />
+        </button>
       </Tooltip>
 
       <Tooltip label={`Search everything — pages, symbols, actions (${isMac() ? '⌘' : 'Ctrl'}+K)`}>

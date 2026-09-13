@@ -6,6 +6,7 @@ import { LoginScreen } from './components/auth/LoginScreen'
 import { AuthProvider, useAuth } from './lib/auth'
 import { HealthProvider } from './lib/health'
 import { SyncOnOpenProvider } from './lib/syncOnOpen'
+import { ThemeProvider } from './lib/theme'
 import { ToastProvider } from './lib/toast'
 import './index.css'
 
@@ -30,19 +31,21 @@ function AuthGate({ children }: { children: ReactNode }) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <AuthGate>
-          <SyncOnOpenProvider>
-            <HealthProvider>
-              <ToastProvider>
-                <App />
-              </ToastProvider>
-            </HealthProvider>
-          </SyncOnOpenProvider>
-        </AuthGate>
-      </AuthProvider>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <AuthGate>
+            <SyncOnOpenProvider>
+              <HealthProvider>
+                <ToastProvider>
+                  <App />
+                </ToastProvider>
+              </HealthProvider>
+            </SyncOnOpenProvider>
+          </AuthGate>
+        </AuthProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   </StrictMode>,
 )
 

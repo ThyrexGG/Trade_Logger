@@ -10,8 +10,29 @@ import { useAuth } from '../../lib/auth'
 export function LoginScreen() {
   const { mode } = useAuth()
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--color-background)] px-4">
-      <div className="w-full max-w-sm rounded-lg border border-border bg-surface p-6 shadow-lg">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--color-background)] px-4">
+      {/* Same colorful glow-blob backdrop as the app shell (AppShell.tsx) —
+         this screen renders before the shell, so it needs its own copy for
+         the glass card below to have something to actually blur. */}
+      <div className="pointer-events-none absolute inset-0 z-0" aria-hidden="true">
+        <div
+          className="absolute left-[22%] top-[8%] h-[60vh] w-[60vh] rounded-full opacity-[0.42]"
+          style={{ background: 'radial-gradient(circle, var(--tl-glow-a) 0%, transparent 65%)' }}
+        />
+        <div
+          className="absolute right-[18%] bottom-[5%] h-[60vh] w-[60vh] rounded-full opacity-[0.38]"
+          style={{ background: 'radial-gradient(circle, var(--tl-glow-b) 0%, transparent 65%)' }}
+        />
+      </div>
+
+      <div
+        className="relative z-10 w-full max-w-sm rounded-2xl p-6 backdrop-blur-xl"
+        style={{
+          background: 'var(--tl-glass-bg)',
+          border: '1px solid var(--tl-glass-border)',
+          boxShadow: '0 20px 50px var(--tl-glass-shadow), inset 0 1px 0 var(--tl-glass-highlight)',
+        }}
+      >
         {mode === 'multiuser' ? <MultiUserForm /> : <PassphraseForm />}
       </div>
     </div>
@@ -56,7 +77,7 @@ function PassphraseForm() {
         autoComplete="current-password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        className="mt-1 w-full rounded border border-border bg-surface-elevated px-3 py-2 text-sm text-primary outline-none focus:border-accent"
+        className="mt-1 w-full rounded-xl border border-border bg-surface-elevated/60 px-3.5 py-2.5 text-sm text-primary outline-none focus:border-accent"
       />
 
       {error ? (
@@ -68,7 +89,8 @@ function PassphraseForm() {
       <button
         type="submit"
         disabled={busy || !password}
-        className="mt-4 w-full rounded bg-accent px-3 py-2 text-sm font-medium text-[var(--color-background)] disabled:opacity-50"
+        className="mt-4 w-full rounded-xl px-3 py-2.5 text-sm font-semibold text-white shadow-lg disabled:opacity-50"
+        style={{ background: 'var(--tl-gradient-primary)' }}
       >
         {busy ? 'Signing in…' : 'Sign in'}
       </button>
@@ -98,14 +120,15 @@ function MultiUserForm() {
           <button
             type="button"
             onClick={() => recheck()}
-            className="flex-1 rounded bg-accent px-3 py-2 text-sm font-medium text-[var(--color-background)]"
+            className="flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold text-white shadow-lg"
+            style={{ background: 'var(--tl-gradient-primary)' }}
           >
             Retry
           </button>
           <button
             type="button"
             onClick={() => void logout()}
-            className="rounded border border-border px-3 py-2 text-sm text-muted hover:text-primary"
+            className="rounded-xl border border-border px-3 py-2.5 text-sm text-muted hover:text-primary"
           >
             Sign out
           </button>
@@ -143,7 +166,7 @@ function MultiUserForm() {
       <h1 className="text-base font-semibold text-primary">TradeLogger</h1>
       <p className="mt-1 text-xs text-muted">Private trading journal. Invite-only.</p>
 
-      <div className="mt-4 flex rounded border border-border p-0.5 text-xs">
+      <div className="mt-4 flex rounded-xl border border-border p-1 text-xs">
         {(['signin', 'signup'] as const).map((t) => (
           <button
             key={t}
@@ -153,9 +176,10 @@ function MultiUserForm() {
               setError(null)
               setNotice(null)
             }}
-            className={`flex-1 rounded px-2 py-1 font-medium ${
-              tab === t ? 'bg-accent text-[var(--color-background)]' : 'text-muted'
+            className={`flex-1 rounded-lg px-2 py-1.5 font-medium transition-colors ${
+              tab === t ? 'text-white shadow' : 'text-muted'
             }`}
+            style={tab === t ? { background: 'var(--tl-gradient-primary)' } : undefined}
           >
             {t === 'signin' ? 'Sign in' : 'Create account'}
           </button>
@@ -172,7 +196,7 @@ function MultiUserForm() {
         autoComplete="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        className="mt-1 w-full rounded border border-border bg-surface-elevated px-3 py-2 text-sm text-primary outline-none focus:border-accent"
+        className="mt-1 w-full rounded-xl border border-border bg-surface-elevated/60 px-3.5 py-2.5 text-sm text-primary outline-none focus:border-accent"
       />
 
       <label htmlFor="tl-pw" className="mt-3 block text-xs font-medium text-secondary">
@@ -184,7 +208,7 @@ function MultiUserForm() {
         autoComplete={tab === 'signup' ? 'new-password' : 'current-password'}
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        className="mt-1 w-full rounded border border-border bg-surface-elevated px-3 py-2 text-sm text-primary outline-none focus:border-accent"
+        className="mt-1 w-full rounded-xl border border-border bg-surface-elevated/60 px-3.5 py-2.5 text-sm text-primary outline-none focus:border-accent"
       />
 
       {error ? (
@@ -201,7 +225,8 @@ function MultiUserForm() {
       <button
         type="submit"
         disabled={busy || !email || !password}
-        className="mt-4 w-full rounded bg-accent px-3 py-2 text-sm font-medium text-[var(--color-background)] disabled:opacity-50"
+        className="mt-4 w-full rounded-xl px-3 py-2.5 text-sm font-semibold text-white shadow-lg disabled:opacity-50"
+        style={{ background: 'var(--tl-gradient-primary)' }}
       >
         {busy
           ? tab === 'signup'

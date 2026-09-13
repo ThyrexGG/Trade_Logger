@@ -31,12 +31,16 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       <aside
         aria-label="Primary navigation"
         className={[
-          'fixed inset-y-0 left-0 z-40 flex w-[var(--tl-sidebar-width)] flex-col border-r border-border-subtle bg-surface',
+          'fixed inset-y-0 left-0 z-40 flex w-[var(--tl-sidebar-width)] flex-col backdrop-blur-xl',
           'transition-transform duration-200 lg:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
+        style={{ background: 'var(--tl-glass-bg)', borderRight: '1px solid var(--tl-glass-border)' }}
       >
-        <div className="flex h-[var(--tl-topbar-height)] shrink-0 items-center justify-between border-b border-border-subtle px-3">
+        <div
+          className="flex h-[var(--tl-topbar-height)] shrink-0 items-center justify-between px-3"
+          style={{ borderBottom: '1px solid var(--tl-glass-border)' }}
+        >
           <Link
             to="/workspace"
             onClick={onClose}

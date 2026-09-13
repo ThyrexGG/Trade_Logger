@@ -178,4 +178,30 @@ export function EnterIcon(props: IconProps) {
   )
 }
 
+export function SunIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8L6 18M18 6l1.8-1.8" />
+    </Base>
+  )
+}
+
+export function MoonIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <path d="M20 14.5A8.5 8.5 0 0111.5 4a8.5 8.5 0 108.5 10.5z" />
+    </Base>
+  )
+}
+
+export function MonitorIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <rect x="3" y="4" width="18" height="12" rx="1.5" />
+      <path d="M8 20h8M12 16v4" />
+    </Base>
+  )
+}
+
 export type IconComponent = (props: IconProps) => React.ReactElement

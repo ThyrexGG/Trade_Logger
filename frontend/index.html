@@ -1,18 +1,33 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="color-scheme" content="dark" />
-    <meta name="theme-color" content="#0a0e17" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0a0e17" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f4f6fb" media="(prefers-color-scheme: light)" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="TradeLogger" />
     <title>TradeLogger</title>
+    <!-- Set the theme attribute before first paint so an explicit choice
+         (localStorage) never flashes the other theme for a frame. No saved
+         choice -> no attribute -> tokens.css falls through to the OS via
+         prefers-color-scheme, same as if this script weren't here. -->
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('tl.theme');
+          if (saved === 'light' || saved === 'dark') {
+            document.documentElement.setAttribute('data-theme', saved);
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

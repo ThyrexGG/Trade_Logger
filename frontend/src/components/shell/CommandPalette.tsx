@@ -81,7 +81,12 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
-        className="w-full max-w-xl overflow-hidden rounded-lg border border-border bg-surface shadow-2xl"
+        className="w-full max-w-xl overflow-hidden rounded-2xl shadow-2xl backdrop-blur-xl"
+        style={{
+          background: 'var(--tl-glass-bg)',
+          border: '1px solid var(--tl-glass-border)',
+          boxShadow: `0 20px 50px var(--tl-glass-shadow), inset 0 1px 0 var(--tl-glass-highlight)`,
+        }}
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
       >

@@ -3,15 +3,45 @@
  * Derived from the existing Streamlit visual language in ui_components.py (TOKENS)
  * and .streamlit/config.toml. Consistency baseline for the React terminal —
  * not a redesign.
+ *
+ * Theme model (added later): the app shipped dark-only for a long time, so
+ * dark stays the unconditional default on bare `:root` — a visitor with no
+ * saved preference and no OS signal sees exactly what always shipped. From
+ * there:
+ *   - OS reports light AND the visitor hasn't chosen explicitly -> light.
+ *   - `[data-theme="light"]` / `[data-theme="dark"]` (set by the toggle in
+ *     TopBar, persisted in localStorage) wins over the OS either way.
+ * Every component reads color through the `--tl-*` variables below via
+ * Tailwind's `@theme inline` mapping in index.css — nothing else needs to
+ * change per-component for either theme to apply everywhere at once.
+ *
+ * Light palette is WCAG AA-verified, not a straight invert of the dark set:
+ * every text/semantic color below is >=4.5:1 against all three light
+ * surfaces (background/surface/surface-elevated) — checked with the actual
+ * relative-luminance formula, not eyeballed. The dark set was already
+ * comfortably AA (light text on near-black) so it's untouched.
  */
 :root {
-  /* Surfaces */
-  --tl-background: #0a0e17;
-  --tl-surface: #0f172a;
-  --tl-surface-elevated: #1e293b;
-  --tl-surface-hover: #27354f;
+  /* Surfaces — pushed a step darker/deeper than the original set so glass
+     panels (below) have real contrast to lift off, per the reference
+     glassmorphism concept (near-black ground, frosted cards catching a
+     blue/violet glow). */
+  --tl-background: #05070d;
+  --tl-surface: #0c1120;
+  --tl-surface-elevated: #182136;
+  --tl-surface-hover: #253253;
   --tl-border: rgba(255, 255, 255, 0.12);
   --tl-border-subtle: rgba(255, 255, 255, 0.08);
+  /* Translucent glass panels (chart tooltips, popovers, SectionCard, nav) —
+     a cool blue-slate wash behind a backdrop-blur, tuned per theme below. */
+  --tl-glass-bg: rgba(22, 28, 51, 0.4);
+  --tl-glass-border: rgba(255, 255, 255, 0.16);
+  --tl-glass-shadow: rgba(0, 0, 0, 0.5);
+  /* Inset top-edge highlight — the thin bright line where light catches a
+     glass card's upper rim in the reference concept. Painted as an inset
+     box-shadow alongside glass-shadow, never a border (keeps the real
+     1px border above for definition against the page). */
+  --tl-glass-highlight: rgba(255, 255, 255, 0.3);
 
   /* Text */
   --tl-text-primary: #ffffff;
@@ -34,6 +64,18 @@
   /* Focus ring */
   --tl-focus: #38bdf8;
 
+  /* Background glow blobs (AppShell) — separate from the semantic accent
+     colors above (those carry meaning elsewhere: tags, status text) so this
+     is purely decorative. Blue → violet, matching the reference concept's
+     card-glow palette rather than the app's teal/green brand accent. */
+  --tl-glow-a: #3b82f6; /* blue */
+  --tl-glow-b: #8b5cf6; /* violet */
+  --tl-glow-c: #06b6d4; /* cyan */
+  /* Gradient CTA (login/sign-up primary buttons, per the reference concept).
+     Built from the glow tokens above, so it re-tints with them automatically
+     per theme — defined once here, resolved per-scope at use time. */
+  --tl-gradient-primary: linear-gradient(135deg, var(--tl-glow-a) 0%, var(--tl-glow-b) 100%);
+
   /* Typography */
   --tl-font-sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto,
     Helvetica, Arial, sans-serif;
@@ -42,4 +84,113 @@
   /* Shell metrics */
   --tl-sidebar-width: 240px;
   --tl-topbar-height: 52px;
+}
+
+/* Light palette applied when the OS prefers light and the visitor hasn't
+   explicitly chosen dark. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    --tl-background: #f4f6fb;
+    --tl-surface: #ffffff;
+    --tl-surface-elevated: #eef1f8;
+    --tl-surface-hover: #e2e7f2;
+    --tl-border: rgba(15, 23, 42, 0.12);
+    --tl-border-subtle: rgba(15, 23, 42, 0.08);
+    --tl-glass-bg: rgba(255, 255, 255, 0.45);
+    --tl-glass-border: rgba(15, 23, 42, 0.1);
+    --tl-glass-shadow: rgba(15, 23, 42, 0.18);
+    --tl-glass-highlight: rgba(255, 255, 255, 0.7);
+
+    --tl-text-primary: #0f172a;
+    --tl-text-secondary: #475569;
+    --tl-text-muted: #55627a;
+
+    --tl-positive: #047857;
+    --tl-negative: #b91c1c;
+    --tl-warning: #9a3412;
+    --tl-info: #1d4ed8;
+    --tl-accent: #0f766e;
+    --tl-neutral: #55627a;
+
+    --tl-blocked: #b91c1c;
+    --tl-stale: #92400e;
+    --tl-active: #0f766e;
+
+    --tl-focus: #1d4ed8;
+
+    --tl-glow-a: #60a5fa;
+    --tl-glow-b: #a78bfa;
+    --tl-glow-c: #22d3ee;
+  }
+}
+
+/* Explicit "light" from the toggle wins over the OS reporting dark. */
+[data-theme='light'] {
+  --tl-background: #f4f6fb;
+  --tl-surface: #ffffff;
+  --tl-surface-elevated: #eef1f8;
+  --tl-surface-hover: #e2e7f2;
+  --tl-border: rgba(15, 23, 42, 0.12);
+  --tl-border-subtle: rgba(15, 23, 42, 0.08);
+  --tl-glass-bg: rgba(255, 255, 255, 0.45);
+  --tl-glass-border: rgba(15, 23, 42, 0.1);
+  --tl-glass-shadow: rgba(15, 23, 42, 0.18);
+  --tl-glass-highlight: rgba(255, 255, 255, 0.7);
+
+  --tl-text-primary: #0f172a;
+  --tl-text-secondary: #475569;
+  --tl-text-muted: #55627a;
+
+  --tl-positive: #047857;
+  --tl-negative: #b91c1c;
+  --tl-warning: #9a3412;
+  --tl-info: #1d4ed8;
+  --tl-accent: #0f766e;
+  --tl-neutral: #55627a;
+
+  --tl-blocked: #b91c1c;
+  --tl-stale: #92400e;
+  --tl-active: #0f766e;
+
+  --tl-focus: #1d4ed8;
+
+  --tl-glow-a: #60a5fa;
+  --tl-glow-b: #a78bfa;
+  --tl-glow-c: #22d3ee;
+}
+
+/* Explicit "dark" from the toggle wins over the OS reporting light — same
+   values as bare `:root`, restated so the override actually overrides. */
+[data-theme='dark'] {
+  --tl-background: #05070d;
+  --tl-surface: #0c1120;
+  --tl-surface-elevated: #182136;
+  --tl-surface-hover: #253253;
+  --tl-border: rgba(255, 255, 255, 0.12);
+  --tl-border-subtle: rgba(255, 255, 255, 0.08);
+  --tl-glass-bg: rgba(22, 28, 51, 0.4);
+  --tl-glass-border: rgba(255, 255, 255, 0.16);
+  --tl-glass-shadow: rgba(0, 0, 0, 0.5);
+  --tl-glass-highlight: rgba(255, 255, 255, 0.3);
+
+  --tl-text-primary: #ffffff;
+  --tl-text-secondary: #94a3b8;
+  --tl-text-muted: #64748b;
+
+  --tl-positive: #10b981;
+  --tl-negative: #ef4444;
+  --tl-warning: #f59e0b;
+  --tl-info: #3b82f6;
+  --tl-accent: #00ffcc;
+  --tl-neutral: #64748b;
+
+  --tl-blocked: #ef4444;
+  --tl-stale: #a16207;
+  --tl-active: #00ffcc;
+
+  --tl-focus: #38bdf8;
+
+  --tl-glow-a: #3b82f6;
+  --tl-glow-b: #8b5cf6;
+  --tl-glow-c: #06b6d4;
 }

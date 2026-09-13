@@ -6,6 +6,7 @@ import {
   journalScreenshotSrc,
   uploadJournalScreenshot,
 } from '../../api/operations'
+import { ProgressiveImage } from '../common/ProgressiveImage'
 
 const ACCEPT = 'image/png,image/jpeg,image/webp,image/gif'
 const MAX_MB = 4
@@ -140,11 +141,15 @@ export const ScreenshotStrip = forwardRef<ScreenshotStripHandle, {
       {stack ? (
         <div className="space-y-2">
           {(shots ?? []).map((s) => (
-            <div key={s.id} className="group relative overflow-hidden rounded-lg border border-border-subtle bg-background">
-              <img
+            <div key={s.id} className="group relative aspect-[16/10] max-h-[420px] overflow-hidden rounded-lg border border-border-subtle bg-background">
+              {/* A reserved box (not "however tall the image turns out to
+                 be") so the skeleton has real space to fill and the page
+                 doesn't jump once the image loads — the same fixed-box
+                 pattern the thumbnail views already use. */}
+              <ProgressiveImage
                 src={journalScreenshotSrc(s.url)}
                 alt={s.caption ?? 'trade screenshot'}
-                className="max-h-[420px] w-full object-contain"
+                className="h-full w-full object-contain"
                 loading="lazy"
               />
               <button
@@ -180,7 +185,7 @@ export const ScreenshotStrip = forwardRef<ScreenshotStripHandle, {
               className={`group relative overflow-hidden rounded border border-border-subtle ${thumbSize}`}
               title={s.caption ?? s.filename ?? 'screenshot'}
             >
-              <img
+              <ProgressiveImage
                 src={journalScreenshotSrc(s.url)}
                 alt={s.caption ?? 'trade screenshot'}
                 className="h-full w-full object-cover"
@@ -217,7 +222,12 @@ export const ScreenshotStrip = forwardRef<ScreenshotStripHandle, {
           onClick={() => setPreview(null)}
         >
           <div
-            className="flex max-h-full max-w-3xl flex-col gap-2 rounded-lg border border-border bg-surface p-2"
+            className="flex max-h-full max-w-3xl flex-col gap-2 rounded-lg p-2 shadow-2xl backdrop-blur-xl"
+            style={{
+              background: 'var(--tl-glass-bg)',
+              border: '1px solid var(--tl-glass-border)',
+              boxShadow: `0 20px 50px var(--tl-glass-shadow)`,
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             <img

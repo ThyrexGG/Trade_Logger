@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { isLinkable, resolveChartImage } from '../../lib/tradingview'
+import { ProgressiveImage } from '../common/ProgressiveImage'
 
 /**
  * Renders a chart-snapshot URL (a TradingView `/x/…` share link or any direct
@@ -44,7 +45,7 @@ export function ChartSnapshot({
         }`}
         title="Open chart snapshot"
       >
-        <img
+        <ProgressiveImage
           src={img}
           alt="chart snapshot"
           loading="lazy"
@@ -60,7 +61,10 @@ export function ChartSnapshot({
         >
           <div className="max-h-full max-w-4xl" onClick={(e) => e.stopPropagation()}>
             <img src={img} alt="chart snapshot" className="max-h-[80vh] w-auto rounded" />
-            <div className="mt-2 flex items-center justify-between text-[11px] text-white/80">
+            <div
+              className="mt-2 flex items-center justify-between rounded-lg px-3 py-2 text-[11px] text-white/90 backdrop-blur-xl"
+              style={{ background: 'rgba(15, 23, 42, 0.55)', border: '1px solid rgba(255, 255, 255, 0.14)' }}
+            >
               <a href={link} target="_blank" rel="noreferrer" className="hover:underline">
                 open original ↗
               </a>

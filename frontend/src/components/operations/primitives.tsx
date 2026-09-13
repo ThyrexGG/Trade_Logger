@@ -122,7 +122,14 @@ export function OpsMetric({
   tone?: OpsTone
 }) {
   return (
-    <div className="rounded border border-border-subtle bg-surface-elevated/30 px-3 py-2">
+    <div
+      className="rounded-xl px-3 py-2 backdrop-blur"
+      style={{
+        background: 'var(--tl-glass-bg)',
+        border: '1px solid var(--tl-glass-border)',
+        boxShadow: 'inset 0 1px 0 var(--tl-glass-highlight)',
+      }}
+    >
       <p className="flex items-center text-[10px] uppercase tracking-wider text-muted">{label}</p>
       <p className={`mt-0.5 font-mono text-lg tabular-nums ${tone ? TEXT[tone] : 'text-primary'}`}>
         {typeof value === 'number' ? <CountUp value={value} /> : value}

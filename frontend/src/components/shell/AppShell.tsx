@@ -38,6 +38,28 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Glassmorphism needs something under the glass to actually blur — a
+         flat background gives every frosted panel nothing to show off
+         against. Fixed, behind everything, ignored by input and screen
+         readers. Blue → violet → cyan, matching the reference glassmorphism
+         concept's card-glow palette (`--tl-glow-*`, decorative-only tokens —
+         not the app's semantic accent/info/positive colors, so this stays
+         visually distinct from status meaning elsewhere in the UI). */}
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
+        <div
+          className="absolute left-[6%] top-[-10%] h-[75vh] w-[75vh] rounded-full opacity-[0.42]"
+          style={{ background: 'radial-gradient(circle, var(--tl-glow-a) 0%, transparent 65%)' }}
+        />
+        <div
+          className="absolute right-[-8%] top-[2%] h-[68vh] w-[68vh] rounded-full opacity-[0.36]"
+          style={{ background: 'radial-gradient(circle, var(--tl-glow-b) 0%, transparent 65%)' }}
+        />
+        <div
+          className="absolute bottom-[-18%] left-[28%] h-[72vh] w-[72vh] rounded-full opacity-[0.3]"
+          style={{ background: 'radial-gradient(circle, var(--tl-glow-c) 0%, transparent 65%)' }}
+        />
+      </div>
+
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded focus:bg-surface-elevated focus:px-3 focus:py-2 focus:text-sm focus:text-primary"
@@ -47,7 +69,10 @@ export function AppShell() {
 
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex min-h-screen flex-col lg:pl-[var(--tl-sidebar-width)]">
+      {/* `relative` (not just a later sibling) — the glow layer is `position:
+         fixed`, which paints above plain in-flow content regardless of DOM
+         order unless this is positioned too. */}
+      <div className="relative z-10 flex min-h-screen flex-col lg:pl-[var(--tl-sidebar-width)]">
         <TopBar
           onOpenSidebar={() => setSidebarOpen(true)}
           onOpenCommandPalette={() => setPaletteOpen(true)}

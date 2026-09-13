@@ -210,9 +210,20 @@ export function SectionCard({
   return (
     <section
       aria-label={title}
-      className={`rounded-lg border border-border bg-surface ${className}`}
+      className={`rounded-2xl backdrop-blur-lg ${className}`}
+      style={{
+        background: 'var(--tl-glass-bg)',
+        border: '1px solid var(--tl-glass-border)',
+        // Outer drop shadow for lift + an inset top-edge highlight — the
+        // thin bright line where light catches a glass card's upper rim in
+        // the reference concept.
+        boxShadow: `0 8px 24px var(--tl-glass-shadow), inset 0 1px 0 var(--tl-glass-highlight)`,
+      }}
     >
-      <header className="flex items-center justify-between gap-2 border-b border-border-subtle px-4 py-2.5">
+      <header
+        className="flex items-center justify-between gap-2 px-4 py-2.5"
+        style={{ borderBottom: '1px solid var(--tl-glass-border)' }}
+      >
         <h2 className="flex items-center text-xs font-semibold uppercase tracking-wider text-secondary">
           {title}
           {info ? <InfoTip text={info} /> : null}
