@@ -34,6 +34,7 @@ import os
 import platform
 import subprocess
 import sys
+import threading
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -49,7 +50,7 @@ try:
 except ImportError:
     mt5 = None  # type: ignore
 
-AGENT_VERSION = "1.2.0"
+AGENT_VERSION = "1.3.0"
 TASK_NAME = "TradeLogger MT5 Sync"
 HISTORY_FALLBACK_START = datetime(2020, 1, 1, tzinfo=timezone.utc)
 
@@ -183,50 +184,124 @@ def _require_mt5() -> None:
         )
 
 
-def _mt5_terminal_running() -> bool:
-    """Whether an MT5 terminal process looks alive already.
-
-    Checked *before* calling `mt5.initialize()` because that call will
-    happily launch a brand-new terminal window itself if none is running —
-    which is exactly the "why does MetaTrader keep popping up" annoyance
-    during a silent background sync. Every white-labelled MT5 build (broker
-    re-skins, prop-firm terminals, ...) still ships MetaQuotes' actual
-    binary under the hood, so checking for the two real process names
-    catches effectively everyone regardless of the Start Menu shortcut's
-    branding.
-    """
+def _mt5_pids() -> Optional[set]:
+    """PIDs of any running MT5 terminal process, or None if that couldn't be
+    checked. Every white-labelled MT5 build (broker re-skins, prop-firm
+    terminals, ...) still ships MetaQuotes' actual binary under the hood, so
+    matching the two real process names catches effectively everyone
+    regardless of the Start Menu shortcut's branding."""
     if platform.system() != "Windows":
-        return True  # can't check cheaply elsewhere; let initialize() decide
+        return None
     try:
         out = subprocess.run(
-            ["tasklist"], capture_output=True, text=True, timeout=10,
-        ).stdout.lower()
-        return "terminal64.exe" in out or "terminal.exe" in out
+            ["tasklist", "/FO", "CSV", "/NH"], capture_output=True, text=True, timeout=10,
+        ).stdout
     except Exception:
-        return True  # can't tell -- don't block a sync that might work fine
+        return None
+    pids: set = set()
+    for line in out.splitlines():
+        line = line.strip()
+        if not (line.startswith('"') and line.endswith('"')):
+            continue
+        parts = line[1:-1].split('","')
+        if len(parts) >= 2 and parts[0].lower() in ("terminal64.exe", "terminal.exe"):
+            try:
+                pids.add(int(parts[1]))
+            except ValueError:
+                pass
+    return pids
+
+
+def _minimize_windows_for_pids(pids: set) -> None:
+    """Best-effort: minimize (never close) any visible window belonging to
+    one of these process ids. Only ever called with PIDs WE just launched —
+    a terminal the user already had open is never touched."""
+    if not pids:
+        return
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        user32 = ctypes.windll.user32
+        SW_MINIMIZE = 6
+
+        def _pid_of(hwnd) -> int:
+            pid = wintypes.DWORD()
+            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+            return pid.value
+
+        @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+        def _enum(hwnd, _lparam):
+            if user32.IsWindowVisible(hwnd) and _pid_of(hwnd) in pids:
+                user32.ShowWindow(hwnd, SW_MINIMIZE)
+            return True
+
+        user32.EnumWindows(_enum, 0)
+    except Exception:
+        pass  # cosmetic only -- never let this get in the way of a sync
+
+
+def _watch_and_minimize_new_terminal(before_pids: set, stop: threading.Event) -> None:
+    """Runs on a background thread for the few seconds `mt5.initialize()`
+    spends cold-launching a terminal (splash screen, then the main window) —
+    polls for a newly-appeared MT5 process and minimizes it the moment it's
+    visible, instead of waiting for initialize() to return and only then
+    doing it once, by which point the window has already sat in the user's
+    face for however long the cold start took."""
+    deadline = time.time() + 25
+    while not stop.is_set() and time.time() < deadline:
+        pids = _mt5_pids()
+        if pids:
+            new = pids - before_pids
+            if new:
+                _minimize_windows_for_pids(new)
+        stop.wait(0.3)
 
 
 def mt5_connect(cfg: Dict[str, Any]) -> None:
     _require_mt5()
-    if not _mt5_terminal_running():
-        sys.exit(
-            "MetaTrader 5 isn't running — skipping this sync (it will NOT be\n"
-            "    opened automatically). Open the terminal and log in; the next\n"
-            "    sync picks up where it left off."
+    # If nothing is running yet, mt5.initialize() below will launch a fresh
+    # terminal itself -- that's fine, it's how a sync recovers on its own
+    # after MetaTrader was closed. What it shouldn't do is plant that window
+    # in front of whatever the user is doing. A background thread watches
+    # for the new process for as long as initialize() is busy connecting to
+    # it and minimizes it the moment it appears; a terminal that was already
+    # open (before_pids non-empty) is never touched.
+    before_pids = _mt5_pids() or set()
+    stop = None
+    watcher = None
+    if platform.system() == "Windows":
+        stop = threading.Event()
+        watcher = threading.Thread(
+            target=_watch_and_minimize_new_terminal, args=(before_pids, stop), daemon=True,
         )
-    m = cfg.get("mt5") or {}
-    login, password, server = m.get("login"), m.get("password"), m.get("server")
-    ok = False
-    if login and password and server:
-        ok = mt5.initialize(login=int(login), password=str(password),
-                            server=str(server), timeout=15000)
-    if not ok:
-        ok = mt5.initialize(timeout=15000)
+        watcher.start()
+
+    try:
+        m = cfg.get("mt5") or {}
+        login, password, server = m.get("login"), m.get("password"), m.get("server")
+        ok = False
+        if login and password and server:
+            ok = mt5.initialize(login=int(login), password=str(password),
+                                server=str(server), timeout=15000)
+        if not ok:
+            ok = mt5.initialize(timeout=15000)
+    finally:
+        if stop is not None:
+            stop.set()
+        if watcher is not None:
+            watcher.join(timeout=2)
+
     if not ok:
         sys.exit(
             f"Could not connect to MetaTrader 5 (error {mt5.last_error()}).\n"
             "    Open the MT5 terminal and log in to the account you want to track."
         )
+
+    # Catch the gap between the watcher's last poll and initialize() returning.
+    after_pids = _mt5_pids()
+    if after_pids:
+        _minimize_windows_for_pids(after_pids - before_pids)
 
 
 def read_snapshot(server_cursor_ts: int) -> Dict[str, Any]:

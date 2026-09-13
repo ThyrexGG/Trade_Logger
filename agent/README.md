@@ -33,9 +33,10 @@ first sync. From then on it updates itself every 15 minutes.
 Nothing. Leave your PC on with MetaTrader running and logged in. Check
 TradeLogger — your journal, analytics and positions fill in on their own.
 
-If you turn MetaTrader off, syncing pauses and catches up when it's back —
-it will **not** reopen MetaTrader for you. If the terminal isn't running
-when a sync is due, that cycle is skipped quietly and tried again next time.
+If you close MetaTrader, the next sync reopens it for you automatically —
+minimized, straight to the taskbar, so it doesn't pop up over whatever
+you're doing. It's still a normal running MetaTrader; click its taskbar
+icon any time to bring it back up.
 
 ---
 
