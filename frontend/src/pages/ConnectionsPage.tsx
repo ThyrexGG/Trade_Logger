@@ -20,6 +20,7 @@ import {
 } from '../api/accounts'
 import { useToast } from '../lib/toast'
 import { invalidateAllCaches } from '../lib/dataCache'
+import { PARTNER_LINKS } from '../lib/partnerLinks'
 
 /**
  * Every other page's data (Analytics, Journal, Command Center, ...) is served
@@ -177,6 +178,8 @@ export function ConnectionsPage() {
                 </ul>
               )}
             </div>
+
+            <PartnerLinksCard />
 
             <AddConnectionForm
               onAdded={() => {
@@ -420,6 +423,41 @@ function AccountDataDangerZone() {
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * Don't have a broker or funded account yet? — shown once, in the one spot
+ * on the app where it's actually relevant (right where someone's about to
+ * connect an account), never as a site-wide banner. See partnerLinks.ts for
+ * how the "supports TradeLogger" copy only appears once a link is real.
+ */
+function PartnerLinksCard() {
+  if (PARTNER_LINKS.length === 0) return null
+  return (
+    <div className="rounded-lg border border-border bg-surface p-4">
+      <div className="text-xs font-medium text-secondary">Don't have an account yet?</div>
+      <ul className="mt-2 space-y-2">
+        {PARTNER_LINKS.map((p) => (
+          <li key={p.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
+            <a
+              href={p.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-accent hover:underline"
+            >
+              {p.name} →
+            </a>
+            <span className="text-[11px] text-muted">{p.blurb}</span>
+          </li>
+        ))}
+      </ul>
+      {PARTNER_LINKS.some((p) => p.isAffiliate) ? (
+        <p className="mt-2 text-[10px] text-muted">
+          Some links above are referral links — using them costs you nothing extra and helps keep TradeLogger running.
+        </p>
+      ) : null}
     </div>
   )
 }
