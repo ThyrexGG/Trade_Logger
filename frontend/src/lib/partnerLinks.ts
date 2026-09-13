@@ -14,6 +14,8 @@ export interface PartnerLink {
   blurb: string
   url: string
   isAffiliate: boolean
+  /** Optional discount/coupon code to show alongside the link. */
+  code?: string
 }
 
 export const PARTNER_LINKS: PartnerLink[] = [
@@ -21,8 +23,9 @@ export const PARTNER_LINKS: PartnerLink[] = [
     id: '5ers',
     name: 'The 5%ers',
     blurb: 'Get a funded account through a prop-firm challenge.',
-    url: 'https://the5ers.com/', // TODO: swap for the real referral link once approved
-    isAffiliate: false,
+    url: 'https://www.the5ers.com/?afmc=1fqo',
+    isAffiliate: true,
+    code: 'WJC5V5',
   },
   {
     id: 'capital',

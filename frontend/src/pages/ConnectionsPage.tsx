@@ -450,6 +450,11 @@ function PartnerLinksCard() {
               {p.name} →
             </a>
             <span className="text-[11px] text-muted">{p.blurb}</span>
+            {p.code ? (
+              <span className="rounded border border-border-subtle bg-surface-elevated px-1.5 py-0.5 font-mono text-[10px] text-secondary">
+                code {p.code}
+              </span>
+            ) : null}
           </li>
         ))}
       </ul>
