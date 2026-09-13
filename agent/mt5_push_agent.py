@@ -473,11 +473,38 @@ def _release_run_lock(lock: Optional[Path]) -> None:
 
 
 def _is_interactive() -> bool:
-    """A real console (double-clicked or run from a terminal) vs the hidden
-    scheduled task (launched by wscript with no console)."""
+    """A real, visible console (double-clicked or run from a terminal) vs
+    the hidden scheduled task (launched by wscript with its window style
+    set to 0/hidden).
+
+    `sys.stdin.isatty()` alone is NOT enough here: `wscript.exe ...
+    Run(cmd, 0, False)` still attaches a real console to the child process
+    -- it's just invisible -- so isatty() reports True for it exactly the
+    same as a console the user can actually see and type into. Relying on
+    isatty() alone made every single scheduled run call `input()` below and
+    block forever waiting for a keypress nobody could ever send, which is
+    what stacked ~150 zombie processes (and ~6 GB of leaked PyInstaller
+    temp folders, one per run) over about 19 hours before this was caught.
+    Checking the console window's actual visibility via the Win32 API is
+    what a hidden launch and a real one don't share."""
     try:
-        return bool(sys.stdin and sys.stdin.isatty())
+        if not (sys.stdin and sys.stdin.isatty()):
+            return False
     except (ValueError, OSError):
+        return False
+
+    if platform.system() != "Windows":
+        return True  # isatty() is a reliable signal on Mac/Linux
+
+    try:
+        import ctypes
+
+        hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+        return bool(hwnd) and bool(ctypes.windll.user32.IsWindowVisible(hwnd))
+    except Exception:
+        # Can't tell -- assume hidden/non-interactive. A missed "press enter"
+        # pause (window closes a beat early) is far cheaper than another
+        # process hanging forever on stdin that will never arrive.
         return False
 
 
