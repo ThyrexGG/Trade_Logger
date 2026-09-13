@@ -80,6 +80,12 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+      # Cost-control kill switch, independent of the key above: set to "0" to
+      # take the AI assistant off this deployment (e.g. before opening
+      # sign-ups to the public) without touching the key itself, in case it's
+      # still wanted for local use. Unset/"1" changes nothing.
+      - key: TL_AI_ASSISTANT_ENABLED
+        value: "0"
       - key: FRED_API_KEY
         sync: false
       - key: FMP_API_KEY

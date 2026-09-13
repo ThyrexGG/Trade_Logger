@@ -45,8 +45,22 @@ def _api_key() -> str:
     return (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or "").strip()
 
 
+def _explicitly_disabled() -> bool:
+    """Cost-control kill switch, independent of whether a key is configured.
+
+    Unset (the default) changes nothing — a deployment with a key keeps
+    working exactly as before, no .env edit needed anywhere it already runs.
+    Set `TL_AI_ASSISTANT_ENABLED=0` where the feature should be OFF regardless
+    of a key being present (e.g. the public/production deployment, once real
+    users are on it) without touching or removing the key itself, in case it's
+    still wanted for local use. This is deliberately a separate flag from the
+    key: deleting a key from a dashboard is easy to do by accident or forget
+    was intentional; this one reads as an explicit business decision."""
+    return os.getenv("TL_AI_ASSISTANT_ENABLED", "1").strip().lower() in ("0", "false", "no")
+
+
 def is_configured() -> bool:
-    return bool(_api_key())
+    return bool(_api_key()) and not _explicitly_disabled()
 
 
 def model_name() -> str:
