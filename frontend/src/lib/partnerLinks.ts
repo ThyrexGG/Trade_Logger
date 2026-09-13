@@ -27,11 +27,10 @@ export const PARTNER_LINKS: PartnerLink[] = [
     isAffiliate: true,
     code: 'WJC5V5',
   },
-  {
-    id: 'capital',
-    name: 'Capital.com',
-    blurb: 'Open a live or demo trading account.',
-    url: 'https://capital.com/', // TODO: swap for the real referral link once approved
-    isAffiliate: false,
-  },
+  // Capital.com: left out on purpose until the affiliate application
+  // (capital.com/en-int/partnerships/affiliate-programme) is approved --
+  // no point showing a plain, non-affiliate link. Re-add here once there's
+  // a real referral link, same shape as the 5ers entry above:
+  // { id: 'capital', name: 'Capital.com', blurb: 'Open a live or demo trading account.',
+  //   url: '<real referral link>', isAffiliate: true },
 ]
