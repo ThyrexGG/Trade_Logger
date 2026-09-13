@@ -41,21 +41,23 @@ export function AppShell() {
       {/* Glassmorphism needs something under the glass to actually blur — a
          flat background gives every frosted panel nothing to show off
          against. Fixed, behind everything, ignored by input and screen
-         readers. Blue → violet → cyan, matching the reference glassmorphism
-         concept's card-glow palette (`--tl-glow-*`, decorative-only tokens —
-         not the app's semantic accent/info/positive colors, so this stays
-         visually distinct from status meaning elsewhere in the UI). */}
+         readers. Gold + bronze + gray (`--tl-glow-*`, decorative-only
+         tokens — not the app's semantic accent/info/positive colors).
+         Kept deliberately subtle — a premium black-and-gold fintech card
+         (the reference look) reads as mostly-black with a faint warm
+         ambient glow, not a card with color visibly bleeding through it;
+         gold is a rim/accent/icon color there, never a dominant wash. */}
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
         <div
-          className="absolute left-[6%] top-[-10%] h-[75vh] w-[75vh] rounded-full opacity-[0.42]"
+          className="absolute left-[6%] top-[-10%] h-[75vh] w-[75vh] rounded-full opacity-[0.16]"
           style={{ background: 'radial-gradient(circle, var(--tl-glow-a) 0%, transparent 65%)' }}
         />
         <div
-          className="absolute right-[-8%] top-[2%] h-[68vh] w-[68vh] rounded-full opacity-[0.36]"
+          className="absolute right-[-8%] top-[2%] h-[68vh] w-[68vh] rounded-full opacity-[0.14]"
           style={{ background: 'radial-gradient(circle, var(--tl-glow-b) 0%, transparent 65%)' }}
         />
         <div
-          className="absolute bottom-[-18%] left-[28%] h-[72vh] w-[72vh] rounded-full opacity-[0.3]"
+          className="absolute bottom-[-18%] left-[28%] h-[72vh] w-[72vh] rounded-full opacity-[0.1]"
           style={{ background: 'radial-gradient(circle, var(--tl-glow-c) 0%, transparent 65%)' }}
         />
       </div>

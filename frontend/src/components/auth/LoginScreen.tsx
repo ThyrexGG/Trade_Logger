@@ -11,16 +11,19 @@ export function LoginScreen() {
   const { mode } = useAuth()
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--color-background)] px-4">
-      {/* Same colorful glow-blob backdrop as the app shell (AppShell.tsx) —
-         this screen renders before the shell, so it needs its own copy for
-         the glass card below to have something to actually blur. */}
+      {/* Same glow-blob backdrop as the app shell (AppShell.tsx) — this
+         screen renders before the shell, so it needs its own copy for the
+         glass card below to have something to actually blur. Subtle on
+         purpose: a faint warm ambient glow behind an otherwise-black card,
+         not color visibly bleeding through it (the premium black-and-gold
+         fintech reference reads as mostly-black, gold as accent only). */}
       <div className="pointer-events-none absolute inset-0 z-0" aria-hidden="true">
         <div
-          className="absolute left-[22%] top-[8%] h-[60vh] w-[60vh] rounded-full opacity-[0.42]"
+          className="absolute left-[22%] top-[8%] h-[60vh] w-[60vh] rounded-full opacity-[0.18]"
           style={{ background: 'radial-gradient(circle, var(--tl-glow-a) 0%, transparent 65%)' }}
         />
         <div
-          className="absolute right-[18%] bottom-[5%] h-[60vh] w-[60vh] rounded-full opacity-[0.38]"
+          className="absolute right-[18%] bottom-[5%] h-[60vh] w-[60vh] rounded-full opacity-[0.14]"
           style={{ background: 'radial-gradient(circle, var(--tl-glow-b) 0%, transparent 65%)' }}
         />
       </div>

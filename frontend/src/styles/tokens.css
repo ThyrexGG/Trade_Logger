@@ -44,8 +44,8 @@
      neutral dark-gray wash behind a backdrop-blur, with a thin warm-gold
      tint on the border/highlight instead of plain white so the chrome
      itself reads as part of the gold/black/gray identity. */
-  --tl-glass-bg: rgba(20, 20, 20, 0.45);
-  --tl-glass-border: rgba(240, 185, 11, 0.18);
+  --tl-glass-bg: rgba(15, 15, 15, 0.6);
+  --tl-glass-border: rgba(240, 185, 11, 0.3);
   --tl-glass-shadow: rgba(0, 0, 0, 0.5);
   /* Inset top-edge highlight — the thin bright line where light catches a
      glass card's upper rim. Warm gold-white rather than plain white. */
@@ -195,8 +195,8 @@
   --tl-surface-hover: #2b2b2b;
   --tl-border: rgba(255, 255, 255, 0.12);
   --tl-border-subtle: rgba(255, 255, 255, 0.08);
-  --tl-glass-bg: rgba(20, 20, 20, 0.45);
-  --tl-glass-border: rgba(240, 185, 11, 0.18);
+  --tl-glass-bg: rgba(15, 15, 15, 0.6);
+  --tl-glass-border: rgba(240, 185, 11, 0.3);
   --tl-glass-shadow: rgba(0, 0, 0, 0.5);
   --tl-glass-highlight: rgba(255, 214, 122, 0.35);
 
