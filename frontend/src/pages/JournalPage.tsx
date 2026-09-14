@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useJournal } from '../lib/useOperations'
 import { PageContainer } from '../components/shell/PageContainer'
 import { JournalSummary, JournalView } from '../components/operations/JournalView'
 import { JournalFeed } from '../components/journal/JournalFeed'
 import { FreeEntries } from '../components/journal/FreeEntries'
+import type { JournalResponse } from '../types/operations'
 import {
   OpsSafetyBanner,
   SectionError,
@@ -13,6 +14,7 @@ import {
 
 type ViewMode = 'feed' | 'table'
 const VIEW_KEY = 'tl.journal.view'
+const ACCOUNT_KEY = 'tl.journal.account'
 
 function loadView(): ViewMode {
   try {
@@ -20,6 +22,26 @@ function loadView(): ViewMode {
   } catch {
     return 'feed'
   }
+}
+
+function loadAccount(): string {
+  try {
+    return localStorage.getItem(ACCOUNT_KEY) ?? 'ALL'
+  } catch {
+    return 'ALL'
+  }
+}
+
+/** Filters a journal snapshot down to one account, recomputing the summary
+ * totals to match — the raw fetch always carries every account so the
+ * dropdown itself has something to list. */
+function filterByAccount(data: JournalResponse, account: string): JournalResponse {
+  if (account === 'ALL') return data
+  const entries = data.entries.filter((e) => e.account_id === account)
+  const wins = entries.filter((e) => e.net_profit > 0).length
+  const losses = entries.filter((e) => e.net_profit < 0).length
+  const total_net_profit = Math.round(entries.reduce((sum, e) => sum + e.net_profit, 0) * 100) / 100
+  return { ...data, entries, total_trades: entries.length, wins, losses, total_net_profit }
 }
 
 /**
@@ -36,6 +58,7 @@ export function JournalPage() {
   // scroll-to behaviour the table view has — honour that regardless of the
   // remembered preference; a plain visit to the page uses it as normal.
   const [view, setView] = useState<ViewMode>(() => (focusTradeId ? 'table' : loadView()))
+  const [account, setAccount] = useState<string>(loadAccount)
 
   function changeView(v: ViewMode) {
     setView(v)
@@ -45,6 +68,20 @@ export function JournalPage() {
       /* private browsing / storage blocked — the choice just won't stick */
     }
   }
+
+  function changeAccount(a: string) {
+    setAccount(a)
+    try {
+      localStorage.setItem(ACCOUNT_KEY, a)
+    } catch {
+      /* private browsing / storage blocked — the choice just won't stick */
+    }
+  }
+
+  const filtered = useMemo(() => (data ? filterByAccount(data, account) : null), [data, account])
+  // A deep-linked trade might belong to an account this filter is hiding —
+  // fall back to unfiltered so the link still resolves instead of 404-ing.
+  const viewData = focusTradeId && filtered && !filtered.entries.some((e) => e.trade_id === focusTradeId) ? data : filtered
 
   return (
     <PageContainer
@@ -86,18 +123,33 @@ export function JournalPage() {
           <div className="rounded-lg border border-border bg-surface p-4">
             <SectionError message={error ?? 'The journal service could not be reached.'} onRetry={refetch} />
           </div>
-        ) : data ? (
+        ) : data && viewData ? (
           <div className="tl-fade-in space-y-4">
             {state === 'error' && error ? (
               <p className="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[11px] text-warning">
                 Showing last good journal — refresh failed: {error}
               </p>
             ) : null}
-            <JournalSummary data={data} />
+            {data.accounts.length > 1 ? (
+              <label className="block w-fit text-[11px] text-muted">
+                Account
+                <select
+                  value={account}
+                  onChange={(e) => changeAccount(e.target.value)}
+                  className="mt-1 block w-full min-w-[10rem] rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+                >
+                  <option value="ALL">All accounts ({data.total_trades})</option>
+                  {data.accounts.map((a) => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            <JournalSummary data={viewData} />
             {view === 'feed' ? (
-              <JournalFeed data={data} onEntryUpdated={applyEntry} />
+              <JournalFeed data={viewData} onEntryUpdated={applyEntry} />
             ) : (
-              <JournalView data={data} onEntryUpdated={applyEntry} focusTradeId={focusTradeId} />
+              <JournalView data={viewData} onEntryUpdated={applyEntry} focusTradeId={focusTradeId} />
             )}
             <FreeEntries />
           </div>

@@ -64,6 +64,22 @@ export function ChartAnalyzerPage() {
     return () => URL.revokeObjectURL(url)
   }, [file])
 
+  // Paste a screenshot (Ctrl+V) anywhere on this page — no click-to-focus
+  // needed first, since the whole page has exactly one drop target.
+  useEffect(() => {
+    function onPaste(e: ClipboardEvent) {
+      const item = [...(e.clipboardData?.items ?? [])].find((i) => i.type.startsWith('image/'))
+      const f = item?.getAsFile()
+      if (!f) return
+      e.preventDefault()
+      setMode('upload')
+      pickFile(f)
+    }
+    window.addEventListener('paste', onPaste)
+    return () => window.removeEventListener('paste', onPaste)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   function pickFile(f: File | null | undefined) {
     setError(null)
     setResult(null)
@@ -163,7 +179,7 @@ export function ChartAnalyzerPage() {
                 <img src={previewUrl} alt="chart preview" className="max-h-36 rounded object-contain" />
               ) : (
                 <>
-                  <span className="text-sm text-secondary">Drop a chart screenshot here, or click to browse</span>
+                  <span className="text-sm text-secondary">Drop, paste (Ctrl+V), or click to browse</span>
                   <span className="text-[10px] text-muted">PNG / JPEG / WebP, max {MAX_MB} MB</span>
                 </>
               )}
