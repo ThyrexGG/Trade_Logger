@@ -32,6 +32,9 @@ interface AuthContextValue {
   user: AuthUser | null
   /** Set when state === 'pending' — why access is not granted. */
   accessMessage: string | null
+  /** multiuser mode only — true once the server has opened sign-up to
+   * anyone (TL_SIGNUP_OPEN=1), not just the invite allowlist. */
+  signupOpen: boolean
   /** passphrase mode */
   loginPassphrase: (password: string) => Promise<void>
   /** multiuser mode */
@@ -101,6 +104,7 @@ function PassphraseAuthProvider({ children }: { children: ReactNode }) {
         mode: 'passphrase',
         user: null,
         accessMessage: null,
+        signupOpen: false,
         loginPassphrase,
         signIn: notInThisMode('Email sign-in'),
         signUp: notInThisMode('Sign-up'),
@@ -122,6 +126,7 @@ function MultiUserAuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>('loading')
   const [user, setUser] = useState<AuthUser | null>(null)
   const [accessMessage, setAccessMessage] = useState<string | null>(null)
+  const [signupOpen, setSignupOpen] = useState(false)
   const evaluating = useRef(false)
 
   const evaluate = useCallback(async () => {
@@ -129,6 +134,7 @@ function MultiUserAuthProvider({ children }: { children: ReactNode }) {
     evaluating.current = true
     try {
       const me = await getMe()
+      setSignupOpen(me.signup_open)
       if (me.authenticated && me.user) {
         setUser(me.user)
         setAccessMessage(null)
@@ -218,6 +224,7 @@ function MultiUserAuthProvider({ children }: { children: ReactNode }) {
         mode: 'multiuser',
         user,
         accessMessage,
+        signupOpen,
         loginPassphrase: notInThisMode('Passphrase sign-in'),
         signIn,
         signUp,

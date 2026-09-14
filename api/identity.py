@@ -132,6 +132,67 @@ def signup_allowlist() -> set[str]:
     return emails
 
 
+def signup_open() -> bool:
+    """The "grand opening" switch — ``TL_SIGNUP_OPEN=1`` lets anyone create an
+    account, bypassing ``TL_SIGNUP_ALLOWLIST`` entirely. Off by default: an
+    unset/blank/"0" value keeps sign-up invite-only, same as before this
+    existed. When this is on, ``create_account``'s per-IP cap below is the
+    only thing standing between "free trial" and "one person, unlimited
+    accounts" — the allowlist itself no longer does that job."""
+    return _env("TL_SIGNUP_OPEN", "0").lower() in ("1", "true", "yes")
+
+
+# --- per-IP signup cap (in-process, open-registration only) -------------
+#
+# auth.rate_limited_for() (shared with login) is the wrong tool for this: it
+# only counts *failed* attempts and a success wipes it clean (right for
+# "stop someone guessing a password", wrong for "stop someone minting
+# accounts" -- a success is exactly the thing to cap there). This is a
+# separate, deliberately simple counter of successful signups per IP. Same
+# limitation as auth.py's limiter: in-process, so it resets on deploy and
+# doesn't share state across multiple instances -- fine for a single Render
+# web service, not a substitute for real abuse tooling if this ever needs
+# to scale past that.
+_signup_ips: Dict[str, list] = {}
+_signup_ips_lock = threading.Lock()
+
+
+def _signup_max_per_ip() -> int:
+    try:
+        return int(_env("TL_SIGNUP_MAX_PER_IP", "2"))
+    except ValueError:
+        return 2
+
+
+def _signup_window_seconds() -> int:
+    try:
+        return int(_env("TL_SIGNUP_WINDOW_HOURS", "24")) * 3600
+    except ValueError:
+        return 24 * 3600
+
+
+def signup_rate_limited_for(ip: str) -> Optional[int]:
+    """Seconds the caller must wait, or None if this IP may create another
+    account right now."""
+    if not ip:
+        return None
+    win = _signup_window_seconds()
+    now = time.time()
+    with _signup_ips_lock:
+        hits = [t for t in _signup_ips.get(ip, []) if now - t < win]
+        _signup_ips[ip] = hits
+        if len(hits) >= _signup_max_per_ip():
+            return int(win - (now - hits[0])) + 1
+    return None
+
+
+def record_signup(ip: str) -> None:
+    if not ip:
+        return
+    with _signup_ips_lock:
+        _signup_ips.setdefault(ip, []).append(time.time())
+
+
 # --- JWT verification --------------------------------------------------
 #
 # Supabase issues access tokens under one of two signing schemes:
@@ -463,12 +524,16 @@ def _norm_email(email: str) -> str:
     return str(email or "").strip().lower()
 
 
-def create_account(email: str, password: str, display_name: str = "") -> Dict[str, Any]:
-    """Register a new local account. Invite-only: the email must be on
-    ``TL_SIGNUP_ALLOWLIST`` (or be ``TL_OWNER_EMAIL``).
+def create_account(email: str, password: str, display_name: str = "", ip: str = "") -> Dict[str, Any]:
+    """Register a new local account.
 
-    Raises :class:`NotAllowed` (not invited), :class:`EmailTaken`, or
-    ``ValueError`` (weak input).
+    Invite-only by default: the email must be on ``TL_SIGNUP_ALLOWLIST`` (or
+    be ``TL_OWNER_EMAIL``). With ``TL_SIGNUP_OPEN=1`` the allowlist is
+    bypassed for anyone — ``ip`` (the caller's address, for the per-IP cap
+    below) matters only in that mode; pass it whenever the route has one.
+
+    Raises :class:`NotAllowed` (not invited, or open-mode rate limit),
+    :class:`EmailTaken`, or ``ValueError`` (weak input).
     """
     email = _norm_email(email)
     if "@" not in email or len(email) > 254:
@@ -476,11 +541,19 @@ def create_account(email: str, password: str, display_name: str = "") -> Dict[st
     if len(password or "") < 8:
         raise ValueError("password must be at least 8 characters")
 
-    allow = signup_allowlist()
-    if not allow:
-        raise NotAllowed("sign-up is not open on this server")
-    if email not in allow:
-        raise NotAllowed(f"{email} is not on the invite list")
+    open_signup = signup_open()
+    if not open_signup:
+        allow = signup_allowlist()
+        if not allow:
+            raise NotAllowed("sign-up is not open on this server")
+        if email not in allow:
+            raise NotAllowed(f"{email} is not on the invite list")
+    elif ip:
+        # Open registration has no invite gate, so this per-IP cap is the
+        # actual abuse guard now -- see signup_rate_limited_for()'s docstring.
+        wait = signup_rate_limited_for(ip)
+        if wait is not None:
+            raise NotAllowed(f"Too many accounts created from this network recently — try again in {wait // 60 + 1} min.")
 
     ensure_users_table()
     now = _now_iso()
@@ -504,6 +577,8 @@ def create_account(email: str, password: str, display_name: str = "") -> Dict[st
         conn.commit()
     finally:
         conn.close()
+    if open_signup and ip:
+        record_signup(ip)
     return {
         "id": uid, "email": email, "display_name": display, "role": role,
         "status": "active", "created_at": now, "last_seen_at": now,

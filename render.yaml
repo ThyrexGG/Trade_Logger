@@ -68,6 +68,16 @@ services:
         sync: false
       - key: TL_SIGNUP_ALLOWLIST     # comma-separated invited emails (include yours)
         sync: false
+      # "Grand opening" switch: "1" bypasses TL_SIGNUP_ALLOWLIST entirely, so
+      # anyone can create an account. Baked in as "0" (invite-only) here on
+      # purpose -- flip it to "1" by hand in the Render dashboard when you're
+      # actually ready, never by editing this file, so a blueprint re-sync
+      # can't accidentally flip it either way. Once it's "1", the per-IP cap
+      # (TL_SIGNUP_MAX_PER_IP, default 2 per TL_SIGNUP_WINDOW_HOURS, default
+      # 24) is what stands between "free trial" and "one person, unlimited
+      # accounts" -- the allowlist no longer does that job in this mode.
+      - key: TL_SIGNUP_OPEN
+        value: "0"
       - key: CAPITAL_API_KEY
         sync: false
       - key: CAPITAL_EMAIL

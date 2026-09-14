@@ -102,7 +102,7 @@ function PassphraseForm() {
 }
 
 function MultiUserForm() {
-  const { state, accessMessage, signIn, signUp, recheck, logout } = useAuth()
+  const { state, accessMessage, signIn, signUp, recheck, logout, signupOpen } = useAuth()
 
   const [tab, setTab] = useState<'signin' | 'signup'>('signin')
   const [email, setEmail] = useState('')
@@ -167,7 +167,9 @@ function MultiUserForm() {
   return (
     <form onSubmit={onSubmit}>
       <h1 className="text-base font-semibold text-primary">TradeLogger</h1>
-      <p className="mt-1 text-xs text-muted">Private trading journal. Invite-only.</p>
+      <p className="mt-1 text-xs text-muted">
+        {signupOpen ? 'Private trading journal.' : 'Private trading journal. Invite-only.'}
+      </p>
 
       <div className="mt-4 flex rounded-xl border border-border p-1 text-xs">
         {(['signin', 'signup'] as const).map((t) => (

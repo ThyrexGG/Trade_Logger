@@ -6,6 +6,9 @@ export interface AuthStatus {
   auth_required: boolean
   authenticated: boolean
   mode: AuthMode
+  /** multiuser mode only — true once TL_SIGNUP_OPEN=1 on the server (anyone
+   * can create an account; the invite allowlist is no longer the gate). */
+  signup_open: boolean
   timestamp: string
 }
 
@@ -21,6 +24,7 @@ export interface MeResult {
   authenticated: boolean
   user: AuthUser | null
   error: string | null
+  signup_open: boolean
   timestamp: string
 }
 

@@ -28,6 +28,7 @@ def test_auth_disabled_by_default(monkeypatch):
         "auth_required": False,
         "authenticated": True,
         "mode": "passphrase",
+        "signup_open": False,  # passphrase mode has no sign-up; always False
         "timestamp": s["timestamp"],
     }
 

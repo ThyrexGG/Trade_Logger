@@ -583,6 +583,20 @@ than a single planned workstream:
   the old teal/blue candlestick mark to gold/gray-on-black (procedurally
   generated, Pillow), plus `manifest.webmanifest` + `index.html` `theme-color`
   meta brought off their stale pre-rebrand values.
+- **Open signup switch** (`api/identity.py`) — `TL_SIGNUP_OPEN=1` bypasses
+  `TL_SIGNUP_ALLOWLIST` entirely so anyone can create an account; off by
+  default (`render.yaml` bakes in `"0"`, deliberately never `"1"` there —
+  flip it by hand in the Render dashboard when actually ready, so a
+  blueprint re-sync can't do it either way). Since the allowlist stops
+  doing its abuse-prevention job the moment this is on, a separate per-IP
+  cap (`signup_rate_limited_for`/`record_signup`, `TL_SIGNUP_MAX_PER_IP`
+  default 2 per `TL_SIGNUP_WINDOW_HOURS` default 24) takes over — counts
+  *successful* signups and never resets on one, unlike the existing
+  `auth.rate_limited_for` login limiter it deliberately doesn't reuse (that
+  one only counts failures and a success wipes it clean, which is backwards
+  for "stop one person minting accounts"). `/api/auth/status` and `/me`
+  expose `signup_open` so `LoginScreen.tsx`'s "Invite-only" tagline is only
+  shown when it's actually true. `tests/test_open_signup.py` (10 tests).
 - **Custom domain** — `tradelogger.site` (registered at Hostinger) attached as
   a Cloudflare Custom Domain on the `trade-logger` Worker; nameservers moved
   to Cloudflare, stale parking A/CNAME records cleared, `TL_ALLOWED_ORIGINS`

@@ -57,6 +57,7 @@ class AuthStatusResponse(BaseModel):
     auth_required: bool
     authenticated: bool
     mode: str  # "passphrase" | "multiuser" | "supabase"
+    signup_open: bool = False
     timestamp: str
 
 
@@ -65,6 +66,7 @@ class MeResponse(BaseModel):
     authenticated: bool
     user: dict | None = None
     error: str | None = None
+    signup_open: bool = False
     timestamp: str
 
 
@@ -114,7 +116,8 @@ async def auth_status(request: Request) -> AuthStatusResponse:
     mode = identity.auth_mode()
     if mode == "multiuser":
         authed = identity.resolve_session_user(_token_from(request)) is not None
-        return AuthStatusResponse(auth_required=True, authenticated=authed, mode=mode, timestamp=_now())
+        return AuthStatusResponse(auth_required=True, authenticated=authed, mode=mode,
+                                  signup_open=identity.signup_open(), timestamp=_now())
     if mode == "supabase":
         authed = identity.resolve_user(_token_from(request)) is not None
         return AuthStatusResponse(auth_required=True, authenticated=authed, mode=mode, timestamp=_now())
@@ -132,14 +135,15 @@ async def auth_me(request: Request) -> MeResponse:
     if mode == "passphrase":
         return MeResponse(mode=mode, authenticated=True, user=None, timestamp=_now())
 
+    signup_open = identity.signup_open() if mode == "multiuser" else False
     token = _token_from(request)
     if not token:
-        return MeResponse(mode=mode, authenticated=False, timestamp=_now())
+        return MeResponse(mode=mode, authenticated=False, signup_open=signup_open, timestamp=_now())
 
     if mode == "multiuser":
         user = identity.resolve_session_user(token)
         if user is None:
-            return MeResponse(mode=mode, authenticated=False,
+            return MeResponse(mode=mode, authenticated=False, signup_open=signup_open,
                               error="Your session has ended. Sign in again.", timestamp=_now())
         return MeResponse(mode=mode, authenticated=True, user=_public_user(user), timestamp=_now())
 
@@ -168,7 +172,7 @@ async def signup(body: SignupRequest, request: Request, response: Response) -> L
         return LoginResponse(ok=False, error=f"Too many attempts. Try again in {wait // 60 + 1} min.", timestamp=_now())
 
     try:
-        user = identity.create_account(body.email, body.password, body.display_name or "")
+        user = identity.create_account(body.email, body.password, body.display_name or "", ip=ip)
     except identity.NotAllowed as exc:
         auth.record_login_failure(ip)
         response.status_code = 403
