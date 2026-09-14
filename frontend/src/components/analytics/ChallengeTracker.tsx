@@ -6,6 +6,7 @@ import {
   resetChallenge,
   saveChallengeConfig,
 } from '../../api/challenge'
+import { SectionCard } from '../intelligence/primitives'
 import type { ChallengeConfig, ChallengeConfigInput, ChallengeStatus } from '../../types/challenge'
 
 const money = (n: number | null) =>
@@ -244,11 +245,8 @@ export function ChallengeTracker({ account }: { account?: string }) {
 
   if (!status?.configured || editing) {
     return (
-      <div className="rounded-xl border border-border bg-surface p-4">
-        <h3 className="text-sm font-semibold text-primary">
-          {status?.configured ? 'Edit challenge rules' : 'Set up challenge tracking'}
-        </h3>
-        <p className="mt-1 text-[11px] text-muted">
+      <SectionCard title={status?.configured ? 'Edit challenge rules' : 'Set up challenge tracking'}>
+        <p className="text-[11px] text-muted">
           {status?.configured
             ? "Editing keeps your current phase and progress — this only changes the rules."
             : `Track ${acc} against a prop-firm evaluation's phase target, drawdown budget, daily-loss budget and minimum profit days.`}
@@ -264,7 +262,7 @@ export function ChallengeTracker({ account }: { account?: string }) {
             onCancel={status?.configured ? () => setEditing(false) : undefined}
           />
         </div>
-      </div>
+      </SectionCard>
     )
   }
 
@@ -272,39 +270,38 @@ export function ChallengeTracker({ account }: { account?: string }) {
   const phaseLabel = s.phase === 'funded' ? 'Funded' : `Phase ${s.phase}`
   const profitDaysDone = (s.profit_days_count ?? 0) >= (s.min_profit_days ?? 0)
 
-  return (
-    <div className="rounded-xl border border-border bg-surface p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-primary">{s.config?.firm} challenge</h3>
-          <span
-            className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
-              s.phase === 'funded'
-                ? 'border-positive/30 bg-positive/10 text-positive'
-                : 'border-accent/30 bg-accent/10 text-accent'
-            }`}
-          >
-            {phaseLabel}
-          </span>
-        </div>
-        <div className="flex gap-1.5 text-[11px]">
-          <button type="button" onClick={() => setEditing(true)} className="text-muted hover:text-primary">
-            Edit
-          </button>
-          <span className="text-border">·</span>
-          <button type="button" onClick={doReset} disabled={busyAction} className="text-muted hover:text-warning">
-            Reset
-          </button>
-          <span className="text-border">·</span>
-          <button type="button" onClick={doRemove} disabled={busyAction} className="text-muted hover:text-negative">
-            Remove
-          </button>
-        </div>
+  const headerAction = (
+    <div className="flex items-center gap-2">
+      <span
+        className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
+          s.phase === 'funded'
+            ? 'border-positive/30 bg-positive/10 text-positive'
+            : 'border-accent/30 bg-accent/10 text-accent'
+        }`}
+      >
+        {phaseLabel}
+      </span>
+      <div className="flex gap-1.5 text-[11px]">
+        <button type="button" onClick={() => setEditing(true)} className="text-muted hover:text-primary">
+          Edit
+        </button>
+        <span className="text-border">·</span>
+        <button type="button" onClick={doReset} disabled={busyAction} className="text-muted hover:text-warning">
+          Reset
+        </button>
+        <span className="text-border">·</span>
+        <button type="button" onClick={doRemove} disabled={busyAction} className="text-muted hover:text-negative">
+          Remove
+        </button>
       </div>
+    </div>
+  )
 
-      {actionError ? <p className="mt-2 text-xs text-negative">{actionError}</p> : null}
+  return (
+    <SectionCard title={`${s.config?.firm} challenge`} action={headerAction}>
+      {actionError ? <p className="mb-2 text-xs text-negative">{actionError}</p> : null}
 
-      <div className="mt-3 grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2">
         {/* phase progress */}
         <div>
           {s.phase === 'funded' ? (
@@ -398,6 +395,6 @@ export function ChallengeTracker({ account }: { account?: string }) {
         )}
         <p className="text-[10px] text-muted">{s.disclaimer}</p>
       </div>
-    </div>
+    </SectionCard>
   )
 }

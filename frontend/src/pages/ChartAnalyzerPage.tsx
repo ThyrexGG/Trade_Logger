@@ -3,6 +3,7 @@ import { PageContainer } from '../components/shell/PageContainer'
 import { getAIStatus } from '../api/ai'
 import { analyzeChartFile, analyzeChartUrl } from '../api/chartAnalysis'
 import { SaveToJournal } from '../components/chartAnalyzer/SaveToJournal'
+import { SectionCard } from '../components/intelligence/primitives'
 import type { ChartAnalysisResponse } from '../types/chartAnalysis'
 
 const ACCEPT = 'image/png,image/jpeg,image/webp'
@@ -133,8 +134,7 @@ export function ChartAnalyzerPage() {
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* input card */}
-        <div className="rounded-xl border border-border bg-surface p-4">
+        <SectionCard title="Analyze a chart">
           <div className="mb-3 flex rounded-xl border border-border p-1 text-xs">
             {(['upload', 'link'] as const).map((m) => (
               <button
@@ -226,10 +226,9 @@ export function ChartAnalyzerPage() {
           </button>
 
           {error ? <p className="mt-2 text-xs text-negative" role="alert">{error}</p> : null}
-        </div>
+        </SectionCard>
 
-        {/* results card */}
-        <div className="rounded-xl border border-border bg-surface p-4">
+        <SectionCard title="Result">
           {!result ? (
             <div className="flex h-full min-h-[200px] flex-col items-center justify-center gap-2 text-center text-muted">
               <div className="flex h-11 w-11 items-center justify-center rounded-full border border-border-subtle bg-surface-elevated text-lg">
@@ -325,7 +324,7 @@ export function ChartAnalyzerPage() {
               <SaveToJournal result={result} />
             </div>
           )}
-        </div>
+        </SectionCard>
       </div>
     </PageContainer>
   )
