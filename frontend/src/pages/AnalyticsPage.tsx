@@ -6,6 +6,7 @@ import type { AnalyticsQuery } from '../types/analytics'
 import { PageContainer } from '../components/shell/PageContainer'
 import { AnalyticsControls } from '../components/analytics/AnalyticsControls'
 import { AnalyticsView } from '../components/analytics/AnalyticsView'
+import { ChallengeTracker } from '../components/analytics/ChallengeTracker'
 import {
   OpsSafetyBanner,
   SectionError,
@@ -76,6 +77,7 @@ export function AnalyticsPage() {
               </p>
             ) : null}
             <AnalyticsControls available={available} query={query} onChange={setQuery} />
+            <ChallengeTracker account={query.account} />
             <AnalyticsView data={data} />
           </div>
         ) : null}

@@ -1311,6 +1311,92 @@ class ChartAnalysisResponse(BaseModel):
 
 
 # -------------------------------------------------------------------------
+# 16. Prop-firm Challenge Tracker (W13) — read/compute over already-
+#     authoritative closed_trades + account_metadata; config is a small
+#     per-account JSON settings blob. No execution path.
+# -------------------------------------------------------------------------
+class ChallengeConfig(BaseModel):
+    account_id: str
+    firm: str
+    account_size: float
+    phase1_target_pct: float
+    phase2_target_pct: float
+    max_drawdown_pct: float
+    daily_loss_pct: float
+    min_profit_days: int
+    profit_day_threshold_pct: float
+    drawdown_mode: Literal["trailing", "static"]
+    phase: Literal["1", "2", "funded"]
+    phase_start_balance: float
+    phase_start_date: str
+    created_at: str
+
+
+class ChallengeConfigRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    account_id: str = Field(..., min_length=1, max_length=128)
+    firm: str = Field(default="5ers", max_length=64)
+    account_size: float = Field(..., gt=0)
+    phase1_target_pct: float = Field(default=10.0, gt=0, le=100)
+    phase2_target_pct: float = Field(default=5.0, gt=0, le=100)
+    max_drawdown_pct: float = Field(default=10.0, gt=0, le=100)
+    daily_loss_pct: float = Field(default=5.0, gt=0, le=100)
+    min_profit_days: int = Field(default=3, ge=0, le=30)
+    profit_day_threshold_pct: float = Field(default=0.5, gt=0, le=100)
+    drawdown_mode: Literal["trailing", "static"] = "trailing"
+
+
+class ChallengeAdvanceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    account_id: str = Field(..., min_length=1, max_length=128)
+    to: Literal["2", "funded"]
+
+
+class ChallengeResetRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    account_id: str = Field(..., min_length=1, max_length=128)
+
+
+class ChallengeStatusResponse(BaseModel):
+    """GET /api/challenge/status — `configured=False` (a account with no
+    saved challenge config) is a valid, common result, not an error: every
+    other field is then null."""
+
+    configured: bool
+    account_id: str
+    config: Optional[ChallengeConfig] = None
+
+    current_balance: Optional[float] = None
+    phase: Optional[Literal["1", "2", "funded"]] = None
+    phase_target_pct: Optional[float] = None
+    phase_start_balance: Optional[float] = None
+    phase_progress_pct: Optional[float] = None
+    phase_progress_ratio: Optional[float] = None  # 0-1, clamped — drive a progress bar directly
+    phase_gain_amount: Optional[float] = None
+    phase_target_amount: Optional[float] = None
+
+    drawdown_mode: Optional[Literal["trailing", "static"]] = None
+    peak_balance: Optional[float] = None
+    drawdown_floor_balance: Optional[float] = None
+    drawdown_used_pct: Optional[float] = None            # of the ACCOUNT (e.g. 3.2% actually drawn down)
+    drawdown_budget_used_ratio: Optional[float] = None   # 0-1 of the max_drawdown_pct budget
+
+    daily_loss_today_amount: Optional[float] = None
+    daily_loss_used_pct: Optional[float] = None
+    daily_loss_budget_used_ratio: Optional[float] = None  # 0-1, resets daily
+
+    profit_days_count: Optional[int] = None
+    min_profit_days: Optional[int] = None
+    profit_day_dates: List[str] = []
+
+    disclaimer: str = (
+        "Estimated from your synced balance and closed trades — verify against "
+        "your firm's own dashboard before relying on it for a real risk decision."
+    )
+    timestamp: str
+
+
+# -------------------------------------------------------------------------
 # 15. Macro / Market Intelligence Schemas (Stage 18) — read-only. Thin
 #     envelopes over the deterministic macro engines + the provider layer.
 #     Every response carries `data_provider` / `provider_is_live` / `provenance`

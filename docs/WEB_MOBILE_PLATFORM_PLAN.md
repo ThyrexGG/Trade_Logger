@@ -617,6 +617,21 @@ than a single planned workstream:
   model's own arithmetic; every field the model isn't confident reading
   comes back `null` rather than guessed. Nothing is persisted — ephemeral,
   one-shot analysis, no DB table. `tests/test_chart_analysis.py` (21 tests).
+- **Challenge Tracker** (Analytics page, `/api/challenge/*`,
+  `api/challenge.py`) — per-account prop-firm evaluation tracking: phase
+  progress bar (gain vs. target $), a drawdown-budget gauge (trailing-from-
+  peak or static-from-initial-size, user-selectable — the5ers.com's own
+  explainer doesn't specify which High Stakes actually uses, so this is
+  labelled an estimate, never presented as authoritative), a daily-loss
+  gauge that resets each day, and a profit-day counter against a
+  configurable per-day % threshold. Defaults match a 5ers $5,000 High Stakes
+  2-step (Phase 1 +10%, Phase 2 +5%, 10% max drawdown, 5% daily loss, 3 min
+  profit days) but every number is editable for any firm/size. Config is a
+  JSON blob in the existing `app_settings` table, scoped by tenant+account
+  exactly like the saved-initial-balance feature; phase advance/reset are
+  manual buttons (no auto-detection of a pass/fail). Pure read/compute over
+  `get_closed_trades` + `get_account_balances` — no execution path.
+  `tests/test_challenge.py` (14 tests).
 
 ---
 
