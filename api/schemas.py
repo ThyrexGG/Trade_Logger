@@ -1275,6 +1275,41 @@ class AIStatusResponse(BaseModel):
     timestamp: str
 
 
+class ChartAnalysisResponse(BaseModel):
+    """POST /api/ai/chart/analyze — extracted from one chart screenshot via
+    Gemini vision. Every numeric/text field is nullable: the model is
+    instructed to return null rather than guess when something isn't visible
+    in the image, so a mostly-null response is a valid (low-information)
+    result, not a bug."""
+
+    ok: bool
+    error: Optional[str] = None
+    error_kind: Optional[str] = None  # not_configured | provider_unavailable | timeout | rate_limit | empty | bad_response | bad_input
+    model: Optional[str] = None
+
+    symbol: Optional[str] = None
+    timeframe: Optional[str] = None
+    direction: Optional[Literal["long", "short"]] = None
+    entry: Optional[float] = None
+    stop_loss: Optional[float] = None
+    take_profit: Optional[float] = None
+    additional_targets: List[float] = []
+    risk_reward: Optional[float] = None  # computed server-side from entry/stop_loss/take_profit, not model arithmetic
+    pattern: Optional[str] = None
+    confluences: List[str] = []
+    setup_rating: Optional[int] = None  # 1-10, an AI opinion — not a signal
+    rating_reasoning: Optional[str] = None
+    caveats: Optional[str] = None
+    extraction_confidence: Optional[Literal["high", "medium", "low"]] = None
+    disclaimer: str = "AI reading of the screenshot only — always verify against the live chart. Not financial advice."
+
+    turn_usage: Optional[Dict[str, int]] = None
+    usage: Optional[Dict[str, Any]] = None
+    read_only: bool = True
+    live_broker_transmission: str = "BLOCKED"
+    timestamp: str
+
+
 # -------------------------------------------------------------------------
 # 15. Macro / Market Intelligence Schemas (Stage 18) — read-only. Thin
 #     envelopes over the deterministic macro engines + the provider layer.

@@ -30,6 +30,7 @@ const PriceAlertsPage = page(() => import('./pages/PriceAlertsPage'), 'PriceAler
 const AnalyticsPage = page(() => import('./pages/AnalyticsPage'), 'AnalyticsPage')
 const CommandCenterPage = page(() => import('./pages/CommandCenterPage'), 'CommandCenterPage')
 const AssistantPage = page(() => import('./pages/AssistantPage'), 'AssistantPage')
+const ChartAnalyzerPage = page(() => import('./pages/ChartAnalyzerPage'), 'ChartAnalyzerPage')
 const JournalPage = page(() => import('./pages/JournalPage'), 'JournalPage')
 const SystemHealthPage = page(() => import('./pages/SystemHealthPage'), 'SystemHealthPage')
 const ConnectionsPage = page(() => import('./pages/ConnectionsPage'), 'ConnectionsPage')
@@ -43,6 +44,7 @@ const LIVE_ITEM_PAGES: Record<string, ReactElement> = {
   'workspace.alerts': <PriceAlertsPage />,
   'workspace.analytics': <AnalyticsPage />,
   'workspace.assistant': <AssistantPage />,
+  'workspace.chart-analyzer': <ChartAnalyzerPage />,
   'research.intelligence': <IntelligencePage />,
   'research.crypto-carry': <CryptoCarryPage />,
   'research.macro': <MacroIntelligencePage />,

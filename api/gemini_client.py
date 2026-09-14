@@ -251,3 +251,76 @@ def generate(
     if tool_calls:
         meta["tool_calls"] = tool_calls
     return text, meta
+
+
+def analyze_image(
+    system_instruction: str,
+    prompt: str,
+    image_bytes: bytes,
+    mime_type: str,
+    *,
+    as_json: bool = False,
+) -> Tuple[str, Dict[str, Any]]:
+    """
+    One-shot vision call: system instruction + prompt + a single image, no
+    history, no tools, no TradeLogger context injection. Used for chart-
+    screenshot analysis (api/chart_analysis.py) — the model sees only the
+    bytes handed to it here.
+
+    `as_json=True` constrains the model to emit a valid JSON document (via
+    `response_mime_type`) rather than free text — the caller still parses and
+    validates it; nothing here trusts the shape.
+
+    Raises GeminiError on any provider problem, same as generate().
+    """
+    if not is_configured():
+        raise GeminiError("Gemini API key is not configured", kind="unavailable")
+
+    try:
+        from google import genai
+        from google.genai import types
+    except Exception as exc:  # pragma: no cover - dependency present in requirements
+        raise GeminiError(f"google-genai not importable: {exc}", kind="unavailable")
+
+    try:
+        client = genai.Client(
+            api_key=_api_key(),
+            http_options=types.HttpOptions(timeout=int(_TIMEOUT_SEC * 1000)),
+        )
+
+        config_kwargs: Dict[str, Any] = dict(
+            system_instruction=system_instruction,
+            max_output_tokens=_MAX_OUTPUT_TOKENS,
+            temperature=0.1,
+        )
+        if as_json:
+            config_kwargs["response_mime_type"] = "application/json"
+        config = types.GenerateContentConfig(**config_kwargs)
+
+        contents = [
+            types.Content(
+                role="user",
+                parts=[
+                    types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+                    types.Part(text=prompt),
+                ],
+            )
+        ]
+        resp = client.models.generate_content(model=_MODEL, contents=contents, config=config)
+    except GeminiError:
+        raise
+    except Exception as exc:
+        raise _classify(exc)
+
+    text = _parts_text(resp)
+    if not text:
+        reason = None
+        try:
+            reason = getattr(resp.candidates[0], "finish_reason", None)
+        except Exception:
+            reason = None
+        raise GeminiError(f"Gemini returned no usable text (finish_reason={reason})", kind="empty")
+
+    usage: Dict[str, int] = {"prompt_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+    _accumulate_usage(usage, resp)
+    return text, {"model": _MODEL, "finish_reason": "stop", "usage": usage}

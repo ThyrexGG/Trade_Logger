@@ -605,6 +605,18 @@ than a single planned workstream:
   same Worker and keeps working. SEO baseline added alongside it:
   `index.html` meta description + canonical + Open Graph/Twitter cards (new
   1200x630 `og-image.png`) + JSON-LD, plus `robots.txt`/`sitemap.xml`.
+- **Chart Analyzer** (`/workspace/chart-analyzer`, `POST
+  /api/ai/chart/analyze`) — upload a chart screenshot or paste a
+  `tradingview.com/x/...` share link (fetched server-side, host-validated
+  twice: the share link and the og:image URL it names) and Gemini vision
+  reads what's visibly plotted — entry/stop/target, symbol, timeframe,
+  pattern/confluences — plus gives a 1-10 setup-quality opinion. Same
+  security posture as the AI Assistant (`api/chart_analysis.py`: no import
+  of / path to execution, broker or order code; pure image-in, JSON-out).
+  R:R is computed server-side from entry/stop/target, never trusted from the
+  model's own arithmetic; every field the model isn't confident reading
+  comes back `null` rather than guessed. Nothing is persisted — ephemeral,
+  one-shot analysis, no DB table. `tests/test_chart_analysis.py` (21 tests).
 
 ---
 

@@ -10,6 +10,7 @@ import {
   GiftIcon,
   LayersIcon,
   ScaleIcon,
+  SearchIcon,
   ShieldIcon,
 } from './icons'
 
@@ -114,6 +115,14 @@ const ALL_ZONES: Zone[] = [
         description: 'Read-only analytical chat over your TradeLogger data.',
         path: '/workspace/assistant',
         icon: BrainIcon,
+        status: 'live',
+      },
+      {
+        id: 'workspace.chart-analyzer',
+        label: 'Chart Analyzer',
+        description: 'Upload a chart screenshot or TradingView link — extract entry/stop/target/R:R and an AI setup rating.',
+        path: '/workspace/chart-analyzer',
+        icon: SearchIcon,
         status: 'live',
       },
     ],
