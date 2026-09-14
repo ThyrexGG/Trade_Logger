@@ -21,6 +21,11 @@ export interface ChartAnalysisResponse {
   error_kind: ChartAnalysisErrorKind | null
   model: string | null
 
+  /** The analyzed image, echoed back so it can be attached to a journal
+   * trade/entry afterward — present whenever `ok` is true. */
+  image_base64: string | null
+  image_mime: string | null
+
   symbol: string | null
   timeframe: string | null
   direction: ChartDirection | null

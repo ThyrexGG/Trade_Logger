@@ -126,6 +126,11 @@ def test_success_path_returns_normalized_fields(stub_configured, monkeypatch):
     assert d["read_only"] is True
     assert d["live_broker_transmission"] == "BLOCKED"
     assert "not financial advice" in d["disclaimer"].lower()
+    # the analyzed image is echoed back so the client can attach it to a
+    # journal trade/entry afterward, regardless of upload vs. TradingView-link
+    import base64 as _b64
+    assert d["image_mime"] == "image/png"
+    assert _b64.b64decode(d["image_base64"]) == _PNG_BYTES
 
 
 def test_provider_failure_is_graceful(stub_configured, monkeypatch):

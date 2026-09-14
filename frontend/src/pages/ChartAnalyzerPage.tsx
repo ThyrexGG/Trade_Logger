@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { PageContainer } from '../components/shell/PageContainer'
 import { getAIStatus } from '../api/ai'
 import { analyzeChartFile, analyzeChartUrl } from '../api/chartAnalysis'
+import { SaveToJournal } from '../components/chartAnalyzer/SaveToJournal'
 import type { ChartAnalysisResponse } from '../types/chartAnalysis'
 
 const ACCEPT = 'image/png,image/jpeg,image/webp'
@@ -319,7 +320,9 @@ export function ChartAnalyzerPage() {
                 </p>
               ) : null}
 
-              <p className="border-t border-border-subtle pt-2 text-[10px] text-muted">{result.disclaimer}</p>
+              <p className="text-[10px] text-muted">{result.disclaimer}</p>
+
+              <SaveToJournal result={result} />
             </div>
           )}
         </div>

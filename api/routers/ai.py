@@ -16,6 +16,7 @@ The Gemini API key never leaves the server. If it is not configured the endpoint
 returns `ok=false, error_kind="not_configured"` with HTTP 200 so the UI can show
 a clean state — it never raises provider internals to the client.
 """
+import base64
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -195,6 +196,8 @@ async def chart_analyze(
     return ChartAnalysisResponse(
         ok=True,
         model=str(meta.get("model", model_name())),
+        image_base64=base64.b64encode(data).decode("ascii"),
+        image_mime=mime,
         turn_usage=turn_usage or None,
         usage=ai_usage.snapshot(),
         timestamp=_now(),

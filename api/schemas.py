@@ -1287,6 +1287,12 @@ class ChartAnalysisResponse(BaseModel):
     error_kind: Optional[str] = None  # not_configured | provider_unavailable | timeout | rate_limit | empty | bad_response | bad_input
     model: Optional[str] = None
 
+    # The analyzed image itself, echoed back — lets the client attach it to a
+    # journal trade/entry afterward without re-uploading (the link-fetch path
+    # never gave the browser the bytes in the first place).
+    image_base64: Optional[str] = None
+    image_mime: Optional[str] = None
+
     symbol: Optional[str] = None
     timeframe: Optional[str] = None
     direction: Optional[Literal["long", "short"]] = None
