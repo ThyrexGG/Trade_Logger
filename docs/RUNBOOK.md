@@ -159,8 +159,10 @@ Known pre-existing failures (not regressions): `test_phase56_data_quality`,
 
 ## 7. Live deploy
 
-- **Frontend:** Cloudflare Workers — `https://trade-logger.tesbonnathyrak.workers.dev`.
-  Auto-builds on `git push` (build = `cd frontend && npm ci && npm run build`).
+- **Frontend:** Cloudflare Workers — `https://tradelogger.site` (custom domain,
+  live 2026-09-14; the original `https://trade-logger.tesbonnathyrak.workers.dev`
+  still resolves to the same Worker). Auto-builds on `git push` (build =
+  `cd frontend && npm ci && npm run build`).
 - **Backend:** Render — `https://tradelogger-api.onrender.com`. Auto-deploys on
   `git push`. Env vars set in the Render dashboard (**not** in git). Sleeps
   after 15 min idle → ~50 s cold start.

@@ -583,6 +583,14 @@ than a single planned workstream:
   the old teal/blue candlestick mark to gold/gray-on-black (procedurally
   generated, Pillow), plus `manifest.webmanifest` + `index.html` `theme-color`
   meta brought off their stale pre-rebrand values.
+- **Custom domain** — `tradelogger.site` (registered at Hostinger) attached as
+  a Cloudflare Custom Domain on the `trade-logger` Worker; nameservers moved
+  to Cloudflare, stale parking A/CNAME records cleared, `TL_ALLOWED_ORIGINS`
+  on Render updated to include it. The original
+  `https://trade-logger.tesbonnathyrak.workers.dev` still resolves to the
+  same Worker and keeps working. SEO baseline added alongside it:
+  `index.html` meta description + canonical + Open Graph/Twitter cards (new
+  1200x630 `og-image.png`) + JSON-LD, plus `robots.txt`/`sitemap.xml`.
 
 ---
 
