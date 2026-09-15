@@ -689,6 +689,14 @@ than a single planned workstream:
   (12 tests) — detection correctness against a hand-built synthetic candle
   series with a known, engineered sweep+shift, plus a network-tolerant live
   check that skips (not fails) if the upstream feed is unreachable.
+- **Killzone Scanner + Pre-Trade Checklist merged into one page** — the
+  standalone `/workspace/pre-trade-checklist` route from earlier in W14 no
+  longer exists; its body moved to
+  `components/journal/PreTradeChecklistForm.tsx` and is now the "Plan" tab
+  on `/workspace/killzone-scanner` (the scanner itself is "Scan"). Each
+  candidate row's "Plan this" button seeds the checklist with that
+  candidate's symbol/direction, the shift level as an entry reference and
+  the sweep level as a stop reference — still fully editable before saving.
 
 ---
 
