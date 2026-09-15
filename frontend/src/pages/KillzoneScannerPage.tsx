@@ -29,7 +29,8 @@ function biasTone(bias: string | null): string {
 /** ★★★☆☆-style rendering of the 0-5 confluence score — a count of disclosed
  *  factors met, not a win probability (see killzone_scanner.py's _confluence). */
 function stars(score: number): string {
-  return '★'.repeat(score) + '☆'.repeat(Math.max(0, 5 - score))
+  const n = Math.max(0, Math.min(5, score ?? 0))
+  return '★'.repeat(n) + '☆'.repeat(5 - n)
 }
 
 function starTone(score: number): string {
@@ -38,9 +39,12 @@ function starTone(score: number): string {
   return 'text-muted'
 }
 
-/** One-line breakdown for the confluence tooltip — every factor plain and disclosed. */
+/** One-line breakdown for the confluence tooltip — every factor plain and disclosed.
+ *  Defensive against a candidate fetched before this field existed (e.g. a
+ *  tab left open across a backend update, or an older cached response) —
+ *  shows nothing rather than crashing the page. */
 function confluenceTooltip(c: KillzoneCandidate): string {
-  return c.confluence_factors.map((f) => `${f.met ? '✓' : '✗'} ${f.label}`).join('  ·  ')
+  return (c.confluence_factors ?? []).map((f) => `${f.met ? '✓' : '✗'} ${f.label}`).join('  ·  ')
 }
 
 /** Plain-text/Markdown recap of the current scan — for pasting into a journal
