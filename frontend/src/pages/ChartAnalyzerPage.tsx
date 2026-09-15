@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { PageContainer } from '../components/shell/PageContainer'
 import { getAIStatus } from '../api/ai'
 import { analyzeChartFile, analyzeChartUrl } from '../api/chartAnalysis'
-import { SaveToJournal } from '../components/chartAnalyzer/SaveToJournal'
+import { SaveToJournal } from '../components/journal/SaveToJournal'
 import { SectionCard } from '../components/intelligence/primitives'
 import type { ChartAnalysisResponse } from '../types/chartAnalysis'
 
@@ -16,6 +16,28 @@ function ratingTone(rating: number): string {
   if (rating >= 7) return 'text-positive border-positive/30 bg-positive/10'
   if (rating >= 4) return 'text-warning border-warning/30 bg-warning/10'
   return 'text-negative border-negative/30 bg-negative/10'
+}
+
+function buildDescription(r: ChartAnalysisResponse): string {
+  const lines: string[] = []
+  const head = [r.direction?.toUpperCase(), r.symbol, r.timeframe].filter(Boolean).join(' ')
+  lines.push(`Chart Analyzer read${head ? ': ' + head : ''}`)
+
+  const levels: string[] = []
+  if (r.entry !== null) levels.push(`Entry ${r.entry}`)
+  if (r.stop_loss !== null) levels.push(`SL ${r.stop_loss}`)
+  if (r.take_profit !== null) levels.push(`TP ${r.take_profit}`)
+  if (r.risk_reward !== null) levels.push(`R:R ${r.risk_reward}`)
+  if (levels.length) lines.push(levels.join(' · '))
+
+  if (r.additional_targets.length) lines.push(`Additional targets: ${r.additional_targets.join(', ')}`)
+  if (r.pattern) lines.push(`Pattern: ${r.pattern}`)
+  if (r.confluences.length) lines.push(`Confluences: ${r.confluences.join(', ')}`)
+  if (r.setup_rating !== null) {
+    lines.push(`Setup rating: ${r.setup_rating}/10${r.rating_reasoning ? ' — ' + r.rating_reasoning : ''}`)
+  }
+  if (r.caveats) lines.push(`Caveats: ${r.caveats}`)
+  return lines.join('\n')
 }
 
 function Stat({ label, value }: { label: string; value: string | number | null }) {
@@ -321,7 +343,15 @@ export function ChartAnalyzerPage() {
 
               <p className="text-[10px] text-muted">{result.disclaimer}</p>
 
-              <SaveToJournal result={result} />
+              <SaveToJournal
+                description={buildDescription(result)}
+                defaultKind="review"
+                defaultInstrument={result.symbol ?? ''}
+                defaultTitle={[result.direction?.toUpperCase(), result.symbol, 'chart analysis'].filter(Boolean).join(' ')}
+                imageBase64={result.image_base64}
+                imageMime={result.image_mime}
+                imageFilenameStem="chart-analysis"
+              />
             </div>
           )}
         </SectionCard>

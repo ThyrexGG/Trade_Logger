@@ -125,6 +125,14 @@ const ALL_ZONES: Zone[] = [
         icon: SearchIcon,
         status: 'live',
       },
+      {
+        id: 'workspace.pretrade-checklist',
+        label: 'Pre-Trade Checklist',
+        description: 'Log the plan before you enter — setup, R:R, thesis and a self-check — saved to the Journal.',
+        path: '/workspace/pre-trade-checklist',
+        icon: ShieldIcon,
+        status: 'live',
+      },
     ],
   },
   {

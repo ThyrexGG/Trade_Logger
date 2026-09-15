@@ -739,7 +739,7 @@ class JournalScreenshotsResponse(BaseModel):
     timestamp: str
 
 
-_JOURNAL_ENTRY_KINDS = ("idea", "review", "observation")
+_JOURNAL_ENTRY_KINDS = ("idea", "review", "observation", "plan")
 
 
 class JournalEntry(BaseModel):

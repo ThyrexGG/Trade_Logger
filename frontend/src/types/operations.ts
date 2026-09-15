@@ -59,7 +59,7 @@ export interface JournalUpdateRequest {
   rating?: number
 }
 
-export type JournalEntryKind = 'idea' | 'review' | 'observation'
+export type JournalEntryKind = 'idea' | 'review' | 'observation' | 'plan'
 
 export interface JournalEntry {
   id: string

@@ -7,32 +7,9 @@ import {
   uploadJournalScreenshot,
 } from '../../api/operations'
 import type { JournalEntryKind, JournalTradeItem } from '../../types/operations'
-import type { ChartAnalysisResponse } from '../../types/chartAnalysis'
 import { formatUsd } from '../../lib/format'
 
 type Mode = 'trade' | 'note'
-
-function buildDescription(r: ChartAnalysisResponse): string {
-  const lines: string[] = []
-  const head = [r.direction?.toUpperCase(), r.symbol, r.timeframe].filter(Boolean).join(' ')
-  lines.push(`Chart Analyzer read${head ? ': ' + head : ''}`)
-
-  const levels: string[] = []
-  if (r.entry !== null) levels.push(`Entry ${r.entry}`)
-  if (r.stop_loss !== null) levels.push(`SL ${r.stop_loss}`)
-  if (r.take_profit !== null) levels.push(`TP ${r.take_profit}`)
-  if (r.risk_reward !== null) levels.push(`R:R ${r.risk_reward}`)
-  if (levels.length) lines.push(levels.join(' · '))
-
-  if (r.additional_targets.length) lines.push(`Additional targets: ${r.additional_targets.join(', ')}`)
-  if (r.pattern) lines.push(`Pattern: ${r.pattern}`)
-  if (r.confluences.length) lines.push(`Confluences: ${r.confluences.join(', ')}`)
-  if (r.setup_rating !== null) {
-    lines.push(`Setup rating: ${r.setup_rating}/10${r.rating_reasoning ? ' — ' + r.rating_reasoning : ''}`)
-  }
-  if (r.caveats) lines.push(`Caveats: ${r.caveats}`)
-  return lines.join('\n')
-}
 
 function base64ToFile(base64: string, mime: string, filename: string): File {
   const bytes = atob(base64)
@@ -45,16 +22,39 @@ function extFor(mime: string): string {
   return mime === 'image/jpeg' ? 'jpg' : mime === 'image/webp' ? 'webp' : 'png'
 }
 
+export interface SaveToJournalProps {
+  /** The write-up to save — editable in place before saving. */
+  description: string
+  defaultKind?: JournalEntryKind
+  defaultInstrument?: string
+  defaultTitle?: string
+  /** An image to attach alongside the description, if there is one. */
+  imageBase64?: string | null
+  imageMime?: string | null
+  /** Filename stem used for the attached image, before its extension. */
+  imageFilenameStem?: string
+}
+
 /**
- * Lets the user attach a finished chart analysis to the Journal — either onto
- * a real closed trade they actually took (screenshot + a notes append), or as
- * a free-standing note when it's just an analyzed setup, not (yet) a trade.
- * Uses the same screenshot/notes/free-entry endpoints the Journal page
- * already exposes — no new backend surface.
+ * Lets the user save a write-up (a chart analysis, a pre-trade plan, ...) to
+ * the Journal — either onto a real closed trade they took (image + a notes
+ * append), or as a free-standing entry when it isn't (yet) a trade. Built
+ * for the Chart Analyzer's finished result and the Pre-Trade Checklist's
+ * plan alike; anything with a description and maybe an image can reuse it.
+ * Uses the existing screenshot/notes/free-entry endpoints — no new backend
+ * surface.
  */
-export function SaveToJournal({ result }: { result: ChartAnalysisResponse }) {
+export function SaveToJournal({
+  description: initialDescription,
+  defaultKind = 'review',
+  defaultInstrument = '',
+  defaultTitle = '',
+  imageBase64 = null,
+  imageMime = null,
+  imageFilenameStem = 'journal-attachment',
+}: SaveToJournalProps) {
   const [mode, setMode] = useState<Mode>('trade')
-  const [description, setDescription] = useState(() => buildDescription(result))
+  const [description, setDescription] = useState(initialDescription)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [savedTradeId, setSavedTradeId] = useState<string | null>(null)
@@ -63,7 +63,7 @@ export function SaveToJournal({ result }: { result: ChartAnalysisResponse }) {
   // trade picker (mode: 'trade')
   const [trades, setTrades] = useState<JournalTradeItem[] | null>(null)
   const [tradesError, setTradesError] = useState<string | null>(null)
-  const [search, setSearch] = useState(result.symbol ?? '')
+  const [search, setSearch] = useState(defaultInstrument)
   const [selectedTradeId, setSelectedTradeId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -81,11 +81,9 @@ export function SaveToJournal({ result }: { result: ChartAnalysisResponse }) {
   }, [trades, search])
 
   // note fields (mode: 'note')
-  const [kind, setKind] = useState<JournalEntryKind>('review')
-  const [instrument, setInstrument] = useState(result.symbol ?? '')
-  const [title, setTitle] = useState(
-    [result.direction?.toUpperCase(), result.symbol, 'chart analysis'].filter(Boolean).join(' '),
-  )
+  const [kind, setKind] = useState<JournalEntryKind>(defaultKind)
+  const [instrument, setInstrument] = useState(defaultInstrument)
+  const [title, setTitle] = useState(defaultTitle)
 
   async function saveToTrade() {
     if (!selectedTradeId) return
@@ -93,9 +91,9 @@ export function SaveToJournal({ result }: { result: ChartAnalysisResponse }) {
     setError(null)
     try {
       const trade = (trades ?? []).find((t) => t.trade_id === selectedTradeId)
-      if (result.image_base64 && result.image_mime) {
-        const file = base64ToFile(result.image_base64, result.image_mime, `chart-analysis.${extFor(result.image_mime)}`)
-        await uploadJournalScreenshot(selectedTradeId, file, 'Chart Analyzer')
+      if (imageBase64 && imageMime) {
+        const file = base64ToFile(imageBase64, imageMime, `${imageFilenameStem}.${extFor(imageMime)}`)
+        await uploadJournalScreenshot(selectedTradeId, file, imageFilenameStem)
       }
       const merged = trade?.notes ? `${trade.notes}\n\n---\n${description}` : description
       await patchJournalEntry(selectedTradeId, { notes: merged })
@@ -117,9 +115,9 @@ export function SaveToJournal({ result }: { result: ChartAnalysisResponse }) {
         title: title.trim() || undefined,
         body: description,
       })
-      if (result.image_base64 && result.image_mime) {
-        const file = base64ToFile(result.image_base64, result.image_mime, `chart-analysis.${extFor(result.image_mime)}`)
-        await uploadJournalScreenshot(entry.id, file, 'Chart Analyzer')
+      if (imageBase64 && imageMime) {
+        const file = base64ToFile(imageBase64, imageMime, `${imageFilenameStem}.${extFor(imageMime)}`)
+        await uploadJournalScreenshot(entry.id, file, imageFilenameStem)
       }
       setSavedNoteId(entry.id)
     } catch (e) {
@@ -142,7 +140,7 @@ export function SaveToJournal({ result }: { result: ChartAnalysisResponse }) {
   if (savedNoteId) {
     return (
       <div className="rounded-lg border border-positive/30 bg-positive/10 p-3 text-xs text-positive">
-        Saved as a journal note.{' '}
+        Saved to the journal.{' '}
         <Link to="/operations/journal" className="underline underline-offset-2">
           Open the journal
         </Link>
@@ -215,6 +213,7 @@ export function SaveToJournal({ result }: { result: ChartAnalysisResponse }) {
               onChange={(e) => setKind(e.target.value as JournalEntryKind)}
               className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
             >
+              <option value="plan">Trade Plan</option>
               <option value="idea">Idea</option>
               <option value="review">Review</option>
               <option value="observation">Observation</option>

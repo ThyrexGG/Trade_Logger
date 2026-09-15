@@ -632,6 +632,42 @@ than a single planned workstream:
   manual buttons (no auto-detection of a pass/fail). Pure read/compute over
   `get_closed_trades` + `get_account_balances` — no execution path.
   `tests/test_challenge.py` (14 tests).
+- **Journal split by account** (`JournalPage.tsx`) — an account filter
+  (dropdown, persisted to localStorage) when more than one account has
+  closed trades; previously every account was mixed into one feed/table.
+  Client-side filter over the already-fetched `JournalResponse` (which
+  already carried `account_id` per entry and the accounts list), recomputing
+  the summary totals for the selected account. A calendar deep-link
+  (`?trade=`) still resolves even if it belongs to a filtered-out account.
+- **Chart Analyzer → Journal linking** — a "Save to Journal" panel after a
+  finished analysis: attach it to a real closed trade (screenshot + a notes
+  append, picked from a filterable trade list) or save as a free-standing
+  note when it's just an analyzed setup, not a trade taken. Required
+  `ChartAnalysisResponse` to start echoing back `image_base64`/`image_mime`
+  (`api/routers/ai.py`) since the TradingView-link path never gave the
+  browser the image bytes in the first place.
+- **Pre-Trade Checklist** (`/workspace/pre-trade-checklist`) — fill out a
+  plan *before* entering (symbol/direction/setup tag, entry/SL/TP with a
+  live R:R calc, a thesis, and a fixed 6-item honesty checklist — not a
+  gate, nothing blocks saving regardless of what's checked) and save it to
+  the Journal, optionally showing the selected account's live Challenge
+  Tracker budgets (drawdown/daily-loss % used) as a standing reminder while
+  planning. Needed a 4th journal-entry kind, `"plan"`
+  (`_JOURNAL_ENTRY_KINDS` in `api/schemas.py`; no DB migration — the column
+  is unconstrained TEXT). `SaveToJournal.tsx` (used by both this and Chart
+  Analyzer) was generalized from a chart-analysis-specific component into a
+  plain `{description, defaultKind, defaultInstrument, defaultTitle,
+  imageBase64?, imageMime?}` one, moved from `components/chartAnalyzer/` to
+  `components/journal/`. `tests/test_journal_entries.py` (3 tests) — the
+  free-standing journal-entries endpoint had no prior direct test coverage
+  at all (only the per-trade PATCH and screenshot routes did).
+- **Glass-card consistency polish** — Chart Analyzer and Challenge Tracker
+  were built with flat `bg-surface`/`border-border` panels; the app already
+  has one canonical frosted-glass card (`SectionCard`, defined once in
+  `components/intelligence/primitives.tsx`, re-exported from
+  operations/research/evidence primitives and used by most of the rest of
+  the app — Command Center, Analytics' own charts, Journal, System Health).
+  Converted both onto it; no behavior change.
 
 ---
 

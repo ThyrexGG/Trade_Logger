@@ -13,11 +13,13 @@ const KINDS: { id: JournalEntryKind; label: string }[] = [
   { id: 'idea', label: 'Idea' },
   { id: 'review', label: 'Review' },
   { id: 'observation', label: 'Observation' },
+  { id: 'plan', label: 'Trade Plan' },
 ]
 const KIND_TONE: Record<JournalEntryKind, string> = {
   idea: 'bg-accent/10 text-accent',
   review: 'bg-warning/10 text-warning',
   observation: 'bg-surface-elevated text-secondary',
+  plan: 'bg-positive/10 text-positive',
 }
 
 function fmtDate(iso: string): string {
