@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { PageContainer } from '../components/shell/PageContainer'
 import { SectionCard } from '../components/intelligence/primitives'
 import { PreTradeChecklistForm, type ChecklistPrefill } from '../components/journal/PreTradeChecklistForm'
+import { KillzoneChart } from '../components/scanner/KillzoneChart'
 import { scanKillzone } from '../api/scanner'
 import type { KillzoneCandidate, KillzoneScanResponse } from '../types/scanner'
 
@@ -193,6 +194,14 @@ export function KillzoneScannerPage() {
 
             {data?.ok ? (
               <>
+                <KillzoneChart
+                  symbol={data.symbol}
+                  ltf={ltf}
+                  candidates={data.candidates}
+                  liquidity={data.htf_liquidity_targets}
+                  fvgs={data.recent_unmitigated_fvgs}
+                />
+
                 <div className="grid gap-4 md:grid-cols-2">
                   <SectionCard title="Higher-timeframe bias (1h)">
                     <div className="flex items-center gap-2">
