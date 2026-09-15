@@ -197,3 +197,66 @@ if bearishCandidate
 
 alertcondition(bullishCandidate, title = "Bullish sweep+MSS", message = "Bullish liquidity sweep + MSS candidate")
 alertcondition(bearishCandidate, title = "Bearish sweep+MSS", message = "Bearish liquidity sweep + MSS candidate")
+
+// =============================================================================
+// Out-of-sample split -- the single most important check before trusting any
+// backtest (see README). Everything before `oosStart` is "development": tune
+// inputs freely against it. Everything after is out-of-sample: read the
+// numbers, then change NOTHING in response to them -- tuning against the
+// out-of-sample period just turns it into more development data with extra
+// steps. The table below computes win rate / profit factor / expectancy for
+// each half separately so this comparison doesn't require two manual runs.
+// =============================================================================
+grp5 = "Out-of-sample check"
+useOosSplit = input.bool(true, "Split results into in-sample vs out-of-sample", group = grp5)
+oosStart = input.time(timestamp(2026, 1, 1, 0, 0), "Out-of-sample starts", group = grp5,
+     tooltip = "Development/tuning happens on data BEFORE this date only. After seeing the out-of-sample column, change nothing -- if you adjust an input because you didn't like this column, you have just moved the goalposts and are overfitting to it too.")
+
+bgcolor(useOosSplit and time >= oosStart ? color.new(color.orange, 94) : na, title = "Out-of-sample period")
+
+var table oosTable = table.new(position.top_right, 3, 4, border_width = 1)
+
+if barstate.islast and useOosSplit
+    int isTrades = 0
+    int oosTrades = 0
+    float isWins = 0.0
+    float oosWins = 0.0
+    float isProfit = 0.0
+    float isLoss = 0.0
+    float oosProfit = 0.0
+    float oosLoss = 0.0
+
+    for i = 0 to strategy.closedtrades - 1
+        entryTime = strategy.closedtrades.entry_time(i)
+        pnl = strategy.closedtrades.profit(i)
+        if entryTime >= oosStart
+            oosTrades += 1
+            if pnl > 0
+                oosWins += 1
+                oosProfit += pnl
+            else
+                oosLoss += -pnl
+        else
+            isTrades += 1
+            if pnl > 0
+                isWins += 1
+                isProfit += pnl
+            else
+                isLoss += -pnl
+
+    headerBg = color.new(color.gray, 70)
+    table.cell(oosTable, 0, 0, "", bgcolor = headerBg)
+    table.cell(oosTable, 1, 0, "In-sample", text_color = color.white, bgcolor = headerBg)
+    table.cell(oosTable, 2, 0, "Out-of-sample", text_color = color.orange, bgcolor = headerBg)
+
+    table.cell(oosTable, 0, 1, "Trades")
+    table.cell(oosTable, 1, 1, str.tostring(isTrades))
+    table.cell(oosTable, 2, 1, str.tostring(oosTrades))
+
+    table.cell(oosTable, 0, 2, "Win rate")
+    table.cell(oosTable, 1, 2, isTrades > 0 ? str.tostring(isWins / isTrades * 100, "#.#") + "%" : "n/a")
+    table.cell(oosTable, 2, 2, oosTrades > 0 ? str.tostring(oosWins / oosTrades * 100, "#.#") + "%" : "n/a")
+
+    table.cell(oosTable, 0, 3, "Profit factor")
+    table.cell(oosTable, 1, 3, isLoss > 0 ? str.tostring(isProfit / isLoss, "#.##") : (isProfit > 0 ? "∞" : "n/a"))
+    table.cell(oosTable, 2, 3, oosLoss > 0 ? str.tostring(oosProfit / oosLoss, "#.##") : (oosProfit > 0 ? "∞" : "n/a"))

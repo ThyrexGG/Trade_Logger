@@ -33,6 +33,48 @@ it (`riskSize(riskDist) => (strategy.equity * riskPercent / 100) /
 List-of-Trades check below after switching symbols; don't assume either
 version is correct until you've verified a real loss matches your risk %.
 
+## The real research process: development → out-of-sample → forward test → live
+
+A single backtest number, however good, tells you almost nothing on its
+own — it's easy for an AI (or a human) to hand-tune a strategy's inputs
+until one specific stretch of history looks great, which proves the
+strategy fits *that data*, not that it has a real edge. The process this
+project's own research always follows, applied here:
+
+1. **Development** — pick a chunk of history (say, everything before a
+   cutoff date) and freely adjust inputs (swing lookback, displacement,
+   R:R, risk%) against it. This is the only period you're allowed to tune
+   against.
+2. **Freeze the inputs.** Stop touching them.
+3. **Out-of-sample** — check performance on data *after* that cutoff, which
+   the inputs were never tuned against. The script now does this
+   automatically: set **"Out-of-sample starts"** (Settings → Inputs →
+   Out-of-sample check) to your development/test split date, and a table in
+   the top-right of the chart shows trades / win rate / profit factor for
+   each half side by side. **If you see a bad out-of-sample number and
+   change an input in response, you have just made that data part of
+   development too** — the whole point is that this column stays untouched
+   by tuning.
+4. **Forward test** — once out-of-sample looks reasonable, run it live on
+   paper trading (no real money) for a while going forward, on data that
+   didn't exist when you built the script at all.
+5. **Live** — only after all three hold up, and only ever with your own
+   judgment about the risk, entirely outside TradeLogger.
+
+Rough bar to clear before trusting a result enough to forward-test it (this
+project's own research uses a similar bar elsewhere): at least ~200 trades
+combined, profit factor comfortably above 1 in **both** the in-sample and
+out-of-sample columns (not just in-sample), and a max drawdown you'd
+actually be willing to sit through in real money — not just tolerable on
+paper.
+
+**A limitation to know**: TradingView strategies can't place live orders
+directly through most brokers — real automation needs an alert plus a
+separate execution bridge. That's consistent with this whole project's own
+stance (no order path from the web app either); nothing here is meant to
+become an automated live trader without you deliberately building that
+separate piece yourself.
+
 ## Reading the results honestly
 
 Two things to check beyond the headline win rate / profit factor before
