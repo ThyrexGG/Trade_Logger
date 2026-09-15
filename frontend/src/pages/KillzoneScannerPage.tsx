@@ -3,6 +3,7 @@ import { PageContainer } from '../components/shell/PageContainer'
 import { SectionCard } from '../components/intelligence/primitives'
 import { PreTradeChecklistForm, type ChecklistPrefill } from '../components/journal/PreTradeChecklistForm'
 import { KillzoneChart } from '../components/scanner/KillzoneChart'
+import { InfoTip } from '../components/common/InfoTip'
 import { scanKillzone } from '../api/scanner'
 import type { KillzoneCandidate, KillzoneScanResponse } from '../types/scanner'
 
@@ -23,6 +24,23 @@ function biasTone(bias: string | null): string {
   if (bias === 'bullish') return 'border-positive/30 bg-positive/10 text-positive'
   if (bias === 'bearish') return 'border-negative/30 bg-negative/10 text-negative'
   return 'border-border-subtle bg-surface-elevated text-muted'
+}
+
+/** ★★★☆☆-style rendering of the 0-5 confluence score — a count of disclosed
+ *  factors met, not a win probability (see killzone_scanner.py's _confluence). */
+function stars(score: number): string {
+  return '★'.repeat(score) + '☆'.repeat(Math.max(0, 5 - score))
+}
+
+function starTone(score: number): string {
+  if (score >= 4) return 'text-positive'
+  if (score >= 2) return 'text-warning'
+  return 'text-muted'
+}
+
+/** One-line breakdown for the confluence tooltip — every factor plain and disclosed. */
+function confluenceTooltip(c: KillzoneCandidate): string {
+  return c.confluence_factors.map((f) => `${f.met ? '✓' : '✗'} ${f.label}`).join('  ·  ')
 }
 
 /** Plain-text/Markdown recap of the current scan — for pasting into a journal
@@ -53,8 +71,11 @@ function buildMarkdown(data: KillzoneScanResponse, ltf: string): string {
     lines.push('- none in the recent window')
   } else {
     data.candidates.forEach((c) => {
+      const plan = `entry ${c.potential_entry} / stop ${c.potential_stop}${
+        c.potential_target != null ? ` / target ${c.potential_target} (R:R ${c.risk_reward})` : ' / no target nearby'
+      }`
       lines.push(
-        `- ${c.direction.toUpperCase()} — sweep ${c.sweep_level} (${fmtTime(c.sweep_time)}) → shift ${c.shift_level} (${fmtTime(c.shift_time)}), ${c.killzone}, ${c.agrees_with_htf_bias ? 'agrees with' : 'conflicts with'} HTF bias`,
+        `- ${c.direction.toUpperCase()} — sweep ${c.sweep_level} (${fmtTime(c.sweep_time)}) → shift ${c.shift_level} (${fmtTime(c.shift_time)}), ${c.killzone}, ${c.agrees_with_htf_bias ? 'agrees with' : 'conflicts with'} HTF bias — ${plan} — confluence ${c.confluence_score}/5`,
       )
     })
   }
@@ -177,7 +198,8 @@ export function KillzoneScannerPage() {
       direction: c.direction === 'bullish' ? 'long' : 'short',
       entry: c.shift_level,
       stopLoss: c.sweep_level,
-      note: `From Killzone Scanner: ${c.direction} sweep+shift in ${c.killzone}, ${c.agrees_with_htf_bias ? 'agreeing with' : 'conflicting with'} the 1h bias.`,
+      takeProfit: c.potential_target ?? undefined,
+      note: `From Killzone Scanner: ${c.direction} sweep+shift in ${c.killzone}, ${c.agrees_with_htf_bias ? 'agreeing with' : 'conflicting with'} the 1h bias. Confluence ${c.confluence_score}/5 (${confluenceTooltip(c)}).`,
     })
     setTab('plan')
   }
@@ -338,8 +360,13 @@ export function KillzoneScannerPage() {
                             <th className="pb-1.5 pr-3">Direction</th>
                             <th className="pb-1.5 pr-3">Sweep</th>
                             <th className="pb-1.5 pr-3">Shift</th>
+                            <th className="pb-1.5 pr-3">Potential entry → target</th>
                             <th className="pb-1.5 pr-3">Killzone</th>
                             <th className="pb-1.5 pr-3">HTF</th>
+                            <th className="pb-1.5 pr-3">
+                              Confluence
+                              <InfoTip text="A 0-5 count of plain, disclosed facts this candidate happens to satisfy (HTF agreement, a named killzone, strong displacement, a quick reaction, R:R to the nearest liquidity target) — not a win probability or a model's confidence. Hover a row's stars for the exact breakdown." />
+                            </th>
                             <th className="pb-1.5" />
                           </tr>
                         </thead>
@@ -364,6 +391,10 @@ export function KillzoneScannerPage() {
                               <td className="py-1.5 pr-3 font-mono text-secondary">
                                 {c.shift_level} <span className="text-muted">· {fmtTime(c.shift_time)}</span>
                               </td>
+                              <td className="py-1.5 pr-3 font-mono text-secondary">
+                                {c.potential_entry} → {c.potential_target ?? '—'}
+                                {c.risk_reward != null ? <span className="text-muted"> · R:R {c.risk_reward}</span> : null}
+                              </td>
                               <td className="py-1.5 pr-3 text-secondary">{c.killzone}</td>
                               <td className="py-1.5 pr-3">
                                 {c.agrees_with_htf_bias ? (
@@ -371,6 +402,11 @@ export function KillzoneScannerPage() {
                                 ) : (
                                   <span className="text-warning">conflicts</span>
                                 )}
+                              </td>
+                              <td className="py-1.5 pr-3">
+                                <span title={confluenceTooltip(c)} className={`font-mono tracking-tight ${starTone(c.confluence_score)}`}>
+                                  {stars(c.confluence_score)}
+                                </span>
                               </td>
                               <td className="py-1.5">
                                 <button

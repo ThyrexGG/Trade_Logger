@@ -49,6 +49,7 @@ export interface ChecklistPrefill {
   direction?: 'long' | 'short'
   entry?: number
   stopLoss?: number
+  takeProfit?: number
   note?: string
 }
 
@@ -117,6 +118,7 @@ export function PreTradeChecklistForm({ prefill }: { prefill?: ChecklistPrefill 
     if (prefill.direction) setDirection(prefill.direction)
     if (prefill.entry !== undefined) setEntry(String(prefill.entry))
     if (prefill.stopLoss !== undefined) setStopLoss(String(prefill.stopLoss))
+    if (prefill.takeProfit !== undefined) setTakeProfit(String(prefill.takeProfit))
     if (prefill.note) setThesis((t) => (t ? t : prefill.note!))
     setSnapshot(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps

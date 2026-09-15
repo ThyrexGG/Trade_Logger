@@ -281,6 +281,14 @@ export function KillzoneChart({
         axisLabelVisible: true, title: `Stop ${c.sweep_level}`,
       }),
     )
+    if (c.potential_target != null) {
+      focusLinesRef.current.push(
+        s.createPriceLine({
+          price: c.potential_target, color: t.up, lineWidth: 2, lineStyle: LineStyle.Solid,
+          axisLabelVisible: true, title: `Target ${c.potential_target}${c.risk_reward != null ? ` (R:R ${c.risk_reward})` : ''}`,
+        }),
+      )
+    }
 
     if (chart) {
       const pad = (BAR_SECONDS[ltf] ?? 900) * 12

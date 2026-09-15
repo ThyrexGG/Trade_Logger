@@ -6,6 +6,11 @@
 export type KillzoneDirection = 'bullish' | 'bearish'
 export type KillzoneBias = 'bullish' | 'bearish' | 'neutral'
 
+export interface ConfluenceFactor {
+  label: string
+  met: boolean
+}
+
 export interface KillzoneCandidate {
   direction: KillzoneDirection
   sweep_time: number
@@ -14,6 +19,19 @@ export interface KillzoneCandidate {
   shift_level: number
   killzone: string
   agrees_with_htf_bias: boolean
+
+  displacement_atr_mult: number | null
+  candles_after_sweep: number | null
+
+  /** Arithmetic on the fields above, not a recommendation — see killzone_scanner.py. */
+  potential_entry: number | null
+  potential_stop: number | null
+  potential_target: number | null
+  risk_reward: number | null
+
+  /** 0-5 count of disclosed factors met — never a win probability. */
+  confluence_score: number
+  confluence_factors: ConfluenceFactor[]
 }
 
 export interface LiquidityPool {
