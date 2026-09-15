@@ -34,19 +34,34 @@ match what your real broker actually offers (many retail forex brokers cap
 at 30:1 in regulated regions, higher elsewhere) before trusting a backtest
 as something you could actually place.
 
-## A currency-conversion caveat if you switch symbols
+## Currency conversion across symbols (automatic)
 
-The risk-sizing formula multiplies by `close` to convert a JPY-quoted pair's
-risk (USDJPY, EURJPY, GBPJPY, ...) into your USD account currency — verified
-against a real backtest where leaving that conversion out undersized every
-trade by roughly the USDJPY exchange rate (~150x). **If you switch to a pair
-whose quote currency already matches your account currency** (e.g. EURUSD
-on a USD account, where the quote currency literally is USD), that `* close`
-term is wrong and will oversize trades by the current price instead — remove
-it (`riskSize(riskDist) => (strategy.equity * riskPercent / 100) /
-(riskDist * syminfo.pointvalue)`) for those pairs. Always re-run the
-List-of-Trades check below after switching symbols; don't assume either
-version is correct until you've verified a real loss matches your risk %.
+`syminfo.pointvalue × riskDist` gives a trade's risk in the **symbol's quote
+currency**, which isn't always your account's. `quoteToAccount()` derives that
+rate from the symbol rather than assuming it, so switching pairs needs no code
+edit:
+
+| Symbol (USD account) | Quote | Rate applied |
+|---|---|---|
+| EURUSD, GBPUSD, AUDUSD, **XAUUSD** | USD | 1 — no conversion |
+| USDJPY, USDCAD, USDCHF | JPY / CAD / CHF | `1 / close` |
+| EURJPY, GBPJPY (crosses) | JPY | **none — refuses to trade** |
+
+This used to be hardcoded as a bare `* close` for JPY pairs, which silently
+oversized every position on any symbol already quoted in the account currency.
+On XAUUSD at ~4,288 that multiplied size by 4,288×, drove equity negative, and
+TradingView rejected the resulting negative `qty` outright
+(`Invalid 'qty' value (-8624.2)`) — the backtest simply wouldn't run.
+
+A **cross pair** (neither side is your account currency) genuinely can't be
+converted from one chart without a second data feed, so the script places no
+orders and prints a red label saying why — an empty Strategy Tester with no
+explanation looks identical to "the strategy found no trades," which would be a
+silently wrong conclusion. Sizing is also floored at zero, so a blown account
+produces no order rather than a negative quantity.
+
+Still worth running the List-of-Trades check below after switching symbols —
+automatic isn't the same as verified.
 
 ## The two optional confluence filters (both default OFF)
 

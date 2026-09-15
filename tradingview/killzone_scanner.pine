@@ -166,25 +166,43 @@ drawPlan(entryLevel, stopLevel, targetLevel) =>
 //
 // riskDist is a raw PRICE difference (e.g. ~0.1 for a USDJPY stop), and
 // syminfo.pointvalue x riskDist gives the P&L of that move in the
-// INSTRUMENT'S OWN quote currency (JPY for a *JPY pair) -- not necessarily
-// the account's currency. Verified against a real backtest: leaving out the
-// quote->account conversion (dividing by `close`, the current JPY-per-USD
-// rate) undersized every trade by roughly that exchange rate (~150x on
-// USDJPY), producing a backtest with an unrealistically tiny drawdown that
-// looked fine at a glance but wasn't actually risking what riskPercent said.
-// This is the same reason real forex "pip value" calculators always ask for
-// the current rate specifically on JPY-quoted pairs, unlike e.g. EURUSD
-// where quote currency and a USD account already match.
+// INSTRUMENT'S OWN quote currency -- which is NOT always the account's
+// currency. That conversion used to be hardcoded for JPY-quoted pairs
+// (a bare "x close"), which silently oversized every position by the price
+// itself on any symbol whose quote currency already matched the account:
+// on XAUUSD at ~4,288 it multiplied size by 4,288, drove equity negative,
+// and TradingView then rejected the resulting negative qty outright.
+// quoteToAccount() derives the rate from the symbol instead of assuming it:
+//   - quote currency already the account currency (EURUSD, XAUUSD, GBPUSD
+//     on a USD account) -> no conversion, rate 1.
+//   - base currency is the account currency (USDJPY, USDCAD on a USD
+//     account) -> the symbol's own price IS quote-per-account-unit, so one
+//     quote unit is worth 1/close.
+//   - anything else (a cross like EURJPY on a USD account) -> unknowable
+//     from this chart alone without a second data feed, so it returns na
+//     and the script refuses to size a trade rather than guess wrong.
+quoteToAccount() =>
+    rate = 1.0
+    if syminfo.currency != strategy.account_currency
+        rate := syminfo.basecurrency == strategy.account_currency ? 1.0 / close : na
+    rate
+
 // Verified against a real backtest: with no cap, a tight USDJPY stop called
 // for positions worth millions on a $5K account -- correct arithmetic, but a
 // leverage no real broker offers. maxQty is the largest position this
 // script will ever open at maxLeverage; wanted is clamped to it so realized
 // risk quietly comes in under riskPercent on very tight stops instead of
-// silently assuming unlimited leverage.
+// silently assuming unlimited leverage. The result is also floored at 0:
+// a blown (negative-equity) account must produce no order at all, not a
+// negative qty, which is a hard runtime error in Pine rather than a trade.
 riskSize(riskDist) =>
-    wanted = (strategy.equity * riskPercent / 100 * close) / (riskDist * syminfo.pointvalue)
-    maxQty = (strategy.equity * maxLeverage) / close
-    math.min(wanted, maxQty)
+    rate = quoteToAccount()
+    qty  = 0.0
+    if not na(rate) and riskDist > 0 and strategy.equity > 0
+        wanted = (strategy.equity * riskPercent / 100) / (riskDist * syminfo.pointvalue * rate)
+        maxQty = (strategy.equity * maxLeverage) / close
+        qty := math.max(0.0, math.min(wanted, maxQty))
+    qty
 
 // A strategy.entry() in the opposite direction of an already-open position
 // closes it immediately at the current price and reverses -- not at that
@@ -259,12 +277,13 @@ if bullishCandidate
     if riskDist > 0 and vpOk(entryLevel)
         targetLevel = entryLevel + riskDist * rrMultiple
         drawPlan(entryLevel, stopLevel, targetLevel)
-        if enableBacktest and flat
+        qty = riskSize(riskDist)
+        if enableBacktest and flat and qty > 0
             if useFibFilter
-                strategy.entry("Long", strategy.long, qty = riskSize(riskDist), limit = entryLevel)
+                strategy.entry("Long", strategy.long, qty = qty, limit = entryLevel)
                 longPendingBar := bar_index
             else
-                strategy.entry("Long", strategy.long, qty = riskSize(riskDist))
+                strategy.entry("Long", strategy.long, qty = qty)
             strategy.exit("Long exit", from_entry = "Long", stop = stopLevel, limit = targetLevel)
 
 if bearishCandidate
@@ -276,16 +295,28 @@ if bearishCandidate
     if riskDist > 0 and vpOk(entryLevel)
         targetLevel = entryLevel - riskDist * rrMultiple
         drawPlan(entryLevel, stopLevel, targetLevel)
-        if enableBacktest and flat
+        qty = riskSize(riskDist)
+        if enableBacktest and flat and qty > 0
             if useFibFilter
-                strategy.entry("Short", strategy.short, qty = riskSize(riskDist), limit = entryLevel)
+                strategy.entry("Short", strategy.short, qty = qty, limit = entryLevel)
                 shortPendingBar := bar_index
             else
-                strategy.entry("Short", strategy.short, qty = riskSize(riskDist))
+                strategy.entry("Short", strategy.short, qty = qty)
             strategy.exit("Short exit", from_entry = "Short", stop = stopLevel, limit = targetLevel)
 
 alertcondition(bullishCandidate, title = "Bullish sweep+MSS", message = "Bullish liquidity sweep + MSS candidate")
 alertcondition(bearishCandidate, title = "Bearish sweep+MSS", message = "Bearish liquidity sweep + MSS candidate")
+
+// If the symbol's quote currency can't be converted to the account currency
+// from this chart alone (a cross like EURJPY on a USD account), riskSize()
+// returns 0 and no orders are placed. Say so on the chart -- an empty
+// Strategy Tester with no explanation is indistinguishable from "the
+// strategy found nothing", which would be a silently wrong conclusion.
+if barstate.islast and na(quoteToAccount())
+    label.new(bar_index, high, "Position sizing unavailable\n" + syminfo.currency + " -> " + strategy.account_currency
+         + " needs a rate this chart doesn't carry.\nNo orders placed. Test a pair quoted in "
+         + strategy.account_currency + ", or whose base is " + strategy.account_currency + ".",
+         style = label.style_label_down, color = color.new(color.red, 15), textcolor = color.white, size = size.small)
 
 // =============================================================================
 // Out-of-sample split -- the single most important check before trusting any
