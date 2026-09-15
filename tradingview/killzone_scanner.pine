@@ -209,7 +209,7 @@ alertcondition(bearishCandidate, title = "Bearish sweep+MSS", message = "Bearish
 // =============================================================================
 grp5 = "Out-of-sample check"
 useOosSplit = input.bool(true, "Split results into in-sample vs out-of-sample", group = grp5)
-oosStart = input.time(timestamp(2026, 1, 1, 0, 0), "Out-of-sample starts", group = grp5,
+oosStart = input.time(timestamp("01 Jan 2026 00:00 +0000"), "Out-of-sample starts", group = grp5,
      tooltip = "Development/tuning happens on data BEFORE this date only. After seeing the out-of-sample column, change nothing -- if you adjust an input because you didn't like this column, you have just moved the goalposts and are overfitting to it too.")
 
 bgcolor(useOosSplit and time >= oosStart ? color.new(color.orange, 94) : na, title = "Out-of-sample period")
