@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ColorType,
   LineStyle,
@@ -44,6 +44,127 @@ const HEIGHT_OPTIONS = [
   { px: 1100, label: 'Tall' },
 ]
 const HEIGHT_KEY = 'tl.scanner.chartHeight'
+const KZ_KEY = 'tl.scanner.showKillzones'
+
+/** ICT killzone windows, in New York clock minutes-from-midnight — the same
+ *  windows `killzone_scanner.py::_killzone_for_timestamp` uses, so the boxes
+ *  can't drift from what the backend calls a killzone. */
+const KILLZONES = [
+  { name: 'ASIA', start: 20 * 60, end: 24 * 60, rgb: '59,130,246' },
+  { name: 'LONDON', start: 2 * 60, end: 5 * 60, rgb: '239,68,68' },
+  { name: 'NY AM', start: 9 * 60 + 30, end: 11 * 60, rgb: '20,184,166' },
+  { name: 'NY PM', start: 13 * 60 + 30, end: 16 * 60, rgb: '217,70,239' },
+]
+
+const NY_FMT = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/New_York',
+  hour12: false,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+})
+
+/** Epoch seconds -> New York calendar date + minutes past midnight. Sessions
+ *  are defined on the NY clock, so they must follow US daylight saving rather
+ *  than a fixed UTC offset. */
+function nyParts(ts: number) {
+  const parts = NY_FMT.formatToParts(new Date(ts * 1000))
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0)
+  // Some engines render midnight as hour 24 under hour12:false.
+  const hour = get('hour') % 24
+  return {
+    date: `${get('year')}-${String(get('month')).padStart(2, '0')}-${String(get('day')).padStart(2, '0')}`,
+    minutes: hour * 60 + get('minute'),
+  }
+}
+
+type SessionBox = {
+  name: string
+  rgb: string
+  from: number
+  to: number
+  high: number
+  low: number
+  /** Set once the session has ended and price has traded through the level. */
+  highTakenAt: number | null
+  lowTakenAt: number | null
+}
+
+/** Group candles into killzone session instances, tracking each session's
+ *  high/low and when (if ever) price later traded through them. */
+function buildSessions(candles: Candle[]): SessionBox[] {
+  const byKey = new Map<string, SessionBox>()
+  for (const c of candles) {
+    const { date, minutes } = nyParts(c.time)
+    for (const kz of KILLZONES) {
+      if (minutes < kz.start || minutes >= kz.end) continue
+      const key = `${kz.name}|${date}`
+      const existing = byKey.get(key)
+      if (existing) {
+        existing.to = c.time
+        existing.high = Math.max(existing.high, c.high)
+        existing.low = Math.min(existing.low, c.low)
+      } else {
+        byKey.set(key, {
+          name: kz.name,
+          rgb: kz.rgb,
+          from: c.time,
+          to: c.time,
+          high: c.high,
+          low: c.low,
+          highTakenAt: null,
+          lowTakenAt: null,
+        })
+      }
+    }
+  }
+
+  const sessions = [...byKey.values()].sort((a, b) => a.from - b.from)
+  // A level only counts as taken AFTER its session closes — during the session
+  // price is still forming that high/low, so "breaking" it is meaningless.
+  for (const s of sessions) {
+    for (const c of candles) {
+      if (c.time <= s.to) continue
+      if (s.highTakenAt === null && c.high > s.high) s.highTakenAt = c.time
+      if (s.lowTakenAt === null && c.low < s.low) s.lowTakenAt = c.time
+      if (s.highTakenAt !== null && s.lowTakenAt !== null) break
+    }
+  }
+  return sessions
+}
+
+/** Previous completed day's / week's high and low, from the candles already
+ *  loaded. Returns nulls when the window doesn't cover a full prior period —
+ *  a missing level is better than a wrong one drawn from a partial period. */
+function previousLevels(candles: Candle[]) {
+  const days = new Map<string, { high: number; low: number }>()
+  for (const c of candles) {
+    const { date } = nyParts(c.time)
+    const d = days.get(date)
+    if (d) {
+      d.high = Math.max(d.high, c.high)
+      d.low = Math.min(d.low, c.low)
+    } else {
+      days.set(date, { high: c.high, low: c.low })
+    }
+  }
+  const keys = [...days.keys()].sort()
+  const prevDay = keys.length >= 2 ? days.get(keys[keys.length - 2]) ?? null : null
+
+  // Previous week = the 5 completed sessions before the current one, which is
+  // an approximation of a calendar week but matches how the levels get used.
+  let prevWeek: { high: number; low: number } | null = null
+  if (keys.length >= 7) {
+    const slice = keys.slice(-6, -1).map((k) => days.get(k)!)
+    prevWeek = {
+      high: Math.max(...slice.map((d) => d.high)),
+      low: Math.min(...slice.map((d) => d.low)),
+    }
+  }
+  return { prevDay, prevWeek }
+}
 
 /** Rough bar duration in seconds per timeframe — used to pad the auto-scroll
  *  window around a focused candidate, so an approximation is fine. */
@@ -123,6 +244,8 @@ export function KillzoneChart({
   const linesRef = useRef<IPriceLine[]>([])
   const focusLinesRef = useRef<IPriceLine[]>([])
   const hintSeriesRef = useRef<ISeriesApi<'Line'>[]>([])
+  const prevLinesRef = useRef<IPriceLine[]>([])
+  const overlayRef = useRef<HTMLCanvasElement>(null)
 
   // The chart's own view — defaults to match the scan, but is independently
   // adjustable. Re-syncs to the scan's timeframe whenever a genuinely new
@@ -143,6 +266,29 @@ export function KillzoneChart({
     return height
   })
   const [expanded, setExpanded] = useState(false)
+  const [showKillzones, setShowKillzones] = useState(() => {
+    try {
+      return localStorage.getItem(KZ_KEY) !== '0'
+    } catch {
+      return true
+    }
+  })
+
+  function toggleKillzones() {
+    setShowKillzones((v) => {
+      try {
+        localStorage.setItem(KZ_KEY, v ? '0' : '1')
+      } catch {
+        /* private browsing / storage blocked */
+      }
+      return !v
+    })
+  }
+
+  // Derived from the candles already loaded — no extra request, and it tracks
+  // the chart's own View/History selectors rather than the scan's timeframe.
+  const sessions = useMemo(() => buildSessions(candles), [candles])
+  const levels = useMemo(() => previousLevels(candles), [candles])
 
   function changeHeight(px: number) {
     setChartHeight(px)
@@ -200,6 +346,7 @@ export function KillzoneChart({
       seriesRef.current = null
       linesRef.current = []
       focusLinesRef.current = []
+      prevLinesRef.current = []
       hintSeriesRef.current = []
     }
   }, [])
@@ -414,6 +561,109 @@ export function KillzoneChart({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusedIndex, candidates, viewTf, candles.length])
 
+  // ---- Killzone boxes + session pivots -----------------------------------
+  // lightweight-charts has no rectangle primitive, so these are drawn on a
+  // canvas laid over the chart, converting times/prices through the chart's
+  // own coordinate functions. Redrawn whenever the visible range, data, size
+  // or theme changes — anything that can move a coordinate.
+  useEffect(() => {
+    const canvas = overlayRef.current
+    const chart = chartRef.current
+    const series = seriesRef.current
+    if (!canvas || !chart || !series) return
+
+    const draw = () => {
+      const ctx = canvas.getContext('2d')
+      const parent = canvas.parentElement
+      if (!ctx || !parent) return
+
+      const dpr = window.devicePixelRatio || 1
+      const w = parent.clientWidth
+      const h = parent.clientHeight
+      if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+        canvas.width = w * dpr
+        canvas.height = h * dpr
+        canvas.style.width = `${w}px`
+        canvas.style.height = `${h}px`
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      ctx.clearRect(0, 0, w, h)
+      if (!showKillzones || sessions.length === 0) return
+
+      const ts = chart.timeScale()
+      ctx.font = '10px ui-monospace, monospace'
+
+      for (const s of sessions) {
+        const x1 = ts.timeToCoordinate(s.from as Time)
+        const x2 = ts.timeToCoordinate(s.to as Time)
+        const yHigh = series.priceToCoordinate(s.high)
+        const yLow = series.priceToCoordinate(s.low)
+        if (x1 == null || x2 == null || yHigh == null || yLow == null) continue
+
+        const left = Math.min(x1, x2)
+        const width = Math.max(Math.abs(x2 - x1), 2)
+
+        ctx.fillStyle = `rgba(${s.rgb},0.10)`
+        ctx.fillRect(left, yHigh, width, yLow - yHigh)
+        ctx.strokeStyle = `rgba(${s.rgb},0.45)`
+        ctx.lineWidth = 1
+        ctx.strokeRect(left, yHigh, width, yLow - yHigh)
+        ctx.fillStyle = `rgba(${s.rgb},0.9)`
+        ctx.fillText(s.name, left + 3, Math.max(yHigh - 3, 9))
+
+        // Each session's high/low extends right until price trades through it:
+        // solid while it still stands, dashed and faded once taken.
+        for (const side of ['high', 'low'] as const) {
+          const price = side === 'high' ? s.high : s.low
+          const takenAt = side === 'high' ? s.highTakenAt : s.lowTakenAt
+          const y = series.priceToCoordinate(price)
+          if (y == null) continue
+          const endX = takenAt == null ? w : ts.timeToCoordinate(takenAt as Time)
+          if (endX == null) continue
+          ctx.beginPath()
+          ctx.setLineDash(takenAt == null ? [] : [3, 3])
+          ctx.strokeStyle = `rgba(${s.rgb},${takenAt == null ? 0.75 : 0.3})`
+          ctx.moveTo(left + width, y)
+          ctx.lineTo(endX, y)
+          ctx.stroke()
+          ctx.setLineDash([])
+        }
+      }
+    }
+
+    draw()
+    const tsApi = chart.timeScale()
+    tsApi.subscribeVisibleLogicalRangeChange(draw)
+    const ro = new ResizeObserver(draw)
+    if (canvas.parentElement) ro.observe(canvas.parentElement)
+    return () => {
+      tsApi.unsubscribeVisibleLogicalRangeChange(draw)
+      ro.disconnect()
+    }
+  }, [sessions, showKillzones, candles, expanded, chartHeight])
+
+  // ---- Previous day / week levels ----------------------------------------
+  useEffect(() => {
+    const s = seriesRef.current
+    if (!s) return
+    for (const l of prevLinesRef.current) s.removePriceLine(l)
+    prevLinesRef.current = []
+    if (!showKillzones) return
+
+    const add = (price: number, title: string, color: string) =>
+      prevLinesRef.current.push(
+        s.createPriceLine({ price, color, lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: true, title }),
+      )
+    if (levels.prevDay) {
+      add(levels.prevDay.high, 'PDH', 'rgba(59,130,246,0.8)')
+      add(levels.prevDay.low, 'PDL', 'rgba(59,130,246,0.8)')
+    }
+    if (levels.prevWeek) {
+      add(levels.prevWeek.high, 'PWH', 'rgba(8,153,129,0.85)')
+      add(levels.prevWeek.low, 'PWL', 'rgba(8,153,129,0.85)')
+    }
+  }, [levels, showKillzones])
+
   const last = candles[candles.length - 1]
 
   // Expanded mode fills the viewport rather than growing the page, so the
@@ -494,6 +744,16 @@ export function KillzoneChart({
           ) : null}
           <button
             type="button"
+            onClick={toggleKillzones}
+            title="Killzone session boxes, each session's high/low, and previous day/week levels"
+            className={`rounded border px-2 py-0.5 text-[11px] font-medium ${
+              showKillzones ? 'border-accent/40 text-accent' : 'border-border text-secondary hover:text-primary'
+            }`}
+          >
+            Killzones
+          </button>
+          <button
+            type="button"
             onClick={() => setExpanded((v) => !v)}
             title={expanded ? 'Exit full screen (Esc)' : 'Expand to full screen'}
             className="rounded border border-border px-2 py-0.5 text-[11px] font-medium text-secondary hover:border-accent/40 hover:text-accent"
@@ -514,6 +774,8 @@ export function KillzoneChart({
 
       <div className={expanded ? 'relative flex-1 min-h-0' : 'relative'} style={expanded ? undefined : { height: chartHeight }}>
         <div ref={boxRef} className="absolute inset-0" />
+        {/* pointer-events-none so the chart keeps all crosshair/zoom interaction */}
+        <canvas ref={overlayRef} className="pointer-events-none absolute inset-0" />
         {loading && candles.length === 0 ? (
           <div className="absolute inset-0 flex items-center justify-center text-xs text-muted">Loading chart…</div>
         ) : null}
