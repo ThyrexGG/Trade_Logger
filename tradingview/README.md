@@ -19,6 +19,20 @@ history, instead of trusting the web app's numbers on faith.
    displacement, max bars from sweep to shift, the killzone filter, and the
    backtest target's risk multiple. Nothing is hardcoded.
 
+## A currency-conversion caveat if you switch symbols
+
+The risk-sizing formula multiplies by `close` to convert a JPY-quoted pair's
+risk (USDJPY, EURJPY, GBPJPY, ...) into your USD account currency — verified
+against a real backtest where leaving that conversion out undersized every
+trade by roughly the USDJPY exchange rate (~150x). **If you switch to a pair
+whose quote currency already matches your account currency** (e.g. EURUSD
+on a USD account, where the quote currency literally is USD), that `* close`
+term is wrong and will oversize trades by the current price instead — remove
+it (`riskSize(riskDist) => (strategy.equity * riskPercent / 100) /
+(riskDist * syminfo.pointvalue)`) for those pairs. Always re-run the
+List-of-Trades check below after switching symbols; don't assume either
+version is correct until you've verified a real loss matches your risk %.
+
 ## Verify position sizing before trusting any result
 
 Before reading anything into a backtest's PnL or drawdown, sanity-check that
