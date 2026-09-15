@@ -8,7 +8,7 @@
 // script is either backtestable or a drawing tool, never both. Attribution
 // retained per MPL-2.0.
 //
-// (c) TradeLogger -- sweep/MSS entry logic, position sizing, out-of-sample split
+// (c) TradeLogger -- sweep/MSS entry logic, position sizing, multi-timeframe table
 
 //@version=5
 strategy(
@@ -28,14 +28,17 @@ strategy(
 // Combines two things:
 //
 //   1. The TradeLogger sweep + market-structure-shift strategy (entries, risk
-//      sizing, leverage cap, out-of-sample split) -- identical trade logic to
-//      killzone_scanner.pine, so backtests stay comparable. The sweep/MSS
-//      shape markers are OFF by default here; the entry/stop/target plan lines
-//      remain.
+//      sizing, leverage cap) -- identical trade logic to killzone_scanner.pine,
+//      so backtests stay comparable. The sweep/MSS shape markers are OFF by
+//      default here; the entry/stop/target plan lines remain.
 //
 //   2. ICT killzone visuals: session boxes, each session's high/low as pivots
 //      that extend until price trades through them, hit-rate stats in the
-//      label tooltips, and previous day/week/month high/low/midline.
+//      label tooltips, previous day/week/month high/low/midline, and a
+//      multi-timeframe directional-bias / market-structure table.
+//
+// The volume profile and the in-sample/out-of-sample table were removed at the
+// user's request -- both still exist in killzone_scanner.pine if wanted.
 //
 // IMPORTANT: the killzone windows used for the ENTRY FILTER are separate
 // inputs from the visual killzone boxes, on purpose. If the boxes drove entry
@@ -121,22 +124,6 @@ pwCol   = input.color(#089981, "", inline = "W", group = grpDWM)
 showPM  = input.bool(false, "Previous month high/low", inline = "M", group = grpDWM)
 showPMM = input.bool(false, "midline", inline = "M", group = grpDWM)
 pmCol   = input.color(color.red, "", inline = "M", group = grpDWM)
-
-grpVP = "Volume profile"
-showVp      = input.bool(true,  "Draw POC / value area on the chart", group = grpVP)
-useVpFilter = input.bool(false, "Only take trades near the point of control", group = grpVP,
-     tooltip = "CAUTION on forex: TradingView's 'volume' on spot FX pairs is the broker's TICK COUNT, not traded volume -- spot FX has no central tape. A profile built from it shows where price spent active TIME, not where size traded. This project's own research tested tick-volume filters on FX and found they generally did not help and sometimes hurt. More meaningful on instruments with genuine reported volume (futures, crypto).")
-vpLookback  = input.int(150, "Lookback bars", minval = 20, maxval = 500, group = grpVP)
-vpBins      = input.int(40, "Price buckets", minval = 5, maxval = 100, group = grpVP)
-vpValueArea = input.float(70, "Value area %", minval = 30, maxval = 95, step = 5, group = grpVP,
-     tooltip = "The band around the point of control containing this share of the window's volume. 70% is the convention.")
-vpTolerance = input.float(0.5, "Filter: max distance from POC (x ATR)", minval = 0.05, step = 0.05, group = grpVP)
-vpCol       = input.color(color.new(color.orange, 0), "POC colour", group = grpVP)
-
-grp5 = "Out-of-sample check"
-useOosSplit = input.bool(true, "Split results into in-sample vs out-of-sample", group = grp5)
-oosStart = input.time(timestamp("01 Jan 2026 00:00 +0000"), "Out-of-sample starts", group = grp5,
-     tooltip = "Development happens on data BEFORE this date only. After seeing the out-of-sample column, change nothing.")
 
 // =============================================================================
 // STRATEGY LOGIC -- unchanged from killzone_scanner.pine so results stay
@@ -224,92 +211,13 @@ riskSize(riskDist) =>
         qty := math.max(0.0, math.min(wanted, maxQty))
     qty
 
-// =============================================================================
-// Volume profile
-//
-// Pine has no ta.volumeprofile and can't reach the intrabar data TradingView's
-// own Fixed Range tool uses, so this is the standard approximation: bucket the
-// lookback window's volume by price, take the fullest bucket as the point of
-// control, then expand outward from it until `vpValueArea`% of the window's
-// volume is enclosed.
-//
-// ta.highest/ta.lowest are evaluated at the top level, NOT inside the function
-// -- a ta.* call reached only on some bars keeps inconsistent internal state
-// and silently returns wrong values.
-// =============================================================================
-vpHi = ta.highest(high, vpLookback)
-vpLo = ta.lowest(low, vpLookback)
-
-vpProfile(float hi, float lo) =>
-    float poc = na
-    float vah = na
-    float val = na
-    if not na(hi) and not na(lo) and hi > lo
-        binSize = (hi - lo) / vpBins
-        bins = array.new_float(vpBins, 0.0)
-        for i = 0 to vpLookback - 1
-            idx = math.floor((hl2[i] - lo) / binSize)
-            idx := math.max(0, math.min(vpBins - 1, idx))
-            array.set(bins, idx, array.get(bins, idx) + nz(volume[i]))
-
-        total  = array.sum(bins)
-        pocIdx = array.indexof(bins, array.max(bins))
-        poc := lo + (pocIdx + 0.5) * binSize
-
-        // Walk outward from the POC, always taking the heavier neighbour.
-        target  = total * vpValueArea / 100.0
-        covered = array.get(bins, pocIdx)
-        int up  = pocIdx
-        int dn  = pocIdx
-        while covered < target and (up < vpBins - 1 or dn > 0)
-            upVol = up < vpBins - 1 ? array.get(bins, up + 1) : -1.0
-            dnVol = dn > 0 ? array.get(bins, dn - 1) : -1.0
-            if upVol < 0 and dnVol < 0
-                break
-            if upVol >= dnVol
-                up := up + 1
-                covered := covered + upVol
-            else
-                dn := dn - 1
-                covered := covered + dnVol
-        vah := lo + (up + 1) * binSize
-        val := lo + dn * binSize
-    [poc, vah, val]
-
-[vpPoc, vpVah, vpVal] = vpProfile(vpHi, vpLo)
-
-// Entry gate. Returns true when the filter is off, so the default path is
-// unchanged and comparable with previously recorded backtests.
-vpOk(float entryLevel) =>
-    not useVpFilter or (not na(vpPoc) and math.abs(entryLevel - vpPoc) <= vpTolerance * atrVal)
-
-var line vpPocLine = na
-var line vpVahLine = na
-var line vpValLine = na
-var label vpPocLbl = na
-
-if barstate.islast and showVp
-    line.delete(vpPocLine), line.delete(vpVahLine), line.delete(vpValLine), label.delete(vpPocLbl)
-    if not na(vpPoc)
-        x1 = bar_index - vpLookback + 1
-        x2 = bar_index + 5
-        vpPocLine := line.new(x1, vpPoc, x2, vpPoc, color = vpCol, width = 2)
-        vpVahLine := line.new(x1, vpVah, x2, vpVah, color = color.new(vpCol, 55), style = line.style_dashed)
-        vpValLine := line.new(x1, vpVal, x2, vpVal, color = color.new(vpCol, 55), style = line.style_dashed)
-        vpPocLbl  := label.new(x2, vpPoc, "POC " + str.tostring(vpPoc, format.mintick),
-             style = label.style_label_left, color = #ffffff00, textcolor = vpCol, size = size.tiny,
-             tooltip = "Point of control: the price bucket that held the most volume over the last "
-                 + str.tostring(vpLookback) + " bars. Dashed lines bound the "
-                 + str.tostring(vpValueArea, "#") + "% value area."
-                 + (syminfo.type == "forex" ? "\n\nNOTE: on spot forex this is built from broker TICK COUNT, not traded volume -- it shows where price spent time, not where size traded." : ""))
-
 flat = strategy.position_size == 0
 
 if bullishCandidate
     stopLevel  = sslSweepLevel
     entryLevel = close
     riskDist   = entryLevel - stopLevel
-    if riskDist > 0 and vpOk(entryLevel)
+    if riskDist > 0
         targetLevel = entryLevel + riskDist * rrMultiple
         drawPlan(entryLevel, stopLevel, targetLevel)
         qty = riskSize(riskDist)
@@ -321,7 +229,7 @@ if bearishCandidate
     stopLevel  = bslSweepLevel
     entryLevel = close
     riskDist   = stopLevel - entryLevel
-    if riskDist > 0 and vpOk(entryLevel)
+    if riskDist > 0
         targetLevel = entryLevel - riskDist * rrMultiple
         drawPlan(entryLevel, stopLevel, targetLevel)
         qty = riskSize(riskDist)
@@ -651,57 +559,3 @@ if barstate.islast and showMtf
     mtfRow(mtfTable, 6, mtfTf3, s3d, s3s)
     mtfRow(mtfTable, 7, mtfTf4, s4d, s4s)
     mtfRow(mtfTable, 8, mtfTf5, s5d, s5s)
-
-// =============================================================================
-// Out-of-sample split
-// =============================================================================
-bgcolor(useOosSplit and time >= oosStart ? color.new(color.orange, 94) : na, title = "Out-of-sample period")
-
-// Bottom-right, because the multi-timeframe table defaults to top-right and
-// two tables sharing a corner overlap rather than stack.
-var table oosTable = table.new(position.bottom_right, 3, 4, border_width = 1)
-
-if barstate.islast and useOosSplit
-    int isTrades = 0
-    int oosTrades = 0
-    float isWins = 0.0
-    float oosWins = 0.0
-    float isProfit = 0.0
-    float isLoss = 0.0
-    float oosProfit = 0.0
-    float oosLoss = 0.0
-
-    for i = 0 to strategy.closedtrades - 1
-        entryTime = strategy.closedtrades.entry_time(i)
-        pnl = strategy.closedtrades.profit(i)
-        if entryTime >= oosStart
-            oosTrades += 1
-            if pnl > 0
-                oosWins += 1
-                oosProfit += pnl
-            else
-                oosLoss += -pnl
-        else
-            isTrades += 1
-            if pnl > 0
-                isWins += 1
-                isProfit += pnl
-            else
-                isLoss += -pnl
-
-    headerBg = color.new(color.gray, 70)
-    table.cell(oosTable, 0, 0, "", bgcolor = headerBg)
-    table.cell(oosTable, 1, 0, "In-sample", text_color = color.white, bgcolor = headerBg)
-    table.cell(oosTable, 2, 0, "Out-of-sample", text_color = color.orange, bgcolor = headerBg)
-
-    table.cell(oosTable, 0, 1, "Trades")
-    table.cell(oosTable, 1, 1, str.tostring(isTrades))
-    table.cell(oosTable, 2, 1, str.tostring(oosTrades))
-
-    table.cell(oosTable, 0, 2, "Win rate")
-    table.cell(oosTable, 1, 2, isTrades > 0 ? str.tostring(isWins / isTrades * 100, "#.#") + "%" : "n/a")
-    table.cell(oosTable, 2, 2, oosTrades > 0 ? str.tostring(oosWins / oosTrades * 100, "#.#") + "%" : "n/a")
-
-    table.cell(oosTable, 0, 3, "Profit factor")
-    table.cell(oosTable, 1, 3, isLoss > 0 ? str.tostring(isProfit / isLoss, "#.##") : (isProfit > 0 ? "inf" : "n/a"))
-    table.cell(oosTable, 2, 3, oosLoss > 0 ? str.tostring(oosProfit / oosLoss, "#.##") : (oosProfit > 0 ? "inf" : "n/a"))
