@@ -163,6 +163,16 @@ drawPlan(entryLevel, stopLevel, targetLevel) =>
 riskSize(riskDist) =>
     (strategy.equity * riskPercent / 100 * close) / (riskDist * syminfo.pointvalue)
 
+// A strategy.entry() in the opposite direction of an already-open position
+// closes it immediately at the current price and reverses -- not at that
+// trade's own stop or target. Left unguarded, every trade's real outcome
+// gets overwritten by whatever the next signal happens to be, and the
+// backtest's win/loss averages stop meaning what the rrMultiple input says
+// they should. `strategy.position_size == 0` gates a new entry to only when
+// nothing is already open, so each trade plays out to its own stop/target
+// before the next one is considered -- one candidate, one full trade.
+flat = strategy.position_size == 0
+
 if bullishCandidate
     stopLevel  = sslSweepLevel
     entryLevel = close
@@ -170,7 +180,7 @@ if bullishCandidate
     if riskDist > 0
         targetLevel = entryLevel + riskDist * rrMultiple
         drawPlan(entryLevel, stopLevel, targetLevel)
-        if enableBacktest
+        if enableBacktest and flat
             strategy.entry("Long", strategy.long, qty = riskSize(riskDist))
             strategy.exit("Long exit", from_entry = "Long", stop = stopLevel, limit = targetLevel)
 
@@ -181,7 +191,7 @@ if bearishCandidate
     if riskDist > 0
         targetLevel = entryLevel - riskDist * rrMultiple
         drawPlan(entryLevel, stopLevel, targetLevel)
-        if enableBacktest
+        if enableBacktest and flat
             strategy.entry("Short", strategy.short, qty = riskSize(riskDist))
             strategy.exit("Short exit", from_entry = "Short", stop = stopLevel, limit = targetLevel)
 

@@ -33,6 +33,28 @@ it (`riskSize(riskDist) => (strategy.equity * riskPercent / 100) /
 List-of-Trades check below after switching symbols; don't assume either
 version is correct until you've verified a real loss matches your risk %.
 
+## Reading the results honestly
+
+Two things to check beyond the headline win rate / profit factor before
+trusting any run:
+
+- **Average win/loss vs. your rrMultiple.** With a 2:1 target, a real
+  stop-out should average close to -1R and a real win close to +2R (in
+  whatever % terms Strategy Tester shows). If the average loss is much
+  smaller than that, trades are being cut short before reaching their own
+  stop — which used to happen here because a new opposite-direction signal
+  reverses an open position immediately at the current price instead of
+  waiting for that trade's actual exit. Fixed: a new entry is now only
+  taken while flat (`strategy.position_size == 0`), so every trade plays out
+  to its own stop or target first.
+- **Long vs. Short performance separately** (Performance analysis →
+  Breakdown → "By side"). If one side is carrying the whole result, that's
+  a sign the test period simply trended in that direction — not that
+  sweeps+MSS work symmetrically both ways, which is what the underlying
+  idea actually claims. Test a period where the pair chopped or trended the
+  other way before trusting a result that's really "long only, on an
+  uptrend."
+
 ## Verify position sizing before trusting any result
 
 Before reading anything into a backtest's PnL or drawdown, sanity-check that
