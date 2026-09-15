@@ -6,6 +6,7 @@ import {
   type IChartApi,
   type ISeriesApi,
   type IPriceLine,
+  type MouseEventParams,
   type SeriesMarker,
   type Time,
 } from 'lightweight-charts'
@@ -26,15 +27,31 @@ function chartTheme() {
     grid: cssVar('--tl-border-subtle', '#1c222c'),
     up: cssVar('--tl-positive', '#22c55e'),
     down: cssVar('--tl-negative', '#ef4444'),
+    accent: cssVar('--tl-accent', '#f5b642'),
   }
+}
+
+/** Rough bar duration in seconds per entry timeframe — only used to pad the
+ *  auto-scroll window around a focused candidate, so an approximation is fine. */
+const BAR_SECONDS: Record<string, number> = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600 }
+
+interface Ohlc {
+  time: number
+  open: number
+  high: number
+  low: number
+  close: number
 }
 
 /**
  * The same candles the scanner analyzed, with its findings drawn on top:
- * sweep + shift markers per candidate, BSL/SSL liquidity levels, and
- * unmitigated FVG boundaries. Purely visual context for the table above/below
- * it — nothing here is computed independently, and nothing is clickable into
- * an order path.
+ * sweep + shift markers per candidate (price value in the label), BSL/SSL
+ * liquidity levels, and unmitigated FVG boundaries — all labelled with their
+ * actual price. Hovering a row in the candidates table (via `focusedIndex`)
+ * highlights that candidate's pair on the chart, previews its entry/stop as
+ * price lines, and scrolls it into view. Purely visual context — nothing here
+ * is computed independently of the scan response, and nothing is clickable
+ * into an order path.
  */
 export function KillzoneChart({
   symbol,
@@ -42,6 +59,7 @@ export function KillzoneChart({
   candidates,
   liquidity,
   fvgs,
+  focusedIndex = null,
   height = 340,
 }: {
   symbol: string
@@ -49,18 +67,21 @@ export function KillzoneChart({
   candidates: KillzoneCandidate[]
   liquidity: { bsl: LiquidityPool[]; ssl: LiquidityPool[] } | null
   fvgs: FairValueGap[]
+  focusedIndex?: number | null
   height?: number
 }) {
   const boxRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const linesRef = useRef<IPriceLine[]>([])
+  const focusLinesRef = useRef<IPriceLine[]>([])
 
   const [candles, setCandles] = useState<Candle[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [source, setSource] = useState<string | null>(null)
   const [liveness, setLiveness] = useState<string | null>(null)
+  const [hover, setHover] = useState<Ohlc | null>(null)
 
   // create / destroy the chart with the container
   useEffect(() => {
@@ -84,11 +105,24 @@ export function KillzoneChart({
     })
     chartRef.current = chart
     seriesRef.current = series
+
+    const onMove = (param: MouseEventParams<Time>) => {
+      const bar = param.seriesData.get(series) as { open: number; high: number; low: number; close: number } | undefined
+      if (!bar || param.time == null) {
+        setHover(null)
+        return
+      }
+      setHover({ time: param.time as unknown as number, open: bar.open, high: bar.high, low: bar.low, close: bar.close })
+    }
+    chart.subscribeCrosshairMove(onMove)
+
     return () => {
+      chart.unsubscribeCrosshairMove(onMove)
       chart.remove()
       chartRef.current = null
       seriesRef.current = null
       linesRef.current = []
+      focusLinesRef.current = []
     }
   }, [])
 
@@ -128,34 +162,45 @@ export function KillzoneChart({
     if (candles.length) chartRef.current?.timeScale().fitContent()
   }, [candles])
 
-  // sweep + shift markers, one pair per candidate
+  // sweep + shift markers, one pair per candidate — the price rides along in
+  // the label so a glance at the chart tells you the level, not just the
+  // shape. The focused candidate (hovered in the table) is drawn in the full
+  // direction color at full opacity; every other one dims to a muted grey so
+  // it doesn't compete for attention.
   useEffect(() => {
     const s = seriesRef.current
     if (!s) return
     const t = chartTheme()
     const markers: SeriesMarker<Time>[] = []
-    for (const c of candidates) {
+    candidates.forEach((c, i) => {
       const below = c.direction === 'bullish'
+      const focused = focusedIndex === i
+      const dimmed = focusedIndex != null && !focused
+      const dirColor = below ? t.up : t.down
       markers.push({
         time: c.sweep_time as Time,
         position: below ? 'belowBar' : 'aboveBar',
-        color: t.text,
+        color: dimmed ? 'rgba(139,149,165,0.35)' : t.text,
         shape: below ? 'arrowUp' : 'arrowDown',
-        text: 'Sweep',
+        text: `Sweep ${c.sweep_level}`,
+        size: focused ? 1.6 : 1,
       })
       markers.push({
         time: c.shift_time as Time,
         position: below ? 'belowBar' : 'aboveBar',
-        color: below ? t.up : t.down,
+        color: dimmed ? 'rgba(139,149,165,0.35)' : dirColor,
         shape: below ? 'arrowUp' : 'arrowDown',
-        text: 'MSS',
+        text: `MSS ${c.shift_level}`,
+        size: focused ? 1.6 : 1,
       })
-    }
+    })
     markers.sort((a, b) => (a.time as number) - (b.time as number))
     s.setMarkers(markers)
-  }, [candidates])
+  }, [candidates, focusedIndex])
 
-  // liquidity levels + FVG boundaries as horizontal price lines
+  // liquidity levels + FVG boundaries as horizontal price lines, each labelled
+  // with its actual price so the axis (and hover tooltip) reads like a real
+  // trading terminal rather than a bare dashed line.
   useEffect(() => {
     const s = seriesRef.current
     if (!s) return
@@ -166,7 +211,7 @@ export function KillzoneChart({
       linesRef.current.push(
         s.createPriceLine({
           price: p.price, color: 'rgba(239,68,68,0.55)', lineWidth: 1, lineStyle: LineStyle.Dashed,
-          axisLabelVisible: true, title: 'BSL',
+          axisLabelVisible: true, title: `BSL ${p.price}`,
         }),
       )
     }
@@ -174,20 +219,58 @@ export function KillzoneChart({
       linesRef.current.push(
         s.createPriceLine({
           price: p.price, color: 'rgba(34,197,94,0.55)', lineWidth: 1, lineStyle: LineStyle.Dashed,
-          axisLabelVisible: true, title: 'SSL',
+          axisLabelVisible: true, title: `SSL ${p.price}`,
         }),
       )
     }
     for (const f of fvgs) {
       const color = f.type === 'Bullish' ? 'rgba(34,197,94,0.4)' : 'rgba(239,68,68,0.4)'
       linesRef.current.push(
-        s.createPriceLine({ price: f.top, color, lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: false, title: 'FVG' }),
+        s.createPriceLine({ price: f.top, color, lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: `FVG ${f.top}` }),
       )
       linesRef.current.push(
-        s.createPriceLine({ price: f.bottom, color, lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: false }),
+        s.createPriceLine({ price: f.bottom, color, lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: `FVG ${f.bottom}` }),
       )
     }
   }, [liquidity, fvgs])
+
+  // the focused candidate previews as an actual entry/stop pair (shift level
+  // = entry reference, sweep level = stop reference — the same mapping
+  // "Plan this" seeds into the checklist) and the view scrolls to it.
+  useEffect(() => {
+    const s = seriesRef.current
+    const chart = chartRef.current
+    if (!s) return
+    focusLinesRef.current.forEach((l) => s.removePriceLine(l))
+    focusLinesRef.current = []
+
+    if (focusedIndex == null || !candidates[focusedIndex]) return
+    const c = candidates[focusedIndex]
+    const t = chartTheme()
+    focusLinesRef.current.push(
+      s.createPriceLine({
+        price: c.shift_level, color: t.accent, lineWidth: 2, lineStyle: LineStyle.Solid,
+        axisLabelVisible: true, title: `Entry ${c.shift_level}`,
+      }),
+    )
+    focusLinesRef.current.push(
+      s.createPriceLine({
+        price: c.sweep_level, color: t.down, lineWidth: 2, lineStyle: LineStyle.Solid,
+        axisLabelVisible: true, title: `Stop ${c.sweep_level}`,
+      }),
+    )
+
+    if (chart) {
+      const pad = (BAR_SECONDS[ltf] ?? 900) * 12
+      const from = Math.min(c.sweep_time, c.shift_time) - pad
+      const to = Math.max(c.sweep_time, c.shift_time) + pad
+      try {
+        chart.timeScale().setVisibleRange({ from: from as Time, to: to as Time })
+      } catch {
+        /* range outside loaded data — leave the current view as-is */
+      }
+    }
+  }, [focusedIndex, candidates, ltf])
 
   return (
     <div className="rounded-lg border border-border bg-surface">
@@ -196,7 +279,13 @@ export function KillzoneChart({
           <span className="font-mono text-sm font-semibold text-primary">{symbol}</span>
           <span className="text-[10px] text-muted">{ltf} · sweeps, shifts &amp; liquidity marked</span>
         </div>
-        <div className="flex items-center gap-2 text-[10px] text-muted">
+        <div className="flex items-center gap-3 text-[10px] text-muted">
+          {hover ? (
+            <span className="font-mono tabular-nums">
+              O <span className="text-secondary">{hover.open}</span> H <span className="text-secondary">{hover.high}</span> L{' '}
+              <span className="text-secondary">{hover.low}</span> C <span className="text-secondary">{hover.close}</span>
+            </span>
+          ) : null}
           {liveness ? <span>{liveness}</span> : null}
           {source ? <span>{source}</span> : null}
         </div>
@@ -223,6 +312,7 @@ export function KillzoneChart({
         <span className="text-negative">- - BSL</span>
         <span className="text-positive">- - SSL</span>
         <span>dotted = unmitigated FVG</span>
+        <span>hover a row below to highlight it here — solid lines preview its entry/stop</span>
       </div>
     </div>
   )

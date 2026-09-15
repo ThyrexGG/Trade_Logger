@@ -25,6 +25,51 @@ function biasTone(bias: string | null): string {
   return 'border-border-subtle bg-surface-elevated text-muted'
 }
 
+/** Plain-text/Markdown recap of the current scan — for pasting into a journal
+ *  entry, a notes app, or anywhere outside TradeLogger. Same numbers already
+ *  on screen, just laid out to paste cleanly. */
+function buildMarkdown(data: KillzoneScanResponse, ltf: string): string {
+  const lines: string[] = []
+  lines.push(`# Killzone scan — ${data.symbol}`)
+  lines.push('')
+  lines.push(`_${new Date(data.timestamp).toLocaleString()} · entry ${ltf} · bias ${data.htf ?? '1h'}_`)
+  lines.push('')
+  lines.push(`**HTF bias:** ${data.htf_bias ?? 'unknown'}${data.htf_structure?.recent_sequence ? ` — ${data.htf_structure.recent_sequence}` : ''}`)
+  if (data.htf_structure?.last_break) lines.push(`- Last break: ${data.htf_structure.last_break}`)
+  if (data.htf_structure?.last_swing_high != null) lines.push(`- Last swing high: ${data.htf_structure.last_swing_high}`)
+  if (data.htf_structure?.last_swing_low != null) lines.push(`- Last swing low: ${data.htf_structure.last_swing_low}`)
+  lines.push('')
+  lines.push(`**Current killzone:** ${data.current_killzone ?? 'unknown'}`)
+  lines.push('')
+  lines.push('**Draw on liquidity:**')
+  const bsl = data.htf_liquidity_targets?.bsl ?? []
+  const ssl = data.htf_liquidity_targets?.ssl ?? []
+  if (bsl.length === 0 && ssl.length === 0) lines.push('- none nearby')
+  bsl.forEach((p) => lines.push(`- BSL ${p.price} (${p.distance_from_price} away)`))
+  ssl.forEach((p) => lines.push(`- SSL ${p.price} (${p.distance_from_price} away)`))
+  lines.push('')
+  lines.push(`**Candidate events (${ltf}):**`)
+  if (data.candidates.length === 0) {
+    lines.push('- none in the recent window')
+  } else {
+    data.candidates.forEach((c) => {
+      lines.push(
+        `- ${c.direction.toUpperCase()} — sweep ${c.sweep_level} (${fmtTime(c.sweep_time)}) → shift ${c.shift_level} (${fmtTime(c.shift_time)}), ${c.killzone}, ${c.agrees_with_htf_bias ? 'agrees with' : 'conflicts with'} HTF bias`,
+      )
+    })
+  }
+  lines.push('')
+  lines.push('**Unmitigated FVGs:**')
+  if (data.recent_unmitigated_fvgs.length === 0) {
+    lines.push('- none currently')
+  } else {
+    data.recent_unmitigated_fvgs.forEach((f) => lines.push(`- ${f.type} ${f.bottom}–${f.top}`))
+  }
+  lines.push('')
+  lines.push(`_Pattern-flagging only, not a signal — data source: ${data.ltf_source ?? 'unknown'} / ${data.htf_source ?? 'unknown'}._`)
+  return lines.join('\n')
+}
+
 /**
  * Killzone Scanner (`/workspace/killzone-scanner`). Two tabs sharing one
  * workflow: Scan flags candidate liquidity-sweep + market-structure-shift
@@ -57,6 +102,8 @@ export function KillzoneScannerPage() {
   const inputRef = useRef(symbol)
   const [prefill, setPrefill] = useState<ChecklistPrefill | undefined>(undefined)
   const prefillVersion = useRef(0)
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null)
+  const [copied, setCopied] = useState(false)
 
   const load = useCallback((sym: string, timeframe: string, signal?: AbortSignal) => {
     setLoading(true)
@@ -65,6 +112,7 @@ export function KillzoneScannerPage() {
       .then((r) => {
         if (signal?.aborted) return
         setData(r)
+        setFocusedIndex(null)
         if (!r.ok) setError(r.error ?? 'Scan failed.')
       })
       .catch((e) => {
@@ -104,6 +152,18 @@ export function KillzoneScannerPage() {
       localStorage.setItem(LTF_KEY, tf)
     } catch {
       /* private browsing / storage blocked */
+    }
+  }
+
+  async function copySummary() {
+    if (!data?.ok) return
+    const text = buildMarkdown(data, ltf)
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1500)
+    } catch {
+      /* clipboard permission denied / unavailable — nothing to fall back to here */
     }
   }
 
@@ -177,6 +237,15 @@ export function KillzoneScannerPage() {
                 >
                   {loading ? 'Scanning…' : 'Scan now'}
                 </button>
+                {data?.ok ? (
+                  <button
+                    type="button"
+                    onClick={copySummary}
+                    className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-secondary hover:border-accent/40 hover:text-accent"
+                  >
+                    {copied ? 'Copied ✓' : 'Copy as Markdown'}
+                  </button>
+                ) : null}
                 {data?.timestamp ? (
                   <span className="text-[11px] text-muted">
                     Updated {new Date(data.timestamp).toLocaleTimeString()} · auto-refreshes every 5 min
@@ -200,6 +269,7 @@ export function KillzoneScannerPage() {
                   candidates={data.candidates}
                   liquidity={data.htf_liquidity_targets}
                   fvgs={data.recent_unmitigated_fvgs}
+                  focusedIndex={focusedIndex}
                 />
 
                 <div className="grid gap-4 md:grid-cols-2">
@@ -254,7 +324,7 @@ export function KillzoneScannerPage() {
 
                 <SectionCard
                   title={`Candidate events (${ltf})`}
-                  info="Each row pairs a liquidity sweep with a structure shift that followed shortly after, in the opposing direction — the exact sequence a sweep+MSS setup describes. 'Agrees with HTF' just means the direction matches the 1h bias above; it's not a rating. 'Plan this' seeds the Plan tab with the sweep as a stop reference and the shift as an entry reference — both fully editable."
+                  info="Each row pairs a liquidity sweep with a structure shift that followed shortly after, in the opposing direction — the exact sequence a sweep+MSS setup describes. 'Agrees with HTF' just means the direction matches the 1h bias above; it's not a rating. Hover a row to highlight it on the chart above, with its entry/stop previewed. 'Plan this' seeds the Plan tab with the sweep as a stop reference and the shift as an entry reference — both fully editable."
                 >
                   {data.candidates.length === 0 ? (
                     <p className="text-xs text-muted">No sweep + shift events found in the recent window.</p>
@@ -273,7 +343,12 @@ export function KillzoneScannerPage() {
                         </thead>
                         <tbody>
                           {data.candidates.map((c, i) => (
-                            <tr key={i} className="border-t border-border-subtle">
+                            <tr
+                              key={i}
+                              onMouseEnter={() => setFocusedIndex(i)}
+                              onMouseLeave={() => setFocusedIndex((cur) => (cur === i ? null : cur))}
+                              className={`border-t border-border-subtle transition-colors ${focusedIndex === i ? 'bg-accent/5' : ''}`}
+                            >
                               <td className="py-1.5 pr-3">
                                 <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
                                   c.direction === 'bullish' ? 'bg-positive/10 text-positive' : 'bg-negative/10 text-negative'
