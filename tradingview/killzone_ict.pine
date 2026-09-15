@@ -411,9 +411,16 @@ plot(showPM  ? pml : na, "PML", color = pmCol, style = plot.style_stepline, line
 plot(showPMM and showPM ? math.avg(pmh, pml) : na, "PMM", color = color.new(pmCol, 45), style = plot.style_stepline)
 
 // Name the levels once, at the right edge.
-var label lPdh = na, var label lPdl = na, var label lPdm = na
-var label lPwh = na, var label lPwl = na, var label lPwm = na
-var label lPmh = na, var label lPml = na, var label lPmm = na
+// One declaration per line -- Pine has no comma-separated `var` form.
+var label lPdh = na
+var label lPdl = na
+var label lPdm = na
+var label lPwh = na
+var label lPwl = na
+var label lPwm = na
+var label lPmh = na
+var label lPml = na
+var label lPmm = na
 
 edgeLabel(label lb, bool use, float px, string txt, color c) =>
     label.delete(lb)
@@ -452,14 +459,20 @@ mtfTf3    = input.timeframe("240", "Structure TF 1", group = grpMTF)
 mtfTf4    = input.timeframe("15",  "Structure TF 2", group = grpMTF)
 mtfTf5    = input.timeframe("1",   "Structure TF 3", group = grpMTF)
 
-mtfTablePos = mtfPos == "Top right" ? position.top_right : mtfPos == "Top left" ? position.top_left :
-     mtfPos == "Bottom right" ? position.bottom_right : mtfPos == "Bottom left" ? position.bottom_left :
-     position.middle_right
+mtfTablePos = switch mtfPos
+    "Top right"     => position.top_right
+    "Top left"      => position.top_left
+    "Bottom right"  => position.bottom_right
+    "Bottom left"   => position.bottom_left
+    => position.middle_right
 
 // --- Directional bias: where price closed relative to the PREVIOUS completed
 // period's range, plus whether that period's liquidity was taken. This is the
 // "swept W low / close < prev D low" read, computed rather than eyeballed.
-biasFor(string tf) =>
+// `simple string`, not `string`: a plain annotation qualifies the parameter as
+// `series string`, and request.security()'s timeframe argument only accepts
+// `simple string` -- which fails at compile time, not at run time.
+biasFor(simple string tf) =>
     ph = request.security(syminfo.tickerid, tf, high[1], lookahead = barmerge.lookahead_on)
     pl = request.security(syminfo.tickerid, tf, low[1],  lookahead = barmerge.lookahead_on)
     ch = request.security(syminfo.tickerid, tf, high,    lookahead = barmerge.lookahead_on)
@@ -490,7 +503,7 @@ biasFor(string tf) =>
 
 // --- Market structure: the same swing-break logic the strategy uses, plus a
 // stage label describing what price is doing relative to the last break.
-structFor(string tf) =>
+structFor(simple string tf) =>
     sh = request.security(syminfo.tickerid, tf, ta.pivothigh(high, swingLookback, swingLookback), lookahead = barmerge.lookahead_on)
     sl = request.security(syminfo.tickerid, tf, ta.pivotlow(low, swingLookback, swingLookback),   lookahead = barmerge.lookahead_on)
     cc = request.security(syminfo.tickerid, tf, close, lookahead = barmerge.lookahead_on)
@@ -518,9 +531,14 @@ structFor(string tf) =>
             barsSince := barsSince + 1
 
         displaced = not na(at) and not na(bd) and bd >= at * minDispATRMult
-        stage := lastDir == "n/a" ? "Ranging" :
-             barsSince <= 1 ? "Confirmed shift" :
-             displaced ? "Expansion" : "Continuation"
+        if lastDir == "n/a"
+            stage := "Ranging"
+        else if barsSince <= 1
+            stage := "Confirmed shift"
+        else if displaced
+            stage := "Expansion"
+        else
+            stage := "Continuation"
     [lastDir, stage]
 
 [b1d, b1c] = biasFor(mtfTf1)
