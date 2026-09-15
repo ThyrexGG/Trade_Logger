@@ -1414,6 +1414,30 @@ class ConfluenceFactor(BaseModel):
     met: bool
 
 
+class BiasRung(BaseModel):
+    """One timeframe's structural read. `sufficient` is false when there were
+    too few bars to confirm two swings — the bias is then reported as
+    "unknown" rather than guessed from a single swing."""
+    timeframe: str
+    bias: Literal["bullish", "bearish", "neutral", "unknown"]
+    bars: int
+    sufficient: bool
+    recent_sequence: Optional[str] = None
+    last_break: Optional[str] = None
+    last_swing_high: Optional[float] = None
+    last_swing_low: Optional[float] = None
+
+
+class BiasAlignment(BaseModel):
+    """A plain count of which way the usable rungs point — a description of
+    the chart, not evidence about what happens next."""
+    verdict: Literal["bullish", "bearish", "mixed", "unknown"]
+    bullish: int
+    bearish: int
+    usable: int
+    total: int
+
+
 class KillzoneCandidate(BaseModel):
     direction: Literal["bullish", "bearish"]
     sweep_time: int
@@ -1453,6 +1477,8 @@ class KillzoneScanResponse(BaseModel):
     htf_bias: Optional[Literal["bullish", "bearish", "neutral"]] = None
     htf_structure: Optional[Dict[str, Any]] = None
     htf_liquidity_targets: Optional[Dict[str, Any]] = None
+    bias_ladder: List[BiasRung] = []
+    bias_alignment: Optional[BiasAlignment] = None
     current_killzone: Optional[str] = None
 
     candidates: List[KillzoneCandidate] = []

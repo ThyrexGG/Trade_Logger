@@ -437,11 +437,139 @@ if barstate.islast
     lPmm := edgeLabel(lPmm, showPM and showPMM, math.avg(pmh, pml), "PMM", pmCol)
 
 // =============================================================================
+// Multi-timeframe bias + structure table
+//
+// Reads the SAME swing/displacement rules as the entry logic, but on higher
+// timeframes via request.security, so the table can't disagree with the chart
+// for methodological reasons. Every cell is a description of what already
+// happened -- no cell predicts anything, and rows agreeing is a description
+// of the chart, not evidence about the next move.
+// =============================================================================
+grpMTF = "Multi-timeframe table"
+showMtf   = input.bool(true, "Show bias / structure table", group = grpMTF)
+mtfPos    = input.string("Top right", "Position", options = ["Top right", "Top left", "Bottom right", "Bottom left", "Middle right"], group = grpMTF)
+mtfTf1    = input.timeframe("W",   "Bias TF 1", group = grpMTF)
+mtfTf2    = input.timeframe("D",   "Bias TF 2", group = grpMTF)
+mtfTf3    = input.timeframe("240", "Structure TF 1", group = grpMTF)
+mtfTf4    = input.timeframe("15",  "Structure TF 2", group = grpMTF)
+mtfTf5    = input.timeframe("1",   "Structure TF 3", group = grpMTF)
+
+mtfTablePos = mtfPos == "Top right" ? position.top_right : mtfPos == "Top left" ? position.top_left :
+     mtfPos == "Bottom right" ? position.bottom_right : mtfPos == "Bottom left" ? position.bottom_left :
+     position.middle_right
+
+// --- Directional bias: where price closed relative to the PREVIOUS completed
+// period's range, plus whether that period's liquidity was taken. This is the
+// "swept W low / close < prev D low" read, computed rather than eyeballed.
+biasFor(string tf) =>
+    ph = request.security(syminfo.tickerid, tf, high[1], lookahead = barmerge.lookahead_on)
+    pl = request.security(syminfo.tickerid, tf, low[1],  lookahead = barmerge.lookahead_on)
+    ch = request.security(syminfo.tickerid, tf, high,    lookahead = barmerge.lookahead_on)
+    cl = request.security(syminfo.tickerid, tf, low,     lookahead = barmerge.lookahead_on)
+    cc = request.security(syminfo.tickerid, tf, close,   lookahead = barmerge.lookahead_on)
+
+    string dir = "n/a"
+    string ctx = "no data"
+    if not (na(ph) or na(pl) or na(cc))
+        sweptLow  = cl < pl
+        sweptHigh = ch > ph
+        if cc < pl
+            dir := "Bearish"
+            ctx := "Close < prev " + tf + " low"
+        else if cc > ph
+            dir := "Bullish"
+            ctx := "Close > prev " + tf + " high"
+        else if sweptLow and cc > pl
+            dir := "Bullish"
+            ctx := "Swept " + tf + " low, reclaimed"
+        else if sweptHigh and cc < ph
+            dir := "Bearish"
+            ctx := "Swept " + tf + " high, rejected"
+        else
+            dir := "Neutral"
+            ctx := "Inside prev " + tf + " range"
+    [dir, ctx]
+
+// --- Market structure: the same swing-break logic the strategy uses, plus a
+// stage label describing what price is doing relative to the last break.
+structFor(string tf) =>
+    sh = request.security(syminfo.tickerid, tf, ta.pivothigh(high, swingLookback, swingLookback), lookahead = barmerge.lookahead_on)
+    sl = request.security(syminfo.tickerid, tf, ta.pivotlow(low, swingLookback, swingLookback),   lookahead = barmerge.lookahead_on)
+    cc = request.security(syminfo.tickerid, tf, close, lookahead = barmerge.lookahead_on)
+    at = request.security(syminfo.tickerid, tf, ta.atr(atrLength), lookahead = barmerge.lookahead_on)
+    bd = request.security(syminfo.tickerid, tf, math.abs(close - open), lookahead = barmerge.lookahead_on)
+
+    var float hiRef = na
+    var float loRef = na
+    var string lastDir = "n/a"
+    var int barsSince = 0
+
+    if not na(sh)
+        hiRef := sh
+    if not na(sl)
+        loRef := sl
+
+    string stage = "Ranging"
+    if not (na(hiRef) or na(loRef) or na(cc))
+        broke = cc > hiRef or cc < loRef
+        newDir = cc > hiRef ? "Bullish" : cc < loRef ? "Bearish" : lastDir
+        if broke and newDir != lastDir
+            lastDir := newDir
+            barsSince := 0
+        else
+            barsSince := barsSince + 1
+
+        displaced = not na(at) and not na(bd) and bd >= at * minDispATRMult
+        stage := lastDir == "n/a" ? "Ranging" :
+             barsSince <= 1 ? "Confirmed shift" :
+             displaced ? "Expansion" : "Continuation"
+    [lastDir, stage]
+
+[b1d, b1c] = biasFor(mtfTf1)
+[b2d, b2c] = biasFor(mtfTf2)
+[s3d, s3s] = structFor(mtfTf3)
+[s4d, s4s] = structFor(mtfTf4)
+[s5d, s5s] = structFor(mtfTf5)
+
+dirColor(string d) =>
+    d == "Bullish" ? color.new(color.green, 0) : d == "Bearish" ? color.new(color.red, 0) : color.new(color.gray, 0)
+
+var table mtfTable = table.new(mtfTablePos, 3, 9, border_width = 1, frame_width = 1)
+
+mtfRow(table t, int row, string tf, string dir, string ctx) =>
+    table.cell(t, 0, row, tf,  text_size = size.tiny, text_color = chart.fg_color)
+    table.cell(t, 1, row, dir, text_size = size.tiny, text_color = dirColor(dir))
+    table.cell(t, 2, row, ctx, text_size = size.tiny, text_color = chart.fg_color)
+
+if barstate.islast and showMtf
+    hdr = color.new(color.gray, 70)
+    table.cell(mtfTable, 0, 0, "DIRECTIONAL BIAS", text_size = size.tiny, text_color = chart.fg_color, bgcolor = hdr)
+    table.cell(mtfTable, 1, 0, "", bgcolor = hdr)
+    table.cell(mtfTable, 2, 0, "", bgcolor = hdr)
+    table.cell(mtfTable, 0, 1, "TF",        text_size = size.tiny, text_color = color.gray)
+    table.cell(mtfTable, 1, 1, "Direction", text_size = size.tiny, text_color = color.gray)
+    table.cell(mtfTable, 2, 1, "Context",   text_size = size.tiny, text_color = color.gray)
+    mtfRow(mtfTable, 2, mtfTf1, b1d, b1c)
+    mtfRow(mtfTable, 3, mtfTf2, b2d, b2c)
+
+    table.cell(mtfTable, 0, 4, "MARKET STRUCTURE", text_size = size.tiny, text_color = chart.fg_color, bgcolor = hdr)
+    table.cell(mtfTable, 1, 4, "", bgcolor = hdr)
+    table.cell(mtfTable, 2, 4, "", bgcolor = hdr)
+    table.cell(mtfTable, 0, 5, "TF",        text_size = size.tiny, text_color = color.gray)
+    table.cell(mtfTable, 1, 5, "Direction", text_size = size.tiny, text_color = color.gray)
+    table.cell(mtfTable, 2, 5, "Stage",     text_size = size.tiny, text_color = color.gray)
+    mtfRow(mtfTable, 6, mtfTf3, s3d, s3s)
+    mtfRow(mtfTable, 7, mtfTf4, s4d, s4s)
+    mtfRow(mtfTable, 8, mtfTf5, s5d, s5s)
+
+// =============================================================================
 // Out-of-sample split
 // =============================================================================
 bgcolor(useOosSplit and time >= oosStart ? color.new(color.orange, 94) : na, title = "Out-of-sample period")
 
-var table oosTable = table.new(position.top_right, 3, 4, border_width = 1)
+// Bottom-right, because the multi-timeframe table defaults to top-right and
+// two tables sharing a corner overlap rather than stack.
+var table oosTable = table.new(position.bottom_right, 3, 4, border_width = 1)
 
 if barstate.islast and useOosSplit
     int isTrades = 0

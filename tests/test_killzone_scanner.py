@@ -283,3 +283,112 @@ def test_scanner_binds_no_execution_symbol():
             if isinstance(value, types.ModuleType):
                 top = value.__name__.split(".")[0]
                 assert top not in forbidden_names, f"{mod.__name__} imports {value.__name__}"
+
+
+# ---------------------------------------------------------------------------
+# Multi-timeframe bias ladder
+#
+# 4h and 1d are RESAMPLED from 1h bars rather than requested from the feed,
+# because `market_data.get_realtime_candles` silently serves 1h candles for a
+# "4h" request and truncates daily history. These tests pin the aggregation
+# semantics and the refusal to report a bias without enough bars.
+# ---------------------------------------------------------------------------
+# 2023-11-15 00:00:00 UTC — divisible by 4h and by 1d, so resampled buckets
+# line up with the candles rather than straddling them. Real 4h/daily candles
+# align to the clock, not to wherever a data pull happens to begin.
+_ALIGNED_EPOCH = 1_700_006_400
+
+
+def _hourly(n: int, start: int = _ALIGNED_EPOCH) -> pd.DataFrame:
+    """n hourly candles with deterministic, distinguishable OHLC values."""
+    return pd.DataFrame([
+        {
+            "time": start + i * 3600,
+            "open": 100.0 + i,
+            "high": 100.5 + i,
+            "low": 99.5 + i,
+            "close": 100.2 + i,
+            "volume": 10.0,
+        }
+        for i in range(n)
+    ])
+
+
+def test_resample_aggregates_ohlc_with_correct_semantics():
+    df = _hourly(8)
+    out = ks._resample(df, "4h")
+
+    assert len(out) == 2, "8 hourly candles must fold into exactly 2 four-hour candles"
+    first = out.iloc[0]
+    # open = first bar's open, close = last bar's close, high/low = extremes
+    assert first["open"] == pytest.approx(100.0)
+    assert first["close"] == pytest.approx(103.2)
+    assert first["high"] == pytest.approx(103.5)
+    assert first["low"] == pytest.approx(99.5)
+    assert first["volume"] == pytest.approx(40.0), "volume must sum, not average"
+    # The bucket is stamped at its opening time, so downstream code that sorts
+    # or renders by `time` stays chronological.
+    assert out["time"].is_monotonic_increasing
+    assert int(first["time"]) == int(df.iloc[0]["time"])
+
+
+def test_resample_buckets_align_to_the_clock_not_to_the_first_candle():
+    """A 4h candle starting at 02:00 because that's when the data pull began
+    would not be a 4h candle. Offsetting the start by an hour must shift bars
+    between buckets, not slide the bucket boundaries."""
+    offset = ks._resample(_hourly(8, start=_ALIGNED_EPOCH + 3600), "4h")
+    assert len(offset) == 3, "8 candles starting mid-bucket span 3 clock-aligned buckets"
+    assert int(offset.iloc[0]["time"]) == _ALIGNED_EPOCH, "first bucket still opens on the boundary"
+
+
+def test_resample_of_empty_frame_is_empty_not_an_error():
+    assert ks._resample(pd.DataFrame(), "4h").empty
+
+
+def test_bias_rung_refuses_to_guess_without_enough_bars():
+    """A single swing is not a trend. Too few bars must read 'unknown' and
+    sufficient=False, never a bias the data can't support."""
+    rung = ks._bias_rung("1d", _hourly(ks._MIN_BARS_FOR_STRUCTURE - 1))
+    assert rung["sufficient"] is False
+    assert rung["bias"] == "unknown"
+    assert rung["timeframe"] == "1d"
+
+    for empty in (None, pd.DataFrame()):
+        blank = ks._bias_rung("4h", empty)
+        assert blank["sufficient"] is False
+        assert blank["bars"] == 0
+
+
+def test_bias_rung_reports_structure_once_there_are_enough_bars():
+    rung = ks._bias_rung("1h", _hourly(ks._MIN_BARS_FOR_STRUCTURE + 20))
+    assert rung["sufficient"] is True
+    assert rung["bias"] in ("bullish", "bearish", "neutral")
+    assert rung["bars"] >= ks._MIN_BARS_FOR_STRUCTURE
+
+
+def _rung(tf: str, bias: str, sufficient: bool = True) -> dict:
+    return {"timeframe": tf, "bias": bias, "sufficient": sufficient}
+
+
+def test_bias_alignment_counts_only_usable_directional_rungs():
+    ladder = [
+        _rung("15m", "bullish"),
+        _rung("1h", "bullish"),
+        _rung("4h", "neutral"),                 # not directional — excluded
+        _rung("1d", "bearish", sufficient=False),  # not readable — excluded
+    ]
+    out = ks._bias_alignment(ladder)
+    assert out["verdict"] == "bullish"
+    assert (out["bullish"], out["bearish"]) == (2, 0)
+    assert out["usable"] == 2 and out["total"] == 4
+
+
+def test_bias_alignment_flags_disagreement_rather_than_picking_a_side():
+    out = ks._bias_alignment([_rung("1h", "bullish"), _rung("4h", "bearish")])
+    assert out["verdict"] == "mixed", "disagreeing timeframes must not resolve to a winner"
+
+
+def test_bias_alignment_with_nothing_readable_is_unknown():
+    out = ks._bias_alignment([_rung("1h", "unknown", sufficient=False)])
+    assert out["verdict"] == "unknown"
+    assert out["usable"] == 0

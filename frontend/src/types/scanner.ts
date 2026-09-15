@@ -51,6 +51,29 @@ export interface FairValueGap {
   status: string
 }
 
+/** One timeframe's structural read. `sufficient` is false when there were too
+ *  few bars to confirm two swings — bias is then "unknown", not guessed. */
+export interface BiasRung {
+  timeframe: string
+  bias: KillzoneBias | 'unknown'
+  bars: number
+  sufficient: boolean
+  recent_sequence: string | null
+  last_break: string | null
+  last_swing_high: number | null
+  last_swing_low: number | null
+}
+
+/** A count of which way the usable rungs point — a description of the chart,
+ *  never evidence about what price does next. */
+export interface BiasAlignment {
+  verdict: 'bullish' | 'bearish' | 'mixed' | 'unknown'
+  bullish: number
+  bearish: number
+  usable: number
+  total: number
+}
+
 export interface KillzoneScanResponse {
   ok: boolean
   symbol: string
@@ -70,6 +93,8 @@ export interface KillzoneScanResponse {
     last_swing_low: number | null
   } | null
   htf_liquidity_targets: { bsl: LiquidityPool[]; ssl: LiquidityPool[] } | null
+  bias_ladder: BiasRung[]
+  bias_alignment: BiasAlignment | null
   current_killzone: string | null
 
   candidates: KillzoneCandidate[]

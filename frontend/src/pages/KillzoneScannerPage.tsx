@@ -289,7 +289,7 @@ export function KillzoneScannerPage() {
                 ) : null}
               </div>
               <p className="mt-2 text-[10.5px] text-muted">
-                Bias timeframe is fixed to 1h — the upstream feed doesn't reliably serve enough daily/4h history for structure detection (see killzone_scanner.py).
+                Bias is read on 15m, 1h, 4h and 1d. The feed only serves 15m and 1h honestly — it returns 1h candles for a "4h" request and truncates daily history — so 4h and 1d are resampled from 1h bars here rather than requested. A timeframe with too little history reads "unknown" instead of guessing.
               </p>
             </SectionCard>
 
@@ -299,34 +299,56 @@ export function KillzoneScannerPage() {
 
             {data?.ok ? (
               <>
-                <KillzoneChart
-                  symbol={data.symbol}
-                  ltf={ltf}
-                  candidates={data.candidates}
-                  liquidity={data.htf_liquidity_targets}
-                  fvgs={data.recent_unmitigated_fvgs}
-                  focusedIndex={focusedIndex}
-                />
-
                 <div className="grid gap-4 md:grid-cols-2">
-                  <SectionCard title="Higher-timeframe bias (1h)">
-                    <div className="flex items-center gap-2">
-                      <span className={`rounded border px-2 py-0.5 text-xs font-semibold uppercase ${biasTone(data.htf_bias)}`}>
-                        {data.htf_bias ?? 'unknown'}
-                      </span>
-                      <span className="text-xs text-secondary">{data.htf_structure?.recent_sequence}</span>
-                    </div>
-                    <p className="mt-2 text-xs text-secondary">{data.htf_structure?.last_break}</p>
-                    <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
-                      <div>
-                        <span className="text-muted">Last swing high</span>
-                        <p className="font-mono text-primary">{data.htf_structure?.last_swing_high ?? '—'}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted">Last swing low</span>
-                        <p className="font-mono text-primary">{data.htf_structure?.last_swing_low ?? '—'}</p>
-                      </div>
-                    </div>
+                  <SectionCard
+                    title="Directional bias by timeframe"
+                    info="Each row is the market structure read on that timeframe, from the same swing detector. 15m and 1h come straight from the data feed; 4h and 1d are resampled from 1h bars, because the upstream feed silently serves 1h candles for a '4h' request and truncates daily history. A row reads 'unknown' when there weren't enough bars to confirm two swings — that's a missing reading, not a neutral one. Rows agreeing is a description of the chart, not evidence about what happens next."
+                  >
+                    {(data.bias_ladder ?? []).length === 0 ? (
+                      <p className="text-xs text-muted">No structure data returned.</p>
+                    ) : (
+                      <>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-[11px]">
+                            <thead>
+                              <tr className="text-left uppercase tracking-wider text-muted">
+                                <th className="pb-1 pr-3 font-medium">TF</th>
+                                <th className="pb-1 pr-3 font-medium">Direction</th>
+                                <th className="pb-1 pr-3 font-medium">Structure</th>
+                                <th className="pb-1 font-medium">Bars</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(data.bias_ladder ?? []).map((rung) => (
+                                <tr key={rung.timeframe} className="border-t border-border/40">
+                                  <td className="py-1 pr-3 font-mono uppercase text-primary">{rung.timeframe}</td>
+                                  <td className="py-1 pr-3">
+                                    <span className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase ${biasTone(rung.sufficient ? rung.bias : null)}`}>
+                                      {rung.bias}
+                                    </span>
+                                  </td>
+                                  <td className="py-1 pr-3 text-secondary">
+                                    {rung.sufficient ? (rung.recent_sequence || rung.last_break || '—') : 'not enough history'}
+                                  </td>
+                                  <td className="py-1 font-mono text-muted">{rung.bars}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        {data.bias_alignment ? (
+                          <p className="mt-2 text-[11px] text-secondary">
+                            {data.bias_alignment.verdict === 'mixed' ? (
+                              <>Timeframes <span className="font-semibold text-warning">disagree</span> — {data.bias_alignment.bullish} bullish, {data.bias_alignment.bearish} bearish.</>
+                            ) : data.bias_alignment.verdict === 'unknown' ? (
+                              <>No timeframe has enough history for a structural read.</>
+                            ) : (
+                              <>All {data.bias_alignment.usable} readable timeframes point <span className={`font-semibold ${data.bias_alignment.verdict === 'bullish' ? 'text-success' : 'text-danger'}`}>{data.bias_alignment.verdict}</span>.</>
+                            )}
+                          </p>
+                        ) : null}
+                      </>
+                    )}
                   </SectionCard>
 
                   <SectionCard title="Killzone + draw on liquidity">
@@ -458,6 +480,15 @@ export function KillzoneScannerPage() {
                     </div>
                   )}
                 </SectionCard>
+
+                <KillzoneChart
+                  symbol={data.symbol}
+                  ltf={ltf}
+                  candidates={data.candidates}
+                  liquidity={data.htf_liquidity_targets}
+                  fvgs={data.recent_unmitigated_fvgs}
+                  focusedIndex={focusedIndex}
+                />
 
                 <p className="text-[10.5px] text-muted">{data.disclaimer}</p>
               </>

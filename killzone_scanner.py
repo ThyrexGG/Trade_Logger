@@ -275,6 +275,118 @@ def _confluence(candidate: Dict[str, Any]) -> Dict[str, Any]:
     return {"confluence_score": sum(1 for f in factors if f["met"]), "confluence_factors": factors}
 
 
+# Bias ladder. `calculate_market_structure` needs enough bars to confirm two
+# swings at its 5-bar-each-side lookback; below this a "bias" would be one
+# swing's noise wearing a label, so the rung is reported as insufficient
+# instead of guessed.
+_BIAS_LADDER_TFS = ("15m", "1h", "4h", "1d")
+_MIN_BARS_FOR_STRUCTURE = 24
+
+# How many 1h bars to pull so the resampled rungs have real depth: 1500 hours
+# is ~62 calendar days, which survives weekends/holidays to leave ~60 daily
+# bars and ~370 4h bars. Yahoo's 1h window is far wider than this, so it costs
+# one request, not a fallback.
+_LADDER_1H_COUNT = 1500
+
+_RESAMPLE_RULE = {"4h": "4h", "1d": "1D"}
+
+
+def _resample(df: pd.DataFrame, rule: str) -> pd.DataFrame:
+    """Aggregate 1h candles into a higher timeframe.
+
+    `market_data.get_realtime_candles` has no real 4h — it silently serves 1h
+    bars for a "4h" request — and its daily path caps at roughly a month,
+    which is too few bars to confirm two swings. Both rungs are therefore
+    built here from 1h bars rather than requested from the feed, so a "4h
+    bias" on screen is genuinely 4h.
+    """
+    if df.empty:
+        return df
+    work = df.copy()
+    # Candle times are epoch seconds, but tolerate milliseconds defensively.
+    unit = "ms" if work["time"].max() > 1e12 else "s"
+    work["_ts"] = pd.to_datetime(work["time"], unit=unit, utc=True)
+    work = work.set_index("_ts")
+
+    agg: Dict[str, str] = {"open": "first", "high": "max", "low": "min", "close": "last"}
+    if "volume" in work.columns:
+        agg["volume"] = "sum"
+
+    out = (
+        work.resample(rule, label="left", closed="left")
+        .agg(agg)
+        .dropna(subset=["open", "high", "low", "close"])
+        .reset_index()
+    )
+    if out.empty:
+        return out
+    # `.astype("int64")` on a tz-aware column does not round-trip to epoch
+    # reliably across pandas versions; Timestamp.timestamp() always does.
+    out["time"] = out["_ts"].map(lambda t: int(t.timestamp()))
+    return out.drop(columns=["_ts"]).sort_values("time").reset_index(drop=True)
+
+
+def _bias_from_structure(structure: Dict[str, Any]) -> str:
+    trend = structure.get("trend", "") or ""
+    if "Bullish" in trend:
+        return "bullish"
+    if "Bearish" in trend:
+        return "bearish"
+    return "neutral"
+
+
+def _bias_rung(timeframe: str, df: Optional[pd.DataFrame]) -> Dict[str, Any]:
+    """One row of the bias ladder. Reports `sufficient: False` rather than a
+    fabricated bias when there aren't enough bars to confirm structure."""
+    bars = 0 if df is None or df.empty else int(len(df))
+    if bars < _MIN_BARS_FOR_STRUCTURE:
+        return {
+            "timeframe": timeframe,
+            "bias": "unknown",
+            "bars": bars,
+            "sufficient": False,
+            "recent_sequence": None,
+            "last_break": None,
+            "last_swing_high": None,
+            "last_swing_low": None,
+        }
+    structure = market_data.calculate_market_structure(df)
+    return {
+        "timeframe": timeframe,
+        "bias": _bias_from_structure(structure),
+        "bars": bars,
+        "sufficient": True,
+        "recent_sequence": structure.get("recent_sequence"),
+        "last_break": structure.get("last_break"),
+        "last_swing_high": structure.get("last_swing_high"),
+        "last_swing_low": structure.get("last_swing_low"),
+    }
+
+
+def _bias_alignment(ladder: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Plain count of which way the usable rungs point. Not a score and not a
+    recommendation — 4 aligned timeframes is a description of the chart, not
+    evidence the next move continues."""
+    usable = [r for r in ladder if r["sufficient"] and r["bias"] in ("bullish", "bearish")]
+    bulls = sum(1 for r in usable if r["bias"] == "bullish")
+    bears = sum(1 for r in usable if r["bias"] == "bearish")
+    if not usable:
+        verdict = "unknown"
+    elif bulls and bears:
+        verdict = "mixed"
+    elif bulls:
+        verdict = "bullish"
+    else:
+        verdict = "bearish"
+    return {
+        "verdict": verdict,
+        "bullish": bulls,
+        "bearish": bears,
+        "usable": len(usable),
+        "total": len(ladder),
+    }
+
+
 def scan(symbol: str = "USDJPY", ltf: str = "15m", htf: str = "1h",
          ltf_count: int = 400, htf_count: int = 300) -> Dict[str, Any]:
     """The one entry point the API router calls. Always returns a dict shaped
@@ -295,14 +407,43 @@ def scan(symbol: str = "USDJPY", ltf: str = "15m", htf: str = "1h",
 
     try:
         ltf_candles, ltf_source = market_data.get_candles_with_source(sym, ltf, ltf_count, ttl_sec=30)
-        htf_candles, htf_source = market_data.get_candles_with_source(sym, htf, htf_count, ttl_sec=300)
+        # One deep 1h pull serves three purposes: the primary bias (its most
+        # recent `htf_count` bars are exactly what a count=htf_count request
+        # would have returned, so that surface is unchanged), and the 4h/1d
+        # rungs, which are resampled from it because the feed can't serve
+        # either honestly.
+        base_candles, htf_source = market_data.get_candles_with_source(
+            sym, htf, max(htf_count, _LADDER_1H_COUNT), ttl_sec=300
+        )
     except Exception as exc:
         return {"ok": False, "symbol": sym.upper(), "error": f"Data fetch failed: {exc}", "timestamp": now_iso}
 
     ltf_df = _candles_to_df(ltf_candles)
-    htf_df = _candles_to_df(htf_candles)
-    if ltf_df.empty or htf_df.empty:
+    base_df = _candles_to_df(base_candles)
+    if ltf_df.empty or base_df.empty:
         return {"ok": False, "symbol": sym.upper(), "error": "No candle data available for that symbol.", "timestamp": now_iso}
+
+    htf_df = base_df.tail(htf_count).reset_index(drop=True)
+
+    # Bias ladder: 15m and 1h come straight from the feed; 4h and 1d are
+    # resampled from the deep 1h pull.
+    try:
+        if ltf == "15m":
+            ladder_15m = ltf_df
+        else:
+            m15_candles, _ = market_data.get_candles_with_source(sym, "15m", 400, ttl_sec=60)
+            ladder_15m = _candles_to_df(m15_candles)
+    except Exception:
+        ladder_15m = pd.DataFrame()
+
+    ladder_frames = [
+        ("15m", ladder_15m),
+        ("1h", base_df),
+        ("4h", _resample(base_df, _RESAMPLE_RULE["4h"])),
+        ("1d", _resample(base_df, _RESAMPLE_RULE["1d"])),
+    ]
+    bias_ladder = [_bias_rung(tf, frame) for tf, frame in ladder_frames]
+    bias_alignment = _bias_alignment(bias_ladder)
 
     htf_structure = market_data.calculate_market_structure(htf_df)
     htf_liquidity = market_data.calculate_liquidity_zones(htf_df)
@@ -329,6 +470,8 @@ def scan(symbol: str = "USDJPY", ltf: str = "15m", htf: str = "1h",
         "htf_bias": htf_bias,
         "htf_structure": htf_structure,
         "htf_liquidity_targets": htf_liquidity,
+        "bias_ladder": bias_ladder,
+        "bias_alignment": bias_alignment,
         "current_killzone": market_data.detect_active_killzone(),
         "candidates": candidates[:30],
         "recent_unmitigated_fvgs": market_data.detect_fvgs(ltf_df),
