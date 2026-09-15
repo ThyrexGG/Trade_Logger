@@ -19,6 +19,19 @@ history, instead of trusting the web app's numbers on faith.
    displacement, max bars from sweep to shift, the killzone filter, and the
    backtest target's risk multiple. Nothing is hardcoded.
 
+## Verify position sizing before trusting any result
+
+Before reading anything into a backtest's PnL or drawdown, sanity-check that
+risk is actually being sized correctly: open the **List of Trades** tab in
+Strategy Tester, click on any *losing* trade, and check its P&L in dollars.
+It should be roughly `riskPercent% × your account size` (e.g. ~$50 on a $5K
+account at 1% risk) — if it's a tiny fraction of that (drawdown that looks
+"too good to be true" is the tell), position sizing isn't actually risking
+what you set, usually a currency/point-value quirk of that specific
+instrument's data feed. This has already bitten this script once (fixed by
+using `syminfo.pointvalue` in the sizing formula) — it's cheap to re-check
+any time you switch symbols, since different feeds can behave differently.
+
 ## Changing risk per trade
 
 **Settings (gear icon) → Inputs → "Risk % of equity per trade"** (under the

@@ -147,10 +147,20 @@ drawPlan(entryLevel, stopLevel, targetLevel) =>
 // Position size from risk, not a flat contract count: qty such that a stop-
 // out costs exactly riskPercent% of CURRENT equity (equity compounds trade
 // to trade, same as the web app's own risk-of-ruin sizing logic elsewhere
-// in this project). riskDist is in price units, so equity($) x risk% /
-// riskDist($) = units of the instrument that make that true.
+// in this project).
+//
+// riskDist is a raw PRICE difference (e.g. ~0.3 for a USDJPY stop) -- that
+// is NOT the same as a dollar amount. syminfo.pointvalue is how much money
+// one full point of price movement is worth for one unit/contract of this
+// specific instrument, so dividing by (riskDist * pointvalue) instead of
+// riskDist alone is what actually converts "risk this many dollars" into
+// "trade this much quantity," correctly for a forex pair, a future, or a
+// stock alike. Leaving pointvalue out (as an earlier version of this script
+// did) silently mis-sizes every trade on any instrument where one point
+// isn't worth exactly $1 per unit -- which showed up as a backtest with an
+// unrealistically tiny drawdown, not an error, so it's easy to miss.
 riskSize(riskDist) =>
-    (strategy.equity * riskPercent / 100) / riskDist
+    (strategy.equity * riskPercent / 100) / (riskDist * syminfo.pointvalue)
 
 if bullishCandidate
     stopLevel  = sslSweepLevel
