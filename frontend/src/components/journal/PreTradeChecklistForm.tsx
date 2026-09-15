@@ -40,6 +40,12 @@ function ratioTone(ratio: number): string {
   return 'text-positive'
 }
 
+function biasTone(bias: string): string {
+  if (bias === 'bullish') return 'text-positive'
+  if (bias === 'bearish') return 'text-negative'
+  return 'text-muted'
+}
+
 export interface ChecklistPrefill {
   /** Bumped every time a new prefill should be applied, even if the field
    * values happen to match the previous prefill (e.g. two candidates with
@@ -51,6 +57,12 @@ export interface ChecklistPrefill {
   stopLoss?: number
   takeProfit?: number
   note?: string
+  /** Read-only context carried over from the Killzone Scanner — shown as
+   * reference underneath the plan fields, not mirrored into any editable
+   * form state (there's nothing to edit; it's what the scan actually saw). */
+  htfBias?: 'bullish' | 'bearish' | 'neutral'
+  htfTrend?: string
+  keyLevel?: { label: string; price: number }
 }
 
 /**
@@ -288,6 +300,26 @@ export function PreTradeChecklistForm({ prefill }: { prefill?: ChecklistPrefill 
               </span>{' '}
               used
             </p>
+          </div>
+        ) : null}
+
+        {prefill?.htfBias || prefill?.keyLevel ? (
+          <div className="mt-3 rounded-lg border border-border-subtle bg-surface-elevated/40 p-2.5 text-[11px]">
+            <p className="text-muted">From the Killzone Scanner, at the time this was planned:</p>
+            {prefill.htfBias ? (
+              <p className="mt-1">
+                HTF bias{' '}
+                <span className={`font-semibold uppercase ${biasTone(prefill.htfBias)}`}>{prefill.htfBias}</span>
+                {prefill.htfTrend ? <span className="text-muted"> — {prefill.htfTrend}</span> : null}
+              </p>
+            ) : null}
+            {prefill.keyLevel ? (
+              <p className="mt-1">
+                Key level to watch:{' '}
+                <span className="font-mono font-semibold text-primary">{prefill.keyLevel.price}</span>{' '}
+                <span className="text-muted">({prefill.keyLevel.label})</span>
+              </p>
+            ) : null}
           </div>
         ) : null}
 

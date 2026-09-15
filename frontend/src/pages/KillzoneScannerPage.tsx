@@ -200,6 +200,14 @@ export function KillzoneScannerPage() {
       stopLoss: c.sweep_level,
       takeProfit: c.potential_target ?? undefined,
       note: `From Killzone Scanner: ${c.direction} sweep+shift in ${c.killzone}, ${c.agrees_with_htf_bias ? 'agreeing with' : 'conflicting with'} the 1h bias. Confluence ${c.confluence_score}/5 (${confluenceTooltip(c)}).`,
+      htfBias: data?.htf_bias ?? undefined,
+      htfTrend: data?.htf_structure?.recent_sequence || data?.htf_structure?.last_break || undefined,
+      keyLevel: c.potential_target != null
+        ? {
+            label: c.direction === 'bullish' ? 'nearest BSL — draw on liquidity' : 'nearest SSL — draw on liquidity',
+            price: c.potential_target,
+          }
+        : undefined,
     })
     setTab('plan')
   }
