@@ -162,11 +162,22 @@ export function KillzoneChart({
     if (candles.length) chartRef.current?.timeScale().fitContent()
   }, [candles])
 
-  // sweep + shift markers, one pair per candidate — the price rides along in
-  // the label so a glance at the chart tells you the level, not just the
-  // shape. The focused candidate (hovered in the table) is drawn in the full
-  // direction color at full opacity; every other one dims to a muted grey so
-  // it doesn't compete for attention.
+  // All markers on the series in one place — lightweight-charts' setMarkers()
+  // replaces the whole marker set on every call, so sweep/shift and FVG
+  // markers have to be built together rather than in separate effects.
+  //
+  // Sweep + shift: one pair per candidate, price riding along in the label so
+  // a glance tells you the level, not just the shape. The focused candidate
+  // (hovered in the table) draws at full direction color; every other one
+  // dims to muted grey so it doesn't compete for attention.
+  //
+  // FVG: a small circle marker sits on the *specific candle* that confirmed
+  // the gap — detect_fvgs() (market_data.py) finds a 3-candle imbalance (a
+  // displacement candle whose neighbors' wicks don't overlap) and records
+  // `creation_time` as the third candle's — the one whose close confirmed the
+  // gap exists, not the displacement candle itself. The price lines below
+  // show where the gap sits; this marker shows exactly which candle made it
+  // one, which a bare horizontal line can't.
   useEffect(() => {
     const s = seriesRef.current
     if (!s) return
@@ -194,9 +205,20 @@ export function KillzoneChart({
         size: focused ? 1.6 : 1,
       })
     })
+    fvgs.forEach((f) => {
+      const bullish = f.type === 'Bullish'
+      markers.push({
+        time: f.creation_time as Time,
+        position: 'inBar',
+        color: bullish ? t.up : t.down,
+        shape: 'circle',
+        text: `FVG confirmed ${f.bottom}–${f.top}`,
+        size: 0.8,
+      })
+    })
     markers.sort((a, b) => (a.time as number) - (b.time as number))
     s.setMarkers(markers)
-  }, [candidates, focusedIndex])
+  }, [candidates, fvgs, focusedIndex])
 
   // liquidity levels + FVG boundaries as horizontal price lines, each labelled
   // with its actual price so the axis (and hover tooltip) reads like a real
@@ -312,6 +334,7 @@ export function KillzoneChart({
         <span className="text-negative">- - BSL</span>
         <span className="text-positive">- - SSL</span>
         <span>dotted = unmitigated FVG</span>
+        <span>● = candle that confirmed the FVG</span>
         <span>hover a row below to highlight it here — solid lines preview its entry/stop</span>
       </div>
     </div>

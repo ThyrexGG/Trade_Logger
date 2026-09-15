@@ -63,7 +63,9 @@ function buildMarkdown(data: KillzoneScanResponse, ltf: string): string {
   if (data.recent_unmitigated_fvgs.length === 0) {
     lines.push('- none currently')
   } else {
-    data.recent_unmitigated_fvgs.forEach((f) => lines.push(`- ${f.type} ${f.bottom}–${f.top}`))
+    data.recent_unmitigated_fvgs.forEach((f) =>
+      lines.push(`- ${f.type} ${f.bottom}–${f.top} — confirmed ${fmtTime(f.creation_time)} (${f.age_candles} candles ago)`),
+    )
   }
   lines.push('')
   lines.push(`_Pattern-flagging only, not a signal — data source: ${data.ltf_source ?? 'unknown'} / ${data.htf_source ?? 'unknown'}._`)
@@ -387,7 +389,10 @@ export function KillzoneScannerPage() {
                   )}
                 </SectionCard>
 
-                <SectionCard title="Unmitigated fair value gaps" info="Untested FVGs on the entry timeframe — a common place a sweep+MSS entry retraces into. Not filtered by direction or recency beyond the most recent few.">
+                <SectionCard
+                  title="Unmitigated fair value gaps"
+                  info="Untested FVGs on the entry timeframe — a common place a sweep+MSS entry retraces into. Not filtered by direction or recency beyond the most recent few. Each gap spans three candles: a displacement candle whose neighbors' wicks don't overlap; the time shown is the third candle — the one whose close confirmed the gap exists, marked as a circle on the chart above — not the displacement candle itself."
+                >
                   {data.recent_unmitigated_fvgs.length === 0 ? (
                     <p className="text-xs text-muted">None currently unmitigated.</p>
                   ) : (
@@ -399,7 +404,7 @@ export function KillzoneScannerPage() {
                             f.type === 'Bullish' ? 'border-positive/30 text-positive' : 'border-negative/30 text-negative'
                           }`}
                         >
-                          {f.bottom}–{f.top}
+                          {f.bottom}–{f.top} <span className="text-muted">· confirmed {fmtTime(f.creation_time)} · {f.age_candles} candles ago</span>
                         </span>
                       ))}
                     </div>
