@@ -48,6 +48,39 @@ it (`riskSize(riskDist) => (strategy.equity * riskPercent / 100) /
 List-of-Trades check below after switching symbols; don't assume either
 version is correct until you've verified a real loss matches your risk %.
 
+## The two optional confluence filters (both default OFF)
+
+Added because they're the two things most often suggested to "fix" a sweep+MSS
+strategy that isn't working. Both are real implementations, and both default to
+off so the baseline stays exactly what it was — **turn one on, re-run the same
+date range, and compare against the baseline you already have.** Adding filters
+until a backtest looks good is the single easiest way to overfit, which is what
+the out-of-sample table above exists to catch.
+
+**Fib / OTE entry** (`useFibFilter`). This one is not a filter, it's a
+*different entry mechanic*: instead of a market order the instant the MSS
+confirms, it places a **limit order** back inside the retracement zone of the
+sweep→breakout leg (`fibLevel`, default 0.705 — the midpoint of the classic
+61.8%–79% "optimal trade entry" zone) and waits for price to pull back into it.
+If price never retraces, the order never fills and is cancelled after
+`oteMaxWaitBars`. Expect **fewer trades with better R:R per trade** — whether
+that nets out better is exactly what you're testing. A market entry at the
+breakout and a limit entry at a retracement are two different strategies, so
+compare them as such.
+
+**Fixed Range Volume Profile** (`useVpFilter`). Builds a volume histogram over
+the trailing `vpLookback` bars, buckets it into `vpBins` price levels, finds the
+point of control (highest-volume bucket), and only allows the trade if entry
+sits within `vpTolerance` × ATR of it. **The forex caveat matters here:**
+TradingView's `volume` on spot FX is the broker's *tick count*, not real traded
+volume — spot FX has no central tape, so no feed can report true volume. A
+profile built from it shows where price spent active time, not where
+institutional size traded, which is what people assume they're reading. This
+project's own research tested tick-volume filters on FX pairs directly and found
+they generally didn't help and sometimes hurt. This filter is likely more
+meaningful on instruments with genuine reported volume (futures, crypto) than on
+FX.
+
 ## The real research process: development → out-of-sample → forward test → live
 
 A single backtest number, however good, tells you almost nothing on its

@@ -58,6 +58,19 @@ riskPercent    = input.float(1.0, "Risk % of equity per trade", minval = 0.01, s
 maxLeverage    = input.float(200, "Max account leverage (a real broker's limit)", minval = 1, group = grp3,
      tooltip = "Caps position size to what this leverage can actually fund (e.g. 30 = a position worth at most 30x your equity). Backtesting has no margin limit by default -- on a tight-stop pair, risk-based sizing can call for a position worth millions on a 5K account, which no real broker allows. When the risk-sized quantity would need more leverage than this, size is capped here instead, so realized risk on a very tight stop may land under riskPercent -- that's the honest, fundable number, not a bug.")
 
+grp6 = "Fib / OTE entry filter (optional, default off)"
+useFibFilter = input.bool(false, "Wait for a retracement into an OTE zone before entering (changes market entry to a limit order)", group = grp6,
+     tooltip = "This is not just an added filter -- it changes HOW the trade is entered. Instead of entering the instant the MSS confirms, it places a LIMIT order back inside the 'Optimal Trade Entry' retracement zone of the sweep-to-breakout leg and waits for price to pull back into it, same as real ICT OTE entries. If price never pulls back, the order simply never fills. Compare this ON vs OFF on the exact same data before trusting either -- a market entry at breakout and a limit entry at a retracement are two different strategies, not one strategy with a knob.")
+fibLevel = input.float(0.705, "OTE retracement level (0.618-0.79 is the classic zone; 0.705 is its midpoint)", minval = 0.0, maxval = 0.99, step = 0.005, group = grp6)
+oteMaxWaitBars = input.int(10, "Cancel the pending entry if it hasn't filled within this many bars", minval = 1, group = grp6)
+
+grp7 = "Fixed Range Volume Profile confluence filter (optional, default off)"
+useVpFilter = input.bool(false, "Require entry near a high-volume node (Fixed Range Volume Profile)", group = grp7,
+     tooltip = "Builds a volume histogram over the trailing lookback window and only allows the trade if its entry price sits within tolerance of the point of control (the highest-volume price bucket). CAUTION on forex: TradingView's 'volume' on spot FX pairs is broker TICK COUNT, not real traded volume -- there is no central tape for spot FX. This project's own past research tested tick-volume-based filters on FX pairs directly and found they generally did not help, and sometimes hurt. Test this with real skepticism, not an assumption it will improve results; it may matter more on genuinely volume-reported instruments (futures, crypto) than on FX.")
+vpLookback  = input.int(50, "Lookback bars for the volume profile", minval = 10, group = grp7)
+vpBins      = input.int(24, "Number of price buckets", minval = 5, maxval = 100, group = grp7)
+vpTolerance = input.float(0.5, "Max distance from the point of control, in x ATR", minval = 0.05, step = 0.05, group = grp7)
+
 // ---- Swing points -------------------------------------------------------
 // ta.pivothigh/pivotlow confirm `swingLookback` bars AFTER the actual pivot
 // bar, the same lag killzone_scanner.py's centered rolling-window swing
@@ -183,26 +196,92 @@ riskSize(riskDist) =>
 // before the next one is considered -- one candidate, one full trade.
 flat = strategy.position_size == 0
 
+// ---- Fixed Range Volume Profile confluence (optional) --------------------
+// Builds a volume histogram over the trailing `vpLookback` bars, splits that
+// price range into `vpBins` buckets, and finds the point of control (the
+// highest-volume bucket). The trade is only allowed if its entry price sits
+// within `vpTolerance` x ATR of that POC.
+//
+// IMPORTANT, and the reason this defaults to OFF: on spot forex,
+// TradingView's `volume` is the broker's TICK COUNT, not real traded volume
+// -- spot FX has no central tape, so no feed can report true volume. A
+// profile built from tick counts measures where price spent active time, not
+// where institutional size actually traded, which is what people assume a
+// volume profile shows. This project's own research tested tick-volume
+// filters on FX pairs directly and found they generally did not help and
+// sometimes actively hurt, so treat any improvement here as a hypothesis to
+// disprove out-of-sample, not a confirmation.
+vpOk(entryLevel) =>
+    ok = true
+    if useVpFilter
+        hi = ta.highest(high, vpLookback)
+        lo = ta.lowest(low, vpLookback)
+        if hi > lo
+            binSize = (hi - lo) / vpBins
+            volBins = array.new_float(vpBins, 0.0)
+            for i = 0 to vpLookback - 1
+                binIdx = math.floor((hl2[i] - lo) / binSize)
+                binIdx := math.max(0, math.min(vpBins - 1, binIdx))
+                array.set(volBins, binIdx, array.get(volBins, binIdx) + nz(volume[i]))
+            pocIdx   = array.indexof(volBins, array.max(volBins))
+            pocPrice = lo + (pocIdx + 0.5) * binSize
+            ok := math.abs(entryLevel - pocPrice) <= vpTolerance * atrVal
+    ok
+
+// ---- Pending OTE limit orders (optional) ---------------------------------
+// With the fib filter on, entry becomes a limit order at the retracement
+// level instead of a market order at the breakout, so an order can sit
+// unfilled if price never pulls back. These track when each was placed so a
+// stale one gets cancelled rather than lurking indefinitely.
+var int longPendingBar  = na
+var int shortPendingBar = na
+
+if strategy.position_size != 0
+    longPendingBar  := na
+    shortPendingBar := na
+
+if useFibFilter and flat
+    if not na(longPendingBar) and (bar_index - longPendingBar) > oteMaxWaitBars
+        strategy.cancel("Long")
+        longPendingBar := na
+    if not na(shortPendingBar) and (bar_index - shortPendingBar) > oteMaxWaitBars
+        strategy.cancel("Short")
+        shortPendingBar := na
+
 if bullishCandidate
-    stopLevel  = sslSweepLevel
-    entryLevel = close
+    stopLevel     = sslSweepLevel
+    breakoutLevel = close
+    legRange      = breakoutLevel - stopLevel
+    // With the fib filter on, enter on a pullback into the OTE zone of the
+    // sweep->breakout leg instead of at the breakout close itself.
+    entryLevel = useFibFilter and legRange > 0 ? breakoutLevel - legRange * fibLevel : breakoutLevel
     riskDist   = entryLevel - stopLevel
-    if riskDist > 0
+    if riskDist > 0 and vpOk(entryLevel)
         targetLevel = entryLevel + riskDist * rrMultiple
         drawPlan(entryLevel, stopLevel, targetLevel)
         if enableBacktest and flat
-            strategy.entry("Long", strategy.long, qty = riskSize(riskDist))
+            if useFibFilter
+                strategy.entry("Long", strategy.long, qty = riskSize(riskDist), limit = entryLevel)
+                longPendingBar := bar_index
+            else
+                strategy.entry("Long", strategy.long, qty = riskSize(riskDist))
             strategy.exit("Long exit", from_entry = "Long", stop = stopLevel, limit = targetLevel)
 
 if bearishCandidate
-    stopLevel  = bslSweepLevel
-    entryLevel = close
+    stopLevel     = bslSweepLevel
+    breakoutLevel = close
+    legRange      = stopLevel - breakoutLevel
+    entryLevel = useFibFilter and legRange > 0 ? breakoutLevel + legRange * fibLevel : breakoutLevel
     riskDist   = stopLevel - entryLevel
-    if riskDist > 0
+    if riskDist > 0 and vpOk(entryLevel)
         targetLevel = entryLevel - riskDist * rrMultiple
         drawPlan(entryLevel, stopLevel, targetLevel)
         if enableBacktest and flat
-            strategy.entry("Short", strategy.short, qty = riskSize(riskDist))
+            if useFibFilter
+                strategy.entry("Short", strategy.short, qty = riskSize(riskDist), limit = entryLevel)
+                shortPendingBar := bar_index
+            else
+                strategy.entry("Short", strategy.short, qty = riskSize(riskDist))
             strategy.exit("Short exit", from_entry = "Short", stop = stopLevel, limit = targetLevel)
 
 alertcondition(bullishCandidate, title = "Bullish sweep+MSS", message = "Bullish liquidity sweep + MSS candidate")
