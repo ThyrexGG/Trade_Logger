@@ -31,8 +31,15 @@ function chartTheme() {
   }
 }
 
-/** Rough bar duration in seconds per entry timeframe — only used to pad the
- *  auto-scroll window around a focused candidate, so an approximation is fine. */
+/** View-only timeframe options for the chart itself — independent of the
+ *  scan's own "entry timeframe". Changing this re-fetches a different candle
+ *  series for display; it never re-runs the scan or changes what counts as
+ *  a candidate. */
+const VIEW_TF_OPTIONS = ['1m', '5m', '15m', '1h']
+const HISTORY_OPTIONS = [150, 300, 500, 800]
+
+/** Rough bar duration in seconds per timeframe — used to pad the auto-scroll
+ *  window around a focused candidate, so an approximation is fine. */
 const BAR_SECONDS: Record<string, number> = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600 }
 
 interface Ohlc {
@@ -43,15 +50,48 @@ interface Ohlc {
   close: number
 }
 
+/** The last candle at or before `ts`, so an event detected on one timeframe
+ *  (the scan's) can still be placed correctly on a *different* timeframe's
+ *  candles when the chart's own view is switched — lightweight-charts marks
+ *  a marker only at an exact bar time, and a 1m sweep's timestamp won't
+ *  exist as a bar boundary on a 15m series otherwise. */
+function nearestBarTime(candles: Candle[], ts: number): number {
+  let result = candles[0]?.time ?? ts
+  for (const c of candles) {
+    if (c.time <= ts) result = c.time
+    else break
+  }
+  return result
+}
+
+/** A flat line of points spanning the loaded candles at a single price —
+ *  invisible on screen, its only job is to nudge this pane's price-scale
+ *  autoscale to include a level the candlestick series itself never touches.
+ *  Liquidity targets are, by definition, often *outside* the current price
+ *  action (that's the whole point of "draw on liquidity") — without this,
+ *  the dashed/solid lines marking them can end up scrolled off the top or
+ *  bottom of the visible range with no way to tell they're there. */
+function flatLine(candles: Candle[], value: number): { time: Time; value: number }[] {
+  if (candles.length === 0) return []
+  const step = Math.max(1, Math.floor(candles.length / 12))
+  const pts: { time: Time; value: number }[] = []
+  for (let i = 0; i < candles.length; i += step) pts.push({ time: candles[i].time as Time, value })
+  const last = candles[candles.length - 1]
+  if (pts[pts.length - 1]?.time !== last.time) pts.push({ time: last.time as Time, value })
+  return pts
+}
+
 /**
- * The same candles the scanner analyzed, with its findings drawn on top:
- * sweep + shift markers per candidate (price value in the label), BSL/SSL
- * liquidity levels, and unmitigated FVG boundaries — all labelled with their
- * actual price. Hovering a row in the candidates table (via `focusedIndex`)
- * highlights that candidate's pair on the chart, previews its entry/stop as
- * price lines, and scrolls it into view. Purely visual context — nothing here
- * is computed independently of the scan response, and nothing is clickable
- * into an order path.
+ * The scanner's findings drawn on the actual candles: sweep + shift markers
+ * per candidate (price value in the label), BSL/SSL liquidity levels, and
+ * unmitigated FVG boundaries plus a marker on the confirming candle. The
+ * chart's own timeframe/history are independently adjustable (top-right) so
+ * you can zoom out for context without re-running the scan; events are
+ * re-snapped onto whichever candles are currently loaded. Hovering a row in
+ * the candidates table (via `focusedIndex`) highlights that candidate's
+ * pair, previews its entry/stop/target as price lines, and scrolls it into
+ * view. Purely visual context — nothing here is computed independently of
+ * the scan response, and nothing is clickable into an order path.
  */
 export function KillzoneChart({
   symbol,
@@ -60,7 +100,7 @@ export function KillzoneChart({
   liquidity,
   fvgs,
   focusedIndex = null,
-  height = 340,
+  height = 400,
 }: {
   symbol: string
   ltf: string
@@ -75,6 +115,14 @@ export function KillzoneChart({
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const linesRef = useRef<IPriceLine[]>([])
   const focusLinesRef = useRef<IPriceLine[]>([])
+  const hintSeriesRef = useRef<ISeriesApi<'Line'>[]>([])
+
+  // The chart's own view — defaults to match the scan, but is independently
+  // adjustable. Re-syncs to the scan's timeframe whenever a genuinely new
+  // scan configuration comes in.
+  const [viewTf, setViewTf] = useState(ltf)
+  const [count, setCount] = useState(300)
+  useEffect(() => setViewTf(ltf), [ltf])
 
   const [candles, setCandles] = useState<Candle[]>([])
   const [loading, setLoading] = useState(false)
@@ -88,7 +136,7 @@ export function KillzoneChart({
     if (!boxRef.current) return
     const t = chartTheme()
     const chart = createChart(boxRef.current, {
-      layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: t.text, fontSize: 11 },
+      layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: t.text, fontSize: 12 },
       grid: { vertLines: { color: t.grid }, horzLines: { color: t.grid } },
       rightPriceScale: { borderColor: t.grid },
       timeScale: { borderColor: t.grid, timeVisible: true, secondsVisible: false },
@@ -123,15 +171,16 @@ export function KillzoneChart({
       seriesRef.current = null
       linesRef.current = []
       focusLinesRef.current = []
+      hintSeriesRef.current = []
     }
   }, [])
 
-  // fetch the same candles the scan itself just looked at
+  // fetch candles for the chart's own view (independent of the scan's ltf)
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setError(null)
-    getCandles(symbol, ltf, 200)
+    getCandles(symbol, viewTf, count)
       .then((r) => {
         if (cancelled) return
         setCandles(r.candles)
@@ -148,7 +197,7 @@ export function KillzoneChart({
     return () => {
       cancelled = true
     }
-  }, [symbol, ltf])
+  }, [symbol, viewTf, count])
 
   // candle data
   useEffect(() => {
@@ -164,7 +213,10 @@ export function KillzoneChart({
 
   // All markers on the series in one place — lightweight-charts' setMarkers()
   // replaces the whole marker set on every call, so sweep/shift and FVG
-  // markers have to be built together rather than in separate effects.
+  // markers have to be built together rather than in separate effects. Every
+  // event's original timestamp is snapped onto the nearest loaded bar, so
+  // switching the chart's view timeframe never leaves a marker stranded
+  // between candles.
   //
   // Sweep + shift: one pair per candidate, price riding along in the label so
   // a glance tells you the level, not just the shape. The focused candidate
@@ -172,15 +224,12 @@ export function KillzoneChart({
   // dims to muted grey so it doesn't compete for attention.
   //
   // FVG: a small circle marker sits on the *specific candle* that confirmed
-  // the gap — detect_fvgs() (market_data.py) finds a 3-candle imbalance (a
-  // displacement candle whose neighbors' wicks don't overlap) and records
-  // `creation_time` as the third candle's — the one whose close confirmed the
-  // gap exists, not the displacement candle itself. The price lines below
-  // show where the gap sits; this marker shows exactly which candle made it
-  // one, which a bare horizontal line can't.
+  // the gap — detect_fvgs() (market_data.py) finds a 3-candle imbalance and
+  // records `creation_time` as the third candle's, the one whose close
+  // confirmed the gap exists, not the displacement candle itself.
   useEffect(() => {
     const s = seriesRef.current
-    if (!s) return
+    if (!s || candles.length === 0) return
     const t = chartTheme()
     const markers: SeriesMarker<Time>[] = []
     candidates.forEach((c, i) => {
@@ -189,26 +238,26 @@ export function KillzoneChart({
       const dimmed = focusedIndex != null && !focused
       const dirColor = below ? t.up : t.down
       markers.push({
-        time: c.sweep_time as Time,
+        time: nearestBarTime(candles, c.sweep_time) as Time,
         position: below ? 'belowBar' : 'aboveBar',
         color: dimmed ? 'rgba(139,149,165,0.35)' : t.text,
         shape: below ? 'arrowUp' : 'arrowDown',
         text: `Sweep ${c.sweep_level}`,
-        size: focused ? 1.6 : 1,
+        size: focused ? 1.8 : 1.2,
       })
       markers.push({
-        time: c.shift_time as Time,
+        time: nearestBarTime(candles, c.shift_time) as Time,
         position: below ? 'belowBar' : 'aboveBar',
         color: dimmed ? 'rgba(139,149,165,0.35)' : dirColor,
         shape: below ? 'arrowUp' : 'arrowDown',
         text: `MSS ${c.shift_level}`,
-        size: focused ? 1.6 : 1,
+        size: focused ? 1.8 : 1.2,
       })
     })
     fvgs.forEach((f) => {
       const bullish = f.type === 'Bullish'
       markers.push({
-        time: f.creation_time as Time,
+        time: nearestBarTime(candles, f.creation_time) as Time,
         position: 'inBar',
         color: bullish ? t.up : t.down,
         shape: 'circle',
@@ -218,7 +267,7 @@ export function KillzoneChart({
     })
     markers.sort((a, b) => (a.time as number) - (b.time as number))
     s.setMarkers(markers)
-  }, [candidates, fvgs, focusedIndex])
+  }, [candidates, fvgs, focusedIndex, candles])
 
   // liquidity levels + FVG boundaries as horizontal price lines, each labelled
   // with its actual price so the axis (and hover tooltip) reads like a real
@@ -256,8 +305,41 @@ export function KillzoneChart({
     }
   }, [liquidity, fvgs])
 
-  // the focused candidate previews as an actual entry/stop pair (shift level
-  // = entry reference, sweep level = stop reference — the same mapping
+  // Force the visible price range to actually include the nearest liquidity
+  // target on each side (and the focused candidate's target) whenever it
+  // would otherwise fall outside the candles' own range — see flatLine()'s
+  // comment. Without this, "draw on liquidity" is invisible whenever price
+  // hasn't approached it yet, which defeats the point of drawing it at all.
+  useEffect(() => {
+    const chart = chartRef.current
+    if (!chart || candles.length === 0) return
+    hintSeriesRef.current.forEach((hs) => chart.removeSeries(hs))
+    hintSeriesRef.current = []
+
+    const candleMin = Math.min(...candles.map((c) => c.low))
+    const candleMax = Math.max(...candles.map((c) => c.high))
+    const target = focusedIndex != null ? candidates[focusedIndex]?.potential_target ?? undefined : undefined
+    const nearestBsl = liquidity?.bsl?.[0]?.price
+    const nearestSsl = liquidity?.ssl?.[0]?.price
+
+    const above = [nearestBsl, target].filter((v): v is number => v != null && v > candleMax)
+    const below = [nearestSsl, target].filter((v): v is number => v != null && v < candleMin)
+    const extremes: number[] = []
+    if (above.length) extremes.push(Math.max(...above))
+    if (below.length) extremes.push(Math.min(...below))
+
+    extremes.forEach((value) => {
+      const hint = chart.addLineSeries({
+        color: 'transparent', lineVisible: false, lastValueVisible: false,
+        priceLineVisible: false, crosshairMarkerVisible: false,
+      })
+      hint.setData(flatLine(candles, value))
+      hintSeriesRef.current.push(hint)
+    })
+  }, [candles, liquidity, focusedIndex, candidates])
+
+  // the focused candidate previews as an actual entry/stop/target trio (shift
+  // level = entry reference, sweep level = stop reference — the same mapping
   // "Plan this" seeds into the checklist) and the view scrolls to it.
   useEffect(() => {
     const s = seriesRef.current
@@ -290,8 +372,8 @@ export function KillzoneChart({
       )
     }
 
-    if (chart) {
-      const pad = (BAR_SECONDS[ltf] ?? 900) * 12
+    if (chart && candles.length) {
+      const pad = (BAR_SECONDS[viewTf] ?? 900) * 12
       const from = Math.min(c.sweep_time, c.shift_time) - pad
       const to = Math.max(c.sweep_time, c.shift_time) + pad
       try {
@@ -300,26 +382,61 @@ export function KillzoneChart({
         /* range outside loaded data — leave the current view as-is */
       }
     }
-  }, [focusedIndex, candidates, ltf])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusedIndex, candidates, viewTf, candles.length])
+
+  const last = candles[candles.length - 1]
 
   return (
     <div className="rounded-lg border border-border bg-surface">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle px-3 py-2">
-        <div className="flex items-baseline gap-2">
+        <div className="flex flex-wrap items-baseline gap-2">
           <span className="font-mono text-sm font-semibold text-primary">{symbol}</span>
-          <span className="text-[10px] text-muted">{ltf} · sweeps, shifts &amp; liquidity marked</span>
-        </div>
-        <div className="flex items-center gap-3 text-[10px] text-muted">
+          {last ? <span className="font-mono text-sm tabular-nums text-secondary">{last.close}</span> : null}
           {hover ? (
-            <span className="font-mono tabular-nums">
-              O <span className="text-secondary">{hover.open}</span> H <span className="text-secondary">{hover.high}</span> L{' '}
-              <span className="text-secondary">{hover.low}</span> C <span className="text-secondary">{hover.close}</span>
+            <span className="font-mono text-[11px] tabular-nums text-muted">
+              O {hover.open} H {hover.high} L {hover.low} C {hover.close}
             </span>
           ) : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted">
           {liveness ? <span>{liveness}</span> : null}
           {source ? <span>{source}</span> : null}
+          <label className="flex items-center gap-1">
+            View
+            <select
+              value={viewTf}
+              onChange={(e) => setViewTf(e.target.value)}
+              className="rounded border border-border bg-background px-1.5 py-0.5 text-[11px] text-primary focus:border-accent focus:outline-none"
+            >
+              {VIEW_TF_OPTIONS.map((tf) => (
+                <option key={tf} value={tf}>{tf}</option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center gap-1">
+            History
+            <select
+              value={count}
+              onChange={(e) => setCount(Number(e.target.value))}
+              className="rounded border border-border bg-background px-1.5 py-0.5 text-[11px] text-primary focus:border-accent focus:outline-none"
+            >
+              {HISTORY_OPTIONS.map((n) => (
+                <option key={n} value={n}>{n} candles</option>
+              ))}
+            </select>
+          </label>
         </div>
       </div>
+
+      <p className="border-b border-border-subtle bg-surface-elevated/40 px-3 py-1.5 text-[11px] leading-snug text-secondary">
+        Read left to right: a <span className="font-semibold text-secondary">grey arrow</span> is where price briefly
+        broke a level then snapped back (a sweep); the <span className="font-semibold text-positive">colored arrow</span>{' '}
+        right after is where structure actually confirmed a reversal (MSS). The{' '}
+        <span className="font-semibold">dashed lines</span> are liquidity levels price tends to get drawn toward — even
+        when they're far from current price, the chart stretches to show them. Hover a row below to spotlight one
+        candidate and preview its entry (gold), stop (red) and target (green).
+      </p>
 
       <div className="relative" style={{ height }}>
         <div ref={boxRef} className="absolute inset-0" />
@@ -331,19 +448,18 @@ export function KillzoneChart({
         ) : null}
         {!loading && !error && candles.length === 0 ? (
           <div className="absolute inset-0 flex items-center justify-center text-xs text-muted">
-            No candle data for {symbol} at {ltf}.
+            No candle data for {symbol} at {viewTf}.
           </div>
         ) : null}
       </div>
 
-      <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-border-subtle px-3 py-1.5 text-[10px] text-muted">
-        <span>grey arrow = sweep</span>
-        <span><span className="text-positive">▲</span>/<span className="text-negative">▼</span> = structure shift</span>
-        <span className="text-negative">- - BSL</span>
-        <span className="text-positive">- - SSL</span>
-        <span>dotted = unmitigated FVG</span>
-        <span>● = candle that confirmed the FVG</span>
-        <span>hover a row below to highlight it here — solid lines preview its entry/stop</span>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 border-t border-border-subtle px-3 py-2 text-[10.5px] text-muted sm:grid-cols-3">
+        <span><span className="font-mono text-secondary">↑↓</span> grey = sweep</span>
+        <span><span className="text-positive">▲</span>/<span className="text-negative">▼</span> colored = structure shift</span>
+        <span><span className="text-negative">- -</span> red dashed = BSL (above)</span>
+        <span><span className="text-positive">- -</span> green dashed = SSL (below)</span>
+        <span>⋯ dotted = unmitigated FVG</span>
+        <span>● dot = candle that confirmed the FVG</span>
       </div>
     </div>
   )
