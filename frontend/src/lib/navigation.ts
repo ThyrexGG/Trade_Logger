@@ -127,17 +127,9 @@ const ALL_ZONES: Zone[] = [
         status: 'live',
       },
       {
-        id: 'workspace.pretrade-checklist',
-        label: 'Pre-Trade Checklist',
-        description: 'Log the plan before you enter — setup, R:R, thesis and a self-check — saved to the Journal.',
-        path: '/workspace/pre-trade-checklist',
-        icon: ShieldIcon,
-        status: 'live',
-      },
-      {
         id: 'workspace.killzone-scanner',
         label: 'Killzone Scanner',
-        description: 'Flags candidate liquidity-sweep + structure-shift events against the HTF bias and active ICT killzone. Pattern-flagging only, never a signal.',
+        description: 'Scan for candidate liquidity-sweep + structure-shift events, then log the plan before you enter — setup, R:R, thesis and a self-check — saved to the Journal.',
         path: '/workspace/killzone-scanner',
         icon: FlaskIcon,
         status: 'live',

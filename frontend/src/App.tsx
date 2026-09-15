@@ -31,7 +31,6 @@ const AnalyticsPage = page(() => import('./pages/AnalyticsPage'), 'AnalyticsPage
 const CommandCenterPage = page(() => import('./pages/CommandCenterPage'), 'CommandCenterPage')
 const AssistantPage = page(() => import('./pages/AssistantPage'), 'AssistantPage')
 const ChartAnalyzerPage = page(() => import('./pages/ChartAnalyzerPage'), 'ChartAnalyzerPage')
-const PreTradeChecklistPage = page(() => import('./pages/PreTradeChecklistPage'), 'PreTradeChecklistPage')
 const KillzoneScannerPage = page(() => import('./pages/KillzoneScannerPage'), 'KillzoneScannerPage')
 const JournalPage = page(() => import('./pages/JournalPage'), 'JournalPage')
 const SystemHealthPage = page(() => import('./pages/SystemHealthPage'), 'SystemHealthPage')
@@ -47,7 +46,6 @@ const LIVE_ITEM_PAGES: Record<string, ReactElement> = {
   'workspace.analytics': <AnalyticsPage />,
   'workspace.assistant': <AssistantPage />,
   'workspace.chart-analyzer': <ChartAnalyzerPage />,
-  'workspace.pretrade-checklist': <PreTradeChecklistPage />,
   'workspace.killzone-scanner': <KillzoneScannerPage />,
   'research.intelligence': <IntelligencePage />,
   'research.crypto-carry': <CryptoCarryPage />,
