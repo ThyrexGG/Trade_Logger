@@ -19,6 +19,18 @@ history, instead of trusting the web app's numbers on faith.
    displacement, max bars from sweep to shift, the killzone filter, and the
    backtest target's risk multiple. Nothing is hardcoded.
 
+## Changing risk per trade
+
+**Settings (gear icon) → Inputs → "Risk % of equity per trade"** (under the
+Backtest group). This sizes each trade so that if the stop is hit, the loss
+is exactly that % of your *current* equity — not a flat number of
+units/contracts. Raising it doesn't change which trades fire, only how big
+each one is, so it scales total return **and** drawdown together (2% risk
+roughly doubles both compared to 1%, since every trade is now twice the
+size). Try 0.5%, 1%, and 2% on the same date range and compare total PnL
+against max drawdown, not just the PnL number alone — a bigger number that
+also has a much deeper drawdown isn't necessarily an improvement.
+
 ## Seeing the entry/stop/target, not just the sweep+MSS shapes
 
 Every candidate draws three lines (yellow = entry, red = stop, green =

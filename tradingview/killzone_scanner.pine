@@ -7,7 +7,11 @@ strategy(
      shorttitle = "TL Killzone",
      overlay = true,
      initial_capital = 10000,
-     default_qty_type = strategy.percent_of_equity,
+     // Position size is computed explicitly per trade from riskPercent below
+     // (equity x risk% / stop distance), not from these defaults -- they
+     // only matter as a fallback if that calculation ever fails to produce
+     // a qty (e.g. riskDist <= 0, which is already guarded against).
+     default_qty_type = strategy.fixed,
      default_qty_value = 1,
      calc_on_every_tick = false,
      process_orders_on_close = true)
@@ -49,6 +53,8 @@ showKillzoneBg    = input.bool(true, "Shade killzone windows on the chart", grou
 grp3 = "Backtest"
 enableBacktest = input.bool(true, "Place backtest orders (off = visual markers only)", group = grp3)
 rrMultiple     = input.float(2.0, "Target = stop distance x this multiple", minval = 0.1, step = 0.1, group = grp3)
+riskPercent    = input.float(1.0, "Risk % of equity per trade", minval = 0.01, step = 0.1, group = grp3,
+     tooltip = "Position size is calculated so that if the stop is hit, the loss is this % of current equity -- not a flat contract count. Raise/lower this to see how account risk changes drawdown and total return; it does not change which trades fire, only how big they are.")
 
 // ---- Swing points -------------------------------------------------------
 // ta.pivothigh/pivotlow confirm `swingLookback` bars AFTER the actual pivot
@@ -138,6 +144,14 @@ drawPlan(entryLevel, stopLevel, targetLevel) =>
     label.new(x2, targetLevel, "Target " + str.tostring(targetLevel, format.mintick),
          style = label.style_label_left, color = color.new(color.green, 85), textcolor = color.green, size = size.tiny)
 
+// Position size from risk, not a flat contract count: qty such that a stop-
+// out costs exactly riskPercent% of CURRENT equity (equity compounds trade
+// to trade, same as the web app's own risk-of-ruin sizing logic elsewhere
+// in this project). riskDist is in price units, so equity($) x risk% /
+// riskDist($) = units of the instrument that make that true.
+riskSize(riskDist) =>
+    (strategy.equity * riskPercent / 100) / riskDist
+
 if bullishCandidate
     stopLevel  = sslSweepLevel
     entryLevel = close
@@ -146,7 +160,7 @@ if bullishCandidate
         targetLevel = entryLevel + riskDist * rrMultiple
         drawPlan(entryLevel, stopLevel, targetLevel)
         if enableBacktest
-            strategy.entry("Long", strategy.long)
+            strategy.entry("Long", strategy.long, qty = riskSize(riskDist))
             strategy.exit("Long exit", from_entry = "Long", stop = stopLevel, limit = targetLevel)
 
 if bearishCandidate
@@ -157,7 +171,7 @@ if bearishCandidate
         targetLevel = entryLevel - riskDist * rrMultiple
         drawPlan(entryLevel, stopLevel, targetLevel)
         if enableBacktest
-            strategy.entry("Short", strategy.short)
+            strategy.entry("Short", strategy.short, qty = riskSize(riskDist))
             strategy.exit("Short exit", from_entry = "Short", stop = stopLevel, limit = targetLevel)
 
 alertcondition(bullishCandidate, title = "Bullish sweep+MSS", message = "Bullish liquidity sweep + MSS candidate")
