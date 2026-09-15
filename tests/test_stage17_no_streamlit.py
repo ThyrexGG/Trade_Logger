@@ -32,6 +32,24 @@ _SUBPROCESS = textwrap.dedent(
     assert "streamlit" not in sys.modules, "something imported streamlit anyway"
     assert "plotly" not in sys.modules, "something imported plotly anyway"
 
+    # This is a fresh interpreter, so every module reachable from api.main's
+    # import graph that calls load_dotenv(override=True) (database.py,
+    # alerts.py, ai_analysis.py, ...) fires here for the first time and reads
+    # whatever TL_AUTH_MODE the *real* project .env has (e.g. a developer's
+    # own local "multiuser" for day-to-day login) -- undoing anything the
+    # parent pytest process inherited into this subprocess's environment.
+    # tests/conftest.py's _auth_baseline fixture handles this same problem
+    # for in-process tests; a subprocess needs its own correction, applied
+    # after the imports above (so it isn't itself undone) and before any
+    # request is made -- auth_mode()/auth_enabled() re-read the environment
+    # on every call, so this is enough to restore the suite's wide-open
+    # baseline regardless of the machine's own .env.
+    import os as _os
+    _os.environ["TL_AUTH_MODE"] = "passphrase"
+    _os.environ.pop("TL_AUTH_PASSWORD", None)
+    _os.environ.pop("TL_AUTH_PASSWORD_HASH", None)
+    _os.environ.pop("TL_AUTH_DISABLED", None)
+
     c = TestClient(app)
     checks = [
         "/api/health", "/api/watchlist", "/api/preferences",

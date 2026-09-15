@@ -87,8 +87,12 @@ def test_coverage_report_states():
     assert by[(ASSET, "1d")]["sufficiency_state"] == "SUFFICIENT"
     # 1200 15m bars is real but below the bar -> PARTIAL
     assert by[(ASSET, "15m")]["sufficiency_state"] == "PARTIAL"
-    # an instrument/timeframe with nothing stored and provider can't reach -> INSUFFICIENT_DATA
-    assert by[("GBPUSD", "15m")]["sufficiency_state"] in ("INSUFFICIENT_DATA", "NO_DATA")
+    # an instrument/timeframe with nothing stored and the provider can't reach it: which of the
+    # three "no usable data" states comes back is itself environment-dependent (e.g. whether a
+    # live MT5 terminal is connected here) -- see data_coverage.py's module docstring for the
+    # three-way distinction (INSUFFICIENT_DATA / PROVIDER_UNAVAILABLE / NO_DATA); this test only
+    # cares that GBPUSD/15m is correctly flagged as *some* form of unusable coverage, not which.
+    assert by[("GBPUSD", "15m")]["sufficiency_state"] in ("INSUFFICIENT_DATA", "NO_DATA", "PROVIDER_UNAVAILABLE")
 
 
 def test_coverage_report_never_calls_weekend_a_gap():

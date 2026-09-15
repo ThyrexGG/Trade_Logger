@@ -12,6 +12,7 @@ The invariants that matter more than coverage:
 import hashlib
 import math
 import os
+import re
 import types
 from datetime import datetime, timezone
 
@@ -48,6 +49,35 @@ def _clean():
     fusion.invalidate()
 
 
+_MONTH_RE = re.compile(r"^\d{4}-\d{2}$")
+_QUARTER_RE = re.compile(r"^(\d{4})-Q([1-4])$")
+
+
+def _as_datetime(ts: str) -> datetime:
+    """`observation_timestamp` is documented (api/evidence_model.py) as "the
+    period observed" for macro evidence, not a strict timestamp -- it can be
+    a bare "YYYY-MM" or "YYYY-Qn" period label instead of an ISO datetime
+    (see api/evidence_fusion.py's `observation_timestamp=getattr(r, "period",
+    None)`, and test_phase67_timestamp.py asserting exactly that). To still
+    check the "no evidence after as_of" invariant against a period label,
+    resolve it to the *end* of the period it names -- the conservative
+    reading, since anything before full elapse of that period would be the
+    real leak this invariant exists to catch.
+    """
+    m = _QUARTER_RE.match(ts)
+    if m:
+        year, q = int(m.group(1)), int(m.group(2))
+        end_month = q * 3
+        next_month_first = datetime(year + (1 if end_month == 12 else 0), (end_month % 12) + 1, 1, tzinfo=timezone.utc)
+        return next_month_first
+    if _MONTH_RE.match(ts):
+        year, month = int(ts[:4]), int(ts[5:7])
+        next_month_first = datetime(year + (1 if month == 12 else 0), (month % 12) + 1, 1, tzinfo=timezone.utc)
+        return next_month_first
+    dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)  # a bare "YYYY-MM-DD" release date has no tz
+
+
 @pytest.mark.parametrize("asset", ["XAUUSD", "USDJPY", "EURUSD", "BTCUSD"])
 @pytest.mark.parametrize("as_of", [
     datetime(2026, 1, 10, 8, 0, tzinfo=timezone.utc),
@@ -65,7 +95,7 @@ def test_invariant_no_evidence_after_as_of(asset, as_of):
                        e.latest_input_timestamp, e.observation_timestamp):
                 if not ts:
                     continue
-                dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+                dt = _as_datetime(str(ts))
                 assert dt <= as_of, f"{c.category}/{e.metric} ts {ts} > as_of {as_of}"
 
 
