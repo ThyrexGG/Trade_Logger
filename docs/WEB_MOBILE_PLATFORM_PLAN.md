@@ -697,6 +697,43 @@ than a single planned workstream:
   candidate row's "Plan this" button seeds the checklist with that
   candidate's symbol/direction, the shift level as an entry reference and
   the sweep level as a stop reference — still fully editable before saving.
+- **Killzone Scanner gets a live chart** (`components/scanner/KillzoneChart.tsx`,
+  lightweight-charts — same library the Market workspace's `PriceChart`
+  already uses) — fetches the same candles the scan itself analyzed
+  (`/api/market/candles/{symbol}`, which shares `market_data.get_candles_with_source`
+  with `killzone_scanner.py`) and draws the scan's findings directly on
+  them: sweep/shift markers labelled with their price, BSL/SSL as dashed
+  price lines, unmitigated FVG top/bottom as dotted lines plus a circle
+  marker on the exact candle that confirmed each gap (`detect_fvgs()`'s
+  third candle, not the displacement candle — previously invisible; only
+  the gap's price range was shown, never which candle made it real), a
+  live OHLC readout on crosshair hover, and hovering a candidate row
+  (`focusedIndex`) highlights that candidate's pair on the chart, dims the
+  rest, previews its entry/stop as solid lines, and scrolls it into view.
+  Also added: a "Copy as Markdown" button that recaps the whole scan (HTF
+  bias/structure, liquidity, candidates, FVGs — the FVG list and this
+  export both now carry the confirming candle's time too, matching the
+  candidates table's detail level) for pasting into a journal entry or
+  notes app outside the tool. Purely visual/export — no new computation,
+  nothing clickable into an order path.
+- **Test-suite health pass** — a routine full-suite run (`python -m pytest
+  tests/`) surfaced the same 7 pre-existing failures documented earlier in
+  this plan; all 7 were fixed (test bugs, zero production-code changes):
+  a subprocess-isolation gap in `test_stage17_no_streamlit.py` (a fresh
+  interpreter re-fires every module's `load_dotenv(override=True)`,
+  reading the machine's real `.env` and overriding whatever auth-disabled
+  baseline the parent pytest process had set), a calendar-dependent
+  hard-coded quality floor in `test_phase56_data_quality.py` (rewritten
+  against synthetic records with known ages so it tests the scoring
+  function deterministically, per its own stated purpose, instead of
+  today's real macro release calendar), a missing period-label parser in
+  `test_phase68_invariants.py` (`observation_timestamp` is documented and
+  tested elsewhere as sometimes a bare "YYYY-MM"/"YYYY-Qn" string for
+  macro evidence, not a strict timestamp), and an incomplete accepted-
+  states tuple in `test_phase73_intraday.py` (missing `PROVIDER_UNAVAILABLE`,
+  one of three states `data_coverage.py`'s own docstring documents).
+  Full suite: **2402 passed, 7 skipped, 0 failed** (`tsc -b` + `vite build`
+  clean throughout this stretch of work).
 
 ---
 
