@@ -1406,6 +1406,14 @@ class ChallengeStatusResponse(BaseModel):
 # 16b. Killzone Scanner (W15) — pattern-flagging only, never a signal. See
 #      killzone_scanner.py for the detection logic and its stated limits.
 # -------------------------------------------------------------------------
+class ConfluenceFactor(BaseModel):
+    """One plain, disclosed fact a candidate either does or doesn't satisfy —
+    see killzone_scanner.py's `_confluence()`. Not a model weight; every
+    factor here is already visible elsewhere on the scan response."""
+    label: str
+    met: bool
+
+
 class KillzoneCandidate(BaseModel):
     direction: Literal["bullish", "bearish"]
     sweep_time: int
@@ -1414,6 +1422,22 @@ class KillzoneCandidate(BaseModel):
     shift_level: float
     killzone: str
     agrees_with_htf_bias: bool
+
+    displacement_atr_mult: Optional[float] = None
+    candles_after_sweep: Optional[int] = None
+
+    # Arithmetic on the numbers above, not a recommendation: entry = the
+    # shift level, stop = the sweep level, target = the nearest untapped
+    # liquidity pool in the trade's own direction (null if none nearby).
+    potential_entry: Optional[float] = None
+    potential_stop: Optional[float] = None
+    potential_target: Optional[float] = None
+    risk_reward: Optional[float] = None
+
+    # A 0-5 count of disclosed factors met (see ConfluenceFactor) — never a
+    # win probability or a model's confidence.
+    confluence_score: int = 0
+    confluence_factors: List[ConfluenceFactor] = []
 
 
 class KillzoneScanResponse(BaseModel):

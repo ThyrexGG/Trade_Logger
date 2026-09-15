@@ -107,6 +107,73 @@ def test_pairs_sweep_and_shift_into_one_candidate():
     assert c["shift_time"] == shift_time
 
 
+def test_candidate_carries_displacement_and_reaction_speed():
+    """The engineered shift candle (open ~99.75 -> close 101.6) is a large,
+    obvious displacement one candle after the sweep."""
+    df, _, _ = _build_series()
+    c = ks.find_candidates(df)[0]
+    assert c["displacement_atr_mult"] is not None
+    assert c["displacement_atr_mult"] > ks._STRONG_DISPLACEMENT_ATR_MULT
+    assert c["candles_after_sweep"] == 2  # one flat candle sits between sweep and shift in the fixture
+
+
+# --- plan metrics + confluence (pure functions, no data fetch) -------------
+
+def test_nearest_target_picks_the_closest_pool_ahead_of_entry():
+    liquidity = {
+        "bsl": [{"price": 105.0, "type": "BSL"}, {"price": 102.0, "type": "BSL"}],
+        "ssl": [{"price": 95.0, "type": "SSL"}],
+    }
+    # bullish: only pools *above* entry (100) count, nearest wins
+    assert ks._nearest_target("bullish", 100.0, liquidity)["price"] == 102.0
+    # bearish: only pools *below* entry
+    assert ks._nearest_target("bearish", 100.0, liquidity)["price"] == 95.0
+    # nothing on the right side -> no target
+    assert ks._nearest_target("bearish", 90.0, liquidity) is None
+
+
+def test_plan_metrics_computes_entry_stop_target_and_rr():
+    liquidity = {"bsl": [{"price": 110.0, "type": "BSL"}], "ssl": []}
+    out = ks._plan_metrics("bullish", entry=100.0, stop=95.0, liquidity=liquidity)
+    assert out["potential_entry"] == 100.0
+    assert out["potential_stop"] == 95.0
+    assert out["potential_target"] == 110.0
+    assert out["risk_reward"] == 2.0  # (110-100)/(100-95)
+
+
+def test_plan_metrics_no_target_leaves_target_and_rr_null():
+    out = ks._plan_metrics("bullish", entry=100.0, stop=95.0, liquidity={"bsl": [], "ssl": []})
+    assert out["potential_target"] is None
+    assert out["risk_reward"] is None
+
+
+def test_confluence_scores_every_met_factor_and_no_more():
+    candidate = {
+        "agrees_with_htf_bias": True,
+        "killzone": "London Killzone (Manipulation/Expansion)",
+        "displacement_atr_mult": 1.5,
+        "candles_after_sweep": 1,
+        "risk_reward": 2.0,
+    }
+    out = ks._confluence(candidate)
+    assert out["confluence_score"] == 5
+    assert len(out["confluence_factors"]) == 5
+    assert all(f["met"] for f in out["confluence_factors"])
+
+
+def test_confluence_scores_zero_when_nothing_is_met():
+    candidate = {
+        "agrees_with_htf_bias": False,
+        "killzone": "No Active Killzone (Dead Zone)",
+        "displacement_atr_mult": 0.1,
+        "candles_after_sweep": 6,
+        "risk_reward": 0.5,
+    }
+    out = ks._confluence(candidate)
+    assert out["confluence_score"] == 0
+    assert not any(f["met"] for f in out["confluence_factors"])
+
+
 def test_a_shift_with_no_prior_opposing_sweep_is_not_a_candidate():
     # a pure uptrend with no sweep at all should never produce a candidate,
     # even though it clears swing highs (that's a BOS, not a swept-liquidity MSS)
@@ -146,7 +213,12 @@ def test_scan_reports_htf_bias_and_agreement(monkeypatch):
     assert result["symbol"] == "USDJPY"
     assert result["htf_bias"] in ("bullish", "bearish", "neutral")
     assert len(result["candidates"]) == 1
-    assert "agrees_with_htf_bias" in result["candidates"][0]
+    c = result["candidates"][0]
+    assert "agrees_with_htf_bias" in c
+    assert c["potential_entry"] == c["shift_level"]
+    assert c["potential_stop"] == c["sweep_level"]
+    assert 0 <= c["confluence_score"] <= 5
+    assert len(c["confluence_factors"]) == 5
     assert "not a signal" in result["disclaimer"].lower()
 
 

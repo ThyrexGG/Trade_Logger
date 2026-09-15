@@ -15,14 +15,22 @@ events on a lower timeframe, checks whether each one's direction agrees with
 the higher-timeframe structural bias, and whether it fell inside a named ICT
 killzone window. It computes none of these subjectively — every threshold
 (swing window, displacement-vs-ATR, sweep-to-shift candle gap) is a plain,
-disclosed number, not a hidden judgment call. Nothing here computes a win
-probability, a recommendation, or an entry/stop/target — it surfaces facts
-for a human to judge, the same posture as Chart Analyzer.
+disclosed number, not a hidden judgment call.
+
+Each candidate also gets a `potential_entry`/`potential_stop`/`potential_target`
+(the shift level, the sweep level, and the nearest untapped liquidity pool in
+the trade's direction — three numbers already shown elsewhere on the page,
+just arranged into one plan) plus a `risk_reward` and a `confluence_score`
+(0-5, a plain count of disclosed factors met — see `_confluence()`). None of
+that is a win probability or a recommendation to take the trade: it is
+arithmetic on facts already on screen, laid out so candidates can be sorted
+and skimmed instead of read one at a time. A human still judges whether any
+of it is worth trading — the same posture as Chart Analyzer.
 """
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
@@ -31,6 +39,16 @@ import market_data
 _SWING_LOOKBACK = 5  # bars each side — matches market_data.calculate_market_structure's default
 _MAX_CANDLES_AFTER_SWEEP = 6  # how soon after a sweep the shift must occur to count as one event
 _MIN_DISPLACEMENT_ATR_MULT = 0.5  # a shift's candle body must be at least this fraction of recent ATR
+
+# Confluence checklist thresholds — plain, disclosed numbers, not a hidden
+# model. "Strong" displacement is 2x the bar-inclusion minimum; "quick"
+# reaction is a third of the max allowed sweep-to-shift gap; R:R uses the
+# same 1.5 floor a lot of discretionary ICT trading itself treats as a
+# minimum worth taking. Changing these changes what counts as a star, not
+# whether a candidate is flagged at all (find_candidates() doesn't use them).
+_STRONG_DISPLACEMENT_ATR_MULT = 1.0
+_QUICK_REACTION_MAX_CANDLES = 2
+_MIN_WORTHWHILE_RR = 1.5
 
 
 def _candles_to_df(candles: List[Dict[str, Any]]) -> pd.DataFrame:
@@ -131,6 +149,8 @@ def detect_structure_shifts(df: pd.DataFrame, lookback: int = _SWING_LOOKBACK) -
         atr_i = float(atr.iloc[i]) if pd.notna(atr.iloc[i]) else 0.0
         min_body = atr_i * _MIN_DISPLACEMENT_ATR_MULT
 
+        atr_multiple = round(body / atr_i, 2) if atr_i > 0 else None
+
         prior_highs = swing_highs[swing_highs.index < i]
         if not prior_highs.empty:
             level = float(prior_highs["high"].iloc[-1])
@@ -138,6 +158,7 @@ def detect_structure_shifts(df: pd.DataFrame, lookback: int = _SWING_LOOKBACK) -
                 shifts.append({
                     "direction": "bullish", "level": round(level, 5),
                     "time": int(row["time"]), "close_price": round(float(row["close"]), 5),
+                    "atr_multiple": atr_multiple,
                 })
 
         prior_lows = swing_lows[swing_lows.index < i]
@@ -147,6 +168,7 @@ def detect_structure_shifts(df: pd.DataFrame, lookback: int = _SWING_LOOKBACK) -
                 shifts.append({
                     "direction": "bearish", "level": round(level, 5),
                     "time": int(row["time"]), "close_price": round(float(row["close"]), 5),
+                    "atr_multiple": atr_multiple,
                 })
     return shifts
 
@@ -189,8 +211,68 @@ def find_candidates(df: pd.DataFrame) -> List[Dict[str, Any]]:
             "shift_time": shift["time"],
             "shift_level": shift["level"],
             "killzone": _killzone_for_timestamp(shift["time"]),
+            "displacement_atr_mult": shift.get("atr_multiple"),
+            "candles_after_sweep": shift_idx - sweep_idx,
         })
     return candidates
+
+
+def _nearest_target(direction: str, entry: float, liquidity: Dict[str, List[Dict[str, Any]]]) -> Optional[Dict[str, Any]]:
+    """The nearest untapped liquidity pool that lies in the trade's own
+    direction of travel (BSL above entry for a long, SSL below for a short) —
+    the same "draw on liquidity" concept `calculate_liquidity_zones` already
+    surfaces for the whole symbol, just filtered to ones on the right side of
+    this specific entry."""
+    pools = liquidity.get("bsl", []) if direction == "bullish" else liquidity.get("ssl", [])
+    ahead = [p for p in pools if (p["price"] > entry if direction == "bullish" else p["price"] < entry)]
+    if not ahead:
+        return None
+    return min(ahead, key=lambda p: abs(p["price"] - entry))
+
+
+def _plan_metrics(direction: str, entry: float, stop: float,
+                   liquidity: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Any]:
+    """Entry = the shift level (where the structure actually broke), stop =
+    the sweep level (beyond the wick that was swept — if it sweeps again, the
+    read was wrong), target = the nearest real liquidity pool in the trade's
+    direction. Plain arithmetic on numbers already computed elsewhere on this
+    page; not a recommendation to use these exact numbers."""
+    target_pool = _nearest_target(direction, entry, liquidity)
+    risk = abs(entry - stop)
+    out: Dict[str, Any] = {
+        "potential_entry": round(entry, 5),
+        "potential_stop": round(stop, 5),
+        "potential_target": None,
+        "risk_reward": None,
+    }
+    if target_pool is not None and risk > 0:
+        target = float(target_pool["price"])
+        out["potential_target"] = round(target, 5)
+        out["risk_reward"] = round(abs(target - entry) / risk, 2)
+    return out
+
+
+def _confluence(candidate: Dict[str, Any]) -> Dict[str, Any]:
+    """A 0-5 checklist score — a count of plain, disclosed, already-shown
+    facts this candidate happens to satisfy, NOT a win probability or a
+    model's confidence. Every factor is visible elsewhere on the page; this
+    just tallies them so candidates can be sorted/skimmed instead of having
+    to cross-reference by eye. Thresholds are the module-level constants
+    above, all disclosed in `factors`' labels."""
+    disp = candidate.get("displacement_atr_mult")
+    rr = candidate.get("risk_reward")
+    factors = [
+        {"label": "Agrees with the higher-timeframe bias", "met": bool(candidate.get("agrees_with_htf_bias"))},
+        {"label": "Inside a named ICT killzone (not the dead zone)",
+         "met": candidate.get("killzone") != "No Active Killzone (Dead Zone)"},
+        {"label": f"Displacement ≥ {_STRONG_DISPLACEMENT_ATR_MULT}x ATR",
+         "met": disp is not None and disp >= _STRONG_DISPLACEMENT_ATR_MULT},
+        {"label": f"Shift within {_QUICK_REACTION_MAX_CANDLES} candles of the sweep",
+         "met": candidate.get("candles_after_sweep", 999) <= _QUICK_REACTION_MAX_CANDLES},
+        {"label": f"R:R to nearest liquidity target ≥ {_MIN_WORTHWHILE_RR}",
+         "met": rr is not None and rr >= _MIN_WORTHWHILE_RR},
+    ]
+    return {"confluence_score": sum(1 for f in factors if f["met"]), "confluence_factors": factors}
 
 
 def scan(symbol: str = "USDJPY", ltf: str = "15m", htf: str = "1h",
@@ -230,6 +312,8 @@ def scan(symbol: str = "USDJPY", ltf: str = "15m", htf: str = "1h",
     candidates = find_candidates(ltf_df)
     for c in candidates:
         c["agrees_with_htf_bias"] = c["direction"] == htf_bias
+        c.update(_plan_metrics(c["direction"], c["shift_level"], c["sweep_level"], htf_liquidity))
+        c.update(_confluence(c))
     candidates.sort(key=lambda c: c["shift_time"], reverse=True)
 
     sources = {ltf_source, htf_source}
