@@ -8,6 +8,18 @@ import { scanKillzone } from '../api/scanner'
 import type { KillzoneCandidate, KillzoneScanResponse } from '../types/scanner'
 
 const LTF_OPTIONS = ['1m', '5m', '15m', '1h']
+
+/** Presets for the symbol picker. The field stays free-text — the list is a
+ *  shortcut, not a whitelist — so any ticker the data feed serves still works.
+ *  Metals sit apart from FX because their tick sizes and typical stop
+ *  distances are an order of magnitude different, which matters when reading
+ *  levels across the two. */
+const SYMBOL_GROUPS: { label: string; symbols: string[] }[] = [
+  { label: 'Majors', symbols: ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD'] },
+  { label: 'Yen crosses', symbols: ['EURJPY', 'GBPJPY', 'AUDJPY', 'CADJPY', 'CHFJPY', 'NZDJPY'] },
+  { label: 'Other crosses', symbols: ['EURGBP', 'EURAUD', 'EURCHF', 'EURCAD', 'GBPAUD', 'GBPCAD', 'GBPCHF', 'AUDNZD', 'AUDCAD'] },
+  { label: 'Metals', symbols: ['XAUUSD', 'XAGUSD'] },
+]
 const REFRESH_MS = 5 * 60 * 1000
 const SYMBOL_KEY = 'tl.scanner.symbol'
 const LTF_KEY = 'tl.scanner.ltf'
@@ -242,15 +254,42 @@ export function KillzoneScannerPage() {
               <div className="flex flex-wrap items-end gap-3">
                 <label className="flex flex-col gap-1 text-[11px] text-muted">
                   Symbol
-                  <input
-                    type="text"
-                    defaultValue={symbol}
-                    onChange={(e) => {
-                      inputRef.current = e.target.value
-                    }}
-                    onKeyDown={(e) => e.key === 'Enter' && submit()}
-                    className="w-32 rounded border border-border bg-background px-2 py-1.5 text-sm text-primary focus:border-accent focus:outline-none"
-                  />
+                  <div className="flex gap-1.5">
+                    <select
+                      value={SYMBOL_GROUPS.some((g) => g.symbols.includes(symbol)) ? symbol : ''}
+                      onChange={(e) => {
+                        if (!e.target.value) return
+                        inputRef.current = e.target.value
+                        submit()
+                      }}
+                      className="rounded border border-border bg-background px-2 py-1.5 text-sm text-primary focus:border-accent focus:outline-none"
+                    >
+                      {/* Present only while the typed symbol isn't one of the presets,
+                          so the select never shows a preset that isn't actually loaded. */}
+                      {!SYMBOL_GROUPS.some((g) => g.symbols.includes(symbol)) ? (
+                        <option value="">{symbol || 'Pick…'}</option>
+                      ) : null}
+                      {SYMBOL_GROUPS.map((group) => (
+                        <optgroup key={group.label} label={group.label}>
+                          {group.symbols.map((s) => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      key={symbol}
+                      defaultValue={symbol}
+                      aria-label="Or type any symbol"
+                      title="Or type any symbol the feed serves"
+                      onChange={(e) => {
+                        inputRef.current = e.target.value
+                      }}
+                      onKeyDown={(e) => e.key === 'Enter' && submit()}
+                      className="w-28 rounded border border-border bg-background px-2 py-1.5 text-sm text-primary focus:border-accent focus:outline-none"
+                    />
+                  </div>
                 </label>
                 <label className="flex flex-col gap-1 text-[11px] text-muted">
                   Entry timeframe
