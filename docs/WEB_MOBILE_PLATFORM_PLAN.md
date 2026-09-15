@@ -668,6 +668,27 @@ than a single planned workstream:
   operations/research/evidence primitives and used by most of the rest of
   the app — Command Center, Analytics' own charts, Journal, System Health).
   Converted both onto it; no behavior change.
+- **Killzone Scanner** (`/workspace/killzone-scanner`, `GET
+  /api/scanner/killzone`, `killzone_scanner.py`) — flags candidate liquidity-
+  sweep + market-structure-shift ("MSS") events, tags each with the ICT
+  killzone window it fell in and whether its direction agrees with the
+  higher-timeframe structural bias. Pattern-flagging only — every threshold
+  (swing window, displacement-vs-ATR, sweep-to-shift candle gap) is a plain
+  disclosed number, no hidden judgment call, and the response computes no
+  win probability, recommendation, entry, or stop. Deliberately built from
+  the *generic* primitives already in `market_data.py`
+  (`calculate_market_structure`, `calculate_liquidity_zones`,
+  `detect_active_killzone`, `detect_fvgs`, `get_realtime_candles`) — not the
+  XAUUSD-specific frozen research engines (`xauusd_daily_command_center.py`,
+  `trade_setup_engine.py`), which are a separate, closed research contract
+  this module doesn't import. HTF bias is computed on 1h, not daily/4h — the
+  shared Yahoo-backed candle fetch caps daily history too short for
+  structure detection, and there's no true 4h available from it either (a
+  "4h" request silently serves raw 1h bars, no resampling); 1h/15m is also a
+  standard ICT bias/entry pairing on its own. `tests/test_killzone_scanner.py`
+  (12 tests) — detection correctness against a hand-built synthetic candle
+  series with a known, engineered sweep+shift, plus a network-tolerant live
+  check that skips (not fails) if the upstream feed is unreachable.
 
 ---
 

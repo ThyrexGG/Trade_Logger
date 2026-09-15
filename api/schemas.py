@@ -1403,6 +1403,44 @@ class ChallengeStatusResponse(BaseModel):
 
 
 # -------------------------------------------------------------------------
+# 16b. Killzone Scanner (W15) — pattern-flagging only, never a signal. See
+#      killzone_scanner.py for the detection logic and its stated limits.
+# -------------------------------------------------------------------------
+class KillzoneCandidate(BaseModel):
+    direction: Literal["bullish", "bearish"]
+    sweep_time: int
+    sweep_level: float
+    shift_time: int
+    shift_level: float
+    killzone: str
+    agrees_with_htf_bias: bool
+
+
+class KillzoneScanResponse(BaseModel):
+    ok: bool
+    symbol: str
+    error: Optional[str] = None
+
+    ltf: Optional[str] = None
+    htf: Optional[str] = None
+    ltf_source: Optional[str] = None  # mt5 | binance | yahoo | synthetic_fallback | unknown
+    htf_source: Optional[str] = None
+
+    htf_bias: Optional[Literal["bullish", "bearish", "neutral"]] = None
+    htf_structure: Optional[Dict[str, Any]] = None
+    htf_liquidity_targets: Optional[Dict[str, Any]] = None
+    current_killzone: Optional[str] = None
+
+    candidates: List[KillzoneCandidate] = []
+    recent_unmitigated_fvgs: List[Dict[str, Any]] = []
+
+    disclaimer: Optional[str] = None
+    read_only: bool = True
+    live_broker_transmission: str = "BLOCKED"
+    timestamp: str
+
+
+# -------------------------------------------------------------------------
 # 15. Macro / Market Intelligence Schemas (Stage 18) — read-only. Thin
 #     envelopes over the deterministic macro engines + the provider layer.
 #     Every response carries `data_provider` / `provider_is_live` / `provenance`
