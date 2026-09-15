@@ -114,24 +114,51 @@ plotshape(bullishCandidate, title = "Bullish MSS", style = shape.triangleup, loc
 plotshape(bearishCandidate, title = "Bearish MSS", style = shape.triangledown, location = location.abovebar,
      color = color.red, size = size.small, text = "MSS")
 
-// ---- Backtest orders — entry at the shift's close, stop at the sweep's
-// level, target a plain risk-multiple away (see the header note on why this
-// differs from the web app's real-liquidity target). -----------------------
-if enableBacktest and bullishCandidate
+// ---- Entry / stop / target lines -------------------------------------
+// Drawn every time a candidate fires, whether or not `enableBacktest` is on
+// -- TradingView only auto-draws strategy.entry/exit markers when an actual
+// order was placed, and even then they're small built-in arrows, not an
+// explicit plan you can read at a glance the way the web app shows one. This
+// draws the same three levels (entry / stop / target) as real lines +
+// labels regardless, so "what would this trade have looked like" is always
+// visible, even with backtesting switched off.
+grp4 = "Chart"
+planLineBars = input.int(15, "How many bars the entry/stop/target lines extend", minval = 1, group = grp4)
+
+drawPlan(entryLevel, stopLevel, targetLevel) =>
+    x1 = bar_index
+    x2 = bar_index + planLineBars
+    line.new(x1, entryLevel, x2, entryLevel, color = color.yellow, width = 2, style = line.style_solid)
+    line.new(x1, stopLevel, x2, stopLevel, color = color.red, width = 1, style = line.style_dashed)
+    line.new(x1, targetLevel, x2, targetLevel, color = color.green, width = 1, style = line.style_dashed)
+    label.new(x2, entryLevel, "Entry " + str.tostring(entryLevel, format.mintick),
+         style = label.style_label_left, color = color.new(color.yellow, 85), textcolor = color.yellow, size = size.tiny)
+    label.new(x2, stopLevel, "Stop " + str.tostring(stopLevel, format.mintick),
+         style = label.style_label_left, color = color.new(color.red, 85), textcolor = color.red, size = size.tiny)
+    label.new(x2, targetLevel, "Target " + str.tostring(targetLevel, format.mintick),
+         style = label.style_label_left, color = color.new(color.green, 85), textcolor = color.green, size = size.tiny)
+
+if bullishCandidate
     stopLevel  = sslSweepLevel
     entryLevel = close
     riskDist   = entryLevel - stopLevel
     if riskDist > 0
-        strategy.entry("Long", strategy.long)
-        strategy.exit("Long exit", from_entry = "Long", stop = stopLevel, limit = entryLevel + riskDist * rrMultiple)
+        targetLevel = entryLevel + riskDist * rrMultiple
+        drawPlan(entryLevel, stopLevel, targetLevel)
+        if enableBacktest
+            strategy.entry("Long", strategy.long)
+            strategy.exit("Long exit", from_entry = "Long", stop = stopLevel, limit = targetLevel)
 
-if enableBacktest and bearishCandidate
+if bearishCandidate
     stopLevel  = bslSweepLevel
     entryLevel = close
     riskDist   = stopLevel - entryLevel
     if riskDist > 0
-        strategy.entry("Short", strategy.short)
-        strategy.exit("Short exit", from_entry = "Short", stop = stopLevel, limit = entryLevel - riskDist * rrMultiple)
+        targetLevel = entryLevel - riskDist * rrMultiple
+        drawPlan(entryLevel, stopLevel, targetLevel)
+        if enableBacktest
+            strategy.entry("Short", strategy.short)
+            strategy.exit("Short exit", from_entry = "Short", stop = stopLevel, limit = targetLevel)
 
 alertcondition(bullishCandidate, title = "Bullish sweep+MSS", message = "Bullish liquidity sweep + MSS candidate")
 alertcondition(bearishCandidate, title = "Bearish sweep+MSS", message = "Bearish liquidity sweep + MSS candidate")

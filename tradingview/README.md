@@ -19,6 +19,17 @@ history, instead of trusting the web app's numbers on faith.
    displacement, max bars from sweep to shift, the killzone filter, and the
    backtest target's risk multiple. Nothing is hardcoded.
 
+## Seeing the entry/stop/target, not just the sweep+MSS shapes
+
+Every candidate draws three lines (yellow = entry, red = stop, green =
+target) plus labels, extending `planLineBars` bars to the right — this
+happens **regardless of `enableBacktest`**, so turning backtesting off still
+shows you the full plan each candidate would have used, not just the bare
+sweep/MSS shapes. TradingView also auto-draws its own small entry/exit
+arrows when `enableBacktest` is on and an order actually filled (standard
+Strategy Tester behaviour) — those are separate from, and in addition to,
+these explicit lines.
+
 ## What matches the web app, and what doesn't
 
 This is a **port, not a byte-identical copy**. The parts that define what
