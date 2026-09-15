@@ -276,7 +276,7 @@ def _confluence(candidate: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def scan(symbol: str = "USDJPY", ltf: str = "15m", htf: str = "1h",
-         ltf_count: int = 200, htf_count: int = 300) -> Dict[str, Any]:
+         ltf_count: int = 400, htf_count: int = 300) -> Dict[str, Any]:
     """The one entry point the API router calls. Always returns a dict shaped
     for `ChartAnalysisResponse`-style graceful degradation — `ok: False` with
     an `error` string on any data problem, never an exception.
@@ -330,7 +330,7 @@ def scan(symbol: str = "USDJPY", ltf: str = "15m", htf: str = "1h",
         "htf_structure": htf_structure,
         "htf_liquidity_targets": htf_liquidity,
         "current_killzone": market_data.detect_active_killzone(),
-        "candidates": candidates[:15],
+        "candidates": candidates[:30],
         "recent_unmitigated_fvgs": market_data.detect_fvgs(ltf_df),
         "disclaimer": (
             "Pattern-flagging only, not a signal — every event here still needs your own "
