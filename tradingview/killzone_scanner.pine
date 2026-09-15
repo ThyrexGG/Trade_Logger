@@ -1,0 +1,137 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0
+// © TradeLogger
+
+//@version=5
+strategy(
+     "Killzone Liquidity Sweep + MSS (TradeLogger port)",
+     shorttitle = "TL Killzone",
+     overlay = true,
+     initial_capital = 10000,
+     default_qty_type = strategy.percent_of_equity,
+     default_qty_value = 1,
+     calc_on_every_tick = false,
+     process_orders_on_close = true)
+
+// =============================================================================
+// A TradingView port of killzone_scanner.py (TradeLogger's web app) so the
+// same sweep + market-structure-shift ("MSS") idea can be backtested with
+// TradingView's own Strategy Tester instead of trusting the web app's numbers
+// blind. It is a PORT, not a guaranteed byte-identical copy:
+//   - Swing points use Pine's built-in ta.pivothigh/ta.pivotlow, which confirm
+//     a swing the same "N bars each side" way killzone_scanner.py's rolling-
+//     window swing detector does.
+//   - Sweep / MSS / pairing logic mirrors detect_liquidity_sweeps(),
+//     detect_structure_shifts() and find_candidates() in killzone_scanner.py.
+//   - The one real difference: the web app's backtest-style "potential
+//     target" is the nearest real untapped liquidity pool from
+//     calculate_liquidity_zones() (market_data.py) — Pine has no equivalent
+//     to that computation here, so this script instead uses a plain
+//     risk-multiple target (an input you set), same as most Pine strategies.
+//     Expect this script's exact win/loss numbers to differ from the web
+//     app's candidates for that reason; the ENTRY/STOP logic (the part that
+//     actually defines a candidate) is the same.
+// Pattern-flagging / backtesting tool only — not a signal, not investment
+// advice, and running this strategy live is your own decision entirely
+// outside TradeLogger.
+// =============================================================================
+
+// ---- Inputs -----------------------------------------------------------
+grp1 = "Detection (mirrors killzone_scanner.py)"
+swingLookback     = input.int(5, "Swing lookback (bars each side)", minval = 2, group = grp1)
+minDispATRMult    = input.float(0.5, "Min displacement for a shift (x ATR)", minval = 0.0, step = 0.1, group = grp1)
+atrLength         = input.int(14, "ATR length", minval = 1, group = grp1)
+maxBarsAfterSweep = input.int(6, "Max bars from sweep to shift", minval = 1, group = grp1)
+
+grp2 = "Killzone filter (New York time, matching killzone_scanner.py)"
+useKillzoneFilter = input.bool(false, "Only take trades inside a named killzone", group = grp2)
+showKillzoneBg    = input.bool(true, "Shade killzone windows on the chart", group = grp2)
+
+grp3 = "Backtest"
+enableBacktest = input.bool(true, "Place backtest orders (off = visual markers only)", group = grp3)
+rrMultiple     = input.float(2.0, "Target = stop distance x this multiple", minval = 0.1, step = 0.1, group = grp3)
+
+// ---- Swing points -------------------------------------------------------
+// ta.pivothigh/pivotlow confirm `swingLookback` bars AFTER the actual pivot
+// bar, the same lag killzone_scanner.py's centered rolling-window swing
+// detector has (a swing isn't "confirmed" until bars exist on both sides).
+swingHighVal = ta.pivothigh(high, swingLookback, swingLookback)
+swingLowVal  = ta.pivotlow(low, swingLookback, swingLookback)
+
+var float lastSwingHigh = na
+var float lastSwingLow  = na
+if not na(swingHighVal)
+    lastSwingHigh := swingHighVal
+if not na(swingLowVal)
+    lastSwingLow := swingLowVal
+
+// ---- Displacement ---------------------------------------------------------
+atrVal          = ta.atr(atrLength)
+bodySize        = math.abs(close - open)
+hasDisplacement = bodySize >= atrVal * minDispATRMult
+
+// ---- Killzones (ICT-style, New York clock — same windows as
+// killzone_scanner.py's _killzone_for_timestamp) ---------------------------
+inLondonKZ = not na(time(timeframe.period, "0200-0500", "America/New_York"))
+inNyAmKZ   = not na(time(timeframe.period, "0830-1100", "America/New_York"))
+inNyPmKZ   = not na(time(timeframe.period, "1330-1600", "America/New_York"))
+inKillzone = inLondonKZ or inNyAmKZ or inNyPmKZ
+
+bgcolor(showKillzoneBg and inKillzone ? color.new(color.blue, 92) : na, title = "Killzone window")
+
+// ---- Sweeps: a wick clears a confirmed swing, then closes back through it -
+bslSweep = not na(lastSwingHigh) and high > lastSwingHigh and close < lastSwingHigh
+sslSweep = not na(lastSwingLow)  and low  < lastSwingLow  and close > lastSwingLow
+
+var float sslSweepLevel = na
+var int   sslSweepBar   = na
+var float bslSweepLevel = na
+var int   bslSweepBar   = na
+
+if sslSweep
+    sslSweepLevel := lastSwingLow
+    sslSweepBar   := bar_index
+if bslSweep
+    bslSweepLevel := lastSwingHigh
+    bslSweepBar   := bar_index
+
+// ---- Structure shift (MSS): close beyond the opposing swing, with real
+// displacement — not just a wick poking through the level. -----------------
+bullishShift = not na(lastSwingHigh) and close > lastSwingHigh and hasDisplacement
+bearishShift = not na(lastSwingLow)  and close < lastSwingLow  and hasDisplacement
+
+// ---- Pair each shift with the nearest prior opposing-direction sweep -----
+killzoneOk = useKillzoneFilter ? inKillzone : true
+bullishCandidate = bullishShift and not na(sslSweepBar) and (bar_index - sslSweepBar) <= maxBarsAfterSweep and killzoneOk
+bearishCandidate = bearishShift and not na(bslSweepBar) and (bar_index - bslSweepBar) <= maxBarsAfterSweep and killzoneOk
+
+// ---- Visual markers -------------------------------------------------------
+plotshape(sslSweep, title = "SSL sweep", style = shape.triangleup, location = location.belowbar,
+     color = color.gray, size = size.tiny, text = "sweep")
+plotshape(bslSweep, title = "BSL sweep", style = shape.triangledown, location = location.abovebar,
+     color = color.gray, size = size.tiny, text = "sweep")
+plotshape(bullishCandidate, title = "Bullish MSS", style = shape.triangleup, location = location.belowbar,
+     color = color.green, size = size.small, text = "MSS")
+plotshape(bearishCandidate, title = "Bearish MSS", style = shape.triangledown, location = location.abovebar,
+     color = color.red, size = size.small, text = "MSS")
+
+// ---- Backtest orders — entry at the shift's close, stop at the sweep's
+// level, target a plain risk-multiple away (see the header note on why this
+// differs from the web app's real-liquidity target). -----------------------
+if enableBacktest and bullishCandidate
+    stopLevel  = sslSweepLevel
+    entryLevel = close
+    riskDist   = entryLevel - stopLevel
+    if riskDist > 0
+        strategy.entry("Long", strategy.long)
+        strategy.exit("Long exit", from_entry = "Long", stop = stopLevel, limit = entryLevel + riskDist * rrMultiple)
+
+if enableBacktest and bearishCandidate
+    stopLevel  = bslSweepLevel
+    entryLevel = close
+    riskDist   = stopLevel - entryLevel
+    if riskDist > 0
+        strategy.entry("Short", strategy.short)
+        strategy.exit("Short exit", from_entry = "Short", stop = stopLevel, limit = entryLevel - riskDist * rrMultiple)
+
+alertcondition(bullishCandidate, title = "Bullish sweep+MSS", message = "Bullish liquidity sweep + MSS candidate")
+alertcondition(bearishCandidate, title = "Bearish sweep+MSS", message = "Bearish liquidity sweep + MSS candidate")
