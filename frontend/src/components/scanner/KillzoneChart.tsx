@@ -37,6 +37,13 @@ function chartTheme() {
  *  a candidate. */
 const VIEW_TF_OPTIONS = ['1m', '5m', '15m', '1h']
 const HISTORY_OPTIONS = [150, 300, 500, 800]
+const HEIGHT_OPTIONS = [
+  { px: 400, label: 'Small' },
+  { px: 600, label: 'Medium' },
+  { px: 820, label: 'Large' },
+  { px: 1100, label: 'Tall' },
+]
+const HEIGHT_KEY = 'tl.scanner.chartHeight'
 
 /** Rough bar duration in seconds per timeframe — used to pad the auto-scroll
  *  window around a focused candidate, so an approximation is fine. */
@@ -123,6 +130,28 @@ export function KillzoneChart({
   const [viewTf, setViewTf] = useState(ltf)
   const [count, setCount] = useState(300)
   useEffect(() => setViewTf(ltf), [ltf])
+
+  // Chart size. Remembered per browser so the preference survives a reload;
+  // a blocked/absent localStorage just falls back to the prop default.
+  const [chartHeight, setChartHeight] = useState(() => {
+    try {
+      const saved = Number(localStorage.getItem(HEIGHT_KEY))
+      if (HEIGHT_OPTIONS.some((h) => h.px === saved)) return saved
+    } catch {
+      /* private browsing / storage blocked */
+    }
+    return height
+  })
+  const [expanded, setExpanded] = useState(false)
+
+  function changeHeight(px: number) {
+    setChartHeight(px)
+    try {
+      localStorage.setItem(HEIGHT_KEY, String(px))
+    } catch {
+      /* private browsing / storage blocked */
+    }
+  }
 
   const [candles, setCandles] = useState<Candle[]>([])
   const [loading, setLoading] = useState(false)
@@ -387,8 +416,31 @@ export function KillzoneChart({
 
   const last = candles[candles.length - 1]
 
+  // Expanded mode fills the viewport rather than growing the page, so the
+  // panels above stay where they are and Escape always gets you back.
+  useEffect(() => {
+    if (!expanded) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setExpanded(false)
+    }
+    window.addEventListener('keydown', onKey)
+    // The chart sizes itself from its container (autoSize), but the container
+    // only changes after paint — nudge it once the overlay has laid out.
+    const t = window.setTimeout(() => chartRef.current?.timeScale().fitContent(), 60)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.clearTimeout(t)
+    }
+  }, [expanded])
+
   return (
-    <div className="rounded-lg border border-border bg-surface">
+    <div
+      className={
+        expanded
+          ? 'fixed inset-0 z-50 flex flex-col overflow-hidden border-0 bg-surface'
+          : 'rounded-lg border border-border bg-surface'
+      }
+    >
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle px-3 py-2">
         <div className="flex flex-wrap items-baseline gap-2">
           <span className="font-mono text-sm font-semibold text-primary">{symbol}</span>
@@ -426,6 +478,28 @@ export function KillzoneChart({
               ))}
             </select>
           </label>
+          {!expanded ? (
+            <label className="flex items-center gap-1">
+              Size
+              <select
+                value={chartHeight}
+                onChange={(e) => changeHeight(Number(e.target.value))}
+                className="rounded border border-border bg-background px-1.5 py-0.5 text-[11px] text-primary focus:border-accent focus:outline-none"
+              >
+                {HEIGHT_OPTIONS.map((h) => (
+                  <option key={h.px} value={h.px}>{h.label}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            title={expanded ? 'Exit full screen (Esc)' : 'Expand to full screen'}
+            className="rounded border border-border px-2 py-0.5 text-[11px] font-medium text-secondary hover:border-accent/40 hover:text-accent"
+          >
+            {expanded ? 'Exit ✕' : 'Expand ⤢'}
+          </button>
         </div>
       </div>
 
@@ -438,7 +512,7 @@ export function KillzoneChart({
         candidate and preview its entry (gold), stop (red) and target (green).
       </p>
 
-      <div className="relative" style={{ height }}>
+      <div className={expanded ? 'relative flex-1 min-h-0' : 'relative'} style={expanded ? undefined : { height: chartHeight }}>
         <div ref={boxRef} className="absolute inset-0" />
         {loading && candles.length === 0 ? (
           <div className="absolute inset-0 flex items-center justify-center text-xs text-muted">Loading chart…</div>
