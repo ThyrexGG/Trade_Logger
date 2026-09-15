@@ -19,6 +19,21 @@ history, instead of trusting the web app's numbers on faith.
    displacement, max bars from sweep to shift, the killzone filter, and the
    backtest target's risk multiple. Nothing is hardcoded.
 
+## Realistic leverage, not unlimited leverage
+
+TradingView's paper trading enforces no margin limit by default. On a pair
+with a tight stop (like USDJPY), risk-based sizing can — and did, verified
+against a real backtest — call for a position worth **millions of dollars
+on a $5K account**. The arithmetic is correct (that position really would
+lose exactly 1% if the stop hit), but no real broker would ever fund it.
+**"Max account leverage"** (Backtest group) caps position size to what your
+actual leverage allows; when a trade's risk-sized quantity would need more
+than that, it's capped instead, so realized risk on very tight stops may
+come in under your risk % — that's the honest, fundable number. Set it to
+match what your real broker actually offers (many retail forex brokers cap
+at 30:1 in regulated regions, higher elsewhere) before trusting a backtest
+as something you could actually place.
+
 ## A currency-conversion caveat if you switch symbols
 
 The risk-sizing formula multiplies by `close` to convert a JPY-quoted pair's
@@ -106,9 +121,20 @@ It should be roughly `riskPercent% × your account size` (e.g. ~$50 on a $5K
 account at 1% risk) — if it's a tiny fraction of that (drawdown that looks
 "too good to be true" is the tell), position sizing isn't actually risking
 what you set, usually a currency/point-value quirk of that specific
-instrument's data feed. This has already bitten this script once (fixed by
-using `syminfo.pointvalue` in the sizing formula) — it's cheap to re-check
-any time you switch symbols, since different feeds can behave differently.
+instrument's data feed. This has already bitten this script twice (fixed by
+using `syminfo.pointvalue`, then again by converting quote currency to
+account currency) — it's cheap to re-check any time you switch symbols,
+since different feeds can behave differently.
+
+**Use the List of Trades' dollar P&L for this check, not the "Return %"
+column or the Distribution tab's "Average loss/profit %"** — those are
+computed relative to each trade's own position value (notional), not your
+account equity, so they swing around a lot even when dollar risk per trade
+is perfectly consistent. A trade risking exactly 1% of a $5K account will
+always show close to -$50 in dollars, but its "Return %" might read -0.09%
+on one trade and -0.52% on another purely because of how large that
+particular trade's position happened to be — that's not a sizing bug, it's
+just the wrong column to eyeball for this.
 
 ## Changing risk per trade
 

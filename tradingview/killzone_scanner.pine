@@ -55,6 +55,8 @@ enableBacktest = input.bool(true, "Place backtest orders (off = visual markers o
 rrMultiple     = input.float(2.0, "Target = stop distance x this multiple", minval = 0.1, step = 0.1, group = grp3)
 riskPercent    = input.float(1.0, "Risk % of equity per trade", minval = 0.01, step = 0.1, group = grp3,
      tooltip = "Position size is calculated so that if the stop is hit, the loss is this % of current equity -- not a flat contract count. Raise/lower this to see how account risk changes drawdown and total return; it does not change which trades fire, only how big they are.")
+maxLeverage    = input.float(30, "Max account leverage (a real broker's limit)", minval = 1, group = grp3,
+     tooltip = "Caps position size to what this leverage can actually fund (e.g. 30 = a position worth at most 30x your equity). Backtesting has no margin limit by default -- on a tight-stop pair, risk-based sizing can call for a position worth millions on a 5K account, which no real broker allows. When the risk-sized quantity would need more leverage than this, size is capped here instead, so realized risk on a very tight stop may land under riskPercent -- that's the honest, fundable number, not a bug.")
 
 // ---- Swing points -------------------------------------------------------
 // ta.pivothigh/pivotlow confirm `swingLookback` bars AFTER the actual pivot
@@ -160,8 +162,16 @@ drawPlan(entryLevel, stopLevel, targetLevel) =>
 // This is the same reason real forex "pip value" calculators always ask for
 // the current rate specifically on JPY-quoted pairs, unlike e.g. EURUSD
 // where quote currency and a USD account already match.
+// Verified against a real backtest: with no cap, a tight USDJPY stop called
+// for positions worth millions on a $5K account -- correct arithmetic, but a
+// leverage no real broker offers. maxQty is the largest position this
+// script will ever open at maxLeverage; wanted is clamped to it so realized
+// risk quietly comes in under riskPercent on very tight stops instead of
+// silently assuming unlimited leverage.
 riskSize(riskDist) =>
-    (strategy.equity * riskPercent / 100 * close) / (riskDist * syminfo.pointvalue)
+    wanted = (strategy.equity * riskPercent / 100 * close) / (riskDist * syminfo.pointvalue)
+    maxQty = (strategy.equity * maxLeverage) / close
+    math.min(wanted, maxQty)
 
 // A strategy.entry() in the opposite direction of an already-open position
 // closes it immediately at the current price and reverses -- not at that
