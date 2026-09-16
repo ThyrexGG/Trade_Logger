@@ -40,6 +40,12 @@ strategy(
 // The volume profile and the in-sample/out-of-sample table were removed at the
 // user's request -- both still exist in killzone_scanner.pine if wanted.
 //
+//   3. An optional HTF bias gate on entries ("HTF bias filter" group, Off by
+//      default). It reads the last CLOSED bar of two higher timeframes, so it
+//      does not leak future data the way the display table's live read would.
+//      When it blocks a trade the candidate and its plan lines are still
+//      drawn, so a filtered-out setup stays visible on the chart.
+//
 // IMPORTANT: the killzone windows used for the ENTRY FILTER are separate
 // inputs from the visual killzone boxes, on purpose. If the boxes drove entry
 // eligibility, editing a box's session time would silently change which
@@ -73,6 +79,15 @@ riskPercent    = input.float(1.0, "Risk % of equity per trade", minval = 0.01, s
      tooltip = "Position size is calculated so that if the stop is hit, the loss is this % of current equity -- not a flat contract count.")
 maxLeverage    = input.float(200, "Max account leverage (a real broker's limit)", minval = 1, group = grp3,
      tooltip = "Caps position size to what this leverage can actually fund. Backtesting has no margin limit by default; on a tight-stop pair, risk-based sizing can call for a position worth millions on a 5K account.")
+
+grpBias = "HTF bias filter (entries)"
+biasMode = input.string("Off", "Only trade with HTF bias", group = grpBias,
+     options = ["Off", "TF 1 only", "TF 2 only", "Either agrees", "Both agree"],
+     tooltip = "Gates ORDERS only. Candidates and plan lines are still drawn when the filter blocks a trade, so you can see exactly what it removed.")
+biasTf1  = input.timeframe("D", "Bias TF 1", group = grpBias)
+biasTf2  = input.timeframe("W", "Bias TF 2", group = grpBias)
+biasNeutralOk = input.bool(false, "Let Neutral / no-data count as permission", group = grpBias,
+     tooltip = "Off (default) is the strict reading: if the higher timeframe is inside its previous range, it is not endorsing either direction, so no trade.")
 
 grp4 = "Signal display"
 showSignalMarkers = input.bool(false, "Show sweep / MSS shape markers", group = grp4,
@@ -179,19 +194,23 @@ plotshape(showSignalMarkers and bullishCandidate, title = "Bullish MSS", style =
 plotshape(showSignalMarkers and bearishCandidate, title = "Bearish MSS", style = shape.triangledown,
      location = location.abovebar, color = color.red, size = size.small, text = "MSS")
 
-drawPlan(entryLevel, stopLevel, targetLevel) =>
-    if showPlanLines
-        x1 = bar_index
-        x2 = bar_index + planLineBars
-        line.new(x1, entryLevel, x2, entryLevel, color = color.yellow, width = 2)
-        line.new(x1, stopLevel, x2, stopLevel, color = color.red, width = 1, style = line.style_dashed)
-        line.new(x1, targetLevel, x2, targetLevel, color = color.green, width = 1, style = line.style_dashed)
-        label.new(x2, entryLevel, "Entry " + str.tostring(entryLevel, format.mintick),
-             style = label.style_label_left, color = color.new(color.yellow, 85), textcolor = color.yellow, size = size.tiny)
-        label.new(x2, stopLevel, "Stop " + str.tostring(stopLevel, format.mintick),
-             style = label.style_label_left, color = color.new(color.red, 85), textcolor = color.red, size = size.tiny)
-        label.new(x2, targetLevel, "Target " + str.tostring(targetLevel, format.mintick),
-             style = label.style_label_left, color = color.new(color.green, 85), textcolor = color.green, size = size.tiny)
+// One live handle per line/label, not a fresh set every call. The candidate
+// condition can stay true for several consecutive bars (the sweep is still
+// "recent enough" and the killzone window is still open), and this used to
+// redraw on every one of them -- each call left its lines/labels behind
+// instead of replacing them, so a single setup could paint 3-4 overlapping
+// entry levels and doubled-up stop/target text on the chart.
+//
+// This is inlined at both call sites below rather than factored into a
+// function: Pine does not allow a user-defined function to reassign (:=) a
+// variable declared outside it ("Cannot modify global variable in function"),
+// and these handles have to persist across bars via `var` at the top level.
+var line  planEntryLine  = na
+var line  planStopLine   = na
+var line  planTargetLine = na
+var label planEntryLabel  = na
+var label planStopLabel   = na
+var label planTargetLabel = na
 
 // Quote-currency -> account-currency conversion, derived from the symbol
 // rather than hardcoded (see killzone_scanner.pine for the full history --
@@ -211,6 +230,51 @@ riskSize(riskDist) =>
         qty := math.max(0.0, math.min(wanted, maxQty))
     qty
 
+// ---- HTF bias gate -------------------------------------------------------
+// NOTE: this deliberately does NOT reuse biasFor() from the table section.
+// biasFor() reads the CURRENT (still-forming) HTF bar with lookahead_on, which
+// is fine for a "where are we right now" display but is future leakage if it
+// gates an order -- the backtest would know today's daily close at 09:00.
+// This version shifts everything back one HTF bar: it compares the last FULLY
+// CLOSED higher-timeframe bar against the one before it. Same rules, but every
+// input was knowable at the time the trade is taken.
+tradeBiasFor(simple string tf) =>
+    // Tuple form on purpose: TradingView caps a script at 40 securities, and
+    // five separate calls here would cost five of them per timeframe. One
+    // request returning five values costs one.
+    [ph, pl, ch, cl, cc] = request.security(syminfo.tickerid, tf,
+         [high[2], low[2], high[1], low[1], close[1]], lookahead = barmerge.lookahead_on)
+
+    string dir = "n/a"
+    if not (na(ph) or na(pl) or na(cc))
+        if cc < pl
+            dir := "Bearish"
+        else if cc > ph
+            dir := "Bullish"
+        else if cl < pl and cc > pl
+            dir := "Bullish"
+        else if ch > ph and cc < ph
+            dir := "Bearish"
+        else
+            dir := "Neutral"
+    dir
+
+tradeBias1 = tradeBiasFor(biasTf1)
+tradeBias2 = tradeBiasFor(biasTf2)
+
+biasPermits(string dir, bool wantLong) =>
+    dir == "Bullish" ? wantLong : dir == "Bearish" ? not wantLong : biasNeutralOk
+
+biasOk(bool wantLong) =>
+    p1 = biasPermits(tradeBias1, wantLong)
+    p2 = biasPermits(tradeBias2, wantLong)
+    switch biasMode
+        "TF 1 only"     => p1
+        "TF 2 only"     => p2
+        "Either agrees" => p1 or p2
+        "Both agree"    => p1 and p2
+        => true
+
 flat = strategy.position_size == 0
 
 if bullishCandidate
@@ -219,9 +283,26 @@ if bullishCandidate
     riskDist   = entryLevel - stopLevel
     if riskDist > 0
         targetLevel = entryLevel + riskDist * rrMultiple
-        drawPlan(entryLevel, stopLevel, targetLevel)
+        if showPlanLines
+            line.delete(planEntryLine)
+            line.delete(planStopLine)
+            line.delete(planTargetLine)
+            label.delete(planEntryLabel)
+            label.delete(planStopLabel)
+            label.delete(planTargetLabel)
+            planX1 = bar_index
+            planX2 = bar_index + planLineBars
+            planEntryLine  := line.new(planX1, entryLevel, planX2, entryLevel, color = color.yellow, width = 2)
+            planStopLine   := line.new(planX1, stopLevel, planX2, stopLevel, color = color.red, width = 1, style = line.style_dashed)
+            planTargetLine := line.new(planX1, targetLevel, planX2, targetLevel, color = color.green, width = 1, style = line.style_dashed)
+            planEntryLabel := label.new(planX2, entryLevel, "Entry " + str.tostring(entryLevel, format.mintick),
+                 style = label.style_label_left, color = color.new(color.yellow, 85), textcolor = color.yellow, size = size.tiny)
+            planStopLabel := label.new(planX2, stopLevel, "Stop " + str.tostring(stopLevel, format.mintick),
+                 style = label.style_label_left, color = color.new(color.red, 85), textcolor = color.red, size = size.tiny)
+            planTargetLabel := label.new(planX2, targetLevel, "Target " + str.tostring(targetLevel, format.mintick),
+                 style = label.style_label_left, color = color.new(color.green, 85), textcolor = color.green, size = size.tiny)
         qty = riskSize(riskDist)
-        if enableBacktest and flat and qty > 0
+        if enableBacktest and flat and qty > 0 and biasOk(true)
             strategy.entry("Long", strategy.long, qty = qty)
             strategy.exit("Long exit", from_entry = "Long", stop = stopLevel, limit = targetLevel)
 
@@ -231,9 +312,26 @@ if bearishCandidate
     riskDist   = stopLevel - entryLevel
     if riskDist > 0
         targetLevel = entryLevel - riskDist * rrMultiple
-        drawPlan(entryLevel, stopLevel, targetLevel)
+        if showPlanLines
+            line.delete(planEntryLine)
+            line.delete(planStopLine)
+            line.delete(planTargetLine)
+            label.delete(planEntryLabel)
+            label.delete(planStopLabel)
+            label.delete(planTargetLabel)
+            planX1 = bar_index
+            planX2 = bar_index + planLineBars
+            planEntryLine  := line.new(planX1, entryLevel, planX2, entryLevel, color = color.yellow, width = 2)
+            planStopLine   := line.new(planX1, stopLevel, planX2, stopLevel, color = color.red, width = 1, style = line.style_dashed)
+            planTargetLine := line.new(planX1, targetLevel, planX2, targetLevel, color = color.green, width = 1, style = line.style_dashed)
+            planEntryLabel := label.new(planX2, entryLevel, "Entry " + str.tostring(entryLevel, format.mintick),
+                 style = label.style_label_left, color = color.new(color.yellow, 85), textcolor = color.yellow, size = size.tiny)
+            planStopLabel := label.new(planX2, stopLevel, "Stop " + str.tostring(stopLevel, format.mintick),
+                 style = label.style_label_left, color = color.new(color.red, 85), textcolor = color.red, size = size.tiny)
+            planTargetLabel := label.new(planX2, targetLevel, "Target " + str.tostring(targetLevel, format.mintick),
+                 style = label.style_label_left, color = color.new(color.green, 85), textcolor = color.green, size = size.tiny)
         qty = riskSize(riskDist)
-        if enableBacktest and flat and qty > 0
+        if enableBacktest and flat and qty > 0 and biasOk(false)
             strategy.entry("Short", strategy.short, qty = qty)
             strategy.exit("Short exit", from_entry = "Short", stop = stopLevel, limit = targetLevel)
 
@@ -391,12 +489,9 @@ tickZone(zNyPm, useNyPm, inNyPm, inNyPm and not inNyPm[1])
 // `high[1]` with lookahead_on is the standard non-repainting idiom for "the
 // previous completed period's value".
 // =============================================================================
-pdh = request.security(syminfo.tickerid, "D", high[1], lookahead = barmerge.lookahead_on)
-pdl = request.security(syminfo.tickerid, "D", low[1],  lookahead = barmerge.lookahead_on)
-pwh = request.security(syminfo.tickerid, "W", high[1], lookahead = barmerge.lookahead_on)
-pwl = request.security(syminfo.tickerid, "W", low[1],  lookahead = barmerge.lookahead_on)
-pmh = request.security(syminfo.tickerid, "M", high[1], lookahead = barmerge.lookahead_on)
-pml = request.security(syminfo.tickerid, "M", low[1],  lookahead = barmerge.lookahead_on)
+[pdh, pdl] = request.security(syminfo.tickerid, "D", [high[1], low[1]], lookahead = barmerge.lookahead_on)
+[pwh, pwl] = request.security(syminfo.tickerid, "W", [high[1], low[1]], lookahead = barmerge.lookahead_on)
+[pmh, pml] = request.security(syminfo.tickerid, "M", [high[1], low[1]], lookahead = barmerge.lookahead_on)
 
 plot(showPD  ? pdh : na, "PDH", color = pdCol, style = plot.style_stepline)
 plot(showPD  ? pdl : na, "PDL", color = pdCol, style = plot.style_stepline)
@@ -473,11 +568,8 @@ mtfTablePos = switch mtfPos
 // `series string`, and request.security()'s timeframe argument only accepts
 // `simple string` -- which fails at compile time, not at run time.
 biasFor(simple string tf) =>
-    ph = request.security(syminfo.tickerid, tf, high[1], lookahead = barmerge.lookahead_on)
-    pl = request.security(syminfo.tickerid, tf, low[1],  lookahead = barmerge.lookahead_on)
-    ch = request.security(syminfo.tickerid, tf, high,    lookahead = barmerge.lookahead_on)
-    cl = request.security(syminfo.tickerid, tf, low,     lookahead = barmerge.lookahead_on)
-    cc = request.security(syminfo.tickerid, tf, close,   lookahead = barmerge.lookahead_on)
+    [ph, pl, ch, cl, cc] = request.security(syminfo.tickerid, tf,
+         [high[1], low[1], high, low, close], lookahead = barmerge.lookahead_on)
 
     string dir = "n/a"
     string ctx = "no data"
@@ -504,11 +596,12 @@ biasFor(simple string tf) =>
 // --- Market structure: the same swing-break logic the strategy uses, plus a
 // stage label describing what price is doing relative to the last break.
 structFor(simple string tf) =>
-    sh = request.security(syminfo.tickerid, tf, ta.pivothigh(high, swingLookback, swingLookback), lookahead = barmerge.lookahead_on)
-    sl = request.security(syminfo.tickerid, tf, ta.pivotlow(low, swingLookback, swingLookback),   lookahead = barmerge.lookahead_on)
-    cc = request.security(syminfo.tickerid, tf, close, lookahead = barmerge.lookahead_on)
-    at = request.security(syminfo.tickerid, tf, ta.atr(atrLength), lookahead = barmerge.lookahead_on)
-    bd = request.security(syminfo.tickerid, tf, math.abs(close - open), lookahead = barmerge.lookahead_on)
+    [sh, sl, cc, at, bd] = request.security(syminfo.tickerid, tf,
+         [ta.pivothigh(high, swingLookback, swingLookback),
+          ta.pivotlow(low, swingLookback, swingLookback),
+          close,
+          ta.atr(atrLength),
+          math.abs(close - open)], lookahead = barmerge.lookahead_on)
 
     var float hiRef = na
     var float loRef = na
@@ -550,7 +643,7 @@ structFor(simple string tf) =>
 dirColor(string d) =>
     d == "Bullish" ? color.new(color.green, 0) : d == "Bearish" ? color.new(color.red, 0) : color.new(color.gray, 0)
 
-var table mtfTable = table.new(mtfTablePos, 3, 9, border_width = 1, frame_width = 1)
+var table mtfTable = table.new(mtfTablePos, 3, 12, border_width = 1, frame_width = 1)
 
 mtfRow(table t, int row, string tf, string dir, string ctx) =>
     table.cell(t, 0, row, tf,  text_size = size.tiny, text_color = chart.fg_color)
@@ -577,3 +670,13 @@ if barstate.islast and showMtf
     mtfRow(mtfTable, 6, mtfTf3, s3d, s3s)
     mtfRow(mtfTable, 7, mtfTf4, s4d, s4s)
     mtfRow(mtfTable, 8, mtfTf5, s5d, s5s)
+
+    // The gate's own read, shown only when it is actually gating. It can differ
+    // from the DIRECTIONAL BIAS rows above: those describe the live HTF bar,
+    // this one describes the last CLOSED bar, which is all a trade may use.
+    if biasMode != "Off"
+        table.cell(mtfTable, 0, 9, "ENTRY BIAS GATE", text_size = size.tiny, text_color = chart.fg_color, bgcolor = hdr)
+        table.cell(mtfTable, 1, 9, "", bgcolor = hdr)
+        table.cell(mtfTable, 2, 9, biasMode, text_size = size.tiny, text_color = chart.fg_color, bgcolor = hdr)
+        mtfRow(mtfTable, 10, biasTf1, tradeBias1, "last closed bar")
+        mtfRow(mtfTable, 11, biasTf2, tradeBias2, "last closed bar")
