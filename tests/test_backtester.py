@@ -97,9 +97,9 @@ class TestBacktester(unittest.TestCase):
         with patch("backtester.calc_rsi") as mock_rsi, patch("backtester.calc_atr") as mock_atr:
             mock_rsi.return_value = pd.Series([50, 20] + [50]*28, index=df_mock.index)
             mock_atr.return_value = pd.Series([1]*30, index=df_mock.index)
-            res = backtester.run_backtest("EURUSD", strategy="Mean Reversion", capital=10000, risk_pct=1.0, sl_atr=1.5)
-            # Risk = 100. SL distance = 1.5. Shares = 100 / 1.5 = 66.666...
-            # EURUSD qty_step = 0.01. So shares should be 66.67
+            res = backtester.run_backtest("EURUSD", strategy="Mean Reversion", capital=10000, risk_pct=1.0, sl_atr=1.5, slippage=0)
+            # Risk = 100. SL distance = 1.5 (slippage zeroed out so it isn't folded into the distance).
+            # Shares = 100 / 1.5 = 66.666... EURUSD qty_step = 0.01. So shares should be 66.67
             first_trade = res["trades"][0]
             self.assertEqual(first_trade["position_size"], 66.67)
             
