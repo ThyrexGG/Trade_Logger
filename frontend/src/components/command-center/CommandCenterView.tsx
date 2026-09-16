@@ -53,12 +53,6 @@ export function CommandCenterView({ data }: { data: CommandCenterOverviewRespons
           </div>
           <div className="flex items-center gap-1.5">
             <OpsStatusTag value={d.safety.overall_status} size="sm" />
-            <span className="text-muted">automation</span>
-            <span className={d.safety.automation_enabled ? 'text-negative' : 'text-positive'}>
-              {d.safety.automation_enabled ? 'ENABLED' : 'DISABLED'}
-            </span>
-            <span className="text-muted">· broker</span>
-            <span className="text-positive">{d.safety.live_broker_transmission}</span>
             {d.safety.kill_switch_engaged ? <span className="text-warning">· KILL SWITCH</span> : null}
           </div>
         </div>
