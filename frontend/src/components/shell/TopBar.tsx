@@ -25,11 +25,10 @@ interface TopBarProps {
 export function TopBar({ onOpenSidebar, onOpenCommandPalette }: TopBarProps) {
   const { state: authState, user, logout } = useAuth()
   const { syncing } = useSyncOnOpen()
-  const { state, data } = useHealth()
+  const { state } = useHealth()
   const { choice, cycle } = useTheme()
   const api = apiStatusView(state)
   const system = systemStatusView(state)
-  const safety = data?.live_broker_transmission ?? 'BLOCKED'
   const ThemeIcon = THEME_ICON[choice]
 
   return (
@@ -79,16 +78,6 @@ export function TopBar({ onOpenSidebar, onOpenCommandPalette }: TopBarProps) {
           </span>
         </Tooltip>
       ) : null}
-
-      <Tooltip label="Live broker transmission is permanently blocked (fail-closed) — nothing here can place, modify or cancel a real order">
-        <span className="flex shrink-0 items-center gap-1.5 rounded border border-negative/40 bg-negative/10 px-1.5 py-1 sm:px-2">
-          <span aria-hidden="true">🔒</span>
-          <span className="font-mono text-[11px] font-semibold text-negative">
-            <span className="hidden sm:inline">LIVE </span>
-            {safety}
-          </span>
-        </span>
-      </Tooltip>
 
       <Tooltip label={THEME_LABEL[choice]}>
         <button
