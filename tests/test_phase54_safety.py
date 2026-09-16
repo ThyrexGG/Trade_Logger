@@ -9,7 +9,7 @@ from xauusd_forward_statistical_monitoring import FROZEN_CONTRACT_HASH
 
 
 def test_frozen_strategy_contract_hash_phase54():
-    contract_path = os.path.join(os.path.dirname(__file__), "..", "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
+    contract_path = os.path.join(os.path.dirname(__file__), "..", "docs", "phase-audits", "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
     assert os.path.exists(contract_path)
     with open(contract_path, "rb") as f:
         content = f.read().replace(b"\r\n", b"\n")

@@ -5,7 +5,7 @@ Validates deep 360-degree forensic inspection of forward observation records.
 
 from datetime import datetime, timezone, date
 import pytest
-from xauusd_master_research_command import ComprehensiveObservationInspector
+from legacy.xauusd_master_research_command import ComprehensiveObservationInspector
 
 
 def test_observation_inspector_complete_payload():

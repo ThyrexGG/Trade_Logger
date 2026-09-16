@@ -11,7 +11,7 @@ Tests:
 import pytest
 import pandas as pd
 import numpy as np
-from usdjpy_edge_discovery import (
+from legacy.usdjpy_edge_discovery import (
     USDJPYRegimeEngine,
     USDJPYMechanicalExperimentRunner,
     USDJPYDeepExcursionAnalyzer,

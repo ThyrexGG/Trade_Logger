@@ -13,7 +13,7 @@ import re
 import sys
 from datetime import datetime, timedelta, timezone
 
-import phase98_forward_daemon as d
+import legacy.phase98_forward_daemon as d
 
 
 def _hist(days_ago):

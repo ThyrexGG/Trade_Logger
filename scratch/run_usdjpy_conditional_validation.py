@@ -27,7 +27,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 import backtester
 import research_engine
 import research_analytics
-from usdjpy_conditional_validation import (
+from legacy.usdjpy_conditional_validation import (
     USDJPYPhase17Auditor,
     USDJPYSubgroupAuditor,
     USDJPYFixedMomentumModel,

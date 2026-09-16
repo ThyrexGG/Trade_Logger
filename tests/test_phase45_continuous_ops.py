@@ -5,7 +5,7 @@ Validates supervisor cycle, contract immutability enforcement, and heartbeat gen
 
 from datetime import datetime, timezone, date
 import pytest
-from xauusd_continuous_forward_ops import ContinuousForwardSupervisor
+from legacy.xauusd_continuous_forward_ops import ContinuousForwardSupervisor
 
 
 def test_continuous_supervisor_cycle_execution():

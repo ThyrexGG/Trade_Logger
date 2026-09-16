@@ -10,7 +10,7 @@ Tests:
 
 import pytest
 import pandas as pd
-from true_mtf_engine import (
+from legacy.true_mtf_engine import (
     TrueMTFStateMachine,
     TrueMTFDataLoader,
     TrueMTFStrategyEngine,

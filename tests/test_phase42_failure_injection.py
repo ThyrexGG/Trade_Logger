@@ -4,7 +4,7 @@ Validates fail-closed safety and resilience under simulated operational anomalie
 """
 
 import pytest
-from xauusd_master_research_command import OvernightFailureRecoveryDaemon
+from legacy.xauusd_master_research_command import OvernightFailureRecoveryDaemon
 
 
 def test_failure_injection_simulation_suite():

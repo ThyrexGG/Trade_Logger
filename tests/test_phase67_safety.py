@@ -30,7 +30,7 @@ _PHASE67_MODULES = [
 
 def test_strategy_contract_hash_unchanged():
     path = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-                        "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
+                        "docs", "phase-audits", "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
     with open(path, "rb") as fh:
         digest = hashlib.sha256(fh.read().replace(b"\r\n", b"\n")).hexdigest()
     assert digest == _FROZEN_CONTRACT_HASH

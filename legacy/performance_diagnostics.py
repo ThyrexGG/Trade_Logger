@@ -133,7 +133,7 @@ class ProfileTimer:
 
 # Phase 62 Re-exports & Helper
 try:
-    import application_performance_profiler
+    import legacy.application_performance_profiler as application_performance_profiler
     render_performance_command_center = application_performance_profiler.render_performance_command_center
     get_profiler = application_performance_profiler.get_profiler
 except ImportError:

@@ -5,7 +5,7 @@ Validates forensic snapshot creation and reproducibility metadata.
 
 from datetime import datetime, timezone
 import pytest
-from xauusd_forward_evidence_collection import FirstObservationForensicRecorder
+from legacy.xauusd_forward_evidence_collection import FirstObservationForensicRecorder
 
 
 def test_forensic_snapshot_creation():

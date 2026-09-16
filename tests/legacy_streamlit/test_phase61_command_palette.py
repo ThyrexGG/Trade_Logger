@@ -4,7 +4,7 @@ Phase 61 - Test Global Command Palette (Ctrl+K), Search & Command Execution Disp
 """
 import pytest
 import streamlit as st
-from command_palette import CommandPaletteEngine, COMMAND_REGISTRY
+from legacy.command_palette import CommandPaletteEngine, COMMAND_REGISTRY
 
 
 def test_command_registry_completeness():

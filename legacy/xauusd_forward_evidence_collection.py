@@ -47,7 +47,7 @@ from xauusd_market_conditions import (
 )
 from xauusd_news_reliability import MarketClosureAuditor
 from xauusd_operational_monitor import OperationalHealthEvaluator
-from xauusd_overnight_experiment import (
+from legacy.xauusd_overnight_experiment import (
     HeartbeatAndLivenessAuditor,
     OperationalOutageTracker,
     SetupLifecycleReconciler,

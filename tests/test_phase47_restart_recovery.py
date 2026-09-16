@@ -5,7 +5,7 @@ Validates system restart without evidence duplication.
 
 from datetime import datetime, timezone
 import pytest
-from xauusd_forward_evidence_collection import ObservationDuplicateProtectionEngine
+from legacy.xauusd_forward_evidence_collection import ObservationDuplicateProtectionEngine
 
 
 def test_restart_recovery_duplicate_prevention():

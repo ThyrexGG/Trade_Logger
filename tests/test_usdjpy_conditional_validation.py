@@ -20,7 +20,7 @@ Tests:
 import pytest
 import numpy as np
 import pandas as pd
-from usdjpy_conditional_validation import (
+from legacy.usdjpy_conditional_validation import (
     USDJPYPhase17Auditor,
     USDJPYSubgroupAuditor,
     USDJPYFixedMomentumModel,

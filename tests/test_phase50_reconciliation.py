@@ -3,7 +3,7 @@ Phase 50 — Tests for Database Reconciliation & Zero Orphan Audits
 """
 
 import pytest
-from xauusd_forward_lifecycle import ForwardLifecycleReconciliationAudit
+from legacy.xauusd_forward_lifecycle import ForwardLifecycleReconciliationAudit
 
 
 def test_reconciliation_zero_orphans_and_duplicates():

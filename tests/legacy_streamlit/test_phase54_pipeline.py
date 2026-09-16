@@ -3,7 +3,7 @@ Phase 54 — Tests for 8-Stage Forward Observation Pipeline
 """
 
 import pytest
-from forward_evidence_cockpit import ForwardEvidenceCockpit
+from legacy.forward_evidence_cockpit import ForwardEvidenceCockpit
 
 
 def test_pipeline_operational_data():

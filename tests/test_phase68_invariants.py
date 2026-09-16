@@ -147,7 +147,7 @@ def test_invariant_no_execution_module_in_intelligence():
 
 def test_invariant_frozen_contract_hash():
     path = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-                        "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
+                        "docs", "phase-audits", "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
     with open(path, "rb") as fh:
         assert hashlib.sha256(fh.read().replace(b"\r\n", b"\n")).hexdigest() == _FROZEN
 

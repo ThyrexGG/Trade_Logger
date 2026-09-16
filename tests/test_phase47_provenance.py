@@ -4,7 +4,7 @@ Validates 3-part explainable research narrative ("Why Was This Created?").
 """
 
 import pytest
-from xauusd_forward_evidence_collection import WhyWasThisObservationCreatedExplainer
+from legacy.xauusd_forward_evidence_collection import WhyWasThisObservationCreatedExplainer
 
 
 def test_why_was_this_created_explainer_empty():

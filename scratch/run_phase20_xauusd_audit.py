@@ -33,7 +33,7 @@ market_data.get_latest_price = lambda s: 2400.50
 market_data.get_latest_tick = lambda s: {"bid": 2400.30, "ask": 2400.50}
 market_data.get_market_health = lambda s, tf: {"status": "HEALTHY"}
 
-from xauusd_audit_engine import (
+from legacy.xauusd_audit_engine import (
     XAUUSDDataAuditor,
     XAUUSDEntryExecutionAuditor,
     XAUUSDStructuralSLAuditor,

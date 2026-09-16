@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 import pytest
 from xauusd_forward_integrity import StrategyContractIntegrityGuard
 from xauusd_market_conditions import FROZEN_CONTRACT_HASH
-from xauusd_overnight_experiment import OvernightIdempotencyGuard
+from legacy.xauusd_overnight_experiment import OvernightIdempotencyGuard
 
 
 def test_idempotency_unique_observation():
@@ -24,7 +24,7 @@ def test_idempotency_unique_observation():
 
 def test_strategy_contract_hash_exact_match_phase43():
     """Validates contract SHA-256 hash."""
-    contract_path = os.path.join(os.path.dirname(__file__), "..", "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
+    contract_path = os.path.join(os.path.dirname(__file__), "..", "docs", "phase-audits", "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
     with open(contract_path, "rb") as f:
         content = f.read().replace(b"\r\n", b"\n")
     actual_hash = hashlib.sha256(content).hexdigest()

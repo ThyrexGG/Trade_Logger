@@ -4,7 +4,7 @@ Phase 48 — Tests for Genuine Forward Signal Detection & Provenance Validation
 
 import pytest
 from datetime import datetime, timezone, timedelta
-from xauusd_forward_lifecycle import ForwardSignalPipelineValidator, ForwardSignalToObservationBridge
+from legacy.xauusd_forward_lifecycle import ForwardSignalPipelineValidator, ForwardSignalToObservationBridge
 
 
 def test_valid_signal_provenance_validation():

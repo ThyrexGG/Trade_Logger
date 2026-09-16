@@ -5,7 +5,7 @@ Phase 48 — Tests for Duplicate / Replay Protection in Observation Bridge
 import pytest
 import database
 from datetime import datetime, timezone
-from xauusd_forward_lifecycle import ForwardSignalToObservationBridge
+from legacy.xauusd_forward_lifecycle import ForwardSignalToObservationBridge
 
 
 def test_rejected_signals_not_promoted():

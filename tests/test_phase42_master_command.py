@@ -5,7 +5,7 @@ Validates 8-pillar master health evaluation and 4-quadrant instant status synthe
 
 from datetime import datetime, timezone, date
 import pytest
-from xauusd_master_research_command import (
+from legacy.xauusd_master_research_command import (
     MasterResearchHealthEvaluator,
     WhatDoINeedToKnowNowSynthesizer,
 )

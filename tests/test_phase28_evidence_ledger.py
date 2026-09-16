@@ -4,7 +4,7 @@ Verifies append-only storage, immutable snapshots, delta comparisons, and retrie
 """
 
 import pytest
-from xauusd_forward_evidence_ledger import ForwardEvidenceLedger
+from legacy.xauusd_forward_evidence_ledger import ForwardEvidenceLedger
 
 
 def test_create_and_get_evidence_snapshot():

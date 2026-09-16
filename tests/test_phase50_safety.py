@@ -7,13 +7,13 @@ import os
 import pytest
 from xauusd_forward_integrity import StrategyContractIntegrityGuard
 from xauusd_market_conditions import FROZEN_CONTRACT_HASH
-from xauusd_forward_end_to_end_proof import Phase50SafetyBarrier
+from legacy.xauusd_forward_end_to_end_proof import Phase50SafetyBarrier
 from xauusd_forward_statistical_monitoring import HISTORICAL_BASELINE
 
 
 def test_strategy_contract_hash_exact_match():
     """Validates byte-for-byte immutability of Strategy Contract SHA-256."""
-    contract_path = os.path.join(os.path.dirname(__file__), "..", "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
+    contract_path = os.path.join(os.path.dirname(__file__), "..", "docs", "phase-audits", "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
     if os.path.exists(contract_path):
         with open(contract_path, "rb") as f:
             content = f.read().replace(b"\r\n", b"\n")

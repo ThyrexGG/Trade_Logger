@@ -17,7 +17,7 @@ EXPECTED_CONTRACT_HASH = "7f135a1269626a21dba769b7f0173c8a5428dcb7b47a88976045ea
 
 def test_strategy_contract_hash_exact_match():
     """Validates that the Strategy Contract SHA-256 hash matches the frozen invariant."""
-    contract_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
+    contract_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "docs", "phase-audits", "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
     assert os.path.exists(contract_path)
 
     with open(contract_path, "rb") as f:

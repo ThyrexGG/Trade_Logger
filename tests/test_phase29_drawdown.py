@@ -4,7 +4,7 @@ Verifies streak tracking, equity curve drawdown measurements, recovery factors, 
 """
 
 import pytest
-from xauusd_forward_drawdown_audit import ForwardDrawdownAuditor
+from legacy.xauusd_forward_drawdown_audit import ForwardDrawdownAuditor
 
 
 def test_drawdown_auditor_calculations():

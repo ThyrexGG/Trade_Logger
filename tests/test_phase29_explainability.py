@@ -4,7 +4,7 @@ Ensures zero fake certainty words, scientific humility, and presence of all 28 d
 """
 
 import pytest
-from xauusd_review_package import HumanReviewPackageGenerator
+from legacy.xauusd_review_package import HumanReviewPackageGenerator
 
 
 def test_review_package_28_sections():

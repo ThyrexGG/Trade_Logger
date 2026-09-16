@@ -14,7 +14,7 @@ from xauusd_news_reliability import DailyPreTradeStatusEngine
 
 def test_strategy_contract_hash_exact_match():
     """Validates frozen strategy contract SHA-256 hash."""
-    contract_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
+    contract_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "docs", "phase-audits", "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
     with open(contract_path, "rb") as f:
         computed = hashlib.sha256(f.read().replace(b"\r\n", b"\n")).hexdigest()
     assert computed == FROZEN_CONTRACT_HASH

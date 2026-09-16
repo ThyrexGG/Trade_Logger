@@ -3,7 +3,7 @@ Phase 50 — Tests for 8-Link Forensic Evidence Chain Traceability
 """
 
 import pytest
-from xauusd_forward_end_to_end_proof import ForensicTraceabilityVerifier
+from legacy.xauusd_forward_end_to_end_proof import ForensicTraceabilityVerifier
 
 
 def test_forensic_trace_non_existent_signal():

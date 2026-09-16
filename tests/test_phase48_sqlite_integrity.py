@@ -3,7 +3,7 @@ Phase 48 — Tests for SQLite Data Integrity & Clean Production Schema
 """
 
 import pytest
-from xauusd_forward_lifecycle import ForwardLifecycleReconciliationAudit, ForwardMorningAwaySummaryClassifier
+from legacy.xauusd_forward_lifecycle import ForwardLifecycleReconciliationAudit, ForwardMorningAwaySummaryClassifier
 
 
 def test_sqlite_integrity_clean_baseline():

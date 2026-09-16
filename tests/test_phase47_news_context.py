@@ -4,7 +4,7 @@ Validates 10-pillar forensic check on forward observations.
 """
 
 import pytest
-from xauusd_forward_evidence_collection import OneClickForensicVerifier
+from legacy.xauusd_forward_evidence_collection import OneClickForensicVerifier
 
 
 def test_one_click_forensic_verifier():

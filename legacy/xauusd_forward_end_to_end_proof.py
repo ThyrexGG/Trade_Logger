@@ -35,13 +35,13 @@ import database
 from xauusd_forward_integrity import StrategyContractIntegrityGuard
 from xauusd_market_conditions import FROZEN_CONTRACT_HASH
 from xauusd_forward_validator import XAUUSDForwardJournal
-from xauusd_forward_evidence_collection import (
+from legacy.xauusd_forward_evidence_collection import (
     ForwardEvidenceEligibilityGate,
     ForwardObservationCaptureEngine,
     FirstRealObservationDetector,
     OneClickForensicVerifier,
 )
-from xauusd_forward_lifecycle import (
+from legacy.xauusd_forward_lifecycle import (
     ForwardSignalPipelineValidator,
     ForwardLifecycleReconciliationAudit,
     ForwardOutcomeLifecycleManager,
@@ -57,7 +57,7 @@ from xauusd_forward_statistical_monitoring import (
     HISTORICAL_BASELINE,
     Phase49MonitoringFacade,
 )
-from xauusd_overnight_experiment import (
+from legacy.xauusd_overnight_experiment import (
     HeartbeatAndLivenessAuditor,
     OperationalOutageTracker,
 )

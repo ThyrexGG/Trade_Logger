@@ -11,7 +11,7 @@ import pytest
 import pandas as pd
 import numpy as np
 import strategies
-from usdjpy_research import USDJPYAblationRunner, USDJPYDiagnosticProfiler
+from legacy.usdjpy_research import USDJPYAblationRunner, USDJPYDiagnosticProfiler
 import research_engine
 import research_analytics
 

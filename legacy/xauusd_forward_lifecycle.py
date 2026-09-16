@@ -184,7 +184,7 @@ class ForwardSignalToObservationBridge:
         """
         Orchestrates Signal -> Eligibility -> Observation Capture -> Event Recording.
         """
-        from xauusd_forward_evidence_collection import (
+        from legacy.xauusd_forward_evidence_collection import (
             ForwardObservationCaptureEngine,
             ForwardEvidenceEligibilityGate,
             ObservationDuplicateProtectionEngine,

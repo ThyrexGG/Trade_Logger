@@ -4,7 +4,7 @@ Validates morning summary synthesis.
 """
 
 import pytest
-from xauusd_forward_evidence_collection import HumanReadableMorningSummary
+from legacy.xauusd_forward_evidence_collection import HumanReadableMorningSummary
 
 
 def test_morning_summary_synthesis():

@@ -1,6 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-from server import app
+from legacy.server import app
 import time
 import uuid
 import database
@@ -49,7 +49,7 @@ def mock_db_paper(monkeypatch):
 def test_paper_execution_end_to_end(mock_db_paper, monkeypatch):
     monkeypatch.setattr(database, "get_setting", lambda k, d: "PAPER" if k == "SYSTEM_STATE" else d)
     
-    import server
+    import legacy.server as server
     server._webhook_rate_limit_cache.clear()
     
     sig_id = f"SIG_PAPER_{uuid.uuid4().hex[:8]}"
@@ -82,7 +82,7 @@ def test_paper_execution_end_to_end(mock_db_paper, monkeypatch):
 def test_shadow_execution_end_to_end(mock_db_paper, monkeypatch):
     monkeypatch.setattr(database, "get_setting", lambda k, d: "SHADOW" if k == "SYSTEM_STATE" else d)
     
-    import server
+    import legacy.server as server
     server._webhook_rate_limit_cache.clear()
     
     sig_id = f"SIG_SHADOW_{uuid.uuid4().hex[:8]}"
@@ -113,7 +113,7 @@ def test_shadow_execution_end_to_end(mock_db_paper, monkeypatch):
 def test_shadow_execution_rejects(mock_db_paper, monkeypatch):
     monkeypatch.setattr(database, "get_setting", lambda k, d: "SHADOW" if k == "SYSTEM_STATE" else d)
     
-    import server
+    import legacy.server as server
     server._webhook_rate_limit_cache.clear()
     
     sig_id = f"SIG_SHADOW_REJ_{uuid.uuid4().hex[:8]}"

@@ -354,7 +354,7 @@ def get_chart_executions(symbol: str = "XAUUSD"):
     return {"executions": execs}
 
 import analytics
-import ai_analysis
+import legacy.ai_analysis as ai_analysis
 
 @app.get("/api/analytics/metrics")
 def get_analytics_metrics(account_id: str = "ALL", initial_balance: float = 10000.0):
@@ -497,7 +497,10 @@ def tradingview_webhook(payload: WebhookPayload, request: Request):
 # Mount Flutter Web App as static build
 from fastapi.staticfiles import StaticFiles
 
-web_build_dir = os.path.join(os.path.dirname(__file__), "trade_logger_app", "build", "web")
+# Repo-root-relative, not legacy/-relative -- this moved here in the
+# 2026-09-16 cleanup. Guarded by exists() below either way, so this was a
+# latent path bug, not a crash risk.
+web_build_dir = os.path.join(os.path.dirname(__file__), "..", "trade_logger_app", "build", "web")
 if os.path.exists(web_build_dir):
     app.mount("/", StaticFiles(directory=web_build_dir, html=True), name="flutter_web")
 

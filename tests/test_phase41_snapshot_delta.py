@@ -5,7 +5,7 @@ Validates immutable snapshot storage, SHA-256 fingerprinting, and delta calculat
 
 from datetime import datetime, timezone, date, timedelta
 import pytest
-from xauusd_evidence_reproducibility import (
+from legacy.xauusd_evidence_reproducibility import (
     ImmutableDailySnapshotStore,
     SnapshotDeltaEngine,
 )

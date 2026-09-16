@@ -4,7 +4,7 @@ Verifies rolling window evaluations, baseline retention, and chronological un-sh
 """
 
 import pytest
-from xauusd_forward_stability import RollingStabilityEngine
+from legacy.xauusd_forward_stability import RollingStabilityEngine
 
 
 def test_rolling_stability_engine_windows():

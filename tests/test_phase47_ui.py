@@ -5,7 +5,7 @@ Validates that all tables and metrics in the Forward Evidence Collection UI conv
 
 import pandas as pd
 import pytest
-from xauusd_forward_evidence_collection import (
+from legacy.xauusd_forward_evidence_collection import (
     FirstRealObservationDetector,
     WhyWasThisObservationCreatedExplainer,
     OneClickForensicVerifier,

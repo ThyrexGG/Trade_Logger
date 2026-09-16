@@ -3,7 +3,7 @@ Phase 54 — Tests for Forensic Evidence Chain & Database Reconciliation
 """
 
 import pytest
-from forward_evidence_cockpit import ForwardEvidenceCockpit
+from legacy.forward_evidence_cockpit import ForwardEvidenceCockpit
 
 
 def test_forensic_chain_and_reconciliation():

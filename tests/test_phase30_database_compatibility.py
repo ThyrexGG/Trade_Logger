@@ -10,9 +10,9 @@ import pytest
 import database
 from xauusd_forward_validator import XAUUSDForwardJournal
 from xauusd_forward_integrity import ForwardObservationProvenance
-from xauusd_decision_history import XAUUSDDecisionHistory
+from legacy.xauusd_decision_history import XAUUSDDecisionHistory
 from xauusd_alert_engine import XAUUSDAlertEngine
-from xauusd_forward_evidence_ledger import ForwardEvidenceLedger
+from legacy.xauusd_forward_evidence_ledger import ForwardEvidenceLedger
 from xauusd_research_decision_audit import ResearchDecisionAuditEngine
 from xauusd_research_governance import ResearchHypothesisFirewall
 

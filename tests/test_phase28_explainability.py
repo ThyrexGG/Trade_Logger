@@ -3,8 +3,8 @@ Unit tests for Phase 28 Explainability & Scientific Language Rules.
 Verifies no emojis, no fake-certainty language, and presence of educational explanations.
 """
 
-from xauusd_review_package import HumanReviewPackageGenerator
-from xauusd_evidence_milestones import EvidenceMilestoneEngine
+from legacy.xauusd_review_package import HumanReviewPackageGenerator
+from legacy.xauusd_evidence_milestones import EvidenceMilestoneEngine
 from xauusd_review_readiness import ReviewReadinessEngine
 
 

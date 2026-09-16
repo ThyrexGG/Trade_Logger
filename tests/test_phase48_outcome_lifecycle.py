@@ -5,7 +5,7 @@ Phase 48 — Tests for Deterministic Outcome Lifecycle (TP_HIT, SL_HIT, EXPIRED,
 import pytest
 import database
 from datetime import datetime, timezone
-from xauusd_forward_lifecycle import ForwardOutcomeLifecycleManager
+from legacy.xauusd_forward_lifecycle import ForwardOutcomeLifecycleManager
 from xauusd_forward_validator import XAUUSDForwardJournal
 
 

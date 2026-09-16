@@ -5,7 +5,7 @@ Phase 62 - Test In-Memory Cache TTL, Thread Safety & Telemetry Integrity
 import pytest
 import time
 import threading
-from application_performance_profiler import (
+from legacy.application_performance_profiler import (
     get_profiler,
     record_cache_hit,
     record_cache_miss,

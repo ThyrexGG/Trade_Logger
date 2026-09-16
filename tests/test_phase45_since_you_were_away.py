@@ -4,7 +4,7 @@ Validates startup forensic report synthesis and plain-language operational verdi
 """
 
 import pytest
-from xauusd_continuous_forward_ops import SinceYouWereAwayAuditor
+from legacy.xauusd_continuous_forward_ops import SinceYouWereAwayAuditor
 
 
 def test_since_you_were_away_audit():

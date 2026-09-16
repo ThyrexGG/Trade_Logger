@@ -5,7 +5,7 @@ Validates Morning-After audit synthesis, morning hero decision card, and timelin
 
 from datetime import datetime, timezone, date
 import pytest
-from xauusd_overnight_experiment import MorningAfterAuditSynthesizer
+from legacy.xauusd_overnight_experiment import MorningAfterAuditSynthesizer
 
 
 def test_morning_after_audit_synthesis():

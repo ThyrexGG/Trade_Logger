@@ -3,7 +3,7 @@ Phase 48 — Tests for Paper/Shadow Execution Lifecycle & Live Safety Invariants
 """
 
 import pytest
-from xauusd_forward_lifecycle import ForwardExecutionLifecycleEngine
+from legacy.xauusd_forward_lifecycle import ForwardExecutionLifecycleEngine
 
 
 def test_live_automation_permanent_lock():

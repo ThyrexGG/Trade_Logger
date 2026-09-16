@@ -17,7 +17,7 @@ from xauusd_operational_monitor import FROZEN_CONTRACT_HASH
 
 def test_strategy_contract_hash_immutability():
     """Validates that PHASE_21_XAUUSD_STRATEGY_CONTRACT.md matches exact frozen SHA-256 hash."""
-    contract_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
+    contract_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "docs", "phase-audits", "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
     assert os.path.exists(contract_path)
 
     with open(contract_path, "rb") as f:

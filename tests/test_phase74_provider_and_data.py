@@ -203,6 +203,6 @@ def test_no_research_module_reads_the_holdout():
 
 
 def test_safety_flags_untouched():
-    from xauusd_forward_lifecycle import ForwardExecutionLifecycleEngine as E
+    from legacy.xauusd_forward_lifecycle import ForwardExecutionLifecycleEngine as E
     assert E.LIVE_AUTOMATION_ENABLED is False
     assert E.LIVE_BROKER_TRANSMISSION == "BLOCKED"

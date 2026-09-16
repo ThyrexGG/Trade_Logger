@@ -4,7 +4,7 @@ Phase 50 — Tests for System Restart Recovery & Determinism
 
 import pytest
 from xauusd_forward_statistical_monitoring import RestartDeterminismAuditor
-from xauusd_forward_end_to_end_proof import Phase50E2EOperationalProofEngine
+from legacy.xauusd_forward_end_to_end_proof import Phase50E2EOperationalProofEngine
 
 
 def test_restart_recovery_across_evaluations():

@@ -13,7 +13,7 @@ import pandas as pd
 import numpy as np
 import strategies
 from strategies.usdjpy_smc_continuation import USDJPYContinuationStrategy
-from usdjpy_continuation_research import USDJPYContinuationAblationRunner, USDJPYContinuationProfiler
+from legacy.usdjpy_continuation_research import USDJPYContinuationAblationRunner, USDJPYContinuationProfiler
 import research_analytics
 
 

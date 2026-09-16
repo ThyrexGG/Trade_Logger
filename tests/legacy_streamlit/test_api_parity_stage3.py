@@ -22,7 +22,7 @@ from market_intelligence_command_center import (
 from market_intelligence_scanner import MarketScannerEngine, MarketRankingEngine
 from economic_heatmap import EconomicHeatmapEngine
 from risk_gateway import calculate_pre_trade_risk_preview
-from forward_evidence_cockpit import ForwardEvidenceCockpit
+from legacy.forward_evidence_cockpit import ForwardEvidenceCockpit
 from xauusd_forward_statistical_monitoring import (
     HISTORICAL_BASELINE,
     FROZEN_CONTRACT_HASH

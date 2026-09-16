@@ -3,7 +3,7 @@ Unit tests for Phase 26 — Decision History Append-Only Repository & Timeline.
 """
 
 import pytest
-from xauusd_decision_history import XAUUSDDecisionHistory
+from legacy.xauusd_decision_history import XAUUSDDecisionHistory
 
 
 def test_record_decision_snapshot_append_only():

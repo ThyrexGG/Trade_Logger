@@ -4,7 +4,7 @@ Phase 48 — Tests for UI Lifecycle Helpers and Formats
 
 import pytest
 import pandas as pd
-from xauusd_forward_lifecycle import (
+from legacy.xauusd_forward_lifecycle import (
     ForwardLifecycleReconciliationAudit,
     ForwardAlphaDecayObservationalMonitor,
     ForwardMorningAwaySummaryClassifier

@@ -5,7 +5,7 @@ Validates 11-state eligibility gate across valid, future timestamp, and contract
 
 from datetime import datetime, timezone, timedelta
 import pytest
-from xauusd_forward_evidence_collection import ForwardEvidenceEligibilityGate
+from legacy.xauusd_forward_evidence_collection import ForwardEvidenceEligibilityGate
 
 
 def test_eligibility_gate_valid_record():

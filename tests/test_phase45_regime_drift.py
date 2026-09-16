@@ -5,7 +5,7 @@ Validates regime shift detection, session concentration analysis, and non-causal
 
 import pandas as pd
 import pytest
-from xauusd_continuous_forward_ops import RegimeTransitionDriftDetector
+from legacy.xauusd_continuous_forward_ops import RegimeTransitionDriftDetector
 
 
 def test_regime_drift_insufficient_data():

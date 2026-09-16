@@ -3,7 +3,7 @@ Phase 54 — Tests for Canonical Statistics & Conservative Uncertainty
 """
 
 import pytest
-from forward_evidence_cockpit import ForwardEvidenceCockpit
+from legacy.forward_evidence_cockpit import ForwardEvidenceCockpit
 
 
 def test_statistics_uncertainty_structure():

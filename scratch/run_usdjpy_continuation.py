@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 import backtester
 import research_engine
 import research_analytics
-from usdjpy_continuation_research import USDJPYContinuationAblationRunner, USDJPYContinuationProfiler
+from legacy.usdjpy_continuation_research import USDJPYContinuationAblationRunner, USDJPYContinuationProfiler
 
 
 def run_continuation_investigation():

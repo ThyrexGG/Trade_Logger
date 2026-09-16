@@ -4,7 +4,7 @@ Ensures cryptographic hash protection and explicit governance invalidation rules
 """
 
 import pytest
-from xauusd_forward_reproducibility import ForwardDatasetFingerprinter, EvidenceInvalidationEngine
+from legacy.xauusd_forward_reproducibility import ForwardDatasetFingerprinter, EvidenceInvalidationEngine
 
 
 def test_dataset_fingerprinting():

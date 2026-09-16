@@ -4,6 +4,13 @@ Tracks multi-timeframe regime alignment (1D, 4H, 15M, Session, Volatility, Weekd
 and computes historical vs forward regime distribution shifts.
 """
 
+
+import sys as _sys
+from pathlib import Path as _Path
+# Moved into scripts/ during the 2026-09-16 cleanup -- put the repo root
+# back on sys.path so `import database` etc. still resolve when this is
+# run directly as `python scripts/xauusd_regime_monitor.py`.
+_sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
 from typing import Dict, List, Any, Optional
 import numpy as np
 import pandas as pd

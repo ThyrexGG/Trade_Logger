@@ -16,7 +16,7 @@ from market_intelligence_command_center import UnifiedMarketIntelligenceAggregat
 
 def test_frozen_strategy_contract_hash_phase59():
     """Verify byte-exact strategy contract hash."""
-    contract_path = os.path.join(os.path.dirname(__file__), "..", "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
+    contract_path = os.path.join(os.path.dirname(__file__), "..", "docs", "phase-audits", "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
     assert os.path.exists(contract_path)
     with open(contract_path, "rb") as f:
         content = f.read().replace(b"\r\n", b"\n")

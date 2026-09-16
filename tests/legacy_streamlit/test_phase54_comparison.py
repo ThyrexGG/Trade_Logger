@@ -3,7 +3,7 @@ Phase 54 — Tests for Historical Holdout vs Genuine Forward Separation
 """
 
 import pytest
-from forward_evidence_cockpit import ForwardEvidenceCockpit
+from legacy.forward_evidence_cockpit import ForwardEvidenceCockpit
 from xauusd_forward_statistical_monitoring import HISTORICAL_BASELINE
 
 

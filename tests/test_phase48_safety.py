@@ -5,7 +5,7 @@ Phase 48 — Tests for Safety Invariants, Contract SHA-256 Immutability & Live B
 import pytest
 import os
 import hashlib
-from xauusd_forward_lifecycle import (
+from legacy.xauusd_forward_lifecycle import (
     ForwardExecutionLifecycleEngine,
     ForwardDatasetIsolationGuard,
     FROZEN_CONTRACT_HASH
@@ -13,7 +13,7 @@ from xauusd_forward_lifecycle import (
 
 
 def test_frozen_contract_hash_integrity():
-    contract_path = os.path.join(os.path.dirname(__file__), "..", "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
+    contract_path = os.path.join(os.path.dirname(__file__), "..", "docs", "phase-audits", "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
     assert os.path.exists(contract_path)
     with open(contract_path, "rb") as f:
         content = f.read().replace(b"\r\n", b"\n")

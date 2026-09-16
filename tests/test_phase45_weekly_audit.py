@@ -5,7 +5,7 @@ Validates weekly audit generation, "What Changed This Week?" delta report, and M
 
 from datetime import datetime, timezone, date
 import pytest
-from xauusd_continuous_forward_ops import WeeklyResearchAuditEngine
+from legacy.xauusd_continuous_forward_ops import WeeklyResearchAuditEngine
 
 
 def test_weekly_audit_generation():

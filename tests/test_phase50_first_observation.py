@@ -3,7 +3,7 @@ Phase 50 — Tests for N=0 -> N=1 First Genuine Observation Supervisor
 """
 
 import pytest
-from xauusd_forward_end_to_end_proof import FirstGenuineObservationSupervisor
+from legacy.xauusd_forward_end_to_end_proof import FirstGenuineObservationSupervisor
 
 
 def test_first_observation_supervisor_evaluation():

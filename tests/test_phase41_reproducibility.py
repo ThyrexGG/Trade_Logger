@@ -6,7 +6,7 @@ Validates that raw trade returns can be independently recomputed with 0 numerica
 from datetime import datetime, timezone, date
 import pandas as pd
 import pytest
-from xauusd_evidence_reproducibility import IndependentMetricReconstructor
+from legacy.xauusd_evidence_reproducibility import IndependentMetricReconstructor
 
 
 def test_reconstruct_metrics_exact_values():

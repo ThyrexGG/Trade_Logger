@@ -84,7 +84,7 @@ def test_benchmark_module_imports_no_execution_and_reports_pool():
     import importlib
 
     import database
-    import performance_benchmark as pb
+    import legacy.performance_benchmark as pb
 
     mod_names = {
         getattr(v, "__name__", "")

@@ -3,7 +3,7 @@ Phase 54 — Tests for UI Renderers & Cockpit Subviews
 """
 
 import pytest
-from forward_evidence_cockpit import ForwardEvidenceCockpit
+from legacy.forward_evidence_cockpit import ForwardEvidenceCockpit
 
 
 def test_all_cockpit_tabs_render():

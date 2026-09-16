@@ -3,7 +3,7 @@ Phase 48 — Tests for Forward Lifecycle Reconciliation and Orphan Auditing
 """
 
 import pytest
-from xauusd_forward_lifecycle import ForwardLifecycleReconciliationAudit
+from legacy.xauusd_forward_lifecycle import ForwardLifecycleReconciliationAudit
 
 
 def test_database_integrity_audit():

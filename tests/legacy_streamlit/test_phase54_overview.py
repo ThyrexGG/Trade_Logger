@@ -3,7 +3,7 @@ Phase 54 — Tests for Forward Evidence Cockpit Overview & Level 1/2 States
 """
 
 import pytest
-from forward_evidence_cockpit import ForwardEvidenceCockpit
+from legacy.forward_evidence_cockpit import ForwardEvidenceCockpit
 
 
 def test_cockpit_state_load():

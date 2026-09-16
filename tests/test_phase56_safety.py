@@ -15,7 +15,7 @@ from macro_intelligence_engine import (
     ForexRelativeStrengthEngine,
     XAUUSDMacroContextModel
 )
-from xauusd_forward_end_to_end_proof import Phase50SafetyBarrier
+from legacy.xauusd_forward_end_to_end_proof import Phase50SafetyBarrier
 import execution_pipeline
 
 

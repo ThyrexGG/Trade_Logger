@@ -11,7 +11,7 @@ Tests:
 import pytest
 import numpy as np
 import pandas as pd
-from xauusd_forward_statistics import (
+from legacy.xauusd_forward_statistics import (
     ForwardEffectSizeComparator,
     RollingForwardAnalyzer,
     CumulativeEquityCurves,

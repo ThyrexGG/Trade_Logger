@@ -4,7 +4,7 @@ Ensures forward analytical statistics can be 100% reconstructed from raw journal
 """
 
 import pytest
-from xauusd_forward_reproducibility import ForwardReproducibilityAuditor
+from legacy.xauusd_forward_reproducibility import ForwardReproducibilityAuditor
 
 
 def test_independent_reproducibility_audit():

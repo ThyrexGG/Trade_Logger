@@ -3,7 +3,7 @@ Unit tests for Phase 28 Evidence Milestone Engine.
 Verifies milestone progression, remaining trade calculations, and reliability tiers.
 """
 
-from xauusd_evidence_milestones import EvidenceMilestoneEngine
+from legacy.xauusd_evidence_milestones import EvidenceMilestoneEngine
 
 
 def test_milestone_progression_calculations():

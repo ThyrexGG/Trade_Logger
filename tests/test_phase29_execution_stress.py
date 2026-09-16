@@ -4,7 +4,7 @@ Verifies hypothetical microstructure stress calculations and separation of Strat
 """
 
 import pytest
-from xauusd_forward_execution_stress import ExecutionStressAuditor, ForwardOutcomeAttributor
+from legacy.xauusd_forward_execution_stress import ExecutionStressAuditor, ForwardOutcomeAttributor
 
 
 def test_execution_stress_auditor_scenarios():

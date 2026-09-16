@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from xauusd_forward_validator import XAUUSDForwardJournal
 from xauusd_forward_integrity import StrategyContractIntegrityGuard
 from xauusd_forward_evidence import ForwardEvidenceAnalyzer
-from xauusd_forward_evidence_ledger import ForwardEvidenceLedger
+from legacy.xauusd_forward_evidence_ledger import ForwardEvidenceLedger
 
 
 class ForwardDatasetFingerprinter:

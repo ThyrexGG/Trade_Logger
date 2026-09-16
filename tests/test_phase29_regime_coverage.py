@@ -4,7 +4,7 @@ Verifies pre-trade information boundaries, classification versions, and session/
 """
 
 import pytest
-from xauusd_forward_regime_coverage import RegimeClassifier, RegimeCoverageEngine
+from legacy.xauusd_forward_regime_coverage import RegimeClassifier, RegimeCoverageEngine
 
 
 def test_regime_classifier_trend_and_volatility():

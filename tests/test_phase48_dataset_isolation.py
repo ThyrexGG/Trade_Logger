@@ -3,7 +3,7 @@ Phase 48 — Tests for Strict Historical vs Forward Dataset Isolation
 """
 
 import pytest
-from xauusd_forward_lifecycle import ForwardDatasetIsolationGuard
+from legacy.xauusd_forward_lifecycle import ForwardDatasetIsolationGuard
 
 
 def test_dataset_isolation_invariants():

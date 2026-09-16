@@ -4,7 +4,7 @@ Phase 61 - Test Keyboard Shortcut Catalog, JS Listener & Exclusion Logic
 """
 import pytest
 import streamlit as st
-from keyboard_shortcuts import SHORTCUTS_CATALOG, inject_keyboard_shortcuts_listener, render_keyboard_shortcut_reference_modal
+from legacy.keyboard_shortcuts import SHORTCUTS_CATALOG, inject_keyboard_shortcuts_listener, render_keyboard_shortcut_reference_modal
 
 
 def test_shortcuts_catalog_structure():

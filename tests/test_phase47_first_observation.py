@@ -4,7 +4,7 @@ Validates 6-state state machine tracking the N=0 -> N=1 transition.
 """
 
 import pytest
-from xauusd_forward_evidence_collection import FirstRealObservationDetector
+from legacy.xauusd_forward_evidence_collection import FirstRealObservationDetector
 
 
 def test_first_observation_state_machine():

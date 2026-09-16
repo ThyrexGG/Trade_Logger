@@ -16,7 +16,7 @@ from xauusd_market_conditions import FROZEN_CONTRACT_HASH
 
 def test_strategy_contract_hash_exact_match_phase39():
     """Validates contract SHA-256 hash byte-for-byte with CRLF normalization."""
-    contract_path = os.path.join(os.path.dirname(__file__), "..", "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
+    contract_path = os.path.join(os.path.dirname(__file__), "..", "docs", "phase-audits", "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
     with open(contract_path, "rb") as f:
         content = f.read().replace(b"\r\n", b"\n")
     actual_hash = hashlib.sha256(content).hexdigest()

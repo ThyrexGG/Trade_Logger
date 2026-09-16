@@ -3,7 +3,7 @@
 Phase 60 - Test Forward Evidence & Governance Cockpit UI Layering
 """
 import pytest
-from forward_evidence_cockpit import ForwardEvidenceCockpit
+from legacy.forward_evidence_cockpit import ForwardEvidenceCockpit
 from xauusd_forward_statistical_monitoring import (
     HISTORICAL_BASELINE,
     FROZEN_CONTRACT_HASH

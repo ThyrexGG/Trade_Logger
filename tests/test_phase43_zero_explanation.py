@@ -5,7 +5,7 @@ Validates deterministic reasoning hierarchy when forward N = 0.
 
 from datetime import datetime, timezone, date
 import pytest
-from xauusd_overnight_experiment import ZeroObservationExplanationEngine
+from legacy.xauusd_overnight_experiment import ZeroObservationExplanationEngine
 
 
 def test_explain_zero_observations_weekend():

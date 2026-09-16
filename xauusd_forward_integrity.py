@@ -27,7 +27,15 @@ class StrategyContractIntegrityGuard:
     """
     Verifies that the frozen strategy parameters and contract have not been altered.
     """
-    FROZEN_CONTRACT_PATH = os.path.join(os.path.dirname(__file__), "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
+    # Moved to docs/phase-audits/ in the 2026-09-16 root cleanup -- this path
+    # is a LIVE dependency (15+ xauusd_*.py modules import
+    # StrategyContractIntegrityGuard), not just a test fixture. Before this
+    # fix, compute_contract_hash() silently returned "CONTRACT_FILE_MISSING"
+    # for every caller in production, not only in tests -- os.path.exists()
+    # never raises, so nothing surfaced it until the test suite did.
+    FROZEN_CONTRACT_PATH = os.path.join(
+        os.path.dirname(__file__), "docs", "phase-audits", "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md"
+    )
     
     # Frozen Parameter Signatures
     FROZEN_PARAMETERS = {

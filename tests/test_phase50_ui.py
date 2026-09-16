@@ -4,7 +4,7 @@ Phase 50 — Tests for UI Data Structures & Component Formats
 
 import pytest
 import pandas as pd
-from xauusd_forward_end_to_end_proof import Phase50Facade
+from legacy.xauusd_forward_end_to_end_proof import Phase50Facade
 
 
 def test_phase50_ui_data_structures():

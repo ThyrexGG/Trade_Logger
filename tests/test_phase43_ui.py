@@ -6,7 +6,7 @@ Validates that all Phase 43 UI models convert into pandas DataFrames without cra
 from datetime import datetime, timezone, date
 import pandas as pd
 import pytest
-from xauusd_overnight_experiment import (
+from legacy.xauusd_overnight_experiment import (
     HeartbeatAndLivenessAuditor,
     MorningAfterAuditSynthesizer,
     SetupLifecycleReconciler,

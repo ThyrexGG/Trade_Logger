@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 import backtester
 import research_engine
 import research_analytics
-from usdjpy_edge_discovery import (
+from legacy.usdjpy_edge_discovery import (
     USDJPYRegimeEngine,
     USDJPYMechanicalExperimentRunner,
     USDJPYDeepExcursionAnalyzer,

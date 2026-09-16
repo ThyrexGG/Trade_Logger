@@ -5,7 +5,7 @@ Validates Markdown report generation, structured JSON audit bundle, and 9-pillar
 
 from datetime import datetime, timezone, date, timedelta
 import pytest
-from xauusd_evidence_reproducibility import (
+from legacy.xauusd_evidence_reproducibility import (
     AuditExportSubsystem,
     GovernanceInvalidationMatrix,
 )

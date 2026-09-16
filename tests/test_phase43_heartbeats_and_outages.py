@@ -7,7 +7,7 @@ Validates:
 
 from datetime import datetime, timezone, date
 import pytest
-from xauusd_overnight_experiment import (
+from legacy.xauusd_overnight_experiment import (
     HeartbeatAndLivenessAuditor,
     OperationalOutageTracker,
 )

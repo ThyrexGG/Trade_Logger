@@ -18,7 +18,7 @@ import database
 import execution_pipeline
 from execution_pipeline import CanonicalExecutionRequest, ExecutionState
 import market_data
-from xauusd_audit_engine import (
+from legacy.xauusd_audit_engine import (
     XAUUSDDataAuditor,
     XAUUSDEntryExecutionAuditor,
     XAUUSDStructuralSLAuditor,

@@ -3,7 +3,7 @@ Phase 54 — Tests for Stability & Alpha Decay Monitoring
 """
 
 import pytest
-from forward_evidence_cockpit import ForwardEvidenceCockpit
+from legacy.forward_evidence_cockpit import ForwardEvidenceCockpit
 
 
 def test_alpha_decay_monitor_structure():

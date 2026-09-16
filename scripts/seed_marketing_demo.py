@@ -13,13 +13,18 @@ have something to show.
 Safety:
   - Only ever touches rows with account_id == "MARKETING-DEMO". Never reads,
     modifies or deletes anything else.
-  - Seeded under YOUR (owner) user_id specifically — never under a friend's
-    account. Also under the "local" tenant, in case you view the local
-    build in passphrase mode instead of logged in.
+  - Seeded under a DEDICATED demo login (DEMO_LOGIN_EMAIL below), never
+    under the owner's real account. This was originally seeded under the
+    owner's own login "so the demo shows up whether you record localhost or
+    the deployed site, logged in as the owner" -- which meant every one of
+    the owner's real dashboards (Command Center has NO account filter at
+    all) silently included these 92 fake trades in the real numbers. Moved
+    2026-09-16: created a separate login specifically for this, migrated
+    the existing 93 rows to it, and pointed this script at that login going
+    forward so a re-run never repeats the mistake.
   - This writes to whatever database `database.py` resolves to (DATABASE_URL) —
-    on this machine that's the same Postgres the live site uses. That's
-    intentional: it means the demo account shows up whether you record
-    localhost or the deployed site, logged in as the owner.
+    on this machine that's the same Postgres the live site uses. To record
+    marketing content, log in as the demo account instead of the owner.
 
 Usage:
     python seed_marketing_demo.py            # insert (safe to re-run — idempotent upsert)
@@ -29,6 +34,13 @@ Usage:
 When you're done recording, just run --wipe.
 """
 from __future__ import annotations
+
+import sys as _sys
+from pathlib import Path as _Path
+# Moved into scripts/ during the 2026-09-16 cleanup -- put the repo root
+# back on sys.path so `import database` etc. still resolve when this is
+# run directly as `python scripts/seed_marketing_demo.py`.
+_sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
 
 import argparse
 import random
@@ -43,7 +55,9 @@ import analytics
 
 ACCOUNT_ID = "MARKETING-DEMO"
 STARTING_BALANCE = 25000.0
-OWNER_EMAIL = "tesbonnathyrak@gmail.com"
+# The dedicated login this demo data belongs under -- NOT the owner's real
+# account. See the module docstring for why that separation matters.
+DEMO_LOGIN_EMAIL = "demo@gmail.com"
 
 # (symbol, pick-weight, starting price, per-trade random-walk step size,
 #  $ per 1.0-point move per 1.0 lot, (min lot, max lot))
@@ -164,25 +178,28 @@ def preview(trades: list[dict]) -> None:
 
 
 def _resolve_target_user_ids() -> list[str]:
-    """Owner's real multiuser id (if this DB has a users table) + the
-    passphrase-mode "local" tenant — never a friend's id."""
-    ids = [tenant.LOCAL_USER_ID]
+    """The dedicated demo login's id only. Deliberately NOT the owner's real
+    account and NOT the passphrase-mode "local" tenant -- either of those
+    would put fake trades in front of a real dashboard again. If the demo
+    login doesn't exist yet, create it (see create_demo_login below) rather
+    than silently falling back to something that reintroduces the bug this
+    was fixed for."""
+    conn = database.get_connection()
     try:
-        conn = database.get_connection()
-        try:
-            cur = conn.cursor()
-            ph = database.get_sql_placeholder(conn)
-            cur.execute(f"SELECT id FROM users WHERE email = {ph}", (OWNER_EMAIL,))
-            row = cur.fetchone()
-            if row:
-                owner_id = row[0] if not isinstance(row, dict) else row.get("id")
-                if owner_id and owner_id not in ids:
-                    ids.append(owner_id)
-        finally:
-            conn.close()
-    except Exception as exc:
-        print(f"  (no users table / lookup failed, seeding only under 'local': {exc})")
-    return ids
+        cur = conn.cursor()
+        ph = database.get_sql_placeholder(conn)
+        cur.execute(f"SELECT id FROM users WHERE lower(email) = {ph}", (DEMO_LOGIN_EMAIL,))
+        row = cur.fetchone()
+        if row:
+            uid = row[0] if not isinstance(row, dict) else row.get("id")
+            return [uid]
+    finally:
+        conn.close()
+    sys.exit(
+        f"No login found for {DEMO_LOGIN_EMAIL}. Create the dedicated demo "
+        f"account first (see docs/ for how this was set up 2026-09-16) -- "
+        f"refusing to fall back to the owner's account or 'local'."
+    )
 
 
 def insert(trades: list[dict]) -> None:

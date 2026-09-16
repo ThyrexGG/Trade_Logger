@@ -84,5 +84,5 @@ def clean_emojis(file_path):
         print(f"No emojis found in {file_path}")
 
 if __name__ == "__main__":
-    for p in ["app.py", "usdjpy_research.py", "research_engine.py", "research_analytics.py", "backtester.py"]:
+    for p in ["app.py", "legacy/usdjpy_research.py", "research_engine.py", "research_analytics.py", "backtester.py"]:
         clean_emojis(p)

@@ -2,8 +2,10 @@ import requests
 import os
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+# Load environment variables from the repo root's .env, not this script's own
+# directory -- this moved into scripts/ during the 2026-09-16 cleanup, and
+# os.path.dirname(__file__) alone would silently look in scripts/.env instead.
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 LIVE_API_URL = "https://api-capital.backend-capital.com/api/v1"
 DEMO_API_URL = "https://demo-api-capital.backend-capital.com/api/v1"

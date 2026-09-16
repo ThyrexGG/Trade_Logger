@@ -16,7 +16,7 @@ import pytest
 import time
 import uuid
 from fastapi.testclient import TestClient
-from server import app
+from legacy.server import app
 import database
 import execution_pipeline
 import risk_gateway
@@ -240,7 +240,7 @@ def test_19_shadow_mode_execution():
 
 
 def test_20_rate_limiter(monkeypatch):
-    import server
+    import legacy.server as server
     server._webhook_rate_limit_cache.clear()
     monkeypatch.setenv("WEBHOOK_SECRET", "changeme_in_production!")
     

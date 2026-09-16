@@ -4,7 +4,7 @@ Validates contract mutation rejection and incident recovery mechanisms.
 """
 
 import pytest
-from xauusd_continuous_forward_ops import (
+from legacy.xauusd_continuous_forward_ops import (
     ContinuousForwardSupervisor,
     AlertDeduplicationAndIncidentTracker,
 )

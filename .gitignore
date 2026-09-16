@@ -40,7 +40,9 @@ agent/.sync.lock
 *.db-shm
 *.db-wal
 
-# Temporary test and migration scripts in root
+# Temporary test and migration scripts -- root, or scripts/ after the
+# 2026-09-16 cleanup moved the surviving ones (check_db_size, migrate_to_neon)
+# out of root without changing their gitignored, local-only nature.
 /test_*.py
 /debug_*.py
 /check_*.py
@@ -48,6 +50,12 @@ agent/.sync.lock
 /reset_*.py
 /migrate_*.py
 /generate_*.py
+/scripts/debug_*.py
+/scripts/check_*.py
+/scripts/find_*.py
+/scripts/reset_*.py
+/scripts/migrate_*.py
+/scripts/generate_*.py
 
 # Keep test suite
 !tests/

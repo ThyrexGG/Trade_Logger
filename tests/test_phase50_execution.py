@@ -3,8 +3,8 @@ Phase 50 — Tests for Simulated Paper & Shadow Execution with Live Isolation
 """
 
 import pytest
-from xauusd_forward_lifecycle import ForwardExecutionLifecycleEngine
-from xauusd_forward_end_to_end_proof import Phase50SafetyBarrier
+from legacy.xauusd_forward_lifecycle import ForwardExecutionLifecycleEngine
+from legacy.xauusd_forward_end_to_end_proof import Phase50SafetyBarrier
 
 
 def test_execution_mode_validation():

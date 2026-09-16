@@ -4,7 +4,7 @@ Phase 48 — Tests for Restart Recovery & Database Reconnection Safety
 
 import pytest
 import database
-from xauusd_forward_lifecycle import (
+from legacy.xauusd_forward_lifecycle import (
     ForwardOutcomeLifecycleManager,
     ForwardLifecycleReconciliationAudit,
     init_phase48_database

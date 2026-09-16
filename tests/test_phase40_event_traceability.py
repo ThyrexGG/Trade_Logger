@@ -8,7 +8,7 @@ Validates:
 
 from datetime import datetime, timezone, date, timedelta
 import pytest
-from xauusd_event_traceability import EventImpactTraceEngine
+from legacy.xauusd_event_traceability import EventImpactTraceEngine
 
 
 def test_proximity_bucket_classification():

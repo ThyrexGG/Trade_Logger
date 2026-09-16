@@ -9,7 +9,7 @@ Validates:
 
 import pytest
 import inspect
-import market_intelligence_ui
+import legacy.market_intelligence_ui as market_intelligence_ui
 from market_intelligence_scanner import MarketScannerEngine, MarketBreadthEngine
 from cross_asset_regime_engine import CrossAssetRegimeEngine
 
@@ -22,7 +22,7 @@ def test_ui_module_exports():
 
 def test_ui_source_sanitization():
     """Verify that all multiline HTML outputs in market_intelligence_ui use render_html to prevent indentation bugs."""
-    with open("market_intelligence_ui.py", "r", encoding="utf-8") as f:
+    with open("legacy/market_intelligence_ui.py", "r", encoding="utf-8") as f:
         content = f.read()
 
     # Verify render_html is imported from ui_components

@@ -193,7 +193,7 @@ def test_repeated_get_polling_creates_no_audit_rows():
 
 
 def test_read_path_does_not_invoke_phase50():
-    import xauusd_forward_end_to_end_proof as e2e
+    import legacy.xauusd_forward_end_to_end_proof as e2e
     Phase49MonitoringFacade.invalidate_forward_state_snapshot()
     with patch.object(e2e.Phase50E2EOperationalProofEngine, "audit_end_to_end_pipeline",
                       side_effect=AssertionError("Phase 50 audit invoked on read path")):

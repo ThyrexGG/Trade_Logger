@@ -4,7 +4,7 @@ Phase 62 - Test Server-Side Performance Profiling, Percentile Engine & UX Score
 """
 import pytest
 import time
-from application_performance_profiler import (
+from legacy.application_performance_profiler import (
     ApplicationPerformanceProfiler,
     get_profiler,
     profile_block,

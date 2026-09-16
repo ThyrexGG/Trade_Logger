@@ -5,7 +5,7 @@ Validates detection of repeated observation ingestion.
 
 from datetime import datetime, timezone
 import pytest
-from xauusd_forward_evidence_collection import ObservationDuplicateProtectionEngine
+from legacy.xauusd_forward_evidence_collection import ObservationDuplicateProtectionEngine
 
 
 def test_duplicate_detection():

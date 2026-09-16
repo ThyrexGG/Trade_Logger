@@ -7,7 +7,7 @@ and UI state structures.
 
 import time
 import pytest
-from performance_diagnostics import PerformanceDiagnostics, ProfileTimer
+from legacy.performance_diagnostics import PerformanceDiagnostics, ProfileTimer
 
 
 def test_performance_diagnostics_timer():

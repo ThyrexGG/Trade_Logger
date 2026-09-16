@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 import research_engine
 import research_analytics
-from true_mtf_engine import (
+from legacy.true_mtf_engine import (
     TrueMTFStateMachine,
     TrueMTFDataLoader,
     TrueMTFStrategyEngine,

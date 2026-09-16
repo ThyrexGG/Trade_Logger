@@ -5,7 +5,7 @@ Validates session start, end, persistence, and SHA-256 fingerprinting.
 
 from datetime import datetime, timezone, date
 import pytest
-from xauusd_overnight_experiment import OvernightExperimentSessionEngine
+from legacy.xauusd_overnight_experiment import OvernightExperimentSessionEngine
 
 
 def test_start_and_end_overnight_session():

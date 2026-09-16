@@ -4,8 +4,8 @@ Phase 50 — Tests for Signal Detection to Observation Capture Validation
 
 import pytest
 from datetime import datetime, timezone
-from xauusd_forward_lifecycle import ForwardSignalPipelineValidator
-from xauusd_forward_evidence_collection import ForwardEvidenceEligibilityGate
+from legacy.xauusd_forward_lifecycle import ForwardSignalPipelineValidator
+from legacy.xauusd_forward_evidence_collection import ForwardEvidenceEligibilityGate
 from xauusd_market_conditions import FROZEN_CONTRACT_HASH
 
 

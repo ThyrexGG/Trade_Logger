@@ -5,7 +5,7 @@ Validates chronological ordering across sessions, holidays, macro events, and fo
 
 from datetime import datetime, timezone, date, timedelta
 import pytest
-from xauusd_event_traceability import MarketConditionChronologicalTimeline
+from legacy.xauusd_event_traceability import MarketConditionChronologicalTimeline
 
 
 def test_daily_timeline_chronological_ordering():

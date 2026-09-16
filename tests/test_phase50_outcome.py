@@ -3,7 +3,7 @@ Phase 50 — Tests for Deterministic Outcome Resolution & Invalidation Invariant
 """
 
 import pytest
-from xauusd_forward_lifecycle import ForwardOutcomeLifecycleManager
+from legacy.xauusd_forward_lifecycle import ForwardOutcomeLifecycleManager
 
 
 def test_outcome_state_validation():

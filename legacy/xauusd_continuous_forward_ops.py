@@ -24,13 +24,13 @@ import database
 from xauusd_alert_engine import XAUUSDAlertEngine
 from xauusd_alpha_decay_monitor import AlphaDecayMonitor
 from xauusd_daily_preflight import EconomicCalendarProviderFactory
-from xauusd_event_traceability import (
+from legacy.xauusd_event_traceability import (
     EventImpactTraceEngine,
     MarketConditionChronologicalTimeline,
     NonCausalAttributionEngine,
     StructuredDailyReviewSynthesizer,
 )
-from xauusd_evidence_reproducibility import (
+from legacy.xauusd_evidence_reproducibility import (
     ImmutableDailySnapshotStore,
     IndependentMetricReconstructor,
     GovernanceInvalidationMatrix,
@@ -58,7 +58,7 @@ from xauusd_market_conditions import (
 )
 from xauusd_news_reliability import MarketClosureAuditor
 from xauusd_operational_monitor import OperationalHealthEvaluator
-from xauusd_overnight_experiment import (
+from legacy.xauusd_overnight_experiment import (
     HeartbeatAndLivenessAuditor,
     OperationalOutageTracker,
     SetupLifecycleReconciler,

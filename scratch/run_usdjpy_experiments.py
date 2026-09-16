@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 import backtester
 import research_engine
 import research_analytics
-from usdjpy_research import USDJPYAblationRunner, USDJPYDiagnosticProfiler
+from legacy.usdjpy_research import USDJPYAblationRunner, USDJPYDiagnosticProfiler
 
 def run_usdjpy_investigation():
     print("=" * 70)

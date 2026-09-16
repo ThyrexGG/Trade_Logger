@@ -7,7 +7,7 @@ Cleans up test records to preserve pristine N = 0 production state.
 from datetime import datetime, timezone
 import pytest
 import database
-from xauusd_forward_evidence_collection import (
+from legacy.xauusd_forward_evidence_collection import (
     ForwardObservationCaptureEngine,
     ObservationDuplicateProtectionEngine,
 )

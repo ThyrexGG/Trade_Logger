@@ -5,7 +5,7 @@ Validates that all tables in Continuous Operations & Weekly Audit UI convert int
 
 import pandas as pd
 import pytest
-from xauusd_continuous_forward_ops import (
+from legacy.xauusd_continuous_forward_ops import (
     SinceYouWereAwayAuditor,
     WeeklyResearchAuditEngine,
     RegimeTransitionDriftDetector,

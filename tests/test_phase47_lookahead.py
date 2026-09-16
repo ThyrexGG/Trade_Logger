@@ -5,7 +5,7 @@ Validates that future actual values and timestamps remain prohibited.
 
 from datetime import datetime, timezone, timedelta
 import pytest
-from xauusd_forward_evidence_collection import ForwardEvidenceEligibilityGate
+from legacy.xauusd_forward_evidence_collection import ForwardEvidenceEligibilityGate
 
 
 def test_lookahead_future_timestamp_blocked():

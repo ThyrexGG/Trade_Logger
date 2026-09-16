@@ -5,7 +5,7 @@ and that alert acknowledgement is non-destructive and auditable.
 """
 
 import pytest
-from xauusd_forward_evidence_ledger import ForwardEvidenceLedger
+from legacy.xauusd_forward_evidence_ledger import ForwardEvidenceLedger
 from xauusd_alert_engine import XAUUSDAlertEngine
 
 

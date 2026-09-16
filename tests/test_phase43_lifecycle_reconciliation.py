@@ -7,7 +7,7 @@ Guarantees: Timeout != loss, Invalidation != loss.
 
 from datetime import datetime, timezone, date
 import pytest
-from xauusd_overnight_experiment import SetupLifecycleReconciler
+from legacy.xauusd_overnight_experiment import SetupLifecycleReconciler
 
 
 def test_record_lifecycle_transitions():

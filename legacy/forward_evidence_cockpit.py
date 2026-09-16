@@ -43,7 +43,7 @@ from xauusd_forward_statistical_monitoring import (
     DecisionStateEvaluator,
     FROZEN_CONTRACT_HASH
 )
-from xauusd_forward_end_to_end_proof import (
+from legacy.xauusd_forward_end_to_end_proof import (
     Phase50Facade,
     ForensicTraceabilityVerifier,
     Phase50HeartbeatDistributor

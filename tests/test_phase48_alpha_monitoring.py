@@ -3,7 +3,7 @@ Phase 48 — Tests for Observational Alpha Decay Monitoring (Zero Optimization I
 """
 
 import pytest
-from xauusd_forward_lifecycle import ForwardAlphaDecayObservationalMonitor
+from legacy.xauusd_forward_lifecycle import ForwardAlphaDecayObservationalMonitor
 
 
 def test_alpha_decay_monitor_empty_dataset():

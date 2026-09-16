@@ -28,7 +28,7 @@ import execution_pipeline
 from execution_pipeline import CanonicalExecutionRequest, ExecutionState
 import research_engine
 import research_analytics
-from true_mtf_engine import TrueMTFStrategyEngine, TrueMTFDataLoader, TrueMTFStateMachine
+from legacy.true_mtf_engine import TrueMTFStrategyEngine, TrueMTFDataLoader, TrueMTFStateMachine
 
 
 class XAUUSDDataAuditor:

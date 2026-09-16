@@ -4,7 +4,7 @@ Phase 62 - Test UI Latency Targets & Workflow Simulation Benchmarks
 """
 import pytest
 import time
-from application_performance_profiler import get_profiler, measure_interaction, PERFORMANCE_TARGETS_MS
+from legacy.application_performance_profiler import get_profiler, measure_interaction, PERFORMANCE_TARGETS_MS
 
 
 def test_workflow_a_normal_trading_simulation():

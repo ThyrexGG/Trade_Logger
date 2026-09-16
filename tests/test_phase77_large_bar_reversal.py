@@ -311,7 +311,7 @@ def test_frozen_hash_and_safety_flags_intact():
     from xauusd_market_conditions import FROZEN_CONTRACT_HASH
     assert FROZEN_CONTRACT_HASH == \
         "7f135a1269626a21dba769b7f0173c8a5428dcb7b47a88976045ea8aff376b76"
-    from xauusd_forward_lifecycle import ForwardExecutionLifecycleEngine as E
+    from legacy.xauusd_forward_lifecycle import ForwardExecutionLifecycleEngine as E
     assert E.LIVE_AUTOMATION_ENABLED is False
     assert E.LIVE_BROKER_TRANSMISSION == "BLOCKED"
 

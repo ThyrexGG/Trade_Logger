@@ -8,7 +8,7 @@ and provides clear explainable metrics.
 import pandas as pd
 import pytest
 from xauusd_forward_monitor import XAUUSDForwardMonitor
-from xauusd_evidence_milestones import EvidenceMilestoneEngine
+from legacy.xauusd_evidence_milestones import EvidenceMilestoneEngine
 from xauusd_review_readiness import ReviewReadinessEngine
 from xauusd_research_decision_audit import ResearchDecisionAuditEngine
 from xauusd_forward_evidence import (

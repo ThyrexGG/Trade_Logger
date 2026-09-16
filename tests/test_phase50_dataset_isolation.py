@@ -3,7 +3,7 @@ Phase 50 — Tests for Strict Dataset Isolation & Unpooled Separation
 """
 
 import pytest
-from xauusd_forward_lifecycle import ForwardDatasetIsolationGuard
+from legacy.xauusd_forward_lifecycle import ForwardDatasetIsolationGuard
 from xauusd_forward_statistical_monitoring import CanonicalForwardDatasetEngine
 
 

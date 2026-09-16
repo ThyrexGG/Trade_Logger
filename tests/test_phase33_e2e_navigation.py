@@ -8,10 +8,10 @@ import pytest
 import xauusd_operational_monitor
 import xauusd_market_conditions
 import xauusd_forward_evidence
-import xauusd_evidence_milestones
+import legacy.xauusd_evidence_milestones as xauusd_evidence_milestones
 import xauusd_review_readiness
 import xauusd_research_decision_audit
-import xauusd_review_package
+import legacy.xauusd_review_package as xauusd_review_package
 
 
 def test_forward_validation_core_modules_importable():

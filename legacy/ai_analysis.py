@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 from dotenv import load_dotenv
 import market_data
-import ml_trainer
+import legacy.ml_trainer as ml_trainer
 
 try:
     import ollama
@@ -14,8 +14,11 @@ try:
 except ImportError:
     OLLAMA_AVAILABLE = False
 
-# Load environment variables
-load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
+# Load environment variables from the repo root's .env, not this module's own
+# directory -- this moved into legacy/ during the 2026-09-16 cleanup, and
+# os.path.dirname(__file__) alone would silently look in legacy/.env instead
+# (load_dotenv doesn't error on a missing file, so this would fail silently).
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"), override=True)
 
 def calculate_technical_indicators(candles):
     if not candles or len(candles) < 20:

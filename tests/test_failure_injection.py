@@ -1,6 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-from server import app
+from legacy.server import app
 import time
 import uuid
 import database
@@ -28,7 +28,7 @@ def test_failure_injection_db_lock(base_mock, monkeypatch):
         raise Exception("database is locked")
     monkeypatch.setattr(database, "get_connection", mock_get_conn)
     
-    import server
+    import legacy.server as server
     server._webhook_rate_limit_cache.clear()
     
     resp = client.post("/api/webhook/tradingview", json={
@@ -52,7 +52,7 @@ def test_failure_injection_broker_timeout(base_mock, monkeypatch):
         return {"status": "error", "message": "requests.exceptions.Timeout"}
     monkeypatch.setattr(account_state, "get_account_state", mock_get_state)
     
-    import server
+    import legacy.server as server
     server._webhook_rate_limit_cache.clear()
     
     resp = client.post("/api/webhook/tradingview", json={
@@ -76,7 +76,7 @@ def test_failure_injection_broker_error_state(base_mock, monkeypatch):
         return {"status": "error", "message": "Connection Timeout"}
     monkeypatch.setattr(account_state, "get_account_state", mock_get_state)
     
-    import server
+    import legacy.server as server
     server._webhook_rate_limit_cache.clear()
     
     resp = client.post("/api/webhook/tradingview", json={
@@ -95,7 +95,7 @@ def test_failure_injection_broker_error_state(base_mock, monkeypatch):
     assert "UNAVAILABLE_ACCOUNT_STATE" in resp.json()["detail"] or "Timeout" in resp.json()["detail"]
 
 def test_failure_injection_market_data_stale(base_mock, monkeypatch):
-    import server
+    import legacy.server as server
     server._webhook_rate_limit_cache.clear()
     
     resp = client.post("/api/webhook/tradingview", json={

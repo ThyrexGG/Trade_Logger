@@ -4,7 +4,7 @@ Validates incident creation, active duration updates, and resolution without ale
 """
 
 import pytest
-from xauusd_continuous_forward_ops import AlertDeduplicationAndIncidentTracker
+from legacy.xauusd_continuous_forward_ops import AlertDeduplicationAndIncidentTracker
 
 
 def test_incident_deduplication_and_resolution():

@@ -4,7 +4,7 @@ Verifies report generation, required 18 sections, known/observed/uncertain langu
 """
 
 import pytest
-from xauusd_review_package import HumanReviewPackageGenerator
+from legacy.xauusd_review_package import HumanReviewPackageGenerator
 
 
 def test_generate_review_package_structure():

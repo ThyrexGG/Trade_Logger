@@ -5,7 +5,7 @@ Validates 5-pillar daily review and non-causal attribution language.
 
 from datetime import datetime, timezone, date, timedelta
 import pytest
-from xauusd_event_traceability import (
+from legacy.xauusd_event_traceability import (
     NonCausalAttributionEngine,
     StructuredDailyReviewSynthesizer,
 )

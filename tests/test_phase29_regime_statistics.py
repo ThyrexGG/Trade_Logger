@@ -5,7 +5,7 @@ Ensures small regime buckets are explicitly protected from premature conclusions
 
 import pytest
 import pandas as pd
-from xauusd_forward_regime_coverage import RegimeStatisticalProtector, RegimeConcentrationAuditor
+from legacy.xauusd_forward_regime_coverage import RegimeStatisticalProtector, RegimeConcentrationAuditor
 
 
 def test_regime_sample_size_protections():

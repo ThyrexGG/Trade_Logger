@@ -5,11 +5,11 @@ Phase 53 — Tests for Strategy Contract Immutability & Live Safety Invariants
 import os
 import hashlib
 import pytest
-from xauusd_forward_lifecycle import FROZEN_CONTRACT_HASH
+from legacy.xauusd_forward_lifecycle import FROZEN_CONTRACT_HASH
 
 
 def test_frozen_strategy_contract_exact_hash():
-    contract_path = os.path.join(os.path.dirname(__file__), "..", "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
+    contract_path = os.path.join(os.path.dirname(__file__), "..", "docs", "phase-audits", "PHASE_21_XAUUSD_STRATEGY_CONTRACT.md")
     assert os.path.exists(contract_path)
     with open(contract_path, "rb") as f:
         content = f.read().replace(b"\r\n", b"\n")

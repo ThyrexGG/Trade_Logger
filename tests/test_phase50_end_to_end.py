@@ -3,7 +3,7 @@ Phase 50 — Tests for Complete 9-Stage End-to-End Forward Research Pipeline
 """
 
 import pytest
-from xauusd_forward_end_to_end_proof import (
+from legacy.xauusd_forward_end_to_end_proof import (
     Phase50E2EOperationalProofEngine,
     Phase50Facade,
 )
