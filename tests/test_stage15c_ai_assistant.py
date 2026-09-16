@@ -196,3 +196,28 @@ def test_provider_failure_is_graceful(monkeypatch):
     assert d["ok"] is False and d["error_kind"] == "timeout"
     assert "simulated outage" in d["error"]
     assert "Traceback" not in (d["error"] or "")
+
+
+def test_chat_is_rate_limited_per_user(stub_gemini, monkeypatch):
+    # Cost-abuse guard added 2026-09-16 when AI features stopped being
+    # owner-only. One user hammering the endpoint must get a clean
+    # ok=false/rate_limit response, not an unbounded stream of paid Gemini
+    # calls -- and it must not affect a different user's own budget.
+    from api import ai_usage
+
+    monkeypatch.setattr(ai_usage, "_hourly_limit", lambda: 2)
+    monkeypatch.setattr(ai_usage, "_RATE_HITS", {})
+
+    import tenant
+
+    body = {"messages": [{"role": "user", "content": "hi"}]}
+    with tenant.use("rl-user-a"):
+        assert client.post("/api/ai/chat", json=body).json()["ok"] is True
+        assert client.post("/api/ai/chat", json=body).json()["ok"] is True
+        limited = client.post("/api/ai/chat", json=body).json()
+        assert limited["ok"] is False
+        assert limited["error_kind"] == "rate_limit"
+
+    # a different user is unaffected by user-a's limit
+    with tenant.use("rl-user-b"):
+        assert client.post("/api/ai/chat", json=body).json()["ok"] is True

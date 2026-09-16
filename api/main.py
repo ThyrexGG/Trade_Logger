@@ -180,6 +180,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# --- security response headers ------------------------------------------
+# This is a pure JSON API consumed by a separate-origin SPA, so a
+# page-rendering CSP doesn't apply the way it would to an HTML app -- these
+# are the headers that matter for a JSON API: stop the browser guessing a
+# response is executable content, stop it being framed, strip the
+# growth-hack browser APIs no route here needs, and pin HTTPS once a client
+# has seen it once. /docs and /redoc are HTML and load their assets from a
+# CDN, so they're left out of frame-ancestors/nosniff's way (neither header
+# affects script loading, only response interpretation, so this is safe for
+# both surfaces).
+@app.middleware("http")
+async def _security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = (
+        "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+    )
+    response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+    return response
+
+
 # --- auth gate ---------------------------------------------------------
 # Every /api/* route requires a valid session when auth is configured. Health,
 # the auth routes themselves, and the OpenAPI docs are exempt.

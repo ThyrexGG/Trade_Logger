@@ -74,6 +74,19 @@ def ai_chat(req: AIChatRequest) -> AIChatResponse:
             timestamp=_now(),
         )
 
+    from api import ai_usage
+    import tenant
+
+    wait = ai_usage.rate_limited_for(tenant.current_user_id())
+    if wait is not None:
+        return AIChatResponse(
+            ok=False,
+            error=f"Too many AI requests — try again in about {max(1, wait // 60)} minute(s).",
+            error_kind="rate_limit",
+            timestamp=_now(),
+        )
+    ai_usage.record_request(tenant.current_user_id())
+
     ctx = build_context()
     history = [{"role": m.role, "content": m.content} for m in req.messages]
 
@@ -146,6 +159,19 @@ async def chart_analyze(
             error_kind="not_configured",
             timestamp=_now(),
         )
+
+    from api import ai_usage
+    import tenant
+
+    wait = ai_usage.rate_limited_for(tenant.current_user_id())
+    if wait is not None:
+        return ChartAnalysisResponse(
+            ok=False,
+            error=f"Too many AI requests — try again in about {max(1, wait // 60)} minute(s).",
+            error_kind="rate_limit",
+            timestamp=_now(),
+        )
+    ai_usage.record_request(tenant.current_user_id())
 
     if bool(file) == bool(tradingview_url):
         raise HTTPException(
