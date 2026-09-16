@@ -1,0 +1,48 @@
+{
+  "name": "tradelogger-desktop",
+  "productName": "TradeLogger",
+  "version": "1.0.0",
+  "description": "Desktop shell for TradeLogger — opens the live site in its own window, lives in the system tray, and alerts you natively if the backend goes down.",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.0"
+  },
+  "build": {
+    "appId": "site.tradelogger.desktop",
+    "productName": "TradeLogger",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "build/icon.ico"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "allowScripts": {
+    "electron@33.4.11": true
+  }
+}
