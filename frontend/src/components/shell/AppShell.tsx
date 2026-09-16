@@ -93,10 +93,7 @@ export function AppShell() {
             <span>
               React shell → FastAPI adapter → authoritative Python engines
             </span>
-            <span className="font-mono">
-              Safety: <span className="text-negative">BLOCKED</span> · v
-              {APP_VERSION}
-            </span>
+            <span className="font-mono">v{APP_VERSION}</span>
           </div>
         </footer>
       </div>

@@ -3,7 +3,6 @@ import { PageContainer } from '../components/shell/PageContainer'
 import {
   HashChip,
   MetricCard,
-  ResearchSafetyBanner,
   ResearchStatusTag,
   ResearchUnavailable,
   SectionCard,
@@ -41,8 +40,6 @@ export function StrategyDiscoveryPage() {
       title="Strategy Discovery"
       description="Which instrument + strategy combination has the most defensible statistical edge on real historical data — and where it does not. Research-only."
     >
-      <ResearchSafetyBanner broker={ranking?.safety_barrier.live_broker_transmission ?? 'BLOCKED'} />
-
       {state === 'loading' && !ranking ? (
         <div className="mt-4">
           <SkeletonRows rows={6} />

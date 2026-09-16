@@ -9,7 +9,6 @@ import { BacktestConfiguration } from '../components/research/BacktestConfigurat
 import { BacktestResultView } from '../components/research/BacktestResultView'
 import { ResearchAuditView } from '../components/research/ResearchAuditView'
 import {
-  ResearchSafetyBanner,
   ResearchUnavailable,
   SectionError,
   SkeletonRows,
@@ -104,8 +103,6 @@ export function BacktestWorkspacePage() {
       }
     >
       <div className="space-y-4">
-        <ResearchSafetyBanner broker={lab.data?.live_broker_transmission} />
-
         {lab.state === 'loading' && !lab.data ? (
           <div className="rounded-lg border border-border bg-surface p-4">
             <SkeletonRows rows={6} />

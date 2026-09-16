@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { PageContainer } from '../components/shell/PageContainer'
-import { OpsSafetyBanner } from '../components/operations/primitives'
 import {
   createConnection,
   deleteConnection,
@@ -107,8 +106,6 @@ export function ConnectionsPage() {
       }
     >
       <div className="space-y-4">
-        <OpsSafetyBanner />
-
         {!encOn ? (
           <div className="rounded-lg border border-border bg-surface p-4 text-sm text-muted">
             Broker connections aren't enabled on this server (no encryption key configured).

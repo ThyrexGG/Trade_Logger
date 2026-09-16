@@ -12,7 +12,6 @@ import { MacroScorecard } from '../components/macro/MacroScorecard'
 import { MacroHeatmap } from '../components/macro/MacroHeatmap'
 import { MacroProviders } from '../components/macro/MacroProviders'
 import {
-  OpsSafetyBanner,
   SectionError,
   SkeletonRows,
 } from '../components/operations/primitives'
@@ -53,7 +52,6 @@ export function MacroIntelligencePage() {
       }
     >
       <div className="space-y-4">
-        <OpsSafetyBanner />
         <ProvenanceBanner env={env} />
 
         <div className="flex flex-wrap gap-1 border-b border-border-subtle">

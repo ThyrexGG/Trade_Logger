@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { PageContainer } from '../components/shell/PageContainer'
 import {
   MetricCard,
-  ResearchSafetyBanner,
   ResearchUnavailable,
   SectionCard,
   SectionError,
@@ -47,8 +46,6 @@ export function TradeSetupPage() {
       title="Trade Setup"
       description="Does today's market satisfy a validated strategy for this instrument? READY only behind a VALIDATED edge with every mandatory condition met. Research-only — no execution."
     >
-      <ResearchSafetyBanner broker={setup?.safety_barrier.live_broker_transmission ?? 'BLOCKED'} />
-
       <div className="mt-4 flex flex-wrap gap-1.5">
         {ASSETS.map((a) => {
           const li = list?.setups.find((s) => s.asset === a)

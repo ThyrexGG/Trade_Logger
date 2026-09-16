@@ -6,7 +6,7 @@ import {
   SystemHealthPanel,
   SystemSafety,
 } from '../components/operations/SystemView'
-import { OpsSafetyBanner, SectionError } from '../components/operations/primitives'
+import { SectionError } from '../components/operations/primitives'
 
 /**
  * `/operations/system` — operational system health. `/api/health` (via the
@@ -36,11 +36,6 @@ export function SystemHealthPage() {
       }
     >
       <div className="space-y-4">
-        <OpsSafetyBanner
-          broker={health.data?.live_broker_transmission}
-          automationDisabled={health.data ? health.data.automation_enabled === false : true}
-        />
-
         <SystemSafety health={health.data} connection={health.state} />
 
         <div className="grid gap-4 lg:grid-cols-2">

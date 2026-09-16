@@ -3,7 +3,6 @@ import { useAudit } from '../lib/useOperations'
 import { PageContainer } from '../components/shell/PageContainer'
 import { AuditSummary, AuditView } from '../components/operations/AuditView'
 import {
-  OpsSafetyBanner,
   SectionError,
   SkeletonRows,
 } from '../components/operations/primitives'
@@ -33,8 +32,6 @@ export function AuditPage() {
       }
     >
       <div className="space-y-4">
-        <OpsSafetyBanner />
-
         {state === 'loading' && !data ? (
           <div className="rounded-lg border border-border bg-surface p-4">
             <SkeletonRows rows={8} />

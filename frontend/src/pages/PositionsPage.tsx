@@ -4,7 +4,6 @@ import { useSyncControl } from '../lib/useSyncControl'
 import { PageContainer } from '../components/shell/PageContainer'
 import { PositionsSummary, PositionsView } from '../components/operations/PositionsView'
 import {
-  OpsSafetyBanner,
   SectionError,
   SkeletonRows,
 } from '../components/operations/primitives'
@@ -77,8 +76,6 @@ export function PositionsPage() {
       }
     >
       <div className="space-y-4">
-        <OpsSafetyBanner />
-
         {sync.error ? (
           <p className="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[11px] text-warning">
             Sync: {sync.error}

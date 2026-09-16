@@ -5,7 +5,6 @@ import { StrategyIdentity } from '../components/research/StrategyIdentity'
 import { StrategyConfiguration } from '../components/research/StrategyConfiguration'
 import { ResearchMethodology } from '../components/research/ResearchMethodology'
 import {
-  ResearchSafetyBanner,
   SectionError,
   SkeletonRows,
 } from '../components/research/primitives'
@@ -41,8 +40,6 @@ export function StrategyLabPage() {
       }
     >
       <div className="space-y-4">
-        <ResearchSafetyBanner broker={data?.live_broker_transmission} />
-
         {state === 'loading' && !data ? (
           <div className="rounded-lg border border-border bg-surface p-4">
             <SkeletonRows rows={8} />

@@ -93,22 +93,6 @@ export function ResearchUnavailable({ children }: { children: ReactNode }) {
   )
 }
 
-/** Research-only safety strip. */
-export function ResearchSafetyBanner({ broker = 'BLOCKED' }: { broker?: string }) {
-  return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-blocked/30 bg-blocked/10 px-3 py-2 text-[11px]">
-      <span className="font-mono font-semibold uppercase tracking-wider text-blocked">
-        Historical Research
-      </span>
-      <span className="text-secondary">Live automation disabled</span>
-      <span className="text-secondary">·</span>
-      <span className="text-secondary">Broker transmission {broker}</span>
-      <span className="text-secondary">·</span>
-      <span className="text-secondary">No live execution</span>
-    </div>
-  )
-}
-
 export interface SparklinePoint {
   time: string
   equity: number

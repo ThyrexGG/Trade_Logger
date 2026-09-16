@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useEvidenceState } from '../lib/useEvidence'
 import { EvidenceTabs } from '../components/evidence/EvidenceTabs'
-import { SafetyBanner } from '../components/evidence/SafetyBanner'
 import { EvidenceHeader } from '../components/evidence/EvidenceHeader'
 import { EvidenceReadout } from '../components/evidence/EvidenceReadout'
 import { EvidenceWarnings } from '../components/evidence/EvidenceWarnings'
@@ -41,7 +40,6 @@ export function EvidenceCommandCenterPage() {
       <EvidenceTabs />
 
       <EvidenceHeader state={state} data={data} error={error} />
-      <SafetyBanner safety={data?.safety} />
 
       <ForwardTrackers data={data ?? null} />
 

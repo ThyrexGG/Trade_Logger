@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import type { EvidenceView } from '../../lib/useEvidence'
 import type { ForwardEvidenceState } from '../../types/evidence'
 import { EvidenceTabs } from './EvidenceTabs'
-import { SafetyBanner } from './SafetyBanner'
 import { SectionError, SkeletonRows } from './primitives'
 import { timeAgo } from '../../lib/format'
 
@@ -17,9 +16,9 @@ interface Props {
 }
 
 /**
- * Shared chrome for every evidence route: tabs, safety banner, freshness +
- * refresh control, and top-level loading / error handling. Section-level
- * failures are handled inside the child sections, not here.
+ * Shared chrome for every evidence route: tabs, freshness + refresh control,
+ * and top-level loading / error handling. Section-level failures are handled
+ * inside the child sections, not here.
  */
 export function EvidencePageFrame({
   title,
@@ -55,7 +54,6 @@ export function EvidencePageFrame({
       </div>
 
       <EvidenceTabs />
-      <SafetyBanner safety={data?.safety} />
 
       {state === 'loading' && !data ? (
         <div className="space-y-4">

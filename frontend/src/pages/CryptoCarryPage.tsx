@@ -1,7 +1,6 @@
 import { PageContainer } from '../components/shell/PageContainer'
 import {
   MetricCard,
-  ResearchSafetyBanner,
   ResearchUnavailable,
   SectionCard,
   SectionError,
@@ -49,8 +48,6 @@ export function CryptoCarryPage() {
       title="Crypto Carry"
       description="Delta-neutral crypto perpetual funding carry — the one usable edge from the swing research programme. Recommended book, sizing, and the weekly forward-evidence tracker. Research-only — no execution, no orders."
     >
-      <ResearchSafetyBanner broker={forward?.safety_barrier.live_broker_transmission ?? 'BLOCKED'} />
-
       {state === 'loading' && !forward ? (
         <div className="mt-4"><SkeletonRows rows={6} /></div>
       ) : state === 'error' && !forward ? (

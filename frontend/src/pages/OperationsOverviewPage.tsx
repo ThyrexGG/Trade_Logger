@@ -5,7 +5,6 @@ import { useJournal, useSystemOps } from '../lib/useOperations'
 import { PageContainer } from '../components/shell/PageContainer'
 import {
   OpsMetric,
-  OpsSafetyBanner,
   OpsStatusTag,
   SectionCard,
   opsTone,
@@ -36,11 +35,6 @@ export function OperationsOverviewPage() {
       description="Operational overview — positions, journal and system health. Read-only."
     >
       <div className="space-y-4">
-        <OpsSafetyBanner
-          broker={health.data?.live_broker_transmission}
-          automationDisabled={health.data ? health.data.automation_enabled === false : true}
-        />
-
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <OpsMetric
             label="API"

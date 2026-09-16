@@ -14,7 +14,7 @@ interface SidebarProps {
 
 /** Persistent navigation sidebar. Fixed on desktop, off-canvas drawer below lg. */
 export function Sidebar({ open, onClose }: SidebarProps) {
-  const { state, data } = useHealth()
+  const { state } = useHealth()
   const api = apiStatusView(state)
 
   return (
@@ -75,14 +75,6 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               API
             </span>
             <StatusDot tone={api.tone} label={api.label} pulse={api.pulse} />
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] uppercase tracking-wider text-muted">
-              Safety
-            </span>
-            <span className="font-mono text-[11px] font-semibold text-negative">
-              {data?.live_broker_transmission ?? 'BLOCKED'}
-            </span>
           </div>
         </div>
       </aside>

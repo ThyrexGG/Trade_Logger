@@ -3,7 +3,6 @@ import { useAlerts } from '../lib/useAlerts'
 import { PageContainer } from '../components/shell/PageContainer'
 import { AlertsPanel, AlertsSummary } from '../components/alerts/AlertsPanel'
 import {
-  OpsSafetyBanner,
   SectionError,
   SkeletonRows,
 } from '../components/operations/primitives'
@@ -34,8 +33,6 @@ export function PriceAlertsPage() {
       }
     >
       <div className="space-y-4">
-        <OpsSafetyBanner />
-
         {state === 'loading' && !data ? (
           <div className="rounded-lg border border-border bg-surface p-4">
             <SkeletonRows rows={6} />

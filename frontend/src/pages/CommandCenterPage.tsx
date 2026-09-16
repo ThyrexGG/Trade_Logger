@@ -2,7 +2,6 @@ import { useCommandCenter } from '../lib/useCommandCenter'
 import { PageContainer } from '../components/shell/PageContainer'
 import { CommandCenterView } from '../components/command-center/CommandCenterView'
 import {
-  OpsSafetyBanner,
   SectionError,
   SkeletonRows,
 } from '../components/operations/primitives'
@@ -30,8 +29,6 @@ export function CommandCenterPage() {
       }
     >
       <div className="space-y-4">
-        <OpsSafetyBanner />
-
         {state === 'loading' && !data ? (
           <div className="rounded-lg border border-border bg-surface p-4">
             <SkeletonRows rows={10} />

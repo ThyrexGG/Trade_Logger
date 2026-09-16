@@ -7,7 +7,6 @@ import { JournalFeed } from '../components/journal/JournalFeed'
 import { FreeEntries } from '../components/journal/FreeEntries'
 import type { JournalResponse } from '../types/operations'
 import {
-  OpsSafetyBanner,
   SectionError,
   SkeletonRows,
 } from '../components/operations/primitives'
@@ -113,8 +112,6 @@ export function JournalPage() {
       }
     >
       <div className="space-y-4">
-        <OpsSafetyBanner />
-
         {state === 'loading' && !data ? (
           <div className="rounded-lg border border-border bg-surface p-4">
             <SkeletonRows rows={8} />

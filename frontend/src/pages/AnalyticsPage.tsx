@@ -8,7 +8,6 @@ import { AnalyticsControls } from '../components/analytics/AnalyticsControls'
 import { AnalyticsView } from '../components/analytics/AnalyticsView'
 import { ChallengeTracker } from '../components/analytics/ChallengeTracker'
 import {
-  OpsSafetyBanner,
   SectionError,
   SkeletonRows,
 } from '../components/operations/primitives'
@@ -57,8 +56,6 @@ export function AnalyticsPage() {
       }
     >
       <div className="space-y-4">
-        <OpsSafetyBanner />
-
         {state === 'loading' && !data ? (
           <div className="rounded-lg border border-border bg-surface p-4">
             <SkeletonRows rows={8} />
