@@ -683,7 +683,7 @@ class MarketScannerEngine:
         cls,
         asset_class: str = "ALL",
         as_of: Optional[datetime] = None,
-        ttl_sec: float = 4.0
+        ttl_sec: float = 60.0
     ) -> List[AssetScanRecord]:
         """
         Executes a high-speed scan over all or filtered assets in the catalog with calculation memoization.

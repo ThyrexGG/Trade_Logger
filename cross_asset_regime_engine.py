@@ -102,7 +102,7 @@ class CrossAssetRegimeEngine:
             _REGIME_CACHE.clear()
 
     @classmethod
-    def evaluate_regime(cls, as_of: Optional[datetime] = None, ttl_sec: float = 4.0) -> MarketRegimeSnapshot:
+    def evaluate_regime(cls, as_of: Optional[datetime] = None, ttl_sec: float = 60.0) -> MarketRegimeSnapshot:
         """
         Executes deterministic multi-asset regime classification with calculation memoization.
         """

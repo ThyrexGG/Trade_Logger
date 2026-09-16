@@ -306,7 +306,11 @@ class UnifiedMarketIntelligenceSnapshot:
     payload_fingerprint: str
 
 
-# Thread-safe command center caches
+# Thread-safe command center caches. Default TTL raised 4s -> 60s (2026-09-16):
+# this snapshot recomputes regime/breadth/economic-strength across the whole
+# universe, which is genuinely expensive on Render's free-tier shared CPU. A
+# "what matters today" dashboard has no need for sub-minute freshness, and the
+# old 4s TTL meant almost every real visit recomputed from scratch.
 _CMD_LOCK = threading.Lock()
 _AGGREGATOR_CACHE: Dict[str, Tuple[UnifiedMarketIntelligenceSnapshot, float]] = {}
 _PROFILE_CACHE: Dict[str, Tuple[Dict[str, Any], float]] = {}
@@ -324,7 +328,7 @@ class UnifiedMarketIntelligenceAggregator:
             _AGGREGATOR_CACHE.clear()
 
     @classmethod
-    def aggregate_market_state(cls, as_of: Optional[datetime] = None, ttl_sec: float = 4.0) -> UnifiedMarketIntelligenceSnapshot:
+    def aggregate_market_state(cls, as_of: Optional[datetime] = None, ttl_sec: float = 60.0) -> UnifiedMarketIntelligenceSnapshot:
         is_live = as_of is None
         as_of_dt = as_of or datetime.now(timezone.utc)
         cache_key = "live_command_state" if is_live else f"hist_cmd_{as_of_dt.isoformat()}"
@@ -582,7 +586,7 @@ class AssetContextProfileEngine:
             _PROFILE_CACHE.clear()
 
     @classmethod
-    def build_asset_profile(cls, symbol: str, as_of: Optional[datetime] = None, ttl_sec: float = 4.0) -> Dict[str, Any]:
+    def build_asset_profile(cls, symbol: str, as_of: Optional[datetime] = None, ttl_sec: float = 60.0) -> Dict[str, Any]:
         is_live = as_of is None
         as_of_dt = as_of or datetime.now(timezone.utc)
         clean_sym = symbol.upper().replace("/", "").replace(":", "").strip()

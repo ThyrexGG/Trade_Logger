@@ -11,6 +11,11 @@
          time. preconnect first so the actual font fetch doesn't wait on DNS. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Render's free tier + a cross-origin API means the first request pays
+         DNS + TCP + TLS before a single byte of data comes back. Preconnect
+         so that handshake overlaps with the rest of the page loading instead
+         of happening only once the app's first fetch actually fires. -->
+    <link rel="preconnect" href="%VITE_API_BASE_URL%" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
