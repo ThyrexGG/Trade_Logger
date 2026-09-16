@@ -93,9 +93,12 @@ services:
       # Cost-control kill switch, independent of the key above: set to "0" to
       # take the AI assistant off this deployment (e.g. before opening
       # sign-ups to the public) without touching the key itself, in case it's
-      # still wanted for local use. Unset/"1" changes nothing.
+      # still wanted for local use. Unset/"1" changes nothing. Turned back on
+      # 2026-09-16 -- owner wants tradelogger.site to match local, AI
+      # features included. Flip back to "0" if random-visitor API cost
+      # becomes a problem (e.g. after TL_SIGNUP_OPEN is switched on).
       - key: TL_AI_ASSISTANT_ENABLED
-        value: "0"
+        value: "1"
       - key: FRED_API_KEY
         sync: false
       - key: FMP_API_KEY
