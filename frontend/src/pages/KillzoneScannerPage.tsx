@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { PageContainer } from '../components/shell/PageContainer'
 import { SectionCard } from '../components/intelligence/primitives'
 import { PreTradeChecklistForm, type ChecklistPrefill } from '../components/journal/PreTradeChecklistForm'
-import { KillzoneChart } from '../components/scanner/KillzoneChart'
 import { InfoTip } from '../components/common/InfoTip'
 import { scanKillzone } from '../api/scanner'
 import type { KillzoneCandidate, KillzoneScanResponse } from '../types/scanner'
@@ -254,42 +253,29 @@ export function KillzoneScannerPage() {
               <div className="flex flex-wrap items-end gap-3">
                 <label className="flex flex-col gap-1 text-[11px] text-muted">
                   Symbol
-                  <div className="flex gap-1.5">
-                    <select
-                      value={SYMBOL_GROUPS.some((g) => g.symbols.includes(symbol)) ? symbol : ''}
-                      onChange={(e) => {
-                        if (!e.target.value) return
-                        inputRef.current = e.target.value
-                        submit()
-                      }}
-                      className="rounded border border-border bg-background px-2 py-1.5 text-sm text-primary focus:border-accent focus:outline-none"
-                    >
-                      {/* Present only while the typed symbol isn't one of the presets,
-                          so the select never shows a preset that isn't actually loaded. */}
-                      {!SYMBOL_GROUPS.some((g) => g.symbols.includes(symbol)) ? (
-                        <option value="">{symbol || 'Pick…'}</option>
-                      ) : null}
-                      {SYMBOL_GROUPS.map((group) => (
-                        <optgroup key={group.label} label={group.label}>
-                          {group.symbols.map((s) => (
-                            <option key={s} value={s}>{s}</option>
-                          ))}
-                        </optgroup>
-                      ))}
-                    </select>
-                    <input
-                      type="text"
-                      key={symbol}
-                      defaultValue={symbol}
-                      aria-label="Or type any symbol"
-                      title="Or type any symbol the feed serves"
-                      onChange={(e) => {
-                        inputRef.current = e.target.value
-                      }}
-                      onKeyDown={(e) => e.key === 'Enter' && submit()}
-                      className="w-28 rounded border border-border bg-background px-2 py-1.5 text-sm text-primary focus:border-accent focus:outline-none"
-                    />
-                  </div>
+                  <select
+                    value={SYMBOL_GROUPS.some((g) => g.symbols.includes(symbol)) ? symbol : ''}
+                    onChange={(e) => {
+                      if (!e.target.value) return
+                      inputRef.current = e.target.value
+                      submit()
+                    }}
+                    className="rounded border border-border bg-background px-2 py-1.5 text-sm text-primary focus:border-accent focus:outline-none"
+                  >
+                    {/* Present only while the current symbol isn't one of the presets
+                        (e.g. still set from an old free-text entry), so the select
+                        never silently swaps it out from under the last scan. */}
+                    {!SYMBOL_GROUPS.some((g) => g.symbols.includes(symbol)) ? (
+                      <option value="">{symbol || 'Pick…'}</option>
+                    ) : null}
+                    {SYMBOL_GROUPS.map((group) => (
+                      <optgroup key={group.label} label={group.label}>
+                        {group.symbols.map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
                 </label>
                 <label className="flex flex-col gap-1 text-[11px] text-muted">
                   Entry timeframe
@@ -500,7 +486,7 @@ export function KillzoneScannerPage() {
 
                 <SectionCard
                   title="Unmitigated fair value gaps"
-                  info="Untested FVGs on the entry timeframe — a common place a sweep+MSS entry retraces into. Not filtered by direction or recency beyond the most recent few. Each gap spans three candles: a displacement candle whose neighbors' wicks don't overlap; the time shown is the third candle — the one whose close confirmed the gap exists, marked as a circle on the chart above — not the displacement candle itself."
+                  info="Untested FVGs on the entry timeframe — a common place a sweep+MSS entry retraces into. Not filtered by direction or recency beyond the most recent few. Each gap spans three candles: a displacement candle whose neighbors' wicks don't overlap; the time shown is the third candle — the one whose close confirmed the gap exists — not the displacement candle itself."
                 >
                   {data.recent_unmitigated_fvgs.length === 0 ? (
                     <p className="text-xs text-muted">None currently unmitigated.</p>
@@ -519,15 +505,6 @@ export function KillzoneScannerPage() {
                     </div>
                   )}
                 </SectionCard>
-
-                <KillzoneChart
-                  symbol={data.symbol}
-                  ltf={ltf}
-                  candidates={data.candidates}
-                  liquidity={data.htf_liquidity_targets}
-                  fvgs={data.recent_unmitigated_fvgs}
-                  focusedIndex={focusedIndex}
-                />
 
                 <p className="text-[10.5px] text-muted">{data.disclaimer}</p>
               </>

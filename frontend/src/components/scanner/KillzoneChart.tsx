@@ -285,11 +285,6 @@ export function KillzoneChart({
     })
   }
 
-  // Derived from the candles already loaded — no extra request, and it tracks
-  // the chart's own View/History selectors rather than the scan's timeframe.
-  const sessions = useMemo(() => buildSessions(candles), [candles])
-  const levels = useMemo(() => previousLevels(candles), [candles])
-
   function changeHeight(px: number) {
     setChartHeight(px)
     try {
@@ -305,6 +300,11 @@ export function KillzoneChart({
   const [source, setSource] = useState<string | null>(null)
   const [liveness, setLiveness] = useState<string | null>(null)
   const [hover, setHover] = useState<Ohlc | null>(null)
+
+  // Derived from the candles already loaded — no extra request, and it tracks
+  // the chart's own View/History selectors rather than the scan's timeframe.
+  const sessions = useMemo(() => buildSessions(candles), [candles])
+  const levels = useMemo(() => previousLevels(candles), [candles])
 
   // create / destroy the chart with the container
   useEffect(() => {
