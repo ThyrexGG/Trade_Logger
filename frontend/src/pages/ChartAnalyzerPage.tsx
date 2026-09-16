@@ -234,6 +234,17 @@ export function ChartAnalyzerPage() {
                 Use TradingView's camera/share icon on a chart to get this kind of link, then paste it here.
                 Fetched server-side — the image itself, nothing else.
               </p>
+              {/* The link is fetched server-side and never rendered locally, so
+                  without this the chart that was actually analyzed is invisible
+                  until it's attached to a journal entry. Same image the model
+                  saw, shown as soon as the response carries it. */}
+              {result?.image_base64 && result.image_mime ? (
+                <img
+                  src={`data:${result.image_mime};base64,${result.image_base64}`}
+                  alt="fetched chart"
+                  className="mt-3 max-h-80 w-full rounded-lg border border-border-subtle object-contain"
+                />
+              ) : null}
             </div>
           )}
 
