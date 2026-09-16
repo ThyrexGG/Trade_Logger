@@ -126,9 +126,9 @@ function EntryCard({
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            rows={4}
+            rows={10}
             maxLength={20_000}
-            className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-primary"
+            className="w-full resize-y rounded border border-border bg-background px-2 py-1.5 text-xs text-primary"
           />
           <input
             value={tags}
@@ -254,9 +254,9 @@ export function FreeEntries() {
           <textarea
             value={draft.body}
             onChange={(e) => setDraft({ ...draft, body: e.target.value })}
-            rows={4}
-            placeholder="What are you seeing / planning / reviewing?"
-            className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-primary placeholder:text-muted"
+            rows={10}
+            placeholder="A full day's log works here too -- every trade, what you saw, what you'd do differently. Attach your setup screenshot once it's saved."
+            className="w-full resize-y rounded border border-border bg-background px-2 py-1.5 text-xs text-primary placeholder:text-muted"
           />
           <input
             value={draft.tags}
