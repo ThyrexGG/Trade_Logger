@@ -47,7 +47,7 @@ export function AnalyticsPage() {
           >
             {syncing ? 'Syncing…' : 'Sync now'}
           </button>
-          <Link to="/operations/journal" className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover">
+          <Link to="/workspace/journal" className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover">
             Journal
           </Link>
           <button type="button" onClick={refetch} className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover">

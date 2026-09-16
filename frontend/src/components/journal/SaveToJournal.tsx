@@ -131,7 +131,7 @@ export function SaveToJournal({
     return (
       <div className="rounded-lg border border-positive/30 bg-positive/10 p-3 text-xs text-positive">
         Saved to that trade's journal entry.{' '}
-        <Link to={`/operations/journal?trade=${encodeURIComponent(savedTradeId)}`} className="underline underline-offset-2">
+        <Link to={`/workspace/journal?trade=${encodeURIComponent(savedTradeId)}`} className="underline underline-offset-2">
           Open it
         </Link>
       </div>
@@ -141,7 +141,7 @@ export function SaveToJournal({
     return (
       <div className="rounded-lg border border-positive/30 bg-positive/10 p-3 text-xs text-positive">
         Saved to the journal.{' '}
-        <Link to="/operations/journal" className="underline underline-offset-2">
+        <Link to="/workspace/journal" className="underline underline-offset-2">
           Open the journal
         </Link>
       </div>

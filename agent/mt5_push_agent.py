@@ -555,12 +555,12 @@ def _notify_closing_events(cfg: Dict[str, Any], events: List[Dict[str, Any]]) ->
         e = events[0]
         sign = "+" if e["net_profit"] >= 0 else "-"
         body = f"{e['symbol']} {e['direction']} closed  {sign}${abs(e['net_profit']):.2f}"
-        journal_url = f"{web}/operations/journal?trade={e['position_id']}"
+        journal_url = f"{web}/workspace/journal?trade={e['position_id']}"
     else:
         total = sum(e["net_profit"] for e in events)
         sign = "+" if total >= 0 else "-"
         body = f"{len(events)} trades closed  ·  net {sign}${abs(total):.2f}"
-        journal_url = f"{web}/operations/journal"
+        journal_url = f"{web}/workspace/journal"
     _toast("TradeLogger", body + " -- opening the journal to log it")
     try:
         import webbrowser

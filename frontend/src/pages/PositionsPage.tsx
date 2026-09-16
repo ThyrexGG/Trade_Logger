@@ -63,7 +63,7 @@ export function PositionsPage() {
           <Link to="/workspace/risk" className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover">
             Risk Gateway
           </Link>
-          <Link to="/operations/journal" className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover">
+          <Link to="/workspace/journal" className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover">
             Journal
           </Link>
           <button

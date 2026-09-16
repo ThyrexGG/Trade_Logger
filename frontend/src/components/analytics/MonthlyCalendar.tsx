@@ -101,7 +101,7 @@ function InlineTradeJournal({
           )}
         </datalist>
         <Link
-          to={`/operations/journal?trade=${encodeURIComponent(trade.trade_id)}`}
+          to={`/workspace/journal?trade=${encodeURIComponent(trade.trade_id)}`}
           className="ml-auto text-[11px] text-accent hover:underline"
         >
           Open full entry ↗

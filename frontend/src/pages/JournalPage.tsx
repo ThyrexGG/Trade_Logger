@@ -5,7 +5,6 @@ import { PageContainer } from '../components/shell/PageContainer'
 import { JournalSummary, JournalView } from '../components/operations/JournalView'
 import { JournalFeed } from '../components/journal/JournalFeed'
 import { FreeEntries } from '../components/journal/FreeEntries'
-import { ManualTradeForm } from '../components/journal/ManualTradeForm'
 import type { JournalResponse } from '../types/operations'
 import {
   OpsSafetyBanner,
@@ -46,7 +45,7 @@ function filterByAccount(data: JournalResponse, account: string): JournalRespons
 }
 
 /**
- * Trade journal (`/operations/journal`). Read view over the authoritative
+ * Trade journal (`/workspace/journal`). Read view over the authoritative
  * `closed_trades` table with client-side filtering. The subjective annotation
  * fields (setup tag / notes / chart snapshot) are editable in place via
  * `PATCH /api/operations/journal/{trade_id}`; execution facts stay immutable.
@@ -131,24 +130,21 @@ export function JournalPage() {
                 Showing last good journal — refresh failed: {error}
               </p>
             ) : null}
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              {data.accounts.length > 1 ? (
-                <label className="block w-fit text-[11px] text-muted">
-                  Account
-                  <select
-                    value={account}
-                    onChange={(e) => changeAccount(e.target.value)}
-                    className="mt-1 block w-full min-w-[10rem] rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
-                  >
-                    <option value="ALL">All accounts ({data.total_trades})</option>
-                    {data.accounts.map((a) => (
-                      <option key={a} value={a}>{a}</option>
-                    ))}
-                  </select>
-                </label>
-              ) : <span />}
-              <ManualTradeForm knownAccounts={data.accounts} onCreated={() => refetch()} />
-            </div>
+            {data.accounts.length > 1 ? (
+              <label className="block w-fit text-[11px] text-muted">
+                Account
+                <select
+                  value={account}
+                  onChange={(e) => changeAccount(e.target.value)}
+                  className="mt-1 block w-full min-w-[10rem] rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+                >
+                  <option value="ALL">All accounts ({data.total_trades})</option>
+                  {data.accounts.map((a) => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             <JournalSummary data={viewData} />
             {view === 'feed' ? (
               <JournalFeed data={viewData} onEntryUpdated={applyEntry} />

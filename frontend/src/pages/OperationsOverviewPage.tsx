@@ -77,7 +77,7 @@ export function OperationsOverviewPage() {
             )}
           </SectionCard>
 
-          <SectionCard title="Latest journal trade" action={<Link to="/operations/journal" className="text-[11px] text-secondary hover:text-primary">Open →</Link>}>
+          <SectionCard title="Latest journal trade" action={<Link to="/workspace/journal" className="text-[11px] text-secondary hover:text-primary">Open →</Link>}>
             {journal.state === 'loading' && !journal.data ? (
               <p className="text-xs text-muted">Loading…</p>
             ) : latestTrade ? (

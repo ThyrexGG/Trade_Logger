@@ -134,6 +134,15 @@ const ALL_ZONES: Zone[] = [
         icon: FlaskIcon,
         status: 'live',
       },
+      {
+        id: 'workspace.journal',
+        label: 'Journal',
+        description: 'Closed-trade journal with setup tags, notes and ratings — manual entries too, for money traded outside any broker sync.',
+        path: '/workspace/journal',
+        icon: BookIcon,
+        status: 'live',
+        friendsVisible: true,
+      },
     ],
   },
   {
@@ -172,21 +181,12 @@ const ALL_ZONES: Zone[] = [
   },
   {
     id: 'operations',
-    label: 'Operations & Journal',
+    label: 'Operations',
     shortLabel: 'Operations',
     path: '/operations',
-    tagline: 'Operational visibility and trading records.',
+    tagline: 'System health, broker connections and partners.',
     icon: LayersIcon,
     items: [
-      {
-        id: 'operations.journal',
-        label: 'Journal',
-        description: 'Closed-trade journal with setup tags, notes and ratings.',
-        path: '/operations/journal',
-        icon: BookIcon,
-        status: 'live',
-        friendsVisible: true,
-      },
       {
         id: 'operations.system',
         label: 'System Health',
