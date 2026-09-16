@@ -2,6 +2,7 @@ import os
 import time
 import threading
 import sqlite3
+import uuid
 from datetime import datetime, timezone
 import pandas as pd
 from dotenv import load_dotenv
@@ -992,6 +993,55 @@ def save_closed_trades(trades):
     conn.commit()
     conn.close()
     invalidate_db_cache("closed_trades")
+
+def add_manual_trade(fields: dict) -> str:
+    """One hand-entered closed trade -- for trading your own money outside
+    any broker sync. Reuses save_closed_trades so it lands in the exact
+    same table, row shape and cache-invalidation path an MT5-synced trade
+    does; Analytics, the calendar and the Journal can't tell the difference
+    except for the trade_id prefix. Returns the generated trade_id.
+
+    `fields` is the caller's already-validated ManualTradeIn dict (or
+    equivalent) -- entry_time/exit_time as ISO strings, gross_profit/
+    commission/swap as the platform actually reported them.
+    """
+    def _epoch(iso: str) -> float:
+        return datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp()
+
+    entry_epoch = _epoch(fields["entry_time"])
+    exit_epoch = _epoch(fields["exit_time"])
+    if exit_epoch < entry_epoch:
+        raise ValueError("exit_time is before entry_time")
+
+    trade_id = f"MANUAL_{uuid.uuid4().hex[:16]}"
+    gross = float(fields["gross_profit"])
+    commission = float(fields.get("commission") or 0.0)
+    swap = float(fields.get("swap") or 0.0)
+
+    save_closed_trades([{
+        "trade_id": trade_id,
+        "account_id": fields["account_id"],
+        "symbol": fields["symbol"].upper(),
+        "direction": fields["direction"],
+        "volume": float(fields.get("volume") or 0.0),
+        "entry_price": float(fields.get("entry_price") or 0.0),
+        "exit_price": float(fields.get("exit_price") or 0.0),
+        "commission": commission,
+        "swap": swap,
+        "gross_profit": gross,
+        "net_profit": gross + commission + swap,
+        "entry_time": fields["entry_time"],
+        "exit_time": fields["exit_time"],
+        "duration_minutes": (exit_epoch - entry_epoch) / 60.0,
+        "setup_tag": fields.get("setup_tag"),
+    }])
+
+    notes = (fields.get("notes") or "").strip()
+    if notes:
+        update_trade_journal(trade_id, notes=notes)
+
+    return trade_id
+
 
 def get_last_deal_timestamp(account_id):
     """Returns the timestamp of the latest logged deal for a given account to fetch incrementally."""

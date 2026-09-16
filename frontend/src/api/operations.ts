@@ -7,14 +7,22 @@ import type {
   JournalResponse,
   JournalScreenshotMeta,
   JournalScreenshotsResponse,
+  JournalTradeItem,
   JournalUpdateRequest,
   JournalUpdateResponse,
+  ManualTradeInput,
   OperationsSystemResponse,
 } from '../types/operations'
 
 /** GET /api/operations/journal — read-only closed-trade journal. */
 export function getJournal(signal?: AbortSignal): Promise<JournalResponse> {
   return apiGet<JournalResponse>('/api/operations/journal', { signal })
+}
+
+/** POST /api/operations/journal/trades — log a trade that never went through
+ * a broker sync. Lands in the same table an MT5-synced trade does. */
+export function createManualTrade(body: ManualTradeInput): Promise<JournalTradeItem> {
+  return apiPost<JournalTradeItem>('/api/operations/journal/trades', body)
 }
 
 /**

@@ -7,7 +7,9 @@ import type { ChallengeStatus } from '../../types/challenge'
 
 const ACCOUNT_KEY = 'tl.pretrade.account'
 
-const SETUP_PRESETS = [
+// Exported so ManualTradeForm (logging a trade after the fact) offers the
+// same setup vocabulary as planning one before the fact — one tag taxonomy.
+export const SETUP_PRESETS = [
   'BREAKOUT',
   'SUPPORT / RESISTANCE BOUNCE',
   'ORDER BLOCK / FVG',
@@ -37,6 +39,30 @@ const CHECKLIST: ChecklistItem[] = [
 function ratioTone(ratio: number): string {
   if (ratio >= 0.8) return 'text-negative'
   if (ratio >= 0.5) return 'text-warning'
+  return 'text-positive'
+}
+
+/** How much of what's LEFT of today's daily-loss budget this one trade's
+ * planned risk would use up, if the stop is hit. Distinct from the
+ * account-wide ratios above: those describe trades already closed today,
+ * this describes a trade that hasn't happened yet. Null when there isn't
+ * enough configured/entered to compute it (no challenge, or no risk amount
+ * typed in) — callers show nothing rather than a misleading 0%. */
+function riskAgainstRemainingBudget(
+  challenge: ChallengeStatus | null,
+  riskAmount: number | null,
+): { ratio: number; remainingBudget: number } | null {
+  if (!challenge?.configured || !challenge.config || riskAmount === null || riskAmount <= 0) return null
+  const totalDailyBudget = (challenge.config.daily_loss_pct / 100) * challenge.config.account_size
+  const usedToday = challenge.daily_loss_today_amount ?? 0
+  const remainingBudget = totalDailyBudget - usedToday
+  if (remainingBudget <= 0) return { ratio: Infinity, remainingBudget }
+  return { ratio: riskAmount / remainingBudget, remainingBudget }
+}
+
+function tradeRiskTone(ratio: number): string {
+  if (ratio >= 0.6) return 'text-negative'
+  if (ratio >= 0.3) return 'text-warning'
   return 'text-positive'
 }
 
@@ -92,6 +118,8 @@ export function PreTradeChecklistForm({ prefill }: { prefill?: ChecklistPrefill 
   const [entry, setEntry] = useState('')
   const [stopLoss, setStopLoss] = useState('')
   const [takeProfit, setTakeProfit] = useState('')
+  const [riskAmount, setRiskAmount] = useState('')
+  const [riskAck, setRiskAck] = useState(false)
   const [thesis, setThesis] = useState('')
   const [checked, setChecked] = useState<Record<string, boolean>>({})
   const [snapshot, setSnapshot] = useState<string | null>(null)
@@ -146,6 +174,18 @@ export function PreTradeChecklistForm({ prefill }: { prefill?: ChecklistPrefill 
     return risk > 0 ? reward / risk : null
   }, [entry, stopLoss, takeProfit])
 
+  const tradeRisk = useMemo(() => {
+    const amt = parseFloat(riskAmount)
+    return riskAgainstRemainingBudget(challenge, isFinite(amt) && amt > 0 ? amt : null)
+  }, [challenge, riskAmount])
+
+  // Only the red zone asks for an extra click, and only once an amount is
+  // actually entered -- an empty field shouldn't silently block saving.
+  const needsRiskAck = tradeRisk !== null && tradeRisk.ratio >= 0.6
+  useEffect(() => {
+    if (!needsRiskAck) setRiskAck(false)
+  }, [needsRiskAck])
+
   const checkedCount = CHECKLIST.filter((c) => checked[c.id]).length
 
   function invalidate() {
@@ -175,10 +215,17 @@ export function PreTradeChecklistForm({ prefill }: { prefill?: ChecklistPrefill 
           `daily loss ${((challenge.daily_loss_budget_used_ratio ?? 0) * 100).toFixed(0)}% used.`,
       )
     }
+    if (tradeRisk) {
+      lines.push(
+        `Planned risk: $${parseFloat(riskAmount).toFixed(0)} (` +
+          `${tradeRisk.ratio === Infinity ? '>100' : (tradeRisk.ratio * 100).toFixed(0)}% of the daily-loss budget remaining at plan time)` +
+          (needsRiskAck ? ' — acknowledged and taken anyway.' : '.'),
+      )
+    }
     return lines.join('\n')
   }
 
-  const ready = symbol.trim().length > 0 && thesis.trim().length > 0
+  const ready = symbol.trim().length > 0 && thesis.trim().length > 0 && (!needsRiskAck || riskAck)
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -265,7 +312,7 @@ export function PreTradeChecklistForm({ prefill }: { prefill?: ChecklistPrefill 
               className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
             />
           </label>
-          <label className="col-span-2 flex flex-col gap-1 text-[11px] text-muted">
+          <label className="flex flex-col gap-1 text-[11px] text-muted">
             Take profit
             <input
               type="number"
@@ -275,6 +322,21 @@ export function PreTradeChecklistForm({ prefill }: { prefill?: ChecklistPrefill 
                 setTakeProfit(e.target.value)
                 invalidate()
               }}
+              className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-[11px] text-muted">
+            Risk amount ($) if stopped out
+            <input
+              type="number"
+              step="any"
+              min="0"
+              value={riskAmount}
+              onChange={(e) => {
+                setRiskAmount(e.target.value)
+                invalidate()
+              }}
+              placeholder="e.g. 50"
               className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
             />
           </label>
@@ -300,6 +362,34 @@ export function PreTradeChecklistForm({ prefill }: { prefill?: ChecklistPrefill 
               </span>{' '}
               used
             </p>
+          </div>
+        ) : null}
+
+        {tradeRisk ? (
+          <div
+            className="mt-3 rounded-lg border p-2.5 text-[11px]"
+            style={
+              tradeRisk.ratio >= 0.6
+                ? { borderColor: 'var(--tl-negative, #b3392f)', background: 'color-mix(in srgb, var(--tl-negative, #b3392f) 10%, transparent)' }
+                : undefined
+            }
+          >
+            <p className="text-muted">This trade, if the stop is hit:</p>
+            <p className="mt-1">
+              Risks{' '}
+              <span className="font-mono font-semibold text-primary">${parseFloat(riskAmount).toFixed(0)}</span> —{' '}
+              <span className={`font-mono font-semibold ${tradeRiskTone(tradeRisk.ratio)}`}>
+                {tradeRisk.ratio === Infinity ? '∞' : `${(tradeRisk.ratio * 100).toFixed(0)}%`}
+              </span>{' '}
+              of the ${Math.max(0, tradeRisk.remainingBudget).toFixed(0)} left in today's daily-loss budget
+            </p>
+            {tradeRisk.ratio >= 0.6 ? (
+              <p className="mt-1.5 font-medium text-negative">
+                {tradeRisk.remainingBudget <= 0
+                  ? "Today's daily-loss budget is already used up. A loss here likely breaches it."
+                  : "If this loses, you're at or near today's daily-loss limit. Worth asking whether this is the trade, or the day, talking."}
+              </p>
+            ) : null}
           </div>
         ) : null}
 
@@ -360,6 +450,18 @@ export function PreTradeChecklistForm({ prefill }: { prefill?: ChecklistPrefill 
         </div>
         <p className="mt-2 text-[11px] text-muted">{checkedCount} / {CHECKLIST.length} checked</p>
 
+        {needsRiskAck ? (
+          <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-negative/40 bg-negative/10 p-2.5 text-xs text-primary">
+            <input
+              type="checkbox"
+              checked={riskAck}
+              onChange={(e) => setRiskAck(e.target.checked)}
+              className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-negative"
+            />
+            I see the daily-loss warning above and want to take this trade anyway.
+          </label>
+        ) : null}
+
         <button
           type="button"
           onClick={() => setSnapshot(buildDescription())}
@@ -369,7 +471,13 @@ export function PreTradeChecklistForm({ prefill }: { prefill?: ChecklistPrefill 
         >
           Build plan
         </button>
-        {!ready ? <p className="mt-1 text-[10px] text-muted">Symbol and a thesis are required.</p> : null}
+        {!ready ? (
+          <p className="mt-1 text-[10px] text-muted">
+            {symbol.trim().length === 0 || thesis.trim().length === 0
+              ? 'Symbol and a thesis are required.'
+              : 'Acknowledge the daily-loss warning above to continue.'}
+          </p>
+        ) : null}
 
         {snapshot ? (
           <SaveToJournal

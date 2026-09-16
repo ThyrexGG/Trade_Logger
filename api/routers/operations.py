@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-FastAPI Operations Router — Read-Only Journal / Audit / System (Stage 11)
+FastAPI Operations Router — Journal / Audit / System (Stage 11)
 
 Thin adapter over authoritative SQLite state:
   - Journal  -> `database.get_closed_trades()` (the `closed_trades` table)
@@ -9,8 +9,11 @@ Thin adapter over authoritative SQLite state:
   - System   -> `/api/health` values + `system_health.evaluate_system_health`
 
 Every value is produced by the authoritative system and merely serialized.
-GET-only: nothing here mutates operational state, submits orders or touches a
-broker. `sqlite3` placeholders are handled for both SQLite and Postgres.
+Mostly GET; the exceptions are the journal-annotation PATCH, the freeform
+`/journal/entries` notes, and `POST /journal/trades` (a hand-entered closed
+trade, for money traded outside any broker sync). None of it submits an
+order, modifies a position or touches a broker. `sqlite3` placeholders are
+handled for both SQLite and Postgres.
 """
 import base64
 import binascii
@@ -31,6 +34,7 @@ from api.schemas import (
     JournalEntry,
     JournalEntryCreate,
     JournalEntryUpdate,
+    ManualTradeIn,
     JournalResponse,
     JournalScreenshotMeta,
     JournalScreenshotsResponse,
@@ -172,6 +176,32 @@ def get_journal() -> JournalResponse:
         writable=True,
         timestamp=datetime.now(timezone.utc).isoformat(),
     )
+
+
+# --- Manual trade entry --------------------------------------------------
+# For trading your own money outside any broker sync (no MT5 agent, no
+# connections). Writes a genuinely NEW closed_trades row -- the one write
+# path in this router that isn't annotating an existing trade -- so it's
+# clearly separated from the read-mostly framing above. Same table, same
+# shape an MT5-synced trade gets, so it appears in Analytics / the calendar
+# / this Journal identically; only the trade_id's `MANUAL_` prefix tells
+# them apart. Still no execution path: this never touches an order, a
+# position, or a broker.
+
+@router.post("/journal/trades", response_model=JournalTradeItem)
+def create_manual_trade(payload: ManualTradeIn) -> JournalTradeItem:
+    try:
+        trade_id = database.add_manual_trade(payload.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    row = _fetch_journal_row(trade_id)
+    if row is None:  # pragma: no cover - save_closed_trades just wrote it
+        raise HTTPException(status_code=500, detail="Trade was saved but could not be read back.")
+    try:
+        sc_count = database.count_journal_screenshots().get(trade_id, 0)
+    except Exception:
+        sc_count = 0
+    return _journal_item(row, sc_count)
 
 
 # --- Journal edit (Stage 12) --------------------------------------------

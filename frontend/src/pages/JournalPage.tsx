@@ -5,6 +5,7 @@ import { PageContainer } from '../components/shell/PageContainer'
 import { JournalSummary, JournalView } from '../components/operations/JournalView'
 import { JournalFeed } from '../components/journal/JournalFeed'
 import { FreeEntries } from '../components/journal/FreeEntries'
+import { ManualTradeForm } from '../components/journal/ManualTradeForm'
 import type { JournalResponse } from '../types/operations'
 import {
   OpsSafetyBanner,
@@ -130,21 +131,24 @@ export function JournalPage() {
                 Showing last good journal — refresh failed: {error}
               </p>
             ) : null}
-            {data.accounts.length > 1 ? (
-              <label className="block w-fit text-[11px] text-muted">
-                Account
-                <select
-                  value={account}
-                  onChange={(e) => changeAccount(e.target.value)}
-                  className="mt-1 block w-full min-w-[10rem] rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
-                >
-                  <option value="ALL">All accounts ({data.total_trades})</option>
-                  {data.accounts.map((a) => (
-                    <option key={a} value={a}>{a}</option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              {data.accounts.length > 1 ? (
+                <label className="block w-fit text-[11px] text-muted">
+                  Account
+                  <select
+                    value={account}
+                    onChange={(e) => changeAccount(e.target.value)}
+                    className="mt-1 block w-full min-w-[10rem] rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+                  >
+                    <option value="ALL">All accounts ({data.total_trades})</option>
+                    {data.accounts.map((a) => (
+                      <option key={a} value={a}>{a}</option>
+                    ))}
+                  </select>
+                </label>
+              ) : <span />}
+              <ManualTradeForm knownAccounts={data.accounts} onCreated={() => refetch()} />
+            </div>
             <JournalSummary data={viewData} />
             {view === 'feed' ? (
               <JournalFeed data={viewData} onEntryUpdated={applyEntry} />

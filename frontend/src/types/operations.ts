@@ -4,9 +4,31 @@
  *
  * Journal = the authoritative `closed_trades` table. Audit = the
  * `execution_orders` operational execution trail. System = `/api/health`
- * values + `system_health.evaluate_system_health`. All read-only — React adds
- * no operational data and mutates nothing.
+ * values + `system_health.evaluate_system_health`. Mostly read-only; the one
+ * exception is `ManualTradeInput` below (`POST /journal/trades`), for a trade
+ * that never went through a broker sync. Nothing here submits an order,
+ * modifies a position, or touches a broker either way.
  */
+
+/** A hand-entered closed trade — money traded outside any broker sync.
+ * profit/commission/swap are what the platform/broker actually reported,
+ * not recomputed from price + volume (pip value varies by instrument). */
+export interface ManualTradeInput {
+  account_id: string
+  symbol: string
+  direction: 'BUY' | 'SELL'
+  volume: number
+  entry_price: number
+  exit_price: number
+  commission: number
+  swap: number
+  gross_profit: number
+  /** ISO datetime strings (with timezone) — see toIsoWithZone in the form. */
+  entry_time: string
+  exit_time: string
+  setup_tag?: string
+  notes?: string
+}
 
 export interface JournalTradeItem {
   trade_id: string

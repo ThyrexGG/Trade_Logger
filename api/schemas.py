@@ -697,8 +697,11 @@ class ResearchAuditResponse(BaseModel):
 
 # -------------------------------------------------------------------------
 # 10. Operations Schemas (Positions page reuses section 7; Journal / Audit /
-#     System are read-only pass-throughs of authoritative SQLite tables and
-#     `system_health.evaluate_system_health`). No execution, no mutation.
+#     System are pass-throughs of authoritative SQLite tables and
+#     `system_health.evaluate_system_health`). No execution, no order
+#     mutation. `ManualTradeIn` (below) is the one write path that creates a
+#     NEW closed_trades row rather than annotating an existing one -- for
+#     trading your own money outside any broker sync.
 # -------------------------------------------------------------------------
 class JournalTradeItem(BaseModel):
     trade_id: str
@@ -720,6 +723,33 @@ class JournalTradeItem(BaseModel):
     rating: Optional[int] = None
     chart_snapshot_url: Optional[str] = None
     screenshot_count: int = 0
+
+
+class ManualTradeIn(BaseModel):
+    """A trade that never went through a broker sync — you're recording it
+    yourself. Mirrors closed_trades' shape exactly so it renders identically
+    to an MT5-synced row everywhere (Analytics, calendar, Journal); the only
+    tell is trade_id's `MANUAL_` prefix instead of `MT5_`.
+
+    profit/commission/swap are entered as the broker/platform actually
+    reported them (like the MT5 agent does), not recomputed from
+    entry/exit price + volume — pip value varies by instrument and this
+    avoids silently getting it wrong.
+    """
+    model_config = {"extra": "forbid"}
+    account_id: str = Field(min_length=1, max_length=128)
+    symbol: str = Field(min_length=1, max_length=64)
+    direction: str = Field(pattern="^(BUY|SELL)$")
+    volume: float = Field(default=0.0, ge=0)
+    entry_price: float = Field(default=0.0, ge=0)
+    exit_price: float = Field(default=0.0, ge=0)
+    commission: float = 0.0
+    swap: float = 0.0
+    gross_profit: float
+    entry_time: str = Field(min_length=1, max_length=64)
+    exit_time: str = Field(min_length=1, max_length=64)
+    setup_tag: Optional[str] = Field(default=None, max_length=64)
+    notes: Optional[str] = Field(default=None, max_length=4000)
 
 
 class JournalScreenshotMeta(BaseModel):
