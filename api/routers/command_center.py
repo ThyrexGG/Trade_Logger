@@ -24,6 +24,7 @@ The heavy XAUUSD news / economic-calendar engine
 migrated here — that macro layer stays in Streamlit pending the separately
 specified macro-intelligence stage.
 """
+import contextvars
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -297,8 +298,14 @@ def get_overview() -> CommandCenterOverviewResponse:
         "watchlist_highlights": _watchlist_highlights,
         "safety": _safety,
     }
+    # A plain ThreadPoolExecutor does not inherit the calling thread's
+    # ContextVar state, so the per-request tenant bound by the auth middleware
+    # (see tenant.py) would silently reset to the 'local' default in each
+    # worker thread -- every user would see the same pre-multiuser data.
+    # contextvars.copy_context() snapshots the current tenant per job so each
+    # worker sees the actual signed-in user.
     with ThreadPoolExecutor(max_workers=len(jobs)) as pool:
-        futures = {name: pool.submit(fn) for name, fn in jobs.items()}
+        futures = {name: pool.submit(contextvars.copy_context().run, fn) for name, fn in jobs.items()}
         for name, fut in futures.items():
             try:
                 results[name] = fut.result()

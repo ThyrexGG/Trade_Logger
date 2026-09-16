@@ -182,3 +182,22 @@ def test_http_requests_are_tenant_scoped(supa):
     # bob's analytics must not count alice's trade
     b_perf = c.get("/api/analytics/performance", headers=bh).json()
     assert b_perf["matched_trades"] == 0
+
+
+def test_command_center_is_tenant_scoped(supa):
+    # Regression: command_center.get_overview() fans its sections out across a
+    # raw ThreadPoolExecutor, which does not inherit the calling thread's
+    # ContextVar state -- every worker thread would silently see the 'local'
+    # default tenant instead of the signed-in user, no matter who asked.
+    c = TestClient(app)
+    ah = {"Authorization": f"Bearer {_jwt('u-alice', ALICE)}"}
+    bh = {"Authorization": f"Bearer {_jwt('u-bob', BOB)}"}
+
+    with tenant.use("u-alice"):
+        database.save_closed_trades([_trade("cc-a1", symbol="EURUSD")])
+    database.invalidate_db_cache()
+
+    a_overview = c.get("/api/command-center/overview", headers=ah).json()
+    b_overview = c.get("/api/command-center/overview", headers=bh).json()
+    assert a_overview["account_summary"]["all_time_trades"] == 1
+    assert b_overview["account_summary"]["all_time_trades"] == 0
