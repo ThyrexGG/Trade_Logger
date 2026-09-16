@@ -16,10 +16,19 @@ TradeLogger over HTTPS.
 Normal use: double-click the .exe once, type your TradeLogger email +
 password. It installs a background task and keeps syncing every 15 minutes.
 
+Run it with --daemon instead (e.g. while you're actively trading) and it
+syncs every 30 seconds by default, and the moment it sees a trade close --
+a position that had deals last sync and doesn't anymore -- it pops a
+Windows toast and opens your browser straight to that trade's journal
+entry, ready to fill in. Both the interval and this behaviour are
+config-file overrides (daemon_poll_seconds, notify_on_close, web_url) --
+see mt5_agent_config.example.json. It's best-effort: it never blocks or
+fails a sync if the notification itself doesn't fire.
+
 Command line:
     tradelogger-mt5-sync --setup      # the first-run wizard (also the default)
     tradelogger-mt5-sync --once       # one sync, then exit  (what the task runs)
-    tradelogger-mt5-sync --daemon     # sync now, then loop  (Mac/Linux, or no task)
+    tradelogger-mt5-sync --daemon     # sync now, then loop fast, with notifications
     tradelogger-mt5-sync --check      # verify login + MT5 connection only
     tradelogger-mt5-sync --uninstall  # remove the background task
 
@@ -38,7 +47,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 try:
     import requests
@@ -60,9 +69,24 @@ HISTORY_FALLBACK_START = datetime(2020, 1, 1, tzinfo=timezone.utc)
 CONFIG_DEFAULTS: Dict[str, Any] = {
     "server_url": "https://tradelogger-api.onrender.com",
     "poll_minutes": 15,
+    # Only used in --daemon mode; the scheduled task still runs on
+    # poll_minutes. 15 min was fine for a background catch-up task, but
+    # useless if the point is seeing a closed trade land "instantly" while
+    # you're actually watching -- so daemon mode gets its own, much shorter,
+    # independently-configurable interval.
+    "daemon_poll_seconds": 30,
+    # Where the web app itself lives (NOT the API host in server_url) --
+    # used only to build the "open the journal for this trade" link.
+    "web_url": "https://tradelogger.site",
+    # Best-effort Windows toast + auto-opened journal tab the moment a new
+    # closed trade is detected. Off switch for anyone who finds it noisy.
+    "notify_on_close": True,
 }
 
-_SAVE_KEYS = ("server_url", "email", "password", "passphrase", "poll_minutes")
+_SAVE_KEYS = (
+    "server_url", "email", "password", "passphrase", "poll_minutes",
+    "daemon_poll_seconds", "web_url", "notify_on_close",
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -88,10 +112,18 @@ def load_config(path: Optional[Path] = None) -> Dict[str, Any]:
             sys.exit(f"{p.name} is not valid JSON: {exc}")
         cfg.update({k: v for k, v in raw.items() if not k.startswith("_")})
     cfg["server_url"] = str(cfg.get("server_url", "")).rstrip("/")
+    cfg["web_url"] = str(cfg.get("web_url") or CONFIG_DEFAULTS["web_url"]).rstrip("/")
     try:
         cfg["poll_minutes"] = max(5, int(cfg.get("poll_minutes", 15)))
     except (TypeError, ValueError):
         cfg["poll_minutes"] = 15
+    try:
+        # Floor of 10s: MT5's own reconnect/history pull has real latency,
+        # and hammering it faster than that just burns CPU for no benefit.
+        cfg["daemon_poll_seconds"] = max(10, int(cfg.get("daemon_poll_seconds", 30)))
+    except (TypeError, ValueError):
+        cfg["daemon_poll_seconds"] = 30
+    cfg["notify_on_close"] = bool(cfg.get("notify_on_close", True))
     return cfg
 
 
@@ -317,7 +349,9 @@ def read_snapshot(server_cursor_ts: int) -> Dict[str, Any]:
     }
 
     positions = []
+    open_tickets = set()
     for p in mt5.positions_get() or []:
+        open_tickets.add(str(p.ticket))
         positions.append({
             "position_id": f"MT5_{p.ticket}",
             "symbol": p.symbol,
@@ -356,6 +390,32 @@ def read_snapshot(server_cursor_ts: int) -> Dict[str, Any]:
             "position_id": str(d.position_id),
         })
 
+    # Which of this batch's positions are now fully closed, for the desktop
+    # notification -- worked out locally rather than trusting the server's
+    # closed-trade count, which is a plain integer with no identity in it.
+    # A position_id that shows up in these new deals but ISN'T in the
+    # account's currently-open positions has closed since the last sync.
+    # Skipped entirely on the very first-ever sync (server_cursor_ts == 0,
+    # a full-history backfill) -- otherwise every trade the account has ever
+    # closed would fire a notification in one burst.
+    closing_events: List[Dict[str, Any]] = []
+    if server_cursor_ts > 0:
+        by_position: Dict[str, List[Dict[str, Any]]] = {}
+        for d in deals:
+            by_position.setdefault(d["position_id"], []).append(d)
+        for pos_id, legs in by_position.items():
+            if pos_id in open_tickets:
+                continue  # still open -- not a close
+            legs.sort(key=lambda d: d["timestamp"])
+            closing_events.append({
+                "position_id": pos_id,
+                "symbol": legs[0]["symbol"],
+                "direction": legs[0]["type"],
+                "volume": legs[-1]["volume"],
+                "net_profit": sum(d["profit"] + d["commission"] + d["swap"] for d in legs),
+                "closed_at": legs[-1]["timestamp"],
+            })
+
     return {
         "account_id": account_id,
         "agent_version": AGENT_VERSION,
@@ -364,6 +424,7 @@ def read_snapshot(server_cursor_ts: int) -> Dict[str, Any]:
         "deals": deals,
         "_login": acc.login,
         "_company": getattr(acc, "company", ""),
+        "_closing_events": closing_events,
     }
 
 
@@ -452,6 +513,62 @@ def push(cfg: Dict[str, Any], auth: "Auth", snapshot: Dict[str, Any]) -> None:
         )
 
 
+def _toast(title: str, body: str) -> None:
+    """Best-effort Windows toast. Never raises -- a notification failing is
+    not a sync failing, and this has to survive machines with no
+    powershell.exe on PATH, a locked-down notification policy, or a
+    non-Windows OS (the .exe is Windows-only, but `--daemon` from source
+    isn't restricted to it)."""
+    if platform.system() != "Windows":
+        return
+    # Raw WinRT toast via PowerShell -- no BurntToast module install needed.
+    # Runs under powershell.exe's own AUMID, which is why the click action
+    # below opens a URL directly rather than relying on toast activation
+    # routing back into this program.
+    ps = f"""
+$ErrorActionPreference = 'SilentlyContinue'
+[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
+[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
+$xml = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent(2)
+$textNodes = $xml.GetElementsByTagName("text")
+$textNodes.Item(0).AppendChild($xml.CreateTextNode("{title}")) | Out-Null
+$textNodes.Item(1).AppendChild($xml.CreateTextNode("{body}")) | Out-Null
+$toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
+[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("TradeLogger").Show($toast)
+"""
+    try:
+        subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+            capture_output=True, timeout=10,
+        )
+    except Exception:
+        pass  # notification is a nicety, not the job
+
+
+def _notify_closing_events(cfg: Dict[str, Any], events: List[Dict[str, Any]]) -> None:
+    """Toast + auto-opened journal tab for trades that closed since the last
+    sync. `notify_on_close: false` in the config turns this off entirely."""
+    if not events or not cfg.get("notify_on_close", True):
+        return
+    web = cfg["web_url"]
+    if len(events) == 1:
+        e = events[0]
+        sign = "+" if e["net_profit"] >= 0 else "-"
+        body = f"{e['symbol']} {e['direction']} closed  {sign}${abs(e['net_profit']):.2f}"
+        journal_url = f"{web}/operations/journal?trade={e['position_id']}"
+    else:
+        total = sum(e["net_profit"] for e in events)
+        sign = "+" if total >= 0 else "-"
+        body = f"{len(events)} trades closed  ·  net {sign}${abs(total):.2f}"
+        journal_url = f"{web}/operations/journal"
+    _toast("TradeLogger", body + " -- opening the journal to log it")
+    try:
+        import webbrowser
+        webbrowser.open(journal_url)
+    except Exception:
+        pass  # the toast still told them; a browser window is a nicety
+
+
 def sync_once(cfg: Dict[str, Any], auth: "Auth") -> None:
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
     print(f"[{stamp}] connecting to MetaTrader 5 ...")
@@ -463,7 +580,11 @@ def sync_once(cfg: Dict[str, Any], auth: "Auth") -> None:
         cursor = get_cursor(cfg, auth, account_id)
         snap = read_snapshot(cursor)
         print(f"  read {len(snap['deals'])} new deal legs, {len(snap['positions'])} open positions")
+        closing_events = snap.get("_closing_events") or []
         push(cfg, auth, snap)
+        if closing_events:
+            print(f"  {len(closing_events)} trade(s) closed since last sync -- notifying")
+            _notify_closing_events(cfg, closing_events)
         print("  done.")
     finally:
         mt5.shutdown()
@@ -746,8 +867,8 @@ def _dispatch(args: argparse.Namespace) -> None:
         return
 
     if args.daemon:
-        interval = cfg["poll_minutes"] * 60
-        print(f"daemon: syncing every {cfg['poll_minutes']} min. Ctrl+C to stop.")
+        interval = cfg["daemon_poll_seconds"]
+        print(f"daemon: syncing every {interval}s. Ctrl+C to stop.")
         while True:
             try:
                 sync_once(cfg, auth)
@@ -778,7 +899,7 @@ def main() -> None:
     g = ap.add_mutually_exclusive_group()
     g.add_argument("--setup", action="store_true", help="first-run wizard (default on a fresh install)")
     g.add_argument("--once", action="store_true", help="one sync, then exit")
-    g.add_argument("--daemon", action="store_true", help="sync now, then loop forever")
+    g.add_argument("--daemon", action="store_true", help="sync now, then loop fast (with close notifications)")
     g.add_argument("--check", action="store_true", help="verify login + MT5 connection only")
     g.add_argument("--uninstall", action="store_true", help="remove the background task")
     args = ap.parse_args()
