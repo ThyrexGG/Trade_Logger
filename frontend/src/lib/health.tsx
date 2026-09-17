@@ -37,12 +37,14 @@ export function HealthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
   const [lastChecked, setLastChecked] = useState<Date | null>(null)
   const inFlight = useRef<AbortController | null>(null)
+  const pending = useRef(false)
   const stateRef = useRef<ConnectionState>('loading')
 
   const check = useCallback(() => {
     inFlight.current?.abort()
     const controller = new AbortController()
     inFlight.current = controller
+    pending.current = true
 
     getHealth(controller.signal)
       .then((payload) => {
@@ -60,6 +62,9 @@ export function HealthProvider({ children }: { children: ReactNode }) {
         setState('error')
         stateRef.current = 'error'
         setLastChecked(new Date())
+      })
+      .finally(() => {
+        if (inFlight.current === controller) pending.current = false
       })
   }, [])
 
@@ -80,7 +85,7 @@ export function HealthProvider({ children }: { children: ReactNode }) {
     // answered — no reason to keep showing a stale "Unreachable" until the
     // next scheduled poll catches up.
     const onApiReachable = () => {
-      if (stateRef.current !== 'connected') check()
+      if (stateRef.current !== 'connected' && !pending.current) check()
     }
 
     start()
