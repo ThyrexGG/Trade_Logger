@@ -23,7 +23,8 @@
     "files": [
       "main.js",
       "preload.js",
-      "build/icon.ico"
+      "build/icon.ico",
+      "build/overlay-badge.png"
     ],
     "win": {
       "target": [

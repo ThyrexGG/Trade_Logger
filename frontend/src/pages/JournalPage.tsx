@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useJournal } from '../lib/useOperations'
 import { PageContainer } from '../components/shell/PageContainer'
+import { downloadCsv, tradesToCsv } from '../lib/csvExport'
 import { JournalSummary, JournalView } from '../components/operations/JournalView'
 import { JournalFeed } from '../components/journal/JournalFeed'
 import { FreeEntries } from '../components/journal/FreeEntries'
@@ -77,6 +78,13 @@ export function JournalPage() {
     }
   }
 
+  function exportCsv() {
+    if (!viewData || viewData.entries.length === 0) return
+    const stamp = new Date().toISOString().slice(0, 10)
+    const scope = account === 'ALL' ? 'all-accounts' : account
+    downloadCsv(`tradelogger-journal-${scope}-${stamp}.csv`, tradesToCsv(viewData.entries))
+  }
+
   const filtered = useMemo(() => (data ? filterByAccount(data, account) : null), [data, account])
   // A deep-linked trade might belong to an account this filter is hiding —
   // fall back to unfiltered so the link still resolves instead of 404-ing.
@@ -107,6 +115,14 @@ export function JournalPage() {
           </div>
           <button type="button" onClick={refetch} className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover">
             Refresh
+          </button>
+          <button
+            type="button"
+            onClick={exportCsv}
+            disabled={!viewData || viewData.entries.length === 0}
+            className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Export CSV
           </button>
         </div>
       }

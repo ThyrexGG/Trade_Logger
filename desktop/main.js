@@ -4,7 +4,7 @@
 // tray, and a background health check that raises a native OS notification
 // if the backend goes down (see the "free uptime monitoring" conversation
 // that led to this).
-const { app, BrowserWindow, Tray, Menu, Notification, shell } = require('electron')
+const { app, BrowserWindow, Tray, Menu, Notification, shell, ipcMain, globalShortcut, nativeImage } = require('electron')
 const path = require('node:path')
 
 const SITE_URL = 'https://tradelogger.site'
@@ -12,6 +12,8 @@ const HEALTH_URL = 'https://tradelogger-api.onrender.com/api/health'
 const HEALTH_CHECK_INTERVAL_MS = 60_000
 const HEALTH_CHECK_TIMEOUT_MS = 10_000
 const ICON_PATH = path.join(__dirname, 'build', 'icon.ico')
+const OVERLAY_BADGE_PATH = path.join(__dirname, 'build', 'overlay-badge.png')
+const SHOW_WINDOW_SHORTCUT = 'CommandOrControl+Shift+L'
 
 let mainWindow = null
 let tray = null
@@ -19,6 +21,7 @@ let isQuitting = false
 // Tracks whether the last known state was "down" so we notify once on
 // failure and once on recovery, not every single poll.
 let backendIsDown = false
+let lastTriggeredAlertCount = 0
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -33,6 +36,10 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      // Lets preload.js read /api/alerts using the page's own logged-in
+      // session (a fetch from the main process would have no cookies at
+      // all) and report the triggered count back over IPC -- see preload.js.
+      preload: path.join(__dirname, 'preload.js'),
     },
   })
 
@@ -77,10 +84,16 @@ function createTray() {
 
 function rebuildTrayMenu() {
   const statusLabel = backendIsDown ? 'Backend: DOWN' : 'Backend: healthy'
+  const alertsLabel =
+    lastTriggeredAlertCount > 0
+      ? `${lastTriggeredAlertCount} triggered alert${lastTriggeredAlertCount === 1 ? '' : 's'}`
+      : 'No triggered alerts'
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: 'Open TradeLogger', click: showWindow },
+      { label: `Show window (${SHOW_WINDOW_SHORTCUT.replace('CommandOrControl', 'Ctrl')})`, enabled: false },
       { label: statusLabel, enabled: false },
+      { label: alertsLabel, enabled: false },
       { type: 'separator' },
       {
         label: 'Quit',
@@ -91,6 +104,19 @@ function rebuildTrayMenu() {
       },
     ]),
   )
+}
+
+function setTriggeredAlertBadge(count) {
+  lastTriggeredAlertCount = count
+  if (mainWindow) {
+    if (count > 0) {
+      const badge = nativeImage.createFromPath(OVERLAY_BADGE_PATH)
+      mainWindow.setOverlayIcon(badge, `${count} triggered price alert${count === 1 ? '' : 's'}`)
+    } else {
+      mainWindow.setOverlayIcon(null, '')
+    }
+  }
+  if (tray) rebuildTrayMenu()
 }
 
 async function checkBackendHealth() {
@@ -145,6 +171,22 @@ if (!gotSingleInstanceLock) {
     createTray()
     checkBackendHealth()
     setInterval(checkBackendHealth, HEALTH_CHECK_INTERVAL_MS)
+
+    // Bring the window to front from anywhere, even when it's minimized to
+    // tray -- the same "quick jump to the app" pattern Slack/Discord use.
+    globalShortcut.register(SHOW_WINDOW_SHORTCUT, showWindow)
+  })
+
+  // preload.js polls /api/alerts (as the logged-in user, since it runs in
+  // the page's own session) and reports the triggered count here so it can
+  // become a taskbar badge -- a background signal that something needs
+  // attention without having to keep the window open.
+  ipcMain.on('tradelogger:triggered-alerts', (_event, count) => {
+    setTriggeredAlertBadge(Number(count) || 0)
+  })
+
+  app.on('will-quit', () => {
+    globalShortcut.unregisterAll()
   })
 
   app.on('window-all-closed', () => {
