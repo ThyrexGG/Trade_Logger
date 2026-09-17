@@ -15,6 +15,19 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/health
+    # Without this, ANY push to main restarts the whole API — including a
+    # pure frontend/desktop/docs change that touches nothing this service
+    # runs. That was needlessly cold-starting the backend on every commit
+    # during active frontend work. Only redeploy for paths this service
+    # actually executes.
+    buildFilter:
+      ignoredPaths:
+        - frontend/**
+        - desktop/**
+        - docs/**
+        - agent/**
+        - .github/**
+        - "**/*.md"
     envVars:
       # --- runtime tuning for a small, sleeping instance ---
       # PYTHON_VERSION must match local (3.14): its deferred annotation
