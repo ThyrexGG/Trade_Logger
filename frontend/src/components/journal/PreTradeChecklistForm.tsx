@@ -421,7 +421,7 @@ export function PreTradeChecklistForm({ prefill }: { prefill?: ChecklistPrefill 
               setThesis(e.target.value)
               invalidate()
             }}
-            rows={3}
+            rows={7}
             placeholder="What are you actually seeing, and why does it justify risking money?"
             className="resize-y rounded border border-border bg-background px-2 py-1.5 text-xs text-primary focus:border-accent focus:outline-none"
           />

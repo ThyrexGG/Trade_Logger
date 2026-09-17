@@ -245,7 +245,7 @@ export function SaveToJournal({
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          rows={4}
+          rows={9}
           className="resize-y rounded border border-border bg-background px-2 py-1.5 text-xs text-primary focus:border-accent focus:outline-none"
         />
       </label>
