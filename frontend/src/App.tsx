@@ -21,6 +21,7 @@ function page(loader: () => Promise<Record<string, ComponentType>>, key: string)
   return lazy(async () => ({ default: (await loader())[key] }))
 }
 
+const PositionsPage = page(() => import('./pages/PositionsPage'), 'PositionsPage')
 const RiskGatewayPage = page(() => import('./pages/RiskGatewayPage'), 'RiskGatewayPage')
 const IntelligencePage = page(() => import('./pages/IntelligencePage'), 'IntelligencePage')
 const AssetProfilePage = page(() => import('./pages/AssetProfilePage'), 'AssetProfilePage')
@@ -41,6 +42,7 @@ const PartnersPage = page(() => import('./pages/PartnersPage'), 'PartnersPage')
 const LIVE_ITEM_PAGES: Record<string, ReactElement> = {
   'workspace.command-center': <CommandCenterPage />,
   'workspace.market': <MarketWorkspacePage />,
+  'workspace.positions': <PositionsPage />,
   'workspace.risk': <RiskGatewayPage />,
   'workspace.alerts': <PriceAlertsPage />,
   'workspace.analytics': <AnalyticsPage />,

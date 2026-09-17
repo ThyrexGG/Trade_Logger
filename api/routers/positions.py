@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 FastAPI Positions Router — Stage 3 Read-Only Open Positions Endpoint
-Exposes live open positions and excursion metrics (MAE/MFE) directly from SQLite.
+Exposes live open positions and excursion metrics (MAE/MFE) from the
+`open_positions` table, populated by the broker sync (Capital.com / MT5 live
+positions, or paper/shadow positions in research mode) — not paper-only.
 """
 from datetime import datetime, timezone
 from typing import List
@@ -15,7 +17,8 @@ router = APIRouter(prefix="/api", tags=["Positions"])
 @router.get("/positions", response_model=PositionsResponse)
 async def get_open_positions() -> PositionsResponse:
     """
-    Returns active paper/shadow open positions enriched with real-time PnL,
+    Returns the current tenant's active open positions (from the broker sync,
+    or paper/shadow positions in research mode) enriched with real-time PnL,
     R-multiple, and MAE/MFE excursion metrics with short TTL caching.
     """
     df_open = database.get_open_positions(ttl_sec=database.CACHE_TTL_OPEN_POSITIONS)

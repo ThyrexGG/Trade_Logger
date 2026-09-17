@@ -10,9 +10,10 @@ import {
 
 /**
  * Full read-only positions terminal (`/workspace/positions`). Reuses the
- * existing optimized `GET /api/positions` (Stage 3.5A). The Risk Gateway keeps
- * its own compact exposure panel — this is the full view. No close / modify /
- * reverse / execute control.
+ * existing optimized `GET /api/positions`, fed by the broker sync (Capital.com
+ * live positions, or paper/shadow positions in research mode) into the same
+ * `open_positions` table. The Risk Gateway keeps its own compact exposure
+ * panel — this is the full view. No close / modify / reverse / execute control.
  */
 export function PositionsPage() {
   const { state, data, error, refetch } = useOpenPositions()
@@ -26,7 +27,7 @@ export function PositionsPage() {
   return (
     <PageContainer
       title="Positions"
-      description="Open paper / shadow positions with excursion metrics. Read-only operational state — nothing here is executed."
+      description="Live open positions synced from your broker, with excursion metrics. Read-only operational state — nothing here is executed."
       actions={
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -115,8 +116,9 @@ export function PositionsPage() {
 
         <p className="border-t border-border-subtle pt-3 text-[11px] text-muted">
           Positions are live operational state — not historical backtest research
-          and not forward-evidence records. Refreshes every 30s, paused while the
-          tab is hidden. "Last updated" uses the backend response timestamp.
+          and not forward-evidence records. Refreshes every 45s, paused while the
+          tab is hidden, and immediately after a sync. "Last updated" uses the
+          backend response timestamp.
         </p>
       </div>
     </PageContainer>
