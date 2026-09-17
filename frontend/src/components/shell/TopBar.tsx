@@ -23,7 +23,7 @@ interface TopBarProps {
 
 /** Persistent header: breadcrumb (left), live status + command palette (right). */
 export function TopBar({ onOpenSidebar, onOpenCommandPalette }: TopBarProps) {
-  const { state: authState, user, logout } = useAuth()
+  const { state: authState, user, degraded, logout } = useAuth()
   const { syncing } = useSyncOnOpen()
   const { state } = useHealth()
   const { choice, cycle } = useTheme()
@@ -75,6 +75,13 @@ export function TopBar({ onOpenSidebar, onOpenCommandPalette }: TopBarProps) {
           <span className="flex shrink-0 items-center gap-1.5 rounded border border-border bg-surface-elevated px-1.5 py-1 text-[11px] text-muted sm:px-2">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" aria-hidden="true" />
             <span className="hidden sm:inline">Syncing…</span>
+          </span>
+        </Tooltip>
+      ) : degraded ? (
+        <Tooltip label="The server couldn't be reached (likely waking up) — you're seeing your last session while it retries in the background">
+          <span className="flex shrink-0 items-center gap-1.5 rounded border border-warning/30 bg-warning/10 px-1.5 py-1 text-[11px] text-warning sm:px-2">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-warning" aria-hidden="true" />
+            <span className="hidden sm:inline">Reconnecting…</span>
           </span>
         </Tooltip>
       ) : null}
