@@ -127,13 +127,22 @@ function MultiUserAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [accessMessage, setAccessMessage] = useState<string | null>(null)
   const [signupOpen, setSignupOpen] = useState(false)
-  const evaluating = useRef(false)
+  // The in-flight request for the current evaluate() call. A new call aborts
+  // whatever's still running instead of no-op'ing — otherwise a single hung
+  // fetch (e.g. mid Render/Cloudflare cold-start) leaves Retry permanently
+  // dead until the page is reloaded.
+  const inFlight = useRef<AbortController | null>(null)
 
   const evaluate = useCallback(async () => {
-    if (evaluating.current) return
-    evaluating.current = true
+    inFlight.current?.abort()
+    const controller = new AbortController()
+    inFlight.current = controller
+    // getMe() itself never times out, so cap it client-side — otherwise a
+    // stalled connection can sit for minutes before the OS gives up.
+    const timeoutId = setTimeout(() => controller.abort(), 15_000)
     try {
-      const me = await getMe()
+      const me = await getMe(controller.signal)
+      if (inFlight.current !== controller) return // superseded by a newer call
       setSignupOpen(me.signup_open)
       if (me.authenticated && me.user) {
         setUser(me.user)
@@ -150,13 +159,14 @@ function MultiUserAuthProvider({ children }: { children: ReactNode }) {
         setState('locked')
       }
     } catch {
+      if (inFlight.current !== controller) return // superseded by a newer call
       // Couldn't reach the API (Render cold-start, flaky network). Don't force
       // the login form — offer a retry.
       setUser(null)
       setAccessMessage("Couldn't reach the server. It may still be waking up.")
       setState('pending')
     } finally {
-      evaluating.current = false
+      clearTimeout(timeoutId)
     }
   }, [])
 

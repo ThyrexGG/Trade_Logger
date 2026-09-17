@@ -116,9 +116,11 @@ function MultiUserForm() {
       <div>
         <h1 className="text-base font-semibold text-primary">Almost there</h1>
         <p className="mt-2 text-xs text-muted">{accessMessage}</p>
-        <p className="mt-2 text-xs text-muted">
-          Ask the owner to add your email to the invite list, then retry.
-        </p>
+        {!accessMessage?.toLowerCase().includes('reach the server') ? (
+          <p className="mt-2 text-xs text-muted">
+            Ask the owner to add your email to the invite list, then retry.
+          </p>
+        ) : null}
         <div className="mt-4 flex gap-2">
           <button
             type="button"
