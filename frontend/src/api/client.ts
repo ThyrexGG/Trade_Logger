@@ -61,6 +61,13 @@ function noteResponse(response: Response): Response {
   if (response.status === 401 && onUnauthorized && !response.url.includes('/api/auth/')) {
     onUnauthorized()
   }
+  // Any successful response is proof the API is reachable right now — let the
+  // health pill (which otherwise only rechecks every 60s) react immediately
+  // instead of sitting on a stale "Unreachable" reading a page below just
+  // disproved.
+  if (response.ok) {
+    window.dispatchEvent(new Event('tl:api-reachable'))
+  }
   return response
 }
 

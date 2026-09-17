@@ -37,6 +37,7 @@ export function HealthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
   const [lastChecked, setLastChecked] = useState<Date | null>(null)
   const inFlight = useRef<AbortController | null>(null)
+  const stateRef = useRef<ConnectionState>('loading')
 
   const check = useCallback(() => {
     inFlight.current?.abort()
@@ -49,6 +50,7 @@ export function HealthProvider({ children }: { children: ReactNode }) {
         setData(payload)
         setError(null)
         setState('connected')
+        stateRef.current = 'connected'
         setLastChecked(new Date())
       })
       .catch((err: unknown) => {
@@ -56,6 +58,7 @@ export function HealthProvider({ children }: { children: ReactNode }) {
         setData(null)
         setError(err instanceof Error ? err.message : 'Unknown error')
         setState('error')
+        stateRef.current = 'error'
         setLastChecked(new Date())
       })
   }, [])
@@ -73,12 +76,20 @@ export function HealthProvider({ children }: { children: ReactNode }) {
     const onVisibility = () => {
       if (!document.hidden) check()
     }
+    // A successful call from anywhere else in the app is proof the API just
+    // answered — no reason to keep showing a stale "Unreachable" until the
+    // next scheduled poll catches up.
+    const onApiReachable = () => {
+      if (stateRef.current !== 'connected') check()
+    }
 
     start()
     document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('tl:api-reachable', onApiReachable)
     return () => {
       window.clearInterval(timer)
       document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('tl:api-reachable', onApiReachable)
       inFlight.current?.abort()
     }
   }, [check])
