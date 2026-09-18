@@ -4,6 +4,7 @@ import { useJournal } from '../lib/useOperations'
 import { useSyncControl } from '../lib/useSyncControl'
 import { useOpenPositions } from '../lib/useOpenPositions'
 import { OpenTradesStrip } from '../components/journal/OpenTradesStrip'
+import { OpenPositionsTable } from '../components/journal/OpenPositionsTable'
 import { PageContainer } from '../components/shell/PageContainer'
 import { downloadCsv, tradesToCsv } from '../lib/csvExport'
 import { JournalSummary, JournalView } from '../components/operations/JournalView'
@@ -16,12 +17,13 @@ import {
 } from '../components/operations/primitives'
 
 type ViewMode = 'feed' | 'table'
-type DateFilter = 'week' | 'month' | 'all'
+type DateFilter = 'today' | 'week' | 'month' | 'all'
 const VIEW_KEY = 'tl.journal.view'
 const ACCOUNT_KEY = 'tl.journal.account'
 const DATE_KEY = 'tl.journal.dateFilter'
 
 const DATE_FILTER_LABEL: Record<DateFilter, string> = {
+  today: 'Today',
   week: 'This week',
   month: 'This month',
   all: 'All time',
@@ -46,7 +48,7 @@ function loadAccount(): string {
 function loadDateFilter(): DateFilter {
   try {
     const v = localStorage.getItem(DATE_KEY)
-    return v === 'month' || v === 'all' ? v : 'week'
+    return v === 'today' || v === 'month' || v === 'all' ? v : 'week'
   } catch {
     return 'week'
   }
@@ -72,8 +74,13 @@ function startOfMonth(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), 1)
 }
 
+function startOfDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate())
+}
+
 function dateFilterCutoff(filter: DateFilter): number {
   const now = new Date()
+  if (filter === 'today') return startOfDay(now).getTime()
   if (filter === 'week') return startOfWeek(now).getTime()
   if (filter === 'month') return startOfMonth(now).getTime()
   return 0
@@ -222,7 +229,11 @@ export function JournalPage() {
       }
     >
       <div className="space-y-4">
-        <OpenTradesStrip positions={openPositionsForAccount} />
+        {view === 'table' ? (
+          <OpenPositionsTable positions={openPositionsForAccount} />
+        ) : (
+          <OpenTradesStrip positions={openPositionsForAccount} />
+        )}
 
         {state === 'loading' && !data ? (
           <div className="rounded-lg border border-border bg-surface p-4">
