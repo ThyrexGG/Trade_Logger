@@ -14,8 +14,16 @@ import {
 } from '../components/operations/primitives'
 
 type ViewMode = 'feed' | 'table'
+type DateFilter = 'week' | 'month' | 'all'
 const VIEW_KEY = 'tl.journal.view'
 const ACCOUNT_KEY = 'tl.journal.account'
+const DATE_KEY = 'tl.journal.dateFilter'
+
+const DATE_FILTER_LABEL: Record<DateFilter, string> = {
+  week: 'This week',
+  month: 'This month',
+  all: 'All time',
+}
 
 function loadView(): ViewMode {
   try {
@@ -33,12 +41,51 @@ function loadAccount(): string {
   }
 }
 
-/** Filters a journal snapshot down to one account, recomputing the summary
- * totals to match — the raw fetch always carries every account so the
- * dropdown itself has something to list. */
-function filterByAccount(data: JournalResponse, account: string): JournalResponse {
-  if (account === 'ALL') return data
-  const entries = data.entries.filter((e) => e.account_id === account)
+function loadDateFilter(): DateFilter {
+  try {
+    const v = localStorage.getItem(DATE_KEY)
+    return v === 'month' || v === 'all' ? v : 'week'
+  } catch {
+    return 'week'
+  }
+}
+
+/** Treats a timestamp with no explicit timezone as UTC — matching how the
+ * backend stores `exit_time` — instead of the browser's local-time guess. */
+function parseTime(iso: string): number {
+  const hasZone = /[zZ]|[+-]\d\d:\d\d$/.test(iso)
+  const t = new Date(hasZone ? iso : `${iso}Z`).getTime()
+  return Number.isNaN(t) ? 0 : t
+}
+
+/** Start of the ISO (Monday-based) week containing `d`, at local midnight. */
+function startOfWeek(d: Date): Date {
+  const out = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  const day = out.getDay()
+  out.setDate(out.getDate() - (day === 0 ? 6 : day - 1))
+  return out
+}
+
+function startOfMonth(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), 1)
+}
+
+function dateFilterCutoff(filter: DateFilter): number {
+  const now = new Date()
+  if (filter === 'week') return startOfWeek(now).getTime()
+  if (filter === 'month') return startOfMonth(now).getTime()
+  return 0
+}
+
+/** Filters a journal snapshot down to one account and/or a rolling date
+ * window, recomputing the summary totals to match — the raw fetch always
+ * carries everything so the dropdowns themselves have something to list. */
+function filterJournal(data: JournalResponse, account: string, dateFilter: DateFilter): JournalResponse {
+  const cutoff = dateFilterCutoff(dateFilter)
+  let entries = data.entries
+  if (account !== 'ALL') entries = entries.filter((e) => e.account_id === account)
+  if (cutoff > 0) entries = entries.filter((e) => parseTime(e.exit_time) >= cutoff)
+  if (entries === data.entries) return data
   const wins = entries.filter((e) => e.net_profit > 0).length
   const losses = entries.filter((e) => e.net_profit < 0).length
   const total_net_profit = Math.round(entries.reduce((sum, e) => sum + e.net_profit, 0) * 100) / 100
@@ -61,6 +108,9 @@ export function JournalPage() {
   // remembered preference; a plain visit to the page uses it as normal.
   const [view, setView] = useState<ViewMode>(() => (focusTradeId ? 'table' : loadView()))
   const [account, setAccount] = useState<string>(loadAccount)
+  // A deep-linked trade might be older than "this week" — land on "All time"
+  // instead of the default so the link still resolves instead of hiding it.
+  const [dateFilter, setDateFilter] = useState<DateFilter>(() => (focusTradeId ? 'all' : loadDateFilter()))
 
   function changeView(v: ViewMode) {
     setView(v)
@@ -80,6 +130,15 @@ export function JournalPage() {
     }
   }
 
+  function changeDateFilter(f: DateFilter) {
+    setDateFilter(f)
+    try {
+      localStorage.setItem(DATE_KEY, f)
+    } catch {
+      /* private browsing / storage blocked — the choice just won't stick */
+    }
+  }
+
   function exportCsv() {
     if (!viewData || viewData.entries.length === 0) return
     const stamp = new Date().toISOString().slice(0, 10)
@@ -87,7 +146,10 @@ export function JournalPage() {
     downloadCsv(`tradelogger-journal-${scope}-${stamp}.csv`, tradesToCsv(viewData.entries))
   }
 
-  const filtered = useMemo(() => (data ? filterByAccount(data, account) : null), [data, account])
+  const filtered = useMemo(
+    () => (data ? filterJournal(data, account, dateFilter) : null),
+    [data, account, dateFilter],
+  )
   // A deep-linked trade might belong to an account this filter is hiding —
   // fall back to unfiltered so the link still resolves instead of 404-ing.
   const viewData = focusTradeId && filtered && !filtered.entries.some((e) => e.trade_id === focusTradeId) ? data : filtered
@@ -108,6 +170,20 @@ export function JournalPage() {
           >
             {sync.syncing || sync.status?.cycle_in_progress ? 'Syncing…' : 'Sync now'}
           </button>
+          <div className="flex overflow-hidden rounded border border-border text-xs">
+            {(Object.keys(DATE_FILTER_LABEL) as DateFilter[]).map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => changeDateFilter(f)}
+                className={`px-2.5 py-1 first:border-l-0 border-l border-border ${
+                  dateFilter === f ? 'bg-accent/10 text-accent' : 'text-secondary hover:bg-surface-hover'
+                }`}
+              >
+                {DATE_FILTER_LABEL[f]}
+              </button>
+            ))}
+          </div>
           <div className="flex overflow-hidden rounded border border-border text-xs">
             <button
               type="button"
