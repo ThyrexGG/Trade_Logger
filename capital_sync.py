@@ -268,88 +268,97 @@ def sync_capital(creds: dict | None = None):
     
     for tx in closed_trade_txs:
         deal_id = tx.get("dealId")
-        net_profit = float(tx.get("size", 0.0))
-        exit_time_str = tx.get("dateUtc")
-        
-        # Get matching activities
-        deal_activities = activities_by_deal.get(deal_id, [])
-        if not deal_activities:
-            print(f"Skipping deal {deal_id} because no detailed activities were returned in the synced range.")
+        try:
+            net_profit = float(tx.get("size", 0.0))
+            exit_time_str = tx.get("dateUtc")
+
+            # Get matching activities
+            deal_activities = activities_by_deal.get(deal_id, [])
+            if not deal_activities:
+                print(f"Skipping deal {deal_id} because no detailed activities were returned in the synced range.")
+                continue
+
+            # Sort activities chronologically
+            deal_activities.sort(key=lambda a: a.get("dateUTC", ""))
+
+            opening_act = deal_activities[0]
+            closing_act = deal_activities[-1]
+
+            details = closing_act.get("details") or {}
+            if not details:
+                details = opening_act.get("details") or {}
+
+            symbol = clean_symbol(tx.get("instrumentName") or closing_act.get("epic") or "UNKNOWN")
+
+            # Determine direction
+            closing_dir = details.get("direction", "SELL")
+            trade_direction = "SHORT" if closing_dir == "BUY" else "LONG"
+
+            opening_details = opening_act.get("details") or {}
+            if opening_details and "direction" in opening_details:
+                trade_direction = "LONG" if opening_details["direction"] == "BUY" else "SHORT"
+
+            volume = float(details.get("size", 0.0))
+            entry_price = float(details.get("openPrice", opening_details.get("level", 0.0)))
+            exit_price = float(details.get("level", 0.0))
+
+            entry_time_str = opening_act.get("dateUTC", exit_time_str)
+
+            try:
+                t_entry = datetime.fromisoformat(entry_time_str.replace("Z", ""))
+                t_exit = datetime.fromisoformat(exit_time_str.replace("Z", ""))
+                duration_minutes = (t_exit - t_entry).total_seconds() / 60.0
+            except Exception:
+                duration_minutes = 0.0
+
+            trade_data = {
+                "trade_id": deal_id,
+                "account_id": account_id,
+                "symbol": symbol,
+                "direction": trade_direction,
+                "volume": volume,
+                "entry_price": entry_price,
+                "exit_price": exit_price,
+                "commission": 0.0,
+                "swap": 0.0,
+                "gross_profit": net_profit,
+                "net_profit": net_profit,
+                "entry_time": entry_time_str,
+                "exit_time": exit_time_str,
+                "duration_minutes": duration_minutes,
+                "setup_tag": None
+            }
+            trades_to_save.append(trade_data)
+
+            # Also construct a raw deal record to store in database so incremental syncs work
+            try:
+                t_exit = datetime.fromisoformat(exit_time_str.replace("Z", ""))
+                ts = int(t_exit.timestamp())
+            except Exception:
+                ts = int(datetime.now(timezone.utc).timestamp())
+
+            raw_deal = {
+                "deal_id": f"{account_id}_{deal_id}",
+                "account_id": account_id,
+                "symbol": symbol,
+                "type": "SELL" if closing_dir == "SELL" else "BUY",
+                "volume": volume,
+                "price": exit_price,
+                "commission": 0.0,
+                "swap": 0.0,
+                "profit": net_profit,
+                "timestamp": ts,
+                "position_id": f"{account_id}_{deal_id}"
+            }
+            raw_deals_list.append(raw_deal)
+        except Exception as tx_err:
+            # One malformed transaction (e.g. an unexpected shape from a partial
+            # close) must never block every other transaction in this batch —
+            # previously an uncaught exception here aborted the whole loop
+            # before `save_closed_trades` ever ran, so the same "found N closed
+            # trade transactions" kept reappearing forever on every sync cycle.
+            print(f"Skipping deal {deal_id} due to a reconstruction error: {tx_err}")
             continue
-            
-        # Sort activities chronologically
-        deal_activities.sort(key=lambda a: a.get("dateUTC", ""))
-        
-        opening_act = deal_activities[0]
-        closing_act = deal_activities[-1]
-        
-        details = closing_act.get("details", {})
-        if not details:
-            details = opening_act.get("details", {})
-            
-        symbol = clean_symbol(tx.get("instrumentName", closing_act.get("epic", "UNKNOWN")))
-        
-        # Determine direction
-        closing_dir = details.get("direction", "SELL")
-        trade_direction = "SHORT" if closing_dir == "BUY" else "LONG"
-        
-        opening_details = opening_act.get("details", {})
-        if opening_details and "direction" in opening_details:
-            trade_direction = "LONG" if opening_details["direction"] == "BUY" else "SHORT"
-            
-        volume = float(details.get("size", 0.0))
-        entry_price = float(details.get("openPrice", opening_details.get("level", 0.0)))
-        exit_price = float(details.get("level", 0.0))
-        
-        entry_time_str = opening_act.get("dateUTC", exit_time_str)
-        
-        try:
-            t_entry = datetime.fromisoformat(entry_time_str.replace("Z", ""))
-            t_exit = datetime.fromisoformat(exit_time_str.replace("Z", ""))
-            duration_minutes = (t_exit - t_entry).total_seconds() / 60.0
-        except Exception:
-            duration_minutes = 0.0
-            
-        trade_data = {
-            "trade_id": deal_id,
-            "account_id": account_id,
-            "symbol": symbol,
-            "direction": trade_direction,
-            "volume": volume,
-            "entry_price": entry_price,
-            "exit_price": exit_price,
-            "commission": 0.0,
-            "swap": 0.0,
-            "gross_profit": net_profit,
-            "net_profit": net_profit,
-            "entry_time": entry_time_str,
-            "exit_time": exit_time_str,
-            "duration_minutes": duration_minutes,
-            "setup_tag": None
-        }
-        trades_to_save.append(trade_data)
-        
-        # Also construct a raw deal record to store in database so incremental syncs work
-        try:
-            t_exit = datetime.fromisoformat(exit_time_str.replace("Z", ""))
-            ts = int(t_exit.timestamp())
-        except Exception:
-            ts = int(datetime.now(timezone.utc).timestamp())
-            
-        raw_deal = {
-            "deal_id": f"{account_id}_{deal_id}",
-            "account_id": account_id,
-            "symbol": symbol,
-            "type": "SELL" if closing_dir == "SELL" else "BUY",
-            "volume": volume,
-            "price": exit_price,
-            "commission": 0.0,
-            "swap": 0.0,
-            "profit": net_profit,
-            "timestamp": ts,
-            "position_id": f"{account_id}_{deal_id}"
-        }
-        raw_deals_list.append(raw_deal)
 
     if trades_to_save:
         database.save_raw_deals(raw_deals_list)
