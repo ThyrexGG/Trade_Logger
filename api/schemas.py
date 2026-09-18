@@ -244,6 +244,14 @@ class PositionItem(BaseModel):
     mae: str
     mfe: str
     account_id: str
+    # Subjective journal annotations — writable while the trade is still
+    # open via PATCH /api/positions/{position_id}; carried over to the
+    # closed_trades row once the position closes (see save_open_positions).
+    setup_tag: Optional[str] = None
+    notes: Optional[str] = None
+    chart_snapshot_url: Optional[str] = None
+    rating: Optional[int] = 0
+    screenshot_count: int = 0
 
 
 class PositionsResponse(BaseModel):
@@ -873,6 +881,15 @@ class JournalUpdateResponse(BaseModel):
     updated_fields: List[str]
     writable: bool = True
     source: str = "closed_trades"
+    live_broker_transmission: str = "BLOCKED"
+    timestamp: str
+
+
+class PositionUpdateResponse(BaseModel):
+    entry: PositionItem
+    updated_fields: List[str]
+    writable: bool = True
+    source: str = "open_positions"
     live_broker_transmission: str = "BLOCKED"
     timestamp: str
 

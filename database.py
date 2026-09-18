@@ -484,6 +484,17 @@ def init_db(force: bool = False):
             cursor.execute("ALTER TABLE closed_trades ADD COLUMN IF NOT EXISTS rating INTEGER DEFAULT 0;")
         except Exception:
             pass
+        # Same subjective-annotation fields on open_positions — lets a trade be
+        # journaled (notes / tag / screenshot / rating) while still running;
+        # save_open_positions() carries them over to closed_trades the moment
+        # a position disappears from the broker's open list (i.e. it closed).
+        try:
+            cursor.execute("ALTER TABLE open_positions ADD COLUMN IF NOT EXISTS setup_tag TEXT;")
+            cursor.execute("ALTER TABLE open_positions ADD COLUMN IF NOT EXISTS chart_snapshot_url TEXT;")
+            cursor.execute("ALTER TABLE open_positions ADD COLUMN IF NOT EXISTS notes TEXT;")
+            cursor.execute("ALTER TABLE open_positions ADD COLUMN IF NOT EXISTS rating INTEGER DEFAULT 0;")
+        except Exception:
+            pass
         # Add migration columns for received_signals safely
         try:
             cursor.execute("ALTER TABLE received_signals ADD COLUMN IF NOT EXISTS strategy TEXT DEFAULT 'Manual';")
@@ -808,7 +819,11 @@ def init_db(force: bool = False):
             ("execution_orders", "execution_latency_ms REAL"),
             ("closed_trades", "chart_snapshot_url TEXT DEFAULT NULL"),
             ("closed_trades", "notes TEXT DEFAULT NULL"),
-            ("closed_trades", "rating INTEGER DEFAULT 0")
+            ("closed_trades", "rating INTEGER DEFAULT 0"),
+            ("open_positions", "setup_tag TEXT DEFAULT NULL"),
+            ("open_positions", "chart_snapshot_url TEXT DEFAULT NULL"),
+            ("open_positions", "notes TEXT DEFAULT NULL"),
+            ("open_positions", "rating INTEGER DEFAULT 0")
         ]:
             try:
                 cursor.execute(f"ALTER TABLE {col_def[0]} ADD COLUMN {col_def[1]};")
@@ -1096,13 +1111,68 @@ def update_setup_tag(trade_id, setup_tag):
     invalidate_db_cache("closed_trades")
 
 def save_open_positions(account_id, positions):
-    """Replaces the current tenant's open positions for an account with the latest snapshot."""
+    """Replaces the current tenant's open positions for an account with the
+    latest broker snapshot.
+
+    Preserves any journal annotation (notes / setup tag / chart screenshot /
+    rating) added while a position was still open, across resyncs, instead of
+    wiping it every cycle. The moment a previously-tracked position is no
+    longer in the broker's open list — i.e. it just closed — its annotation
+    is handed off to the closed_trades row this same sync cycle already
+    wrote for it (same Capital.com dealId), and any uploaded screenshots are
+    re-keyed to that trade_id, so a trade journaled while running keeps its
+    notes once it shows up as a normal closed entry."""
     uid = tenant.current_user_id()
-    positions = [{**p, "user_id": p.get("user_id") or uid} for p in (positions or [])]
+    incoming_ids = {p.get("position_id") for p in (positions or [])}
 
     conn = get_connection()
     cursor = conn.cursor()
     ph = get_sql_placeholder(conn)
+
+    annotations = {}
+    try:
+        cursor.execute(
+            f"SELECT position_id, notes, setup_tag, chart_snapshot_url, rating "
+            f"FROM open_positions WHERE account_id = {ph} AND user_id = {ph}",
+            (account_id, uid),
+        )
+        for row in cursor.fetchall():
+            annotations[row[0]] = {"notes": row[1], "setup_tag": row[2], "chart_snapshot_url": row[3], "rating": row[4]}
+    except Exception:
+        pass
+
+    for pos_id, ann in annotations.items():
+        if pos_id in incoming_ids or not pos_id.startswith("CAP_"):
+            continue
+        if not any(ann.get(f) for f in ("notes", "setup_tag", "chart_snapshot_url", "rating")):
+            continue
+        trade_id = pos_id[len("CAP_"):]
+        try:
+            update_trade_journal(
+                trade_id=trade_id,
+                chart_snapshot_url=ann.get("chart_snapshot_url"),
+                setup_tag=ann.get("setup_tag"),
+                notes=ann.get("notes"),
+                rating=ann.get("rating"),
+            )
+            cursor.execute(
+                f"UPDATE journal_screenshots SET trade_id = {ph} WHERE trade_id = {ph} AND user_id = {ph}",
+                (trade_id, pos_id, uid),
+            )
+        except Exception:
+            pass
+
+    positions = [
+        {
+            **p,
+            "user_id": p.get("user_id") or uid,
+            "notes": annotations.get(p.get("position_id"), {}).get("notes"),
+            "setup_tag": annotations.get(p.get("position_id"), {}).get("setup_tag"),
+            "chart_snapshot_url": annotations.get(p.get("position_id"), {}).get("chart_snapshot_url"),
+            "rating": annotations.get(p.get("position_id"), {}).get("rating") or 0,
+        }
+        for p in (positions or [])
+    ]
 
     # 1. Clear previous open positions for this account (this tenant only)
     cursor.execute(
@@ -1116,26 +1186,66 @@ def save_open_positions(account_id, positions):
             query = """
                 INSERT INTO open_positions
                 (position_id, account_id, symbol, direction, volume, entry_price, current_price,
-                 sl, tp, floating_pnl, swap, open_time, updated_at, user_id)
+                 sl, tp, floating_pnl, swap, open_time, updated_at, user_id,
+                 notes, setup_tag, chart_snapshot_url, rating)
                 VALUES
                 (%(position_id)s, %(account_id)s, %(symbol)s, %(direction)s, %(volume)s,
                  %(entry_price)s, %(current_price)s, %(sl)s, %(tp)s, %(floating_pnl)s,
-                 %(swap)s, %(open_time)s, %(updated_at)s, %(user_id)s)
+                 %(swap)s, %(open_time)s, %(updated_at)s, %(user_id)s,
+                 %(notes)s, %(setup_tag)s, %(chart_snapshot_url)s, %(rating)s)
             """
             cursor.executemany(query, positions)
         else:
             cursor.executemany("""
                 INSERT OR REPLACE INTO open_positions
                 (position_id, account_id, symbol, direction, volume, entry_price, current_price,
-                 sl, tp, floating_pnl, swap, open_time, updated_at, user_id)
+                 sl, tp, floating_pnl, swap, open_time, updated_at, user_id,
+                 notes, setup_tag, chart_snapshot_url, rating)
                 VALUES
                 (:position_id, :account_id, :symbol, :direction, :volume, :entry_price, :current_price,
-                 :sl, :tp, :floating_pnl, :swap, :open_time, :updated_at, :user_id)
+                 :sl, :tp, :floating_pnl, :swap, :open_time, :updated_at, :user_id,
+                 :notes, :setup_tag, :chart_snapshot_url, :rating)
             """, positions)
 
     conn.commit()
     conn.close()
     invalidate_db_cache("open_positions")
+
+
+def update_open_position_annotation(position_id, notes=None, setup_tag=None, chart_snapshot_url=None, rating=None):
+    """Updates the subjective journal annotations of one open position (current tenant)."""
+    uid = tenant.current_user_id()
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    updates = []
+    params = []
+    if chart_snapshot_url is not None:
+        updates.append("chart_snapshot_url = %s" if is_postgres() else "chart_snapshot_url = ?")
+        params.append(str(chart_snapshot_url))
+    if setup_tag is not None:
+        updates.append("setup_tag = %s" if is_postgres() else "setup_tag = ?")
+        params.append(str(setup_tag))
+    if notes is not None:
+        updates.append("notes = %s" if is_postgres() else "notes = ?")
+        params.append(str(notes))
+    if rating is not None:
+        updates.append("rating = %s" if is_postgres() else "rating = ?")
+        params.append(int(rating))
+
+    if not updates:
+        conn.close()
+        return False
+
+    ph = "%s" if is_postgres() else "?"
+    params.append(str(position_id))
+    params.append(uid)
+    query = f"UPDATE open_positions SET {', '.join(updates)} WHERE position_id = {ph} AND user_id = {ph}"
+    cursor.execute(query, tuple(params))
+    conn.commit()
+    conn.close()
+    invalidate_db_cache("open_positions")
+    return True
 
 def get_open_positions(account_id=None, ttl_sec: float = 0.0):
     """Returns the current tenant's open positions as a pandas DataFrame."""
