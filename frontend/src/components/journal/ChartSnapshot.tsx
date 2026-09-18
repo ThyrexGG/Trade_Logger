@@ -58,7 +58,7 @@ export function ChartSnapshot({
           alt="chart snapshot"
           loading="lazy"
           onError={() => setBroken(true)}
-          className="h-full w-full object-cover"
+          className={`h-full w-full ${large ? 'object-contain bg-background' : 'object-cover'}`}
         />
       </button>
 

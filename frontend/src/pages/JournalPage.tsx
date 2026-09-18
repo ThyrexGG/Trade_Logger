@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useJournal } from '../lib/useOperations'
 import { useSyncControl } from '../lib/useSyncControl'
+import { useOpenPositions } from '../lib/useOpenPositions'
+import { OpenTradesStrip } from '../components/journal/OpenTradesStrip'
 import { PageContainer } from '../components/shell/PageContainer'
 import { downloadCsv, tradesToCsv } from '../lib/csvExport'
 import { JournalSummary, JournalView } from '../components/operations/JournalView'
@@ -100,6 +102,7 @@ function filterJournal(data: JournalResponse, account: string, dateFilter: DateF
  */
 export function JournalPage() {
   const { state, data, error, refreshing, refetch, applyEntry } = useJournal()
+  const openPositions = useOpenPositions()
   const sync = useSyncControl(refetch)
   const [params] = useSearchParams()
   const focusTradeId = params.get('trade')
@@ -150,6 +153,10 @@ export function JournalPage() {
     () => (data ? filterJournal(data, account, dateFilter) : null),
     [data, account, dateFilter],
   )
+  const openPositionsForAccount = useMemo(() => {
+    const all = openPositions.data?.positions ?? []
+    return account === 'ALL' ? all : all.filter((p) => p.account_id === account)
+  }, [openPositions.data, account])
   // A deep-linked trade might belong to an account this filter is hiding —
   // fall back to unfiltered so the link still resolves instead of 404-ing.
   const viewData = focusTradeId && filtered && !filtered.entries.some((e) => e.trade_id === focusTradeId) ? data : filtered
@@ -215,6 +222,8 @@ export function JournalPage() {
       }
     >
       <div className="space-y-4">
+        <OpenTradesStrip positions={openPositionsForAccount} />
+
         {state === 'loading' && !data ? (
           <div className="rounded-lg border border-border bg-surface p-4">
             <SkeletonRows rows={8} />
