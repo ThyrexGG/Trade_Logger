@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useJournal } from '../lib/useOperations'
+import { useSyncControl } from '../lib/useSyncControl'
 import { PageContainer } from '../components/shell/PageContainer'
 import { downloadCsv, tradesToCsv } from '../lib/csvExport'
 import { JournalSummary, JournalView } from '../components/operations/JournalView'
@@ -52,6 +53,7 @@ function filterByAccount(data: JournalResponse, account: string): JournalRespons
  */
 export function JournalPage() {
   const { state, data, error, refreshing, refetch, applyEntry } = useJournal()
+  const sync = useSyncControl(refetch)
   const [params] = useSearchParams()
   const focusTradeId = params.get('trade')
   // A deep-link from the calendar ("?trade=...") wants the highlighted-row
@@ -97,6 +99,15 @@ export function JournalPage() {
       actions={
         <div className="flex flex-wrap items-center gap-2">
           {refreshing ? <span className="text-[11px] text-muted" aria-live="polite">Refreshing…</span> : null}
+          <button
+            type="button"
+            onClick={() => void sync.syncNow()}
+            disabled={sync.syncing || sync.status?.cycle_in_progress}
+            className="rounded border border-accent/40 bg-accent/10 px-2.5 py-1 text-xs text-accent hover:bg-accent/20 disabled:opacity-50"
+            title="Pull the latest trades & positions from Capital.com now"
+          >
+            {sync.syncing || sync.status?.cycle_in_progress ? 'Syncing…' : 'Sync now'}
+          </button>
           <div className="flex overflow-hidden rounded border border-border text-xs">
             <button
               type="button"
