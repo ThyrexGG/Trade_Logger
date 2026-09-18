@@ -38,6 +38,13 @@ services:
       # don't run the 7-route warm-up at boot
       - key: TL_SKIP_WARMUP
         value: "1"
+      # Without this, Python fully-buffers stdout when it isn't a real
+      # terminal (i.e. always, in a container) — print() calls from
+      # capital_sync.py can sit unflushed for a long time, making the Logs
+      # tab miss or badly reorder exactly the diagnostic lines you need
+      # during a live sync issue. Forces every print() out immediately.
+      - key: PYTHONUNBUFFERED
+        value: "1"
       # Keep a small connection pool. `get_connection()` validates an idle
       # pooled socket with `SELECT 1` before handing it back, so a wake from
       # Render's sleep is handled — and reconnecting per query was hammering
