@@ -31,11 +31,17 @@ export const ScreenshotStrip = forwardRef<ScreenshotStripHandle, {
    * images stacked vertically — for a doc-like feed view. */
   layout?: 'row' | 'stack'
   onCountChange?: (n: number) => void
+  /** Shrinks the "+ add a screenshot" box to a small pill instead of a big
+   * dashed box — for when a chart image already exists elsewhere in the card
+   * (e.g. a chart-link snapshot) and the empty-state prompt would otherwise
+   * compete with it for attention. */
+  minimalAdd?: boolean
 }>(function ScreenshotStrip({
   tradeId,
   compact = false,
   layout = 'row',
   onCountChange,
+  minimalAdd = false,
 }, ref) {
   const [shots, setShots] = useState<JournalScreenshotMeta[] | null>(null)
   const [busy, setBusy] = useState(false)
@@ -111,18 +117,22 @@ export const ScreenshotStrip = forwardRef<ScreenshotStripHandle, {
   const thumbSize = compact ? 'h-12 w-16' : 'h-16 w-24'
   const stack = layout === 'stack'
 
+  const stackMinimal = stack && minimalAdd
+
   const addButton = (
     <button
       type="button"
       onClick={() => fileRef.current?.click()}
       disabled={busy}
       className={
-        stack
-          ? 'flex h-24 w-full flex-col items-center justify-center gap-1 rounded border border-dashed border-border text-xs text-muted hover:border-accent hover:text-accent disabled:opacity-50'
-          : `flex ${thumbSize} flex-col items-center justify-center rounded border border-dashed border-border text-[10px] text-muted hover:border-accent hover:text-accent disabled:opacity-50`
+        stackMinimal
+          ? 'inline-flex items-center gap-1 rounded border border-dashed border-border px-2 py-1 text-[10px] text-muted hover:border-accent hover:text-accent disabled:opacity-50'
+          : stack
+            ? 'flex h-24 w-full flex-col items-center justify-center gap-1 rounded border border-dashed border-border text-xs text-muted hover:border-accent hover:text-accent disabled:opacity-50'
+            : `flex ${thumbSize} flex-col items-center justify-center rounded border border-dashed border-border text-[10px] text-muted hover:border-accent hover:text-accent disabled:opacity-50`
       }
     >
-      {busy ? '…' : stack ? <>＋ add a chart screenshot (or paste with Ctrl+V)</> : <>＋ image</>}
+      {busy ? '…' : stackMinimal ? <>＋ screenshot</> : stack ? <>＋ add a chart screenshot (or paste with Ctrl+V)</> : <>＋ image</>}
     </button>
   )
 

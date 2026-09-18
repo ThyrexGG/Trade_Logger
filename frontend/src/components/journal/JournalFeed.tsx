@@ -36,6 +36,7 @@ function FeedCard({
   const [rating, setRating] = useState(entry.rating ?? 0)
   const [status, setStatus] = useState<SaveStatus>('idle')
   const [showLinkField, setShowLinkField] = useState(Boolean(entry.chart_snapshot_url))
+  const [shotCount, setShotCount] = useState(0)
   const baseline = useRef({
     notes: entry.notes ?? '',
     setupTag: entry.setup_tag ?? '',
@@ -116,7 +117,14 @@ function FeedCard({
         </span>
       </div>
 
-      <ScreenshotStrip ref={stripRef} tradeId={entry.trade_id} layout="stack" />
+      {chartUrl.trim() ? <ChartSnapshot url={chartUrl} large /> : null}
+      <ScreenshotStrip
+        ref={stripRef}
+        tradeId={entry.trade_id}
+        layout="stack"
+        onCountChange={setShotCount}
+        minimalAdd={shotCount > 0 || Boolean(chartUrl.trim())}
+      />
 
       <textarea
         value={notes}
@@ -137,11 +145,6 @@ function FeedCard({
             maxLength={3_000}
             className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-xs text-primary placeholder:text-muted focus:border-accent focus:outline-none"
           />
-          {chartUrl.trim() ? (
-            <span className="mt-1 block">
-              <ChartSnapshot url={chartUrl} />
-            </span>
-          ) : null}
         </label>
       ) : (
         <button

@@ -11,9 +11,13 @@ import { ProgressiveImage } from '../common/ProgressiveImage'
 export function ChartSnapshot({
   url,
   compact = false,
+  large = false,
 }: {
   url: string | null | undefined
   compact?: boolean
+  /** Full-width, big preview (aspect-locked) — for the journal feed card,
+   * where the chart image is the main visual, not a small inline thumbnail. */
+  large?: boolean
 }) {
   const [full, setFull] = useState(false)
   const [broken, setBroken] = useState(false)
@@ -40,8 +44,12 @@ export function ChartSnapshot({
       <button
         type="button"
         onClick={() => setFull(true)}
-        className={`block overflow-hidden rounded border border-border hover:border-accent ${
-          compact ? 'h-14 w-24' : 'h-32 w-full max-w-xs'
+        className={`block overflow-hidden rounded border hover:border-accent ${
+          compact
+            ? 'h-14 w-24 border-border'
+            : large
+              ? 'aspect-[16/10] max-h-[420px] w-full rounded-lg border-border-subtle'
+              : 'h-32 w-full max-w-xs border-border'
         }`}
         title="Open chart snapshot"
       >
