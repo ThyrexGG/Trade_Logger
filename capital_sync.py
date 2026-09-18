@@ -265,7 +265,15 @@ def sync_capital(creds: dict | None = None):
     # Step 4: Reconstruct and save trades
     trades_to_save = []
     raw_deals_list = []
-    
+    # A partial close reports its own "Trade closed" transaction per partial,
+    # but all of them share the *same* dealId as the underlying position —
+    # using that dealId directly as trade_id put two rows with the same key
+    # in one INSERT ... ON CONFLICT batch, which Postgres flatly refuses
+    # ("cannot affect row a second time"), failing the ENTIRE batch of 11
+    # rather than just the duplicate. Disambiguate repeats so every partial
+    # close still lands as its own journal entry.
+    _deal_id_seen = {}
+
     for tx in closed_trade_txs:
         deal_id = tx.get("dealId")
         try:
@@ -277,6 +285,10 @@ def sync_capital(creds: dict | None = None):
             if not deal_activities:
                 print(f"Skipping deal {deal_id} because no detailed activities were returned in the synced range.")
                 continue
+
+            occurrence = _deal_id_seen.get(deal_id, 0)
+            _deal_id_seen[deal_id] = occurrence + 1
+            trade_id = deal_id if occurrence == 0 else f"{deal_id}_{occurrence}"
 
             # Sort activities chronologically
             deal_activities.sort(key=lambda a: a.get("dateUTC", ""))
@@ -312,7 +324,7 @@ def sync_capital(creds: dict | None = None):
                 duration_minutes = 0.0
 
             trade_data = {
-                "trade_id": deal_id,
+                "trade_id": trade_id,
                 "account_id": account_id,
                 "symbol": symbol,
                 "direction": trade_direction,
@@ -338,7 +350,7 @@ def sync_capital(creds: dict | None = None):
                 ts = int(datetime.now(timezone.utc).timestamp())
 
             raw_deal = {
-                "deal_id": f"{account_id}_{deal_id}",
+                "deal_id": f"{account_id}_{trade_id}",
                 "account_id": account_id,
                 "symbol": symbol,
                 "type": "SELL" if closing_dir == "SELL" else "BUY",
@@ -348,7 +360,7 @@ def sync_capital(creds: dict | None = None):
                 "swap": 0.0,
                 "profit": net_profit,
                 "timestamp": ts,
-                "position_id": f"{account_id}_{deal_id}"
+                "position_id": f"{account_id}_{trade_id}"
             }
             raw_deals_list.append(raw_deal)
         except Exception as tx_err:
