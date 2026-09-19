@@ -38,6 +38,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "parity": "node scripts/parity-journal.mts",
+    "test:chart": "node scripts/test-chart-logic.mts",
     "preflight": "node scripts/preflight.cjs"
   },
   "private": true

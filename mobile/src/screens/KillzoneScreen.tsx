@@ -2,11 +2,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFocusEffect, useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { scanKillzone } from '../api/scanner'
+import { KillzoneChart } from '../components/scanner/KillzoneChart'
 import { formatPrice } from '../format'
 import type { RootStackParamList } from '../navigation/RootStack'
+import { buildScanMarkdown } from '../scanner/markdown'
 import { colors, radius, spacing } from '../theme'
 import type { KillzoneCandidate, KillzoneScanResponse } from '../types/scanner'
 
@@ -76,6 +78,9 @@ export function KillzoneScreen() {
   const [scanned, setScanned] = useState<{ symbol: string; ltf: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [focused, setFocused] = useState<number | null>(null)
+  const pageRef = useRef<ScrollView>(null)
+  const chartY = useRef(0)
   const inFlight = useRef<AbortController | null>(null)
   const prefsLoaded = useRef(false)
   const symbolRef = useRef(symbol)
@@ -99,6 +104,7 @@ export function KillzoneScreen() {
           return
         }
         setData(res)
+        setFocused(null)
         setScanned({ symbol: s, ltf: tf })
         AsyncStorage.multiSet([[SYMBOL_KEY, s], [LTF_KEY, tf]]).catch(() => {})
       })
@@ -152,6 +158,7 @@ export function KillzoneScreen() {
   return (
     <SafeAreaView style={styles.screen} edges={['bottom']}>
       <ScrollView
+        ref={pageRef}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={loading && !!data} onRefresh={() => scan(symbol, ltf)} tintColor={colors.accent} />}
@@ -205,6 +212,15 @@ export function KillzoneScreen() {
             <Text style={styles.muted}>
               Updated {new Date(data.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} · auto-refreshes every 5 min while open · data {data.ltf_source ?? '?'} / {data.htf_source ?? '?'}
             </Text>
+          ) : null}
+          {data ? (
+            <Pressable
+              onPress={() => Share.share({ message: buildScanMarkdown(data, scanned?.ltf ?? ltf) }).catch(() => {})}
+              style={styles.shareBtn}
+              accessibilityRole="button"
+            >
+              <Text style={styles.planBtnText}>Share scan as Markdown</Text>
+            </Pressable>
           ) : null}
         </Card>
 
@@ -265,6 +281,19 @@ export function KillzoneScreen() {
               ))}
             </Card>
 
+            <View onLayout={(e) => { chartY.current = e.nativeEvent.layout.y }}>
+              <Card title={`Chart · ${scanned.symbol}`}>
+                <KillzoneChart
+                  symbol={scanned.symbol}
+                  ltf={scanned.ltf}
+                  candidates={data.candidates}
+                  liquidity={data.htf_liquidity_targets}
+                  fvgs={data.recent_unmitigated_fvgs}
+                  focusedIndex={focused}
+                />
+              </Card>
+            </View>
+
             <Text style={styles.section}>Candidate events · {data.candidates.length}</Text>
             {data.candidates.length === 0 ? <Text style={styles.muted}>None in the recent window.</Text> : null}
             {data.candidates.map((c, i) => {
@@ -296,13 +325,25 @@ export function KillzoneScreen() {
                       </Text>
                     ))}
                   </View>
-                  <Pressable
-                    onPress={() => navigation.navigate('Entry', { prefill: planFor(scanned.symbol, scanned.ltf, data, c) })}
-                    style={styles.planBtn}
-                    accessibilityRole="button"
-                  >
-                    <Text style={styles.planBtnText}>Plan this</Text>
-                  </Pressable>
+                  <View style={styles.rowWrap}>
+                    <Pressable
+                      onPress={() => {
+                        setFocused(focused === i ? null : i)
+                        pageRef.current?.scrollTo({ y: Math.max(0, chartY.current - 8), animated: true })
+                      }}
+                      style={[styles.planBtn, focused === i && styles.planBtnOn]}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.planBtnText}>{focused === i ? 'Hide from chart' : 'Show on chart'}</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => navigation.navigate('Entry', { prefill: planFor(scanned.symbol, scanned.ltf, data, c) })}
+                      style={styles.planBtn}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.planBtnText}>Plan this</Text>
+                    </Pressable>
+                  </View>
                 </View>
               )
             })}
@@ -370,6 +411,8 @@ const styles = StyleSheet.create({
   stars: { fontSize: 16, letterSpacing: 2 },
   factor: { fontSize: 12 },
   planBtn: { alignSelf: 'flex-start', borderColor: 'rgba(240,185,11,0.5)', backgroundColor: 'rgba(240,185,11,0.1)', borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
+  planBtnOn: { backgroundColor: 'rgba(240,185,11,0.28)' },
+  shareBtn: { alignSelf: 'flex-start', borderColor: 'rgba(240,185,11,0.5)', backgroundColor: 'rgba(240,185,11,0.1)', borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
   planBtnText: { color: colors.accent, fontWeight: '700', fontSize: 13 },
   disclaimer: { color: colors.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'center' },
 })
