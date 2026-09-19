@@ -35,15 +35,12 @@ function DateTimeField({ label, value, onChange }: { label: string; value: Date;
     DateTimePickerAndroid.open({
       value,
       mode: 'date',
-      onChange: (e, picked) => {
-        if (e.type !== 'set' || !picked) return
+      onValueChange: (_e, picked) => {
         DateTimePickerAndroid.open({
           value: picked,
           mode: 'time',
           is24Hour: false,
-          onChange: (e2, time) => {
-            if (e2.type === 'set' && time) onChange(time)
-          },
+          onValueChange: (_e2, time) => onChange(time),
         })
       },
     })
@@ -56,7 +53,7 @@ function DateTimeField({ label, value, onChange }: { label: string; value: Date;
           <Text style={styles.inputText}>{fmtDateTime(value)}</Text>
         </Pressable>
       ) : (
-        <DateTimePicker value={value} mode="datetime" onChange={(_e, d) => d && onChange(d)} themeVariant="dark" />
+        <DateTimePicker value={value} mode="datetime" onValueChange={(_e, d) => onChange(d)} themeVariant="dark" />
       )}
     </View>
   )
@@ -100,6 +97,7 @@ function Field({
 }
 
 const num = (s: string) => {
+  if (!s.trim()) return NaN // Number('') is 0, which would pass as a real profit
   const n = Number(s.replace(/,/g, ''))
   return Number.isFinite(n) ? n : NaN
 }
