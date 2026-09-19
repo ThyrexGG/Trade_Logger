@@ -12,7 +12,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#0a0a0a",
+        "backgroundColor": "#141414",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -34,6 +34,21 @@
         {
           "photosPermission": "TradeLogger needs your photos so you can attach chart screenshots to a trade.",
           "cameraPermission": "TradeLogger uses the camera so you can photograph a chart and attach it to a trade."
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "TradeLogger uses Face ID to keep your trades private."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#0a0a0a"
         }
       ]
     ]

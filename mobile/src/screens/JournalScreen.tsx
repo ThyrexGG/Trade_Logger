@@ -3,6 +3,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { ConnectionBanner } from '../components/ConnectionBanner'
 import { formatMoney, formatUpdated, isBuy } from '../format'
 import { useJournal } from '../journal/JournalContext'
 import { DATE_FILTERS, filterEntries, summarize, type DateFilter } from '../journal/filters'
@@ -145,6 +146,7 @@ export function JournalScreen() {
         <SummaryCell label="Net P&L" value={formatMoney(summary.net)} color={pnlColor(summary.net)} />
       </View>
 
+      <ConnectionBanner />
       {positions.syncError ? <Text style={styles.warn}>Sync: {positions.syncError}</Text> : null}
       {journal.error ? (
         <Text style={styles.err}>

@@ -1,4 +1,5 @@
-import { useMemo } from 'react'
+import * as Haptics from 'expo-haptics'
+import { useEffect, useMemo } from 'react'
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useAutosave, type AnnotationFields, type SaveStatus } from '../journal/useAutosave'
 import { colors, radius, spacing } from '../theme'
@@ -68,6 +69,9 @@ function StarRating({ value, onChange }: { value: number; onChange: (n: number) 
  */
 export function AnnotationEditor({ initial, save, tagSuggestions, notesLabel = 'Notes' }: Props) {
   const { fields, update, status, error, retry } = useAutosave(initial, save)
+  useEffect(() => {
+    if (status === 'saved') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {})
+  }, [status])
   const url = fields.chart_snapshot_url.trim()
   const linkable = useMemo(() => /^https?:\/\//i.test(url), [url])
   const remaining = tagSuggestions.filter((t) => t !== fields.setup_tag.trim()).slice(0, 8)

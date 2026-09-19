@@ -2,6 +2,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { ConnectionBanner } from '../components/ConnectionBanner'
 import { formatMoney, formatPrice, formatUpdated, isBuy } from '../format'
 import { colors, radius, spacing } from '../theme'
 import type { PositionItem } from '../types/positions'
@@ -93,6 +94,7 @@ export function PositionsScreen() {
         </View>
       ) : null}
 
+      <ConnectionBanner />
       {syncError ? <Text style={styles.warn}>Sync: {syncError}</Text> : null}
       {error ? (
         <Text style={styles.err}>

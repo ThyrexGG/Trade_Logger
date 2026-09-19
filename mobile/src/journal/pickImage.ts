@@ -1,5 +1,6 @@
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator'
 import * as ImagePicker from 'expo-image-picker'
+import { whileLockSuspended } from '../lock/suspend'
 
 /** Long edge cap. Chart screenshots stay legible at this size and land far below the API's 4 MB limit. */
 const MAX_WIDTH = 1600
@@ -17,11 +18,11 @@ export async function pickScreenshot(source: PickSource): Promise<string | null>
 
   let result: ImagePicker.ImagePickerResult
   if (source === 'camera') {
-    const perm = await ImagePicker.requestCameraPermissionsAsync()
+    const perm = await whileLockSuspended(() => ImagePicker.requestCameraPermissionsAsync())
     if (!perm.granted) throw new PickError('Camera access is off. Enable it for TradeLogger in your phone settings.')
-    result = await ImagePicker.launchCameraAsync(options)
+    result = await whileLockSuspended(() => ImagePicker.launchCameraAsync(options))
   } else {
-    result = await ImagePicker.launchImageLibraryAsync(options)
+    result = await whileLockSuspended(() => ImagePicker.launchImageLibraryAsync(options))
   }
   if (result.canceled || result.assets.length === 0) return null
 

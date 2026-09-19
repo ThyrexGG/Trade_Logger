@@ -135,4 +135,6 @@ to maintain: new web features do not automatically appear in the app.
 - M4 built 2026-09-19 (Journal tab: date + account filters, summary, Open now, trade detail; filter logic unit-tested; bundles OK) — **awaiting phone checkpoint**
 - M5 built 2026-09-19 (journal editing for closed + open trades: notes, tag, rating, chart link; debounced autosave; root stack navigation; bundles OK) — **awaiting phone checkpoint**
 - M6 built 2026-09-19 (camera/library upload, auto-downscale to <=1600px JPEG, big gallery, full-screen viewer, delete; **also fixed a backend bug: uploading a screenshot to a still-open position returned 404** — affected the web too, commit 0aca67e; bundles OK) — **awaiting phone checkpoint**
-- [ ] M7 · [ ] M8 · [ ] M9
+- M8 built 2026-09-19, ahead of M7 (icon + adaptive icon + splash from the brand candle logo, optional Face ID / fingerprint app lock that ignores camera/picker trips, connection banner, save haptics; bundles OK) — **awaiting phone checkpoint**. Android pinch-zoom in the screenshot viewer is not done (iPhone zoom works).
+- M9 prep: mobile/eas.json written (Android APK profile). Needs the owner to log in to a free Expo account — not runnable unattended.
+- [ ] M7 (needs the iPhone/Android decision + Apple account question) · [ ] M9 (needs Expo login)
