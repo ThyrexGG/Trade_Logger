@@ -84,8 +84,8 @@ an open trade too.
 
 ## M6 — Screenshots
 **Build:** "Add screenshot" → choose from gallery or take a photo → upload →
-thumbnails on the detail screen, tap for full-screen (un-cropped, pinch-zoom),
-long-press to delete. Images are downscaled before upload (API limit is 4 MB).
+big un-cropped previews on the detail screen (open trades too), tap for
+full-screen (pinch-zoom on iPhone; Android zoom comes in M8), Delete from the viewer. Images are downscaled before upload (API limit is 4 MB).
 **Checkpoint M6:** add a photo on the phone → shows on the web Journal for that
 trade. Add on web → shows on phone. Delete works.
 
@@ -134,4 +134,5 @@ to maintain: new web features do not automatically appear in the app.
 - M3 built 2026-09-19 (Positions tab, 45s poll, pull-to-refresh, Sync now, bottom tabs; bundles on both platforms; doctor 21/21) — **awaiting phone checkpoint**
 - M4 built 2026-09-19 (Journal tab: date + account filters, summary, Open now, trade detail; filter logic unit-tested; bundles OK) — **awaiting phone checkpoint**
 - M5 built 2026-09-19 (journal editing for closed + open trades: notes, tag, rating, chart link; debounced autosave; root stack navigation; bundles OK) — **awaiting phone checkpoint**
-- [ ] M6 · [ ] M7 · [ ] M8 · [ ] M9
+- M6 built 2026-09-19 (camera/library upload, auto-downscale to <=1600px JPEG, big gallery, full-screen viewer, delete; **also fixed a backend bug: uploading a screenshot to a still-open position returned 404** — affected the web too, commit 0aca67e; bundles OK) — **awaiting phone checkpoint**
+- [ ] M7 · [ ] M8 · [ ] M9

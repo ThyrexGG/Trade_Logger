@@ -27,7 +27,15 @@
     "backgroundColor": "#0a0a0a",
     "plugins": [
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      "expo-image",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "TradeLogger needs your photos so you can attach chart screenshots to a trade.",
+          "cameraPermission": "TradeLogger uses the camera so you can photograph a chart and attach it to a trade."
+        }
+      ]
     ]
   }
 }

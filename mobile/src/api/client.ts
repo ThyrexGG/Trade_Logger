@@ -1,4 +1,4 @@
-import { API_BASE_URL, REQUEST_TIMEOUT_MS } from '../config'
+import { API_BASE_URL, REQUEST_TIMEOUT_MS, UPLOAD_TIMEOUT_MS } from '../config'
 
 export class ApiError extends Error {
   readonly status: number
@@ -14,6 +14,12 @@ export class ApiError extends Error {
 let tokenProvider: (() => string | null) | null = null
 export function setTokenProvider(fn: (() => string | null) | null): void {
   tokenProvider = fn
+}
+
+/** Headers for loading protected images (expo-image sends these with the request). */
+export function authHeaders(): Record<string, string> {
+  const token = tokenProvider?.()
+  return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 /** A 401 on any non-auth route means the session ended — bounce to the login screen. */
@@ -46,15 +52,18 @@ async function request<T>(
   path: string,
   body?: unknown,
   signal?: AbortSignal,
+  timeoutMs: number = REQUEST_TIMEOUT_MS,
 ): Promise<T> {
   // fetch() has no built-in timeout; a dead network on a phone would otherwise hang forever.
   const timeout = new AbortController()
-  const timer = setTimeout(() => timeout.abort(), REQUEST_TIMEOUT_MS)
+  const timer = setTimeout(() => timeout.abort(), timeoutMs)
   const onOuterAbort = () => timeout.abort()
   signal?.addEventListener('abort', onOuterAbort)
 
   const headers: Record<string, string> = { Accept: 'application/json' }
-  if (body !== undefined) headers['Content-Type'] = 'application/json'
+  // A FormData body must NOT get a Content-Type: fetch adds the multipart boundary itself.
+  const isForm = typeof FormData !== 'undefined' && body instanceof FormData
+  if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json'
   const token = tokenProvider?.()
   if (token) headers.Authorization = `Bearer ${token}`
 
@@ -63,7 +72,7 @@ async function request<T>(
     response = await fetch(`${API_BASE_URL}${path}`, {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
       signal: timeout.signal,
     })
   } catch {
@@ -86,3 +95,7 @@ export const apiGet = <T>(path: string, signal?: AbortSignal) => request<T>('GET
 export const apiPost = <T>(path: string, body: unknown, signal?: AbortSignal) => request<T>('POST', path, body, signal)
 export const apiPatch = <T>(path: string, body: unknown, signal?: AbortSignal) => request<T>('PATCH', path, body, signal)
 export const apiDelete = <T>(path: string, signal?: AbortSignal) => request<T>('DELETE', path, undefined, signal)
+
+/** multipart upload (screenshots) — longer timeout than a normal call. */
+export const apiPostForm = <T>(path: string, form: FormData, signal?: AbortSignal) =>
+  request<T>('POST', path, form, signal, UPLOAD_TIMEOUT_MS)

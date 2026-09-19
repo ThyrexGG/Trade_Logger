@@ -4,6 +4,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { patchPosition } from '../api/positions'
 import { AnnotationEditor } from '../components/AnnotationEditor'
+import { ScreenshotGallery } from '../components/ScreenshotGallery'
 import { formatMoney, formatPrice, isBuy } from '../format'
 import { useTagSuggestions } from '../journal/useTagSuggestions'
 import type { RootStackParamList } from '../navigation/RootStack'
@@ -50,6 +51,15 @@ export function PositionDetailScreen() {
             </View>
             <Text style={[styles.pnl, { color: pnlColor }]}>{formatMoney(position.floating_pnl)}</Text>
             <Text style={styles.sub}>{position.account_id} · floating P&L, still open</Text>
+          </View>
+
+          <View style={styles.card}>
+            <ScreenshotGallery
+              ownerId={position.position_id}
+              onCountChange={(n) => {
+                if ((position.screenshot_count ?? 0) !== n) applyPosition({ ...position, screenshot_count: n })
+              }}
+            />
           </View>
 
           <View style={styles.card}>

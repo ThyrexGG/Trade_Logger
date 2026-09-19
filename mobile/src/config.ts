@@ -13,3 +13,6 @@ export const HEALTH_POLL_MS = 30_000
 
 /** A request that takes longer than this is treated as unreachable. */
 export const REQUEST_TIMEOUT_MS = 15_000
+
+/** Screenshot uploads are bigger and phones are on cellular — give them longer. */
+export const UPLOAD_TIMEOUT_MS = 60_000

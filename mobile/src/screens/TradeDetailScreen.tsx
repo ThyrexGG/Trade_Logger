@@ -4,6 +4,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { patchJournalEntry } from '../api/journal'
 import { AnnotationEditor } from '../components/AnnotationEditor'
+import { ScreenshotGallery } from '../components/ScreenshotGallery'
 import { formatMoney, formatPrice, formatUpdated, isBuy } from '../format'
 import { useJournal } from '../journal/JournalContext'
 import { formatDuration } from '../journal/filters'
@@ -49,6 +50,15 @@ export function TradeDetailScreen() {
             <Text style={styles.sub}>
               {trade.account_id} · closed {formatUpdated(trade.exit_time)}
             </Text>
+          </View>
+
+          <View style={styles.card}>
+            <ScreenshotGallery
+              ownerId={trade.trade_id}
+              onCountChange={(n) => {
+                if ((trade.screenshot_count ?? 0) !== n) applyEntry({ ...trade, screenshot_count: n })
+              }}
+            />
           </View>
 
           <View style={styles.card}>
