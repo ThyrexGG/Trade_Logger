@@ -59,6 +59,12 @@
           "defaultChannel": "trades"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "15d5ea2b-c980-430a-99c9-998f89835d0a"
+      }
+    },
+    "owner": "thyrexgg"
   }
 }
