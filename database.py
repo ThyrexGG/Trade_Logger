@@ -1211,6 +1211,16 @@ def save_open_positions(account_id, positions):
     conn.close()
     invalidate_db_cache("open_positions")
 
+    # Positions that were not in the previous snapshot are newly opened — record
+    # a trade event (phone push / desktop notification). Never let this break a sync.
+    try:
+        import trade_notify
+        for p in positions:
+            if p.get("position_id") not in annotations:
+                trade_notify.record_opened(p)
+    except Exception:
+        pass
+
 
 def update_open_position_annotation(position_id, notes=None, setup_tag=None, chart_snapshot_url=None, rating=None):
     """Updates the subjective journal annotations of one open position (current tenant)."""
@@ -1696,6 +1706,154 @@ def journal_entry_exists(entry_id):
     ok = cur.fetchone() is not None
     conn.close()
     return ok
+
+# ----------------- Push devices + trade events -----------------
+# `trade_events` is the server's own record of "a trade opened" / "a trade
+# closed", written once per event (UNIQUE per user + event_key, so a re-sync or
+# a restart can never double-fire). The phone app is pushed from it and the
+# desktop app polls it. `push_devices` holds each user's Expo push tokens.
+
+_PUSH_TABLES_READY = False
+
+
+def _ensure_push_tables(cursor):
+    global _PUSH_TABLES_READY
+    if _PUSH_TABLES_READY:
+        return
+    cursor.execute(
+        "CREATE TABLE IF NOT EXISTS push_devices ("
+        " user_id TEXT NOT NULL, token TEXT NOT NULL, platform TEXT, device_name TEXT,"
+        " created_at TEXT NOT NULL, last_seen TEXT NOT NULL,"
+        " PRIMARY KEY (user_id, token))"
+    )
+    id_col = "id BIGSERIAL PRIMARY KEY" if is_postgres() else "id INTEGER PRIMARY KEY AUTOINCREMENT"
+    cursor.execute(
+        f"CREATE TABLE IF NOT EXISTS trade_events ("
+        f" {id_col}, user_id TEXT NOT NULL, event_key TEXT NOT NULL, kind TEXT NOT NULL,"
+        f" symbol TEXT, direction TEXT, volume DOUBLE PRECISION, price DOUBLE PRECISION,"
+        f" pnl DOUBLE PRECISION, ref_id TEXT, title TEXT NOT NULL, body TEXT NOT NULL,"
+        f" created_at TEXT NOT NULL, UNIQUE (user_id, event_key))"
+    )
+    try:
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_trade_events_user_id ON trade_events (user_id, id)")
+    except Exception:
+        pass
+    _PUSH_TABLES_READY = True
+
+
+def upsert_push_device(token, platform=None, device_name=None):
+    """Register (or refresh) one push token for the current tenant."""
+    import datetime as _dt
+    uid = tenant.current_user_id()
+    now = _dt.datetime.now(_dt.timezone.utc).isoformat()
+    conn = get_connection()
+    cur = conn.cursor()
+    _ensure_push_tables(cur)
+    ph = get_sql_placeholder(conn)
+    cur.execute(f"DELETE FROM push_devices WHERE user_id = {ph} AND token = {ph}", (uid, str(token)))
+    cur.execute(
+        f"INSERT INTO push_devices (user_id, token, platform, device_name, created_at, last_seen) "
+        f"VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph})",
+        (uid, str(token), platform, device_name, now, now),
+    )
+    conn.commit()
+    conn.close()
+
+
+def list_push_devices(user_id=None):
+    """Push tokens for one tenant (default: the current one), oldest first."""
+    uid = tenant.resolve(user_id)
+    conn = get_connection()
+    cur = conn.cursor()
+    _ensure_push_tables(cur)
+    ph = get_sql_placeholder(conn)
+    cur.execute(
+        f"SELECT token, platform, device_name, created_at, last_seen FROM push_devices "
+        f"WHERE user_id = {ph} ORDER BY created_at ASC",
+        (uid,),
+    )
+    cols = [c[0] for c in cur.description]
+    rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+    conn.commit()
+    conn.close()
+    return rows
+
+
+def delete_push_device(token, user_id=None):
+    uid = tenant.resolve(user_id)
+    conn = get_connection()
+    cur = conn.cursor()
+    _ensure_push_tables(cur)
+    ph = get_sql_placeholder(conn)
+    cur.execute(f"DELETE FROM push_devices WHERE user_id = {ph} AND token = {ph}", (uid, str(token)))
+    n = cur.rowcount
+    conn.commit()
+    conn.close()
+    return (n or 0) > 0
+
+
+def add_trade_event(event_key, kind, title, body, symbol=None, direction=None,
+                    volume=None, price=None, pnl=None, ref_id=None):
+    """Record one trade event for the current tenant. Returns the new event id,
+    or None when this exact event_key was already recorded (a duplicate)."""
+    import datetime as _dt
+    uid = tenant.current_user_id()
+    now = _dt.datetime.now(_dt.timezone.utc).isoformat()
+    conn = get_connection()
+    cur = conn.cursor()
+    _ensure_push_tables(cur)
+    ph = get_sql_placeholder(conn)
+    cols = ("user_id, event_key, kind, symbol, direction, volume, price, pnl, ref_id, title, body, created_at")
+    vals = (uid, str(event_key), str(kind), symbol, direction, volume, price, pnl, ref_id, str(title), str(body), now)
+    marks = ", ".join([ph] * len(vals))
+    if is_postgres():
+        cur.execute(
+            f"INSERT INTO trade_events ({cols}) VALUES ({marks}) "
+            f"ON CONFLICT (user_id, event_key) DO NOTHING RETURNING id",
+            vals,
+        )
+        row = cur.fetchone()
+        new_id = int(row[0]) if row else None
+    else:
+        cur.execute(f"INSERT OR IGNORE INTO trade_events ({cols}) VALUES ({marks})", vals)
+        new_id = int(cur.lastrowid) if (cur.rowcount or 0) > 0 else None
+    conn.commit()
+    conn.close()
+    return new_id
+
+
+def list_trade_events(after_id=0, limit=50):
+    """Events for the current tenant with id > after_id, oldest first."""
+    uid = tenant.current_user_id()
+    conn = get_connection()
+    cur = conn.cursor()
+    _ensure_push_tables(cur)
+    ph = get_sql_placeholder(conn)
+    cur.execute(
+        f"SELECT id, event_key, kind, symbol, direction, volume, price, pnl, ref_id, title, body, created_at "
+        f"FROM trade_events WHERE user_id = {ph} AND id > {ph} ORDER BY id ASC LIMIT {int(limit)}",
+        (uid, int(after_id)),
+    )
+    cols = [c[0] for c in cur.description]
+    rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+    conn.commit()
+    conn.close()
+    return rows
+
+
+def latest_trade_event_id():
+    """Highest event id for the current tenant (0 when there are none)."""
+    uid = tenant.current_user_id()
+    conn = get_connection()
+    cur = conn.cursor()
+    _ensure_push_tables(cur)
+    ph = get_sql_placeholder(conn)
+    cur.execute(f"SELECT COALESCE(MAX(id), 0) FROM trade_events WHERE user_id = {ph}", (uid,))
+    row = cur.fetchone()
+    conn.commit()
+    conn.close()
+    return int(row[0] or 0)
+
 
 # ----------------- Starred / Favorite Symbols -----------------
 

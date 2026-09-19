@@ -89,6 +89,11 @@ def run_sync_cycle(known_trade_ids: set, logfn=log, creds: dict | None = None) -
             if not new_trades.empty:
                 logfn(f"Detected {len(new_trades)} newly closed trades! Dispatching push alerts...")
                 for _, row in new_trades.iterrows():
+                    try:  # server-side event -> phone push + desktop notification
+                        import trade_notify
+                        trade_notify.record_closed(row.to_dict())
+                    except Exception as event_err:  # noqa: BLE001
+                        logfn(f"Trade event error: {event_err}")
                     alerts.notify_trade_closed(row.to_dict())
                     known_trade_ids.add(row["trade_id"])
                     logfn(f"Alert sent for trade {row['trade_id']} ({row['symbol']} PnL: ${row['net_profit']:.2f})")
