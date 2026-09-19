@@ -28,23 +28,27 @@ export function setUnauthorizedHandler(fn: (() => void) | null): void {
   unauthorizedHandler = fn
 }
 
-/** Best-effort human-readable message from a FastAPI error body. */
-async function readErrorDetail(response: Response): Promise<string | null> {
-  try {
-    const body = (await response.json()) as { detail?: unknown; error?: unknown }
-    // Auth endpoints answer with a model that carries `error`; the rest use FastAPI's `detail`.
-    if (typeof body?.error === 'string' && body.error) return body.error
-    const detail = body?.detail
-    if (typeof detail === 'string') return detail
-    if (Array.isArray(detail)) {
-      return detail
-        .map((d) => (d && typeof d === 'object' && 'msg' in d ? String((d as { msg: unknown }).msg) : JSON.stringify(d)))
-        .join('; ')
-    }
-  } catch {
-    /* not JSON */
+/** Best-effort human-readable message from a parsed FastAPI error body. */
+function detailFromBody(parsed: unknown): string | null {
+  const body = parsed as { detail?: unknown; error?: unknown } | null
+  // Auth endpoints answer with a model that carries `error`; the rest use FastAPI's `detail`.
+  if (typeof body?.error === 'string' && body.error) return body.error
+  const detail = body?.detail
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) {
+    return detail
+      .map((d) => (d && typeof d === 'object' && 'msg' in d ? String((d as { msg: unknown }).msg) : JSON.stringify(d)))
+      .join('; ')
   }
   return null
+}
+
+async function readErrorDetail(response: Response): Promise<string | null> {
+  try {
+    return detailFromBody(await response.json())
+  } catch {
+    return null // not JSON
+  }
 }
 
 async function request<T>(
@@ -75,7 +79,8 @@ async function request<T>(
       body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
       signal: timeout.signal,
     })
-  } catch {
+  } catch (err) {
+    console.warn(`[api] ${method} ${path} failed before a response:`, err instanceof Error ? err.message : err)
     throw new ApiError('Cannot reach the TradeLogger server. Check your connection.', 0)
   } finally {
     clearTimeout(timer)
@@ -104,6 +109,38 @@ export const apiGetSlow = <T>(path: string, signal?: AbortSignal) => request<T>(
 export const apiPostSlow = <T>(path: string, body: unknown, signal?: AbortSignal) =>
   request<T>('POST', path, body, signal, 90_000)
 
-/** multipart upload (screenshots) — longer timeout than a normal call. */
-export const apiPostForm = <T>(path: string, form: FormData, signal?: AbortSignal) =>
-  request<T>('POST', path, form, signal, UPLOAD_TIMEOUT_MS)
+/**
+ * Multipart upload (screenshots). Uses XMLHttpRequest on purpose: since Expo SDK 52 the global fetch is a
+ * spec-strict implementation that rejects React Native's `{ uri, name, type }` file parts with
+ * "Unsupported FormDataPart implementation"; XHR still sends them natively.
+ */
+export function apiPostForm<T>(path: string, form: FormData, signal?: AbortSignal): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    const fail = (why: string) => {
+      console.warn(`[api] POST ${path} failed before a response: ${why}`)
+      reject(new ApiError('Cannot reach the TradeLogger server. Check your connection.', 0))
+    }
+    xhr.open('POST', `${API_BASE_URL}${path}`)
+    xhr.setRequestHeader('Accept', 'application/json')
+    const token = tokenProvider?.()
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`) // no Content-Type: the multipart boundary is added for us
+    xhr.timeout = UPLOAD_TIMEOUT_MS
+    xhr.onload = () => {
+      if (xhr.status === 401 && !path.startsWith('/api/auth/')) unauthorizedHandler?.()
+      let parsed: unknown = null
+      try {
+        parsed = JSON.parse(xhr.responseText)
+      } catch {
+        /* not JSON */
+      }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(parsed as T)
+      else reject(new ApiError(detailFromBody(parsed) ?? `Request to ${path} failed (${xhr.status}).`, xhr.status))
+    }
+    xhr.onerror = () => fail('network error')
+    xhr.ontimeout = () => fail('timed out')
+    xhr.onabort = () => fail('aborted')
+    signal?.addEventListener('abort', () => xhr.abort())
+    xhr.send(form)
+  })
+}

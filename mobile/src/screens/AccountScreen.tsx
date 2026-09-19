@@ -28,9 +28,29 @@ export function AccountScreen() {
   const [pushBusy, setPushBusy] = useState(false)
   const [pushMsg, setPushMsg] = useState<{ text: string; ok: boolean } | null>(null)
 
+  // The server's background sync is what notices a new trade, so alerts need it on.
+  const [autoOn, setAutoOn] = useState<boolean | null>(null)
+  const [autoBusy, setAutoBusy] = useState(false)
+  const [autoError, setAutoError] = useState<string | null>(null)
+
   useEffect(() => {
     void isPushEnabled().then(setPushOn)
+    getSyncStatus()
+      .then((st) => setAutoOn(!!st.auto_enabled))
+      .catch(() => setAutoOn(null))
   }, [])
+
+  async function toggleAuto(on: boolean) {
+    setAutoBusy(true)
+    setAutoError(null)
+    try {
+      const st = await setSyncAuto(on)
+      setAutoOn(!!st.auto_enabled)
+    } catch (err) {
+      setAutoError(err instanceof Error ? err.message : 'Could not change auto-sync.')
+    }
+    setAutoBusy(false)
+  }
 
   async function togglePush(on: boolean) {
     setPushBusy(true)
@@ -99,6 +119,29 @@ export function AccountScreen() {
 
         <View style={styles.lockCard}>
           <View style={styles.lockText}>
+            <Text style={styles.lockTitle}>Auto-sync trades</Text>
+            <Text style={styles.lockSub}>
+              {autoOn === null
+                ? 'Checking the server…'
+                : 'The server checks your broker about every 2 minutes, so new trades (and their alerts) show up on their own.'}
+            </Text>
+          </View>
+          {autoBusy ? (
+            <ActivityIndicator color={colors.accent} />
+          ) : (
+            <Switch
+              value={autoOn === true}
+              onValueChange={(v) => void toggleAuto(v)}
+              disabled={autoOn === null}
+              trackColor={{ true: colors.accent, false: colors.surfaceElevated }}
+              thumbColor="#ffffff"
+            />
+          )}
+        </View>
+        {autoError ? <Text style={styles.lockError}>{autoError}</Text> : null}
+
+        <View style={styles.lockCard}>
+          <View style={styles.lockText}>
             <Text style={styles.lockTitle}>Trade alerts</Text>
             <Text style={styles.lockSub}>A notification when a trade opens or closes, with the P&L.</Text>
           </View>
@@ -113,6 +156,9 @@ export function AccountScreen() {
             />
           )}
         </View>
+        {pushOn && autoOn === false ? (
+          <Text style={styles.lockError}>Auto-sync is off, so alerts only fire after you tap Sync now. Turn on Auto-sync trades above.</Text>
+        ) : null}
         {pushOn ? (
           <Pressable onPress={() => void testPush()} disabled={pushBusy} accessibilityRole="button" style={styles.testBtn}>
             <Text style={styles.testText}>Send a test notification</Text>
