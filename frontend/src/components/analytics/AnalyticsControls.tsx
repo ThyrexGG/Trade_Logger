@@ -54,14 +54,41 @@ export function AnalyticsControls({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query.account, available.saved_initial_balance, available.suggested_initial_balance])
 
-  // Debounced save of a hand-typed balance — waits for typing to pause so
-  // every keystroke doesn't fire its own request.
-  const saveTimer = useRef<number | null>(null)
+  // When the user has exactly one account, "All accounts" is the same data but
+  // can't hold a saved starting balance — so start on that account. Runs once,
+  // so the user can still pick "All accounts" afterwards.
+  const autoPicked = useRef(false)
   useEffect(() => {
-    return () => {
-      if (saveTimer.current) window.clearTimeout(saveTimer.current)
+    if (autoPicked.current || available.accounts.length === 0) return
+    autoPicked.current = true
+    if ((!query.account || query.account === 'ALL') && available.accounts.length === 1) {
+      onChange({ ...query, account: available.accounts[0], symbols: undefined, start: undefined, end: undefined })
     }
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [available.accounts])
+
+  // Debounced save of a hand-typed balance — waits for typing to pause so
+  // every keystroke doesn't fire its own request. Leaving the page flushes a
+  // pending save instead of dropping it.
+  const saveTimer = useRef<number | null>(null)
+  const pendingSave = useRef<{ acct: string; n: number } | null>(null)
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const flushSave = () => {
+    if (saveTimer.current) {
+      window.clearTimeout(saveTimer.current)
+      saveTimer.current = null
+    }
+    const p = pendingSave.current
+    if (!p) return
+    pendingSave.current = null
+    setSaveState('saving')
+    saveInitialBalance(p.acct, p.n)
+      .then(() => setSaveState('saved'))
+      .catch(() => setSaveState('error'))
+  }
+  useEffect(() => flushSave, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const noAccountSelected = !query.account || query.account === 'ALL'
 
   const toggleSymbol = (sym: string) => {
     const has = selectedSymbols.includes(sym)
@@ -142,13 +169,24 @@ export function AnalyticsControls({
               const acct = query.account
               if (!acct || acct === 'ALL') return
               if (saveTimer.current) window.clearTimeout(saveTimer.current)
-              saveTimer.current = window.setTimeout(() => {
-                void saveInitialBalance(acct, n)
-              }, 800)
+              pendingSave.current = { acct, n }
+              setSaveState('idle')
+              saveTimer.current = window.setTimeout(flushSave, 800)
             }}
             inputMode="decimal"
             className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-xs tabular-nums text-primary focus:border-accent focus:outline-none"
           />
+          <span className="mt-1 block min-h-[14px] text-[10px]" aria-live="polite">
+            {noAccountSelected ? (
+              <span className="text-muted">Pick an account above to save this balance.</span>
+            ) : saveState === 'saving' ? (
+              <span className="text-muted">Saving…</span>
+            ) : saveState === 'saved' ? (
+              <span className="text-positive">✓ Saved for {query.account}</span>
+            ) : saveState === 'error' ? (
+              <span className="text-warning">Couldn’t save — check your connection and retype it.</span>
+            ) : null}
+          </span>
         </label>
       </div>
 
