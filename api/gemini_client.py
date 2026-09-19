@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 import os
-from time import perf_counter
+from time import perf_counter, sleep
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from dotenv import load_dotenv
@@ -35,10 +35,13 @@ _MAX_OUTPUT_TOKENS = int(os.getenv("GEMINI_MAX_OUTPUT_TOKENS", "3000") or "3000"
 # How many request/response round-trips of tool calls we allow before forcing a
 # final text answer. Each read tool is cheap; this only bounds a pathological loop.
 _MAX_TOOL_ROUNDS = int(os.getenv("GEMINI_MAX_TOOL_ROUNDS", "4") or "4")
+# Gemini's 5xx ("ServerError") are usually momentary; retry this many times before giving up.
+_SERVER_RETRIES = int(os.getenv("GEMINI_SERVER_RETRIES", "2") or "2")
 
 # The SDK logs an INFO nag about "automatic function calling" on every
 # generate_content call even when AFC is disabled — silence it.
 logging.getLogger("google_genai.models").setLevel(logging.ERROR)
+log = logging.getLogger(__name__)
 
 
 def _api_key() -> str:
@@ -82,6 +85,20 @@ def _classify(exc: Exception) -> GeminiError:
     if ("rate" in msg and "limit" in msg) or "429" in msg or "quota" in msg or "resource_exhausted" in msg:
         return GeminiError("Gemini rate limit / quota exceeded", kind="rate_limit")
     return GeminiError(f"Gemini request failed: {type(exc).__name__}", kind="unavailable")
+
+
+def _generate_with_retry(client: Any, **kwargs: Any) -> Any:
+    """`client.models.generate_content`, retried a couple of times when Google answers with a
+    transient 5xx (google.genai `ServerError`). Anything else — bad key, quota, timeout — is raised at once."""
+    for attempt in range(_SERVER_RETRIES + 1):
+        try:
+            return client.models.generate_content(**kwargs)
+        except Exception as exc:  # noqa: BLE001
+            if type(exc).__name__ != "ServerError" or attempt >= _SERVER_RETRIES:
+                raise
+            log.warning("Gemini ServerError (attempt %d/%d), retrying", attempt + 1, _SERVER_RETRIES + 1)
+            sleep(1.5 * (attempt + 1))
+    raise RuntimeError("unreachable")  # pragma: no cover
 
 
 def _parts_text(resp: Any) -> str:
@@ -194,7 +211,7 @@ def generate(
                     max_output_tokens=_MAX_OUTPUT_TOKENS,
                     temperature=0.2,
                 )
-            resp = client.models.generate_content(model=_MODEL, contents=contents, config=call_config)
+            resp = _generate_with_retry(client, model=_MODEL, contents=contents, config=call_config)
             _accumulate_usage(usage, resp)
 
             if not use_tools or last_round:
@@ -306,7 +323,7 @@ def analyze_image(
                 ],
             )
         ]
-        resp = client.models.generate_content(model=_MODEL, contents=contents, config=config)
+        resp = _generate_with_retry(client, model=_MODEL, contents=contents, config=config)
     except GeminiError:
         raise
     except Exception as exc:

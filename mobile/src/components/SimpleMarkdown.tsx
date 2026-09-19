@@ -2,15 +2,15 @@ import { Fragment, type ReactNode } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { colors, spacing } from '../theme'
 
-/** **bold** and `code` inside one line of text. */
+/** **bold**, *italic* and `code` inside one line of text; bold and italic may contain the other styles. */
 function inline(text: string, keyBase: string): ReactNode[] {
-  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean)
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\*[^*\s][^*]*\*)/g).filter(Boolean)
   return parts.map((p, i) => {
     const key = `${keyBase}-${i}`
     if (p.startsWith('**') && p.endsWith('**') && p.length > 4) {
       return (
         <Text key={key} style={styles.bold}>
-          {p.slice(2, -2)}
+          {inline(p.slice(2, -2), `${key}b`)}
         </Text>
       )
     }
@@ -18,6 +18,13 @@ function inline(text: string, keyBase: string): ReactNode[] {
       return (
         <Text key={key} style={styles.code}>
           {p.slice(1, -1)}
+        </Text>
+      )
+    }
+    if (p.startsWith('*') && p.endsWith('*') && p.length > 2) {
+      return (
+        <Text key={key} style={styles.italic}>
+          {inline(p.slice(1, -1), `${key}i`)}
         </Text>
       )
     }
@@ -36,6 +43,7 @@ export function SimpleMarkdown({ text, color = colors.textPrimary }: { text: str
       {lines.map((raw, i) => {
         const line = raw.trimEnd()
         if (!line.trim()) return <View key={i} style={{ height: 4 }} />
+        if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) return <View key={i} style={styles.rule} />
         const heading = /^#{1,6}\s+(.*)$/.exec(line)
         if (heading) {
           return (
@@ -76,6 +84,8 @@ const styles = StyleSheet.create({
   text: { fontSize: 15, lineHeight: 21 },
   heading: { fontWeight: '700', marginTop: spacing.xs },
   bold: { fontWeight: '700' },
+  italic: { fontStyle: 'italic' },
+  rule: { height: 1, backgroundColor: 'rgba(255,255,255,0.12)', marginVertical: spacing.sm },
   code: { fontFamily: 'monospace', backgroundColor: 'rgba(255,255,255,0.08)' },
   listRow: { flexDirection: 'row', gap: spacing.sm, paddingRight: spacing.sm },
   listText: { flex: 1 },
