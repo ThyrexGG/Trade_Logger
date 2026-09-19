@@ -110,6 +110,13 @@ in Expo Go. Same Wi-Fi. If it hangs: `npm start -- --tunnel`.
 - [ ] Change a number after calculating → the result dims with "Inputs changed — calculate again"
 - [ ] Close and reopen → balance, risk % and symbol are remembered
 
+**A13 · AI assistant (new, M14)** ⚠️ — More → AI assistant
+- [ ] Top line shows "n/N messages used today" (or "not set up on the server")
+- [ ] Tap a suggestion → your message appears, "Thinking…", then a formatted reply (can take 10–30 s)
+- [ ] Ask a follow-up → it remembers the conversation; ask "How did I perform today?" and compare with Analytics
+- [ ] Turn Wi-Fi off, send → red error bubble + **Try again** works after Wi-Fi is back
+- [ ] Close and reopen the app → the conversation is still there; **Clear** removes it; **Log out** also removes it
+
 ---
 
 ## B. Installed Android app + trade alerts (needs your setup first)

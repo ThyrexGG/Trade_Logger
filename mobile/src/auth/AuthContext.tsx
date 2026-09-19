@@ -1,4 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { clearAnalyticsCache } from '../analytics/useAnalytics'
 import { getMe, login as apiLogin, logout as apiLogout } from '../api/auth'
 import { ApiError, setTokenProvider, setUnauthorizedHandler } from '../api/client'
 import type { AuthUser } from '../types/auth'
@@ -39,6 +41,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
     setNotice(message)
     setStatus('signedOut')
+    // Per-user data kept on the phone must not outlive the session (a different account may sign in next).
+    clearAnalyticsCache()
+    AsyncStorage.multiRemove(['tl.assistant.history.v1', 'tl.risk.prefs', 'tl.manualtrade.account']).catch(() => {})
     await clearSession()
   }, [])
 

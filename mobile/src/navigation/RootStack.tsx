@@ -1,5 +1,6 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { AccountScreen } from '../screens/AccountScreen'
+import { AssistantScreen } from '../screens/AssistantScreen'
 import { DayTradesScreen } from '../screens/DayTradesScreen'
 import { EntriesScreen } from '../screens/EntriesScreen'
 import { EntryScreen } from '../screens/EntryScreen'
@@ -23,6 +24,7 @@ export type RootStackParamList = {
   PriceAlerts: undefined
   ManualTrade: undefined
   RiskGateway: undefined
+  Assistant: undefined
 }
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
@@ -52,6 +54,7 @@ export function RootStack() {
       <Stack.Screen name="PriceAlerts" component={PriceAlertsScreen} options={{ title: 'Price alerts', headerBackTitle: 'Back' }} />
       <Stack.Screen name="ManualTrade" component={ManualTradeScreen} options={{ title: 'Log a trade', headerBackTitle: 'Back' }} />
       <Stack.Screen name="RiskGateway" component={RiskGatewayScreen} options={{ title: 'Risk gateway', headerBackTitle: 'Back' }} />
+      <Stack.Screen name="Assistant" component={AssistantScreen} options={{ title: 'AI assistant', headerBackTitle: 'Back' }} />
     </Stack.Navigator>
   )
 }
