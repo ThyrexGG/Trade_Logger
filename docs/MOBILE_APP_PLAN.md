@@ -149,5 +149,5 @@ to maintain: new web features do not automatically appear in the app.
   - [x] M12 Manual trade entry (More → Log a trade): account, symbol, buy/sell, prices, profit/fees, native date+time pickers, tag, notes; saves through the same endpoint as the website and appears in Journal/Analytics.
   - [x] M13 Risk Gateway (More → Risk gateway): entry / stop / TPs / balance / risk % → server's position size, risk, margin, reward, R:R, warnings; remembers balance, risk % and symbol.
   - [x] M14 AI Assistant (More → AI assistant): same read-only chat as the website (Gemini on the server), suggestion prompts, replies with headings/bullets/bold, retry, daily-usage line, transcript kept on the phone (cleared on log out).
-  - [ ] M15 Killzone Scanner
-
+  - [x] M15 Killzone Scanner (More → Killzone scanner): symbol + entry timeframe, higher-timeframe bias ladder, draw on liquidity, candidate events with entry/stop/target/R:R and the 0-5 confluence checklist, unmitigated FVGs, auto-refresh every 5 min, and **Plan this** which pre-fills a Trade-plan note. Left out on purpose: the live candle chart with markers and the Markdown export (website only).
+  - **Phase 2 complete (M10–M15) — all built, none run on a phone yet.** Next: owner test pass (docs/TEST_CHECKLIST.md A9–A14), then a new APK build to get these onto the installed app.

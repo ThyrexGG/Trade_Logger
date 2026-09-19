@@ -97,6 +97,9 @@ export const apiPut = <T>(path: string, body: unknown, signal?: AbortSignal) => 
 export const apiPatch = <T>(path: string, body: unknown, signal?: AbortSignal) => request<T>('PATCH', path, body, signal)
 export const apiDelete = <T>(path: string, signal?: AbortSignal) => request<T>('DELETE', path, undefined, signal)
 
+/** For reads that fetch market data on the server first (the scanner) — slower than a database read. */
+export const apiGetSlow = <T>(path: string, signal?: AbortSignal) => request<T>('GET', path, undefined, signal, 45_000)
+
 /** For calls that wait on a language model — a reply can take well over the normal timeout. */
 export const apiPostSlow = <T>(path: string, body: unknown, signal?: AbortSignal) =>
   request<T>('POST', path, body, signal, 90_000)

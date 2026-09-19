@@ -17,6 +17,7 @@ type Row = {
 /** Everything that doesn't get its own tab. New phone features are added here as they're built. */
 const ROWS: Row[] = [
   { route: 'PriceAlerts', icon: 'notifications-outline', title: 'Price alerts', sub: 'Get told when a price crosses your level' },
+  { route: 'Killzone', icon: 'radio-outline', title: 'Killzone scanner', sub: 'Liquidity sweeps + structure shifts, by session' },
   { route: 'Assistant', icon: 'sparkles-outline', title: 'AI assistant', sub: 'Ask questions about your trading (read-only)' },
   { route: 'RiskGateway', icon: 'shield-checkmark-outline', title: 'Risk gateway', sub: 'Position size from entry, stop and risk %' },
   { route: 'ManualTrade', icon: 'add-circle-outline', title: 'Log a trade', sub: 'Record a trade taken outside a synced broker' },

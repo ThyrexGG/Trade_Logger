@@ -24,12 +24,13 @@ export function EntryScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'Entry'>>()
   const { params } = useRoute<RouteProp<RootStackParamList, 'Entry'>>()
   const existing = params.entry
+  const pre = existing ? undefined : params.prefill // e.g. "Plan this" from the Killzone scanner
 
-  const [kind, setKind] = useState<EntryKind>(existing?.kind ?? 'idea')
-  const [instrument, setInstrument] = useState(existing?.instrument ?? '')
-  const [title, setTitle] = useState(existing?.title ?? '')
-  const [body, setBody] = useState(existing?.body ?? '')
-  const [tags, setTags] = useState((existing?.tags ?? []).join(', '))
+  const [kind, setKind] = useState<EntryKind>(existing?.kind ?? pre?.kind ?? 'idea')
+  const [instrument, setInstrument] = useState(existing?.instrument ?? pre?.instrument ?? '')
+  const [title, setTitle] = useState(existing?.title ?? pre?.title ?? '')
+  const [body, setBody] = useState(existing?.body ?? pre?.body ?? '')
+  const [tags, setTags] = useState((existing?.tags ?? pre?.tags ?? []).join(', '))
   const [baseline, setBaseline] = useState<JournalEntry | undefined>(existing)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)

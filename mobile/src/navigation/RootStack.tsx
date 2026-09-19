@@ -5,12 +5,13 @@ import { DayTradesScreen } from '../screens/DayTradesScreen'
 import { EntriesScreen } from '../screens/EntriesScreen'
 import { EntryScreen } from '../screens/EntryScreen'
 import { ManualTradeScreen } from '../screens/ManualTradeScreen'
+import { KillzoneScreen } from '../screens/KillzoneScreen'
 import { PositionDetailScreen } from '../screens/PositionDetailScreen'
 import { PriceAlertsScreen } from '../screens/PriceAlertsScreen'
 import { RiskGatewayScreen } from '../screens/RiskGatewayScreen'
 import { TradeDetailScreen } from '../screens/TradeDetailScreen'
 import { colors } from '../theme'
-import type { JournalEntry } from '../types/entries'
+import type { JournalEntry, JournalEntryInput } from '../types/entries'
 import { AppTabs } from './AppTabs'
 
 export type RootStackParamList = {
@@ -18,13 +19,14 @@ export type RootStackParamList = {
   TradeDetail: { tradeId: string }
   PositionDetail: { positionId: string }
   Entries: undefined
-  Entry: { entry?: JournalEntry }
+  Entry: { entry?: JournalEntry; prefill?: JournalEntryInput }
   Account: undefined
   DayTrades: { date: string; account?: string }
   PriceAlerts: undefined
   ManualTrade: undefined
   RiskGateway: undefined
   Assistant: undefined
+  Killzone: undefined
 }
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
@@ -55,6 +57,7 @@ export function RootStack() {
       <Stack.Screen name="ManualTrade" component={ManualTradeScreen} options={{ title: 'Log a trade', headerBackTitle: 'Back' }} />
       <Stack.Screen name="RiskGateway" component={RiskGatewayScreen} options={{ title: 'Risk gateway', headerBackTitle: 'Back' }} />
       <Stack.Screen name="Assistant" component={AssistantScreen} options={{ title: 'AI assistant', headerBackTitle: 'Back' }} />
+      <Stack.Screen name="Killzone" component={KillzoneScreen} options={{ title: 'Killzone scanner', headerBackTitle: 'Back' }} />
     </Stack.Navigator>
   )
 }

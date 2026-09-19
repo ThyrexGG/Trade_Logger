@@ -117,6 +117,14 @@ in Expo Go. Same Wi-Fi. If it hangs: `npm start -- --tunnel`.
 - [ ] Turn Wi-Fi off, send → red error bubble + **Try again** works after Wi-Fi is back
 - [ ] Close and reopen the app → the conversation is still there; **Clear** removes it; **Log out** also removes it
 
+**A14 · Killzone scanner (new, M15)** ⚠️ — More → Killzone scanner. Compare with the website's scanner for the same symbol + timeframe
+- [ ] It scans by itself on opening (spinner), then shows a "Higher-timeframe bias" card, "Draw on liquidity", candidate events, unmitigated FVGs
+- [ ] Symbol chips and the 1m/5m/15m/1h chips re-scan; typing a symbol + keyboard "done" scans; pull down re-scans
+- [ ] Candidate cards show sweep/shift levels + times (in your phone's time zone), entry/stop/target/R:R and the ✓/✗ confluence list; same candidates as the website
+- [ ] **Plan this** opens a new note pre-filled as a Trade plan (symbol, title, all the numbers) → **Save note** → it appears in Journal → Ideas and on the website
+- [ ] A bad symbol shows a red message instead of crashing
+- [ ] Not on the phone on purpose: the live candle chart and the Markdown export
+
 ---
 
 ## B. Installed Android app + trade alerts (needs your setup first)
