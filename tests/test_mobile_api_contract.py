@@ -189,3 +189,26 @@ def test_killzone_types_declare_only_fields_the_backend_schema_has():
     for iface, model in (("KillzoneCandidate", KillzoneCandidate), ("KillzoneScanResponse", KillzoneScanResponse)):
         missing = required_fields("scanner.ts", iface) - set(model.model_fields)
         assert not missing, f"{iface}: {sorted(missing)} not on the backend model"
+
+
+def test_candles_match_phone_type(db, monkeypatch):
+    import market_data
+    fake = [{"time": 1_700_000_000 + i * 900, "open": 1.0, "high": 1.1, "low": 0.9, "close": 1.05, "volume": 10.0} for i in range(30)]
+    monkeypatch.setattr(market_data, "get_candles_with_source", lambda *a, **k: (fake, "yahoo"))
+    r = client.get("/api/market/candles/EURUSD?tf=15m&count=30")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert_has(body, "market.ts", "CandlesResponse")
+    assert_has(body["candles"][0], "market.ts", "Candle")
+
+
+def test_command_center_overview_matches_phone_type(db):
+    r = client.get("/api/command-center/overview")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert_has(body, "commandCenter.ts", "CommandCenterOverviewResponse")
+    assert_has(body["session"], "commandCenter.ts", "CCSessionClock")
+    for key, interface in (("daily_performance", "CCDailyPerformance"), ("account_summary", "CCAccountSummary"),
+                           ("positions", "CCPositions"), ("alerts", "CCAlerts"), ("market_context", "CCMarketContext")):
+        if body.get(key):
+            assert_has(body[key], "commandCenter.ts", interface)

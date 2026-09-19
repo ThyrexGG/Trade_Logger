@@ -6,6 +6,7 @@ import { EntriesScreen } from '../screens/EntriesScreen'
 import { EntryScreen } from '../screens/EntryScreen'
 import { ManualTradeScreen } from '../screens/ManualTradeScreen'
 import { KillzoneScreen } from '../screens/KillzoneScreen'
+import { TodayScreen } from '../screens/TodayScreen'
 import { PositionDetailScreen } from '../screens/PositionDetailScreen'
 import { PriceAlertsScreen } from '../screens/PriceAlertsScreen'
 import { RiskGatewayScreen } from '../screens/RiskGatewayScreen'
@@ -27,6 +28,7 @@ export type RootStackParamList = {
   RiskGateway: undefined
   Assistant: undefined
   Killzone: undefined
+  Today: undefined
 }
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
@@ -58,6 +60,7 @@ export function RootStack() {
       <Stack.Screen name="RiskGateway" component={RiskGatewayScreen} options={{ title: 'Risk gateway', headerBackTitle: 'Back' }} />
       <Stack.Screen name="Assistant" component={AssistantScreen} options={{ title: 'AI assistant', headerBackTitle: 'Back' }} />
       <Stack.Screen name="Killzone" component={KillzoneScreen} options={{ title: 'Killzone scanner', headerBackTitle: 'Back' }} />
+      <Stack.Screen name="Today" component={TodayScreen} options={{ title: 'Today', headerBackTitle: 'Back' }} />
     </Stack.Navigator>
   )
 }

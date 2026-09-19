@@ -16,6 +16,7 @@ type Row = {
 
 /** Everything that doesn't get its own tab. New phone features are added here as they're built. */
 const ROWS: Row[] = [
+  { route: 'Today', icon: 'today-outline', title: 'Today', sub: "Today's P&L, open risk, alerts and market context" },
   { route: 'PriceAlerts', icon: 'notifications-outline', title: 'Price alerts', sub: 'Get told when a price crosses your level' },
   { route: 'Killzone', icon: 'radio-outline', title: 'Killzone scanner', sub: 'Liquidity sweeps + structure shifts, by session' },
   { route: 'Assistant', icon: 'sparkles-outline', title: 'AI assistant', sub: 'Ask questions about your trading (read-only)' },
