@@ -6,7 +6,7 @@ import type { PositionsResponse } from './types/positions'
 
 const REFRESH_MS = 45_000
 
-interface UsePositions {
+export interface UsePositions {
   data: PositionsResponse | null
   /** first load, no data yet */
   loading: boolean

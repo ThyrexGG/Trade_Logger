@@ -3,7 +3,9 @@ import { StatusBar } from 'expo-status-bar'
 import { ActivityIndicator, StyleSheet, View } from 'react-native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { AuthProvider, useAuth } from './src/auth/AuthContext'
+import { JournalProvider } from './src/journal/JournalContext'
 import { AppTabs } from './src/navigation/AppTabs'
+import { PositionsProvider } from './src/positions/PositionsContext'
 import { LoginScreen } from './src/screens/LoginScreen'
 import { colors } from './src/theme'
 
@@ -30,9 +32,13 @@ function Root() {
   }
   if (status !== 'signedIn') return <LoginScreen />
   return (
-    <NavigationContainer theme={navTheme}>
-      <AppTabs />
-    </NavigationContainer>
+    <PositionsProvider>
+      <JournalProvider>
+        <NavigationContainer theme={navTheme}>
+          <AppTabs />
+        </NavigationContainer>
+      </JournalProvider>
+    </PositionsProvider>
   )
 }
 

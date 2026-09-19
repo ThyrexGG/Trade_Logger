@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { AccountScreen } from '../screens/AccountScreen'
 import { PositionsScreen } from '../screens/PositionsScreen'
 import { colors } from '../theme'
+import { JournalStack } from './JournalStack'
 
 const Tab = createBottomTabNavigator()
 
@@ -20,6 +21,11 @@ export function AppTabs() {
         name="Positions"
         component={PositionsScreen}
         options={{ tabBarIcon: ({ color, size }) => <Ionicons name="pulse" color={color} size={size} /> }}
+      />
+      <Tab.Screen
+        name="Journal"
+        component={JournalStack}
+        options={{ tabBarIcon: ({ color, size }) => <Ionicons name="journal-outline" color={color} size={size} /> }}
       />
       <Tab.Screen
         name="Account"

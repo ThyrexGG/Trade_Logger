@@ -3,7 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { formatMoney, formatPrice, formatUpdated, isBuy } from '../format'
 import { colors, radius, spacing } from '../theme'
 import type { PositionItem } from '../types/positions'
-import { usePositions } from '../usePositions'
+import { usePositionsContext } from '../positions/PositionsContext'
 
 function pnlColor(v: number): string {
   return v > 0 ? colors.positive : v < 0 ? colors.negative : colors.textSecondary
@@ -58,7 +58,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 export function PositionsScreen() {
-  const { data, loading, refreshing, error, refresh, syncing, syncError, syncNow } = usePositions()
+  const { data, loading, refreshing, error, refresh, syncing, syncError, syncNow } = usePositionsContext()
   const positions = data?.positions ?? []
   const total = data?.total_floating_pnl ?? 0
 
