@@ -1,8 +1,8 @@
 # TradeLogger — things to check (phone, desktop, web)
 
 Tick each box as you go. If something fails, note the **step number + what you saw**
-(a screenshot is perfect) and send it to Claude. Nothing here has been run on a real
-phone yet — everything was verified by type-checks, bundling, and automated tests only.
+(a screenshot is perfect) and send it to Claude. Nothing here has been run on YOUR real
+phone yet — Claude ran most of it in an Android emulator (see the note below), plus type-checks and automated tests.
 
 Legend: ✅ = should just work · ⚠️ = newest / least certain, look closely
 
