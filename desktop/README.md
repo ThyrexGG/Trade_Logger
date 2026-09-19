@@ -14,6 +14,7 @@ gives you:
   each event once (`/api/push/events`) and the app polls it every 30 s using your
   logged-in session, so a restart never replays old trades and events that happened
   while the app was closed are caught up on the next launch.
+- **Send test notification** (tray menu): pops a sample trade alert right away, to check Windows is showing notifications (Focus assist / Do not disturb). Does not test the server feed.
 - **Start with Windows** (tray menu → checkbox, installed app only): launches
   minimised to the tray at login, so trade notifications are always on.
 - A global hotkey, **Ctrl+Shift+L**, that brings the window to front from

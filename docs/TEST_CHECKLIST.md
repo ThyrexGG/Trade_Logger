@@ -104,7 +104,7 @@ Firebase project → `google-services.json` in `mobile/` → FCM key via `npx ea
 ## C. Windows desktop app (v1.1) — opened for you
 
 The new version is running and your **Desktop shortcut** now points to it
-(`desktop\release-v1.1\win-unpacked\TradeLogger.exe`). Optional proper installer:
+(`desktop\release-v1.1.1\win-unpacked\TradeLogger.exe`). Optional proper installer:
 `desktop\release-v1.1\TradeLogger Setup 1.1.0.exe` (Windows will warn "unknown publisher" → More info → Run anyway).
 
 - [ ] Window opens on tradelogger.site and you're still signed in

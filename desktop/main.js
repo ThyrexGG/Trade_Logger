@@ -4,7 +4,7 @@
 // tray, and a background health check that raises a native OS notification
 // if the backend goes down (see the "free uptime monitoring" conversation
 // that led to this).
-const { app, BrowserWindow, Tray, Menu, Notification, shell, ipcMain, globalShortcut, nativeImage } = require('electron')
+const { app, BrowserWindow, Tray, Menu, Notification, dialog, shell, ipcMain, globalShortcut, nativeImage } = require('electron')
 const path = require('node:path')
 const fs = require('node:fs')
 
@@ -126,6 +126,7 @@ function rebuildTrayMenu() {
       { label: statusLabel, enabled: false },
       { label: alertsLabel, enabled: false },
       { type: 'separator' },
+      { label: 'Send test notification', click: sendTestNotification },
       {
         // Trade notifications only arrive while the app is running, so this is the
         // switch that makes them reliable. Only meaningful for the installed app.
@@ -185,6 +186,32 @@ function showTradeNotifications(events) {
   }
 }
 
+// Tray > "Send test notification": shows a sample trade alert through the same
+// Notification path real ones use, so you can tell whether Windows displays
+// them (Focus assist / Do not disturb / notification settings) without
+// waiting for a real trade. Does not exercise the server feed.
+function sendTestNotification() {
+  const explain = (detail) =>
+    dialog.showMessageBox({
+      type: 'warning',
+      title: 'TradeLogger',
+      message: 'Windows did not accept the test notification.',
+      detail,
+    })
+  if (!Notification.isSupported()) {
+    void explain('Notifications are not supported here. Check Settings > System > Notifications.')
+    return
+  }
+  const n = new Notification({
+    title: 'Test: US500 BUY opened',
+    body: 'If you can read this, trade alerts will look like this. Click it to open the Journal.',
+    icon: ICON_PATH,
+  })
+  n.on('click', openJournal)
+  n.on('failed', (_event, error) => void explain(String(error || 'Unknown error.')))
+  n.show()
+}
+
 async function checkBackendHealth() {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT_MS)
@@ -226,6 +253,8 @@ async function checkBackendHealth() {
 
 // Only one copy of the app should run at once -- a second launch just
 // focuses the existing window instead of opening a duplicate.
+// Same id as build.appId, so Windows attributes toasts to "TradeLogger".
+if (process.platform === 'win32') app.setAppUserModelId('site.tradelogger.desktop')
 const gotSingleInstanceLock = app.requestSingleInstanceLock()
 if (!gotSingleInstanceLock) {
   app.quit()
