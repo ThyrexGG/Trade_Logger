@@ -11,6 +11,15 @@ Legend: ✅ = should just work · ⚠️ = newest / least certain, look closely
 > **More → Account & alerts → Auto-sync trades**, or on the website's Positions page (Auto toggle). With it off, alerts
 > only appear after you tap **Sync now** or open the website.
 
+> **Already run by Claude in an Android emulator (2026-09-19/20)** against a local copy of the server with fake data,
+> checking every number against the server's raw data: A1 (login screen, offline banner), A2, A3, A4 (This week),
+> A5 (rating, tag, notes, tag record), A6 (chart preview), A7 (library + camera upload, big view, double-tap zoom, delete),
+> A7b, A9 (all cards, calendar, day drill-down, starting balance survives an app restart), A10, A11, A12, A13, A14 and the
+> Account switches. That found and fixed 6 bugs (calendar lost Sundays, screenshot upload never worked, Auto-sync switch was
+> missing, empty profit counted as 0, Expo Go crash, AI reply formatting).
+> **Still only checkable on your real phone:** push alerts (section B), fingerprint lock (A8), two-finger pinch zoom,
+> vibration, your real broker data, and a side-by-side look at the website's Analytics.
+
 ---
 
 ## A. Phone app (the installed APK)
