@@ -66,7 +66,7 @@ APK and install it (Android asks to allow installs from your browser — allow i
 ## 5. Turn on alerts and test
 
 1. Open TradeLogger on the phone, sign in.
-2. **Account** tab → switch **Auto-sync trades** on (the server only notices a new trade when it syncs;
+2. **More → Account & alerts** → switch **Auto-sync trades** on (the server only notices a new trade when it syncs;
    this is off by default) → then switch **Trade alerts** on → allow notifications.
 3. Tap **Send a test notification**. It should arrive within a few seconds.
 

@@ -8,7 +8,7 @@ Legend: ✅ = should just work · ⚠️ = newest / least certain, look closely
 
 > ⚠️ **Trade alerts (phone AND desktop) only work while the server's auto-sync is ON.**
 > I checked your account: it is currently **OFF** (default). Turn it on once — in the phone's
-> **Account → Auto-sync trades**, or on the website's Positions page (Auto toggle). With it off, alerts
+> **More → Account & alerts → Auto-sync trades**, or on the website's Positions page (Auto toggle). With it off, alerts
 > only appear after you tap **Sync now** or open the website.
 
 ---
@@ -20,14 +20,14 @@ in Expo Go. Same Wi-Fi. If it hangs: `npm start -- --tunnel`.
 
 **A1 · Start & connection (M1)**
 - [ ] Gold **TradeLogger** login screen appears (dark, gold accents)
-- [ ] After login, Account tab shows a green **"API connected · NN ms"**
+- [ ] After login, More → Account & alerts shows a green **"API connected · NN ms"**
 - [ ] Turn phone Wi-Fi/data **off** → within ~15 s a red banner "Can't reach the server…" shows on Positions/Journal; turn back on, tap it → gone
 
 **A2 · Login (M2)**
 - [ ] Wrong password → red message "Wrong email or password."
-- [ ] Right password → lands on the tabs (Positions · Journal · Account)
+- [ ] Right password → lands on the tabs (Positions · Journal · Analytics · More)
 - [ ] Fully close Expo Go, reopen → **still signed in**
-- [ ] Account → **Log out** → back to login
+- [ ] More → Account & alerts → **Log out** → back to login
 
 **A3 · Positions (M3)**
 - [ ] With a trade open on Capital.com: same symbols, sizes and P&L as the website
@@ -73,9 +73,20 @@ in Expo Go. Same Wi-Fi. If it hangs: `npm start -- --tunnel`.
 
 **A8 · Polish (M8)**
 - [ ] New gold candle-chart icon/splash (icon shows on the *installed* app; Expo Go shows Expo's)
-- [ ] Account → **Lock the app** on → put the app in the background ≥ 30 s → returning asks for fingerprint/PIN
+- [ ] More → Account & alerts → **Lock the app** on → put the app in the background ≥ 30 s → returning asks for fingerprint/PIN
 - [ ] Taking a photo (camera) does **not** trigger the lock when you come back
 - [ ] Saving edits gives a small vibration
+
+**A9 · Analytics tab (new, M10)** ⚠️ — needs a new build/Expo Go; compare each number with the website's Analytics page for the same account + range
+- [ ] Analytics tab opens; if you have one account it is already selected (chips only appear with 2+ accounts)
+- [ ] Range chips (7 days · 30 days · This month · 90 days · All time) change the numbers
+- [ ] **Starting balance**: type a value → "Saving…" then "✓ Saved for <account>"; close the app, reopen, pick the same account → the value is still there
+- [ ] The 8 tiles (Balance, Win rate, Profit factor, Max drawdown, Expectancy, SQN, Avg holding time, Best/worst) match the website
+- [ ] Calendar: ‹ › change month, green/red days, the month total on top matches the website's calendar chips
+- [ ] Tap a day with trades → list of that day's trades → tap one → the trade screen (notes/screenshots) opens
+- [ ] Balance curve draws (green when up, red when down), dashed line = starting balance
+- [ ] P&L by symbol / by tag bars and Long vs Short match the website
+- [ ] Pull down to refresh works; turning Wi-Fi off shows the red banner, not a blank screen
 
 ---
 
@@ -89,15 +100,15 @@ Firebase project → `google-services.json` in `mobile/` → FCM key via `npx ea
 - [ ] The build finishes and gives a download link/QR
 - [ ] APK installs on the phone (allow "install from this source"); app opens with the gold icon, no Expo Go
 - [ ] All of section A still works in the installed app
-- [ ] Account → **Auto-sync trades** ON (required — see the note at the top)
-- [ ] Account → **Trade alerts** on → allow notifications
+- [ ] More → Account & alerts → **Auto-sync trades** ON (required — see the note at the top)
+- [ ] More → Account & alerts → **Trade alerts** on → allow notifications
 - [ ] **Send a test notification** → arrives within seconds. If it shows an error, send it to Claude (it names the missing piece)
 - [ ] **Real alert:** open a small demo trade → notification "US500 BUY opened — 0.5 @ price" within ~2 min
 - [ ] Close it → "US500 closed +$X.XX" within ~2 min
 - [ ] **Close the app completely** (swipe away) and repeat → notification still arrives
 - [ ] Tap the notification → opens that trade's screen
 - [ ] A partial close gives its own "closed" notification
-- [ ] Account → Trade alerts **off** → no more notifications; **Log out** also stops them
+- [ ] More → Account & alerts → Trade alerts **off** → no more notifications; **Log out** also stops them
 
 ---
 

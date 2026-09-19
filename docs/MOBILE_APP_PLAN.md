@@ -143,3 +143,11 @@ to maintain: new web features do not automatically appear in the app.
 - **Finding:** the account's server auto-sync is OFF (no `sync_auto_enabled` row), so trade alerts (phone + desktop) only fire after a sync. Switch added to the phone Account screen; the website's Positions page has the same toggle.
 - Full test list for the owner: `docs/TEST_CHECKLIST.md`.
 - [ ] M9 build itself (needs the owner's Expo login + Firebase file)
+- **Phase 2 (owner-approved 2026-09-19)** — bring more of the website to the phone. In: Analytics (+ calendar), Price Alerts, Manual trade entry, Risk Gateway, AI Assistant, Killzone Scanner. Out (owner's choice): Challenge Tracker, Chart Analyzer; not planned: Command Center, Market, Research pages, System/Connections/Partners. Tabs are now Positions · Journal · Analytics · More (Account moved under More).
+  - [x] M10 Analytics: filters (account, range), starting balance that saves, 8 stat tiles, month calendar with day drill-down to trades, balance curve, period returns, P&L by symbol/tag, long vs short. (The website's radar "performance index" is presentation-only and left out.)
+  - [ ] M11 Price Alerts
+  - [ ] M12 Manual trade entry
+  - [ ] M13 Risk Gateway
+  - [ ] M14 AI Assistant
+  - [ ] M15 Killzone Scanner
+

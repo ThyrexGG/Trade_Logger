@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
-import { AccountScreen } from '../screens/AccountScreen'
+import { AnalyticsScreen } from '../screens/AnalyticsScreen'
 import { JournalScreen } from '../screens/JournalScreen'
+import { MoreScreen } from '../screens/MoreScreen'
 import { PositionsScreen } from '../screens/PositionsScreen'
 import { colors } from '../theme'
 
@@ -28,9 +29,14 @@ export function AppTabs() {
         options={{ tabBarIcon: ({ color, size }) => <Ionicons name="journal-outline" color={color} size={size} /> }}
       />
       <Tab.Screen
-        name="Account"
-        component={AccountScreen}
-        options={{ tabBarIcon: ({ color, size }) => <Ionicons name="person-circle-outline" color={color} size={size} /> }}
+        name="Analytics"
+        component={AnalyticsScreen}
+        options={{ tabBarIcon: ({ color, size }) => <Ionicons name="stats-chart" color={color} size={size} /> }}
+      />
+      <Tab.Screen
+        name="More"
+        component={MoreScreen}
+        options={{ tabBarIcon: ({ color, size }) => <Ionicons name="ellipsis-horizontal-circle-outline" color={color} size={size} /> }}
       />
     </Tab.Navigator>
   )
