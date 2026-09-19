@@ -6,9 +6,17 @@
 // that led to this).
 const { app, BrowserWindow, Tray, Menu, Notification, shell, ipcMain, globalShortcut, nativeImage } = require('electron')
 const path = require('node:path')
+const fs = require('node:fs')
 
 const SITE_URL = 'https://tradelogger.site'
-const HEALTH_URL = 'https://tradelogger-api.onrender.com/api/health'
+// The Singapore API the site itself talks to (Render "Starter" service). Keep
+// in sync with API_BASE in preload.js.
+const API_BASE = 'https://tradelogger-api-sg.onrender.com'
+const HEALTH_URL = `${API_BASE}/api/health`
+const JOURNAL_URL = `${SITE_URL}/workspace/journal`
+// More new trade events than this at once (e.g. the PC was off overnight) are
+// collapsed into a single summary notification instead of a burst.
+const MAX_INDIVIDUAL_NOTIFICATIONS = 4
 const HEALTH_CHECK_INTERVAL_MS = 60_000
 const HEALTH_CHECK_TIMEOUT_MS = 10_000
 const ICON_PATH = path.join(__dirname, 'build', 'icon.ico')
@@ -22,6 +30,28 @@ let isQuitting = false
 // failure and once on recovery, not every single poll.
 let backendIsDown = false
 let lastTriggeredAlertCount = 0
+// Launched by "Start with Windows": stay in the tray instead of popping a window.
+const startHidden = process.argv.includes('--hidden')
+
+// --- tiny persisted state: the last trade-event id already shown, per account.
+// (preload.js is sandboxed and can't touch the disk, so main owns this file.)
+function statePath() {
+  return path.join(app.getPath('userData'), 'state.json')
+}
+function readState() {
+  try {
+    return JSON.parse(fs.readFileSync(statePath(), 'utf8'))
+  } catch {
+    return {}
+  }
+}
+function writeState(state) {
+  try {
+    fs.writeFileSync(statePath(), JSON.stringify(state))
+  } catch {
+    // read-only profile etc. -- worst case we re-baseline next launch
+  }
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -30,6 +60,7 @@ function createWindow() {
     minWidth: 960,
     minHeight: 640,
     backgroundColor: '#0a0a0a', // matches the site's dark theme -- no white flash on load
+    show: !startHidden,
     icon: ICON_PATH,
     autoHideMenuBar: true,
     webPreferences: {
@@ -96,6 +127,16 @@ function rebuildTrayMenu() {
       { label: alertsLabel, enabled: false },
       { type: 'separator' },
       {
+        // Trade notifications only arrive while the app is running, so this is the
+        // switch that makes them reliable. Only meaningful for the installed app.
+        label: 'Start with Windows',
+        type: 'checkbox',
+        checked: app.getLoginItemSettings().openAtLogin,
+        enabled: app.isPackaged,
+        click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked, args: ['--hidden'] }),
+      },
+      { type: 'separator' },
+      {
         label: 'Quit',
         click: () => {
           isQuitting = true
@@ -119,6 +160,31 @@ function setTriggeredAlertBadge(count) {
   if (tray) rebuildTrayMenu()
 }
 
+function openJournal() {
+  showWindow()
+  if (mainWindow) mainWindow.loadURL(JOURNAL_URL)
+}
+
+function showTradeNotifications(events) {
+  if (!events.length || !Notification.isSupported()) return
+  if (events.length > MAX_INDIVIDUAL_NOTIFICATIONS) {
+    const closed = events.filter((e) => e.kind === 'closed').length
+    const opened = events.length - closed
+    const parts = []
+    if (opened) parts.push(`${opened} opened`)
+    if (closed) parts.push(`${closed} closed`)
+    const n = new Notification({ title: `${events.length} trade updates`, body: parts.join(' · '), icon: ICON_PATH })
+    n.on('click', openJournal)
+    n.show()
+    return
+  }
+  for (const e of events) {
+    const n = new Notification({ title: String(e.title || 'TradeLogger'), body: String(e.body || ''), icon: ICON_PATH })
+    n.on('click', openJournal)
+    n.show()
+  }
+}
+
 async function checkBackendHealth() {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT_MS)
@@ -138,7 +204,7 @@ async function checkBackendHealth() {
     if (Notification.isSupported()) {
       new Notification({
         title: 'TradeLogger backend is down',
-        body: 'The API stopped responding to health checks. It may recover on its own (Render free tier restarts automatically).',
+        body: 'The API stopped responding to health checks. It usually recovers on its own within a minute or two.',
         icon: ICON_PATH,
       }).show()
     }
@@ -183,6 +249,23 @@ if (!gotSingleInstanceLock) {
   // attention without having to keep the window open.
   ipcMain.on('tradelogger:triggered-alerts', (_event, count) => {
     setTriggeredAlertBadge(Number(count) || 0)
+  })
+
+  // Last trade-event id already shown, remembered per TradeLogger account so a
+  // restart never replays history and switching accounts can't skip events.
+  ipcMain.handle('tradelogger:get-last-event-id', (_event, userId) => {
+    const id = readState().lastEventId?.[String(userId)]
+    return Number.isFinite(id) ? id : null
+  })
+  ipcMain.handle('tradelogger:set-last-event-id', (_event, userId, eventId) => {
+    const state = readState()
+    state.lastEventId = { ...(state.lastEventId || {}), [String(userId)]: Number(eventId) || 0 }
+    writeState(state)
+  })
+
+  // preload.js hands us new trade opened / closed events from the server.
+  ipcMain.on('tradelogger:trade-events', (_event, events) => {
+    showTradeNotifications(Array.isArray(events) ? events : [])
   })
 
   app.on('will-quit', () => {
