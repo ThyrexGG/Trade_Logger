@@ -14,3 +14,17 @@ export function patchJournalEntry(
 ): Promise<JournalUpdateResponse> {
   return apiPatch<JournalUpdateResponse>(`/api/operations/journal/${encodeURIComponent(tradeId)}`, body, signal)
 }
+
+export interface JournalTagStat {
+  tag: string
+  n: number
+  wins: number
+  win_rate: number | null
+  net_total: number
+  expectancy: number | null
+}
+
+/** GET /api/operations/journal/tag-stats — realised record per setup tag. */
+export function getJournalTagStats(signal?: AbortSignal): Promise<{ tags: JournalTagStat[]; timestamp: string }> {
+  return apiGet<{ tags: JournalTagStat[]; timestamp: string }>('/api/operations/journal/tag-stats', signal)
+}

@@ -1,6 +1,8 @@
 import * as Haptics from 'expo-haptics'
-import { useEffect, useMemo } from 'react'
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { useEffect } from 'react'
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { ChartLinkPreview } from './ChartLinkPreview'
+import { invalidateTagRecord, TagRecord } from './TagRecord'
 import { useAutosave, type AnnotationFields, type SaveStatus } from '../journal/useAutosave'
 import { colors, radius, spacing } from '../theme'
 import type { JournalUpdateRequest } from '../types/journal'
@@ -68,12 +70,14 @@ function StarRating({ value, onChange }: { value: number; onChange: (n: number) 
  * and behaviour as the web Journal, for both closed and still-open trades.
  */
 export function AnnotationEditor({ initial, save, tagSuggestions, notesLabel = 'Notes' }: Props) {
-  const { fields, update, status, error, retry } = useAutosave(initial, save)
+  const { fields, update, status, error, retry } = useAutosave(initial, async (patch) => {
+    await save(patch)
+    if ('setup_tag' in patch) invalidateTagRecord() // the record line should reflect the new tag next time
+  })
   useEffect(() => {
     if (status === 'saved') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {})
   }, [status])
   const url = fields.chart_snapshot_url.trim()
-  const linkable = useMemo(() => /^https?:\/\//i.test(url), [url])
   const remaining = tagSuggestions.filter((t) => t !== fields.setup_tag.trim()).slice(0, 8)
 
   return (
@@ -93,6 +97,7 @@ export function AnnotationEditor({ initial, save, tagSuggestions, notesLabel = '
         maxLength={120}
         autoCorrect={false}
       />
+      <TagRecord tag={fields.setup_tag} />
       {remaining.length > 0 ? (
         <View style={styles.suggestions}>
           {remaining.map((t) => (
@@ -127,11 +132,7 @@ export function AnnotationEditor({ initial, save, tagSuggestions, notesLabel = '
         autoCorrect={false}
         keyboardType="url"
       />
-      {linkable ? (
-        <Pressable onPress={() => void Linking.openURL(url)} accessibilityRole="link">
-          <Text style={styles.open}>Open link ↗</Text>
-        </Pressable>
-      ) : null}
+      <ChartLinkPreview url={url} />
     </View>
   )
 }
@@ -165,5 +166,4 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs + 2,
   },
   suggestionText: { color: colors.textSecondary, fontSize: 12 },
-  open: { color: colors.accent, fontSize: 13, fontWeight: '600' },
 })

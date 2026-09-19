@@ -1,11 +1,12 @@
 import { Image } from 'expo-image'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { authHeaders } from '../api/client'
 import { deleteScreenshot, getScreenshots, screenshotUrl, uploadScreenshot } from '../api/screenshots'
 import { PickError, pickScreenshot, type PickSource } from '../journal/pickImage'
 import { colors, radius, spacing } from '../theme'
+import { ZoomableImage } from './ZoomableImage'
 import type { JournalScreenshotMeta } from '../types/screenshots'
 
 interface Props {
@@ -22,7 +23,7 @@ function source(meta: JournalScreenshotMeta) {
 
 /**
  * Screenshots for one trade: big, un-cropped previews stacked full-width, a
- * small "Add" button, and a full-screen viewer (pinch-zoom on iPhone) with delete.
+ * small "Add" button, and a full-screen viewer (pinch + double-tap zoom) with delete.
  */
 export function ScreenshotGallery({ ownerId, onCountChange }: Props) {
   const [shots, setShots] = useState<JournalScreenshotMeta[] | null>(null)
@@ -132,7 +133,10 @@ export function ScreenshotGallery({ ownerId, onCountChange }: Props) {
               </Pressable>
             ) : null}
           </View>
-          {viewing ? (
+          {viewing && Platform.OS !== 'ios' ? (
+            // Android: the ScrollView zoom below is iPhone-only, so use our own pinch / double-tap zoom.
+            <ZoomableImage source={source(viewing)} />
+          ) : viewing ? (
             <ScrollView
               style={styles.zoom}
               contentContainerStyle={styles.zoomContent}

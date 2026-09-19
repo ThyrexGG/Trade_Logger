@@ -34,7 +34,9 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "parity": "node scripts/parity-journal.mts",
+    "preflight": "node scripts/preflight.cjs"
   },
   "private": true
 }

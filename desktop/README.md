@@ -26,7 +26,14 @@ It always loads whatever is live at `https://tradelogger.site` — there is no
 separate frontend build to keep in sync. Update the app itself only if the
 wrapper (icon, health-check behavior, window chrome) needs to change.
 
+Trade notifications need the server's **auto-sync** switched on (Positions page → Auto, or the
+phone app's Account screen) — the server only records a trade event when it syncs.
+
 ## Run it during development
+
+> Launching from VS Code's terminal? That editor sets `ELECTRON_RUN_AS_NODE=1`, which makes Electron
+> apps behave like plain Node and exit instantly ("bad option: …"). Clear it first:
+> PowerShell `Remove-Item Env:ELECTRON_RUN_AS_NODE`, Git Bash `env -u ELECTRON_RUN_AS_NODE npm start`.
 
 ```
 cd desktop

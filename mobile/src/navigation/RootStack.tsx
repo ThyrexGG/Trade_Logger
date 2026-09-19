@@ -1,13 +1,18 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
+import { EntriesScreen } from '../screens/EntriesScreen'
+import { EntryScreen } from '../screens/EntryScreen'
 import { PositionDetailScreen } from '../screens/PositionDetailScreen'
 import { TradeDetailScreen } from '../screens/TradeDetailScreen'
 import { colors } from '../theme'
+import type { JournalEntry } from '../types/entries'
 import { AppTabs } from './AppTabs'
 
 export type RootStackParamList = {
   Tabs: undefined
   TradeDetail: { tradeId: string }
   PositionDetail: { positionId: string }
+  Entries: undefined
+  Entry: { entry?: JournalEntry }
 }
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
@@ -30,6 +35,8 @@ export function RootStack() {
         component={PositionDetailScreen}
         options={{ title: 'Open trade', headerBackTitle: 'Back' }}
       />
+      <Stack.Screen name="Entries" component={EntriesScreen} options={{ title: 'Ideas & reviews', headerBackTitle: 'Back' }} />
+      <Stack.Screen name="Entry" component={EntryScreen} options={{ title: 'Note', headerBackTitle: 'Back' }} />
     </Stack.Navigator>
   )
 }

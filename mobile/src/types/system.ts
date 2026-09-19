@@ -6,6 +6,7 @@ export interface SyncRunResult {
 }
 
 export interface SyncStatusResponse {
+  auto_enabled?: boolean
   cycle_in_progress: boolean
   last_run: SyncRunResult | null
   ran?: SyncRunResult | SyncRunResult[]

@@ -171,6 +171,14 @@ export function JournalScreen() {
     <SafeAreaView style={styles.screen} edges={['top']}>
       <View style={styles.titleRow}>
         <Text style={styles.title}>Journal</Text>
+        <View style={styles.titleActions}>
+        <Pressable
+          onPress={() => navigation.navigate('Entries')}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.notesBtn, pressed && { opacity: 0.6 }]}
+        >
+          <Text style={styles.notesText}>Ideas</Text>
+        </Pressable>
         <Pressable
           onPress={() => void syncAndRefresh()}
           disabled={positions.syncing}
@@ -179,6 +187,7 @@ export function JournalScreen() {
         >
           {positions.syncing ? <ActivityIndicator size="small" color={colors.accent} /> : <Text style={styles.syncText}>Sync now</Text>}
         </Pressable>
+        </View>
       </View>
 
       {journal.loading && !journal.data ? (
@@ -239,6 +248,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   title: { color: colors.textPrimary, fontSize: 22, fontWeight: '700' },
+  titleActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  notesBtn: { borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2 },
+  notesText: { color: colors.textPrimary, fontSize: 14, fontWeight: '600' },
   syncBtn: {
     minWidth: 92,
     alignItems: 'center',

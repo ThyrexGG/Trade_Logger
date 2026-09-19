@@ -66,11 +66,14 @@ APK and install it (Android asks to allow installs from your browser — allow i
 ## 5. Turn on alerts and test
 
 1. Open TradeLogger on the phone, sign in.
-2. **Account** tab → switch **Trade alerts** on → allow notifications.
+2. **Account** tab → switch **Auto-sync trades** on (the server only notices a new trade when it syncs;
+   this is off by default) → then switch **Trade alerts** on → allow notifications.
 3. Tap **Send a test notification**. It should arrive within a few seconds.
 
 If the test says something like `InvalidCredentials` or `Could not get a push
 token`, step 2 or 3 above is incomplete — the message tells you which.
+
+Before building, `npm run preflight` (in `mobile/`) checks steps 1–2 for you.
 
 ## Updating the app later
 
