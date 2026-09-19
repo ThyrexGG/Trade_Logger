@@ -302,6 +302,43 @@ def get_connection():
 
 _DB_INITIALIZED = False
 
+def _heal_price_alerts_id_default() -> None:
+    """The live Postgres `price_alerts` table has `id BIGINT NOT NULL` with no auto-numbering default
+    (it lost its SERIAL when the data moved to Neon), so every INSERT failed with
+    'null value in column "id"' and no price alert could ever be created. Give it a sequence.
+    Idempotent, own connection, and never allowed to block start-up."""
+    if not is_postgres():
+        return
+    conn = None
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT column_default FROM information_schema.columns "
+            "WHERE table_schema = current_schema() AND table_name = 'price_alerts' AND column_name = 'id'"
+        )
+        row = cur.fetchone()
+        if row is None or row[0] is not None:
+            return
+        cur.execute("CREATE SEQUENCE IF NOT EXISTS price_alerts_id_seq")
+        cur.execute("SELECT setval('price_alerts_id_seq', COALESCE((SELECT MAX(id) FROM price_alerts), 0) + 1, false)")
+        cur.execute("ALTER TABLE price_alerts ALTER COLUMN id SET DEFAULT nextval('price_alerts_id_seq')")
+        cur.execute("ALTER SEQUENCE price_alerts_id_seq OWNED BY price_alerts.id")
+        conn.commit()
+    except Exception:  # noqa: BLE001
+        try:
+            if conn is not None:
+                conn.rollback()
+        except Exception:  # noqa: BLE001
+            pass
+    finally:
+        try:
+            if conn is not None:
+                conn.close()
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def init_db(force: bool = False):
     """Initializes the database and creates the necessary tables (idempotent once per process)."""
     global _DB_INITIALIZED
@@ -889,6 +926,7 @@ def init_db(force: bool = False):
     _DB_INITIALIZED = True
     conn.commit()
     conn.close()
+    _heal_price_alerts_id_default()
 
 def save_raw_deals(deals):
     """
