@@ -103,6 +103,13 @@ in Expo Go. Same Wi-Fi. If it hangs: `npm start -- --tunnel`.
 - [ ] Saving with no symbol/profit shows a red message; a Closed time before Entered is rejected
 - [ ] **Save trade** returns to More; the trade appears in Journal (All time) and in Analytics/calendar for that day, and on the website
 
+**A12 · Risk gateway (new, M13)** ⚠️ — More → Risk gateway. Compare with the website's Risk Gateway using the same numbers
+- [ ] Symbol chips (your most-traded first), Buy/Sell, balance, risk %, entry, stop, optional TP1/TP2
+- [ ] **Calculate risk** → big "Recommended position … lots", estimated risk $, risk %, stop distance, margin, reward and R:R — identical to the website
+- [ ] Empty/zero fields show red messages under the field; entry = stop is refused
+- [ ] Change a number after calculating → the result dims with "Inputs changed — calculate again"
+- [ ] Close and reopen → balance, risk % and symbol are remembered
+
 ---
 
 ## B. Installed Android app + trade alerts (needs your setup first)
