@@ -96,6 +96,13 @@ in Expo Go. Same Wi-Fi. If it hangs: `npm start -- --tunnel`.
 - [ ] An unknown symbol shows a red message instead of crashing
 - [ ] (Only while the PC's MT5 auto-sync daemon runs) a crossed alert moves to **Triggered** and sends a phone + desktop notification; tapping the phone one opens Price alerts
 
+**A11 · Log a trade (new, M12)** ⚠️ — More → Log a trade
+- [ ] Account chips show your accounts; typing a new name (e.g. OWN_MONEY) also works
+- [ ] Buy/Sell toggle, numeric keyboards, the **Entered** / **Closed** fields open a date dialog then a time dialog
+- [ ] Filling Profit shows "Net result" = profit + commission + swap
+- [ ] Saving with no symbol/profit shows a red message; a Closed time before Entered is rejected
+- [ ] **Save trade** returns to More; the trade appears in Journal (All time) and in Analytics/calendar for that day, and on the website
+
 ---
 
 ## B. Installed Android app + trade alerts (needs your setup first)

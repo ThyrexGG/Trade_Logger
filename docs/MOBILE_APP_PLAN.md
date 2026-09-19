@@ -146,7 +146,7 @@ to maintain: new web features do not automatically appear in the app.
 - **Phase 2 (owner-approved 2026-09-19)** — bring more of the website to the phone. In: Analytics (+ calendar), Price Alerts, Manual trade entry, Risk Gateway, AI Assistant, Killzone Scanner. Out (owner's choice): Challenge Tracker, Chart Analyzer; not planned: Command Center, Market, Research pages, System/Connections/Partners. Tabs are now Positions · Journal · Analytics · More (Account moved under More).
   - [x] M10 Analytics: filters (account, range), starting balance that saves, 8 stat tiles, month calendar with day drill-down to trades, balance curve, period returns, P&L by symbol/tag, long vs short. (The website's radar "performance index" is presentation-only and left out.)
   - [x] M11 Price Alerts: create / list / delete on the phone (More → Price alerts); a triggered alert also becomes a push + desktop notification (new `alert` event kind in `trade_notify`, 2 tests). **Caveat:** the only thing that *evaluates* alerts is the `auto_sync.py` daemon, and it needs MetaTrader 5 on the machine running it — the cloud server does not evaluate them, so alerts fire only while that PC daemon runs.
-  - [ ] M12 Manual trade entry
+  - [x] M12 Manual trade entry (More → Log a trade): account, symbol, buy/sell, prices, profit/fees, native date+time pickers, tag, notes; saves through the same endpoint as the website and appears in Journal/Analytics.
   - [ ] M13 Risk Gateway
   - [ ] M14 AI Assistant
   - [ ] M15 Killzone Scanner

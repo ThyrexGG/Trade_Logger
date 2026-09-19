@@ -49,3 +49,20 @@ export interface JournalUpdateResponse {
   live_broker_transmission: string
   timestamp: string
 }
+
+/** Body of POST /api/operations/journal/trades (mirrors api/schemas.py ManualTradeIn). */
+export interface ManualTradeRequest {
+  account_id: string
+  symbol: string
+  direction: 'BUY' | 'SELL'
+  volume: number
+  entry_price: number
+  exit_price: number
+  commission: number
+  swap: number
+  gross_profit: number
+  entry_time: string
+  exit_time: string
+  setup_tag?: string
+  notes?: string
+}

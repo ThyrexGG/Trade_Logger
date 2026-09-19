@@ -1,5 +1,5 @@
-import type { JournalResponse, JournalUpdateRequest, JournalUpdateResponse } from '../types/journal'
-import { apiGet, apiPatch } from './client'
+import type { JournalResponse, JournalTradeItem, JournalUpdateRequest, JournalUpdateResponse, ManualTradeRequest } from '../types/journal'
+import { apiGet, apiPatch, apiPost } from './client'
 
 /** GET /api/operations/journal — every closed trade for the signed-in user. */
 export function getJournal(signal?: AbortSignal): Promise<JournalResponse> {
@@ -13,6 +13,11 @@ export function patchJournalEntry(
   signal?: AbortSignal,
 ): Promise<JournalUpdateResponse> {
   return apiPatch<JournalUpdateResponse>(`/api/operations/journal/${encodeURIComponent(tradeId)}`, body, signal)
+}
+
+/** POST /api/operations/journal/trades — record a trade that never went through a broker sync. */
+export function createManualTrade(body: ManualTradeRequest, signal?: AbortSignal): Promise<JournalTradeItem> {
+  return apiPost<JournalTradeItem>('/api/operations/journal/trades', body, signal)
 }
 
 export interface JournalTagStat {

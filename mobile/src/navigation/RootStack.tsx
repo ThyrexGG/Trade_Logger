@@ -3,6 +3,7 @@ import { AccountScreen } from '../screens/AccountScreen'
 import { DayTradesScreen } from '../screens/DayTradesScreen'
 import { EntriesScreen } from '../screens/EntriesScreen'
 import { EntryScreen } from '../screens/EntryScreen'
+import { ManualTradeScreen } from '../screens/ManualTradeScreen'
 import { PositionDetailScreen } from '../screens/PositionDetailScreen'
 import { PriceAlertsScreen } from '../screens/PriceAlertsScreen'
 import { TradeDetailScreen } from '../screens/TradeDetailScreen'
@@ -19,6 +20,7 @@ export type RootStackParamList = {
   Account: undefined
   DayTrades: { date: string; account?: string }
   PriceAlerts: undefined
+  ManualTrade: undefined
 }
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
@@ -46,6 +48,7 @@ export function RootStack() {
       <Stack.Screen name="Account" component={AccountScreen} options={{ title: 'Account & alerts', headerBackTitle: 'Back' }} />
       <Stack.Screen name="DayTrades" component={DayTradesScreen} options={{ title: 'Day', headerBackTitle: 'Back' }} />
       <Stack.Screen name="PriceAlerts" component={PriceAlertsScreen} options={{ title: 'Price alerts', headerBackTitle: 'Back' }} />
+      <Stack.Screen name="ManualTrade" component={ManualTradeScreen} options={{ title: 'Log a trade', headerBackTitle: 'Back' }} />
     </Stack.Navigator>
   )
 }
