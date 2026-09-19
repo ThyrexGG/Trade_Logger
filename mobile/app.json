@@ -24,6 +24,9 @@
       "favicon": "./assets/favicon.png"
     },
     "scheme": "tradelogger",
-    "backgroundColor": "#0a0a0a"
+    "backgroundColor": "#0a0a0a",
+    "plugins": [
+      "expo-secure-store"
+    ]
   }
 }
