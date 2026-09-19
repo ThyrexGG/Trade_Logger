@@ -106,7 +106,7 @@ export function TodayScreen() {
               <Text style={styles.big}>{data.session.current_session}</Text>
               <Text style={styles.muted}>
                 Next: {data.session.next_session}
-                {data.session.next_session_in_min != null ? ` in ${data.session.next_session_in_min} min` : ''} · {data.session.utc_time} UTC
+                {data.session.next_session_in_min != null ? ` in ${data.session.next_session_in_min} min` : ''} · {data.session.utc_time}
               </Text>
             </Card>
 

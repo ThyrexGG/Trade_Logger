@@ -65,6 +65,8 @@ export function KillzoneChart({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [picked, setPicked] = useState<number | null>(null)
+  // the bars currently on screen (from scrolling) — the price scale fits these, not all 300
+  const [win, setWin] = useState<{ from: number; to: number } | null>(null)
   const scrollRef = useRef<ScrollView>(null)
   const viewW = useRef(0)
   const wantEnd = useRef(true)
@@ -79,6 +81,7 @@ export function KillzoneChart({
     setLoading(true)
     setError(null)
     setPicked(null)
+    setWin(null)
     wantEnd.current = true
     getCandles(symbol, viewTf, count, controller.signal)
       .then((r) => {
@@ -102,10 +105,11 @@ export function KillzoneChart({
   const levels = useMemo(() => (showKz ? previousLevels(candles) : { prevDay: null, prevWeek: null }), [candles, showKz])
   const focused = focusedIndex != null ? (candidates[focusedIndex] ?? null) : null
 
+  const visible = useMemo(() => (win ? candles.slice(win.from, win.to + 1) : candles.slice(-90)), [candles, win])
   const { min, max } = useMemo(
     () =>
-      priceRange(candles, [liquidity?.bsl?.[0]?.price, liquidity?.ssl?.[0]?.price, focused?.potential_target, focused?.shift_level, focused?.sweep_level]),
-    [candles, liquidity, focused],
+      priceRange(visible.length > 0 ? visible : candles, [liquidity?.bsl?.[0]?.price, liquidity?.ssl?.[0]?.price, focused?.potential_target, focused?.shift_level, focused?.sweep_level]),
+    [visible, candles, liquidity, focused],
   )
   const yOf = (p: number) => ((max - p) / (max - min)) * PLOT_H
   const xOf = (i: number) => i * STEP + STEP / 2
@@ -142,6 +146,9 @@ export function KillzoneChart({
   const tagYs = useMemo(() => spreadLabels(lines.map((l) => yOf(l.price)), TAG_H, TAG_H / 2, PLOT_H - TAG_H / 2), [lines, min, max]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const gridPrices = [0.1, 0.3, 0.5, 0.7, 0.9].map((f) => max - (max - min) * f)
+  // round the axis to a sensible number of decimals for the visible range (2 for ~100-price JPY pairs, 4-5 for EURUSD…)
+  const axisDecimals = Math.min(6, Math.max(0, Math.ceil(-Math.log10((max - min) / 50))))
+  const axisPrice = (p: number) => p.toFixed(axisDecimals)
 
   // scroll to the newest candle after each load, and to a candidate when one is picked
   useEffect(() => {
@@ -209,6 +216,13 @@ export function KillzoneChart({
             showsHorizontalScrollIndicator={false}
             style={{ flex: 1 }}
             onLayout={onLayout}
+            scrollEventThrottle={64}
+            onScroll={(e) => {
+              const x = e.nativeEvent.contentOffset.x
+              const from = Math.max(0, Math.floor(x / STEP))
+              const to = Math.min(n - 1, Math.ceil((x + viewW.current) / STEP))
+              setWin((w) => (w && Math.abs(w.from - from) < 4 && Math.abs(w.to - to) < 4 ? w : { from, to }))
+            }}
             onContentSizeChange={() => {
               if (wantEnd.current) {
                 wantEnd.current = false
@@ -329,7 +343,7 @@ export function KillzoneChart({
               if (lines.some((_, k) => Math.abs(tagYs[k] - y) < TAG_H)) return null
               return (
                 <SvgText key={`a${i}`} x={AXIS_W - 4} y={y + 3} fontSize={9} fill={colors.textMuted} textAnchor="end">
-                  {formatPrice(p)}
+                  {axisPrice(p)}
                 </SvgText>
               )
             })}

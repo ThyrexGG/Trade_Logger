@@ -104,7 +104,7 @@ if it hangs: `npm start -- --tunnel`).
 - [ ] The same alert shows on the website's Price Alerts page (and one made on the website shows here after pulling down)
 - [ ] **Delete** asks to confirm, then removes it
 - [ ] An unknown symbol shows a red message instead of crashing
-- [ ] (Only while the PC's MT5 auto-sync daemon runs) a crossed alert moves to **Triggered** and sends a phone + desktop notification; tapping the phone one opens Price alerts
+- [ ] Set an alert that is already true (e.g. XAUUSD **above** 1) → within about 2 minutes it moves to **Triggered** and you get a phone notification (installed APK only) and a desktop one. It runs on the server, so the PC does not need to be on
 
 **A11 · Log a trade (new, M12)** ⚠️ — More → Log a trade
 - [ ] Account chips show your accounts; typing a new name (e.g. OWN_MONEY) also works
@@ -133,7 +133,24 @@ if it hangs: `npm start -- --tunnel`).
 - [ ] Candidate cards show sweep/shift levels + times (in your phone's time zone), entry/stop/target/R:R and the ✓/✗ confluence list; same candidates as the website
 - [ ] **Plan this** opens a new note pre-filled as a Trade plan (symbol, title, all the numbers) → **Save note** → it appears in Journal → Ideas and on the website
 - [ ] A bad symbol shows a red message instead of crashing
-- [ ] Not on the phone on purpose: the live candle chart and the Markdown export
+- [ ] **Share scan as Markdown** (top card) opens the phone's share sheet with the scan as text — same layout as the website's "Copy as Markdown"
+
+**A15 · Killzone chart (new)** ⚠️ — Killzone scanner → the **Chart** card. Compare with the website's chart for the same symbol
+- [ ] Candles draw with a price scale on the right; killzone boxes (ASIA / LONDON / NY AM / NY PM) sit over the right hours; **Killzones** chip turns them (and previous-day/week levels) off and on
+- [ ] Dashed BSL/SSL lines, dotted FVG edges with a dot on the confirming candle, blue PDH/PDL, a grey **Last** price line — each with its price tag on the right
+- [ ] Each candidate has an **S** (sweep) and **M** (structure shift) arrow on the right candles
+- [ ] Tap a candle → its open/high/low/close and time appear above the chart; scroll sideways for history
+- [ ] **Show on chart** on a candidate → page jumps to the chart, the view centres on it, entry/stop/target lines appear and the other candidates fade; **Hide from chart** undoes it
+- [ ] The View chips (1m/5m/15m/1h) and History (150/300/500 bars) reload the chart; arrows stay on the right candles
+- [ ] With the market feed down it says so instead of drawing fake candles
+
+**A16 · Today (new)** ⚠️ — More → Today. Compare with the website's Daily Command Center
+- [ ] "Right now" shows the current trading session and when the next one starts
+- [ ] Today: net P&L, trades (W/L), win rate — matches Analytics for today
+- [ ] Account: balance, all-time P&L, profit factor, max drawdown — matches the website
+- [ ] Open positions: count, floating P&L and per-symbol lines match the Positions tab
+- [ ] Price alerts: active / triggered counts and recent triggers; **Manage alerts** opens Price alerts
+- [ ] Market context and Watchlist show; pull down refreshes; it also refreshes by itself every minute
 
 ---
 
