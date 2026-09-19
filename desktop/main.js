@@ -169,11 +169,11 @@ function openJournal() {
 function showTradeNotifications(events) {
   if (!events.length || !Notification.isSupported()) return
   if (events.length > MAX_INDIVIDUAL_NOTIFICATIONS) {
-    const closed = events.filter((e) => e.kind === 'closed').length
-    const opened = events.length - closed
+    const count = (kind) => events.filter((e) => e.kind === kind).length
     const parts = []
-    if (opened) parts.push(`${opened} opened`)
-    if (closed) parts.push(`${closed} closed`)
+    if (count('opened')) parts.push(`${count('opened')} opened`)
+    if (count('closed')) parts.push(`${count('closed')} closed`)
+    if (count('alert')) parts.push(`${count('alert')} price alert${count('alert') === 1 ? '' : 's'}`)
     const n = new Notification({ title: `${events.length} trade updates`, body: parts.join(' · '), icon: ICON_PATH })
     n.on('click', openJournal)
     n.show()

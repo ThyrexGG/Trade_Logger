@@ -316,3 +316,26 @@ def test_sync_cycle_records_closed_trades_and_survives_a_failing_recorder(monkey
     result = auto_sync.run_sync_cycle(set(), logfn=lambda _m: None)
     assert result["errors"] == []          # the failure is contained...
     assert legacy[1:] == ["T1", "T2"]      # ...and the existing alert channels still ran for both
+
+
+# --- price alerts -------------------------------------------------------------
+
+def test_price_alert_event_is_recorded_once_and_pushed(db, sent):
+    with tenant.use("alice"):
+        database.upsert_push_device("ExponentPushToken[abc]", "android", "Pixel")
+        first = trade_notify.record_price_alert("xauusd", 2401.5, 2400, "ABOVE", 7)
+        again = trade_notify.record_price_alert("xauusd", 2402.0, 2400, "ABOVE", 7)
+        events = database.list_trade_events()
+    assert first is not None and again is None
+    assert len(events) == 1
+    assert events[0]["kind"] == "alert"
+    assert events[0]["title"] == "XAUUSD price alert"
+    assert events[0]["body"] == "XAUUSD is 2401.5, above your 2400 target"
+    assert len(sent) == 1 and sent[0][3]["kind"] == "alert" and sent[0][3]["ref_id"] == "7"
+
+
+def test_price_alert_below_wording_and_bad_input(db):
+    with tenant.use("alice"):
+        assert trade_notify.record_price_alert("EURUSD", 1.0801, 1.081, "BELOW", 9) is not None
+        assert database.list_trade_events()[0]["body"] == "EURUSD is 1.0801, below your 1.081 target"
+        assert trade_notify.record_price_alert("EURUSD", 1.0, 1.0, "BELOW", None) is None

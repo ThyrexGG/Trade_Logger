@@ -14,6 +14,7 @@ let pending: Target | null = null
 function go(t: Target): void {
   if (t.kind === 'opened') navigationRef.navigate('PositionDetail', { positionId: t.refId })
   else if (t.kind === 'closed') navigationRef.navigate('TradeDetail', { tradeId: t.refId })
+  else if (t.kind === 'alert') navigationRef.navigate('PriceAlerts')
 }
 
 /** Open the trade a push notification is about. `data` is the payload the server attached. */

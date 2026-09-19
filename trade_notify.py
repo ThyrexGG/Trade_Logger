@@ -145,6 +145,27 @@ def record_closed(trade: Dict[str, Any]) -> Optional[int]:
         return None
 
 
+def record_price_alert(symbol: Any, price: Any, target: Any, condition: Any, alert_id: Any) -> Optional[int]:
+    """A price alert crossed its target. Returns the event id, or None if skipped/duplicate."""
+    try:
+        aid = str(alert_id or "")
+        if not aid:
+            return None
+        sym = str(symbol or "").upper()
+        now_price = _num(price)
+        tgt = _num(target)
+        side = "above" if str(condition or "").upper() == "ABOVE" else "below"
+        title = f"{sym} price alert"
+        if now_price is not None and tgt is not None:
+            body = f"{sym} is {now_price:g}, {side} your {tgt:g} target"
+        else:
+            body = f"{sym} crossed your target"
+        return _record(f"alert:{aid}", "alert", title, body, sym, "", None, now_price, None, aid)
+    except Exception:  # noqa: BLE001
+        log.exception("record_price_alert failed")
+        return None
+
+
 def _record(key, kind, title, body, symbol, direction, volume, price, pnl, ref_id) -> Optional[int]:
     event_id = database.add_trade_event(
         key, kind, title, body, symbol=symbol, direction=direction,

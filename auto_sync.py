@@ -131,6 +131,8 @@ def run_sync_cycle(known_trade_ids: set, logfn=log, creds: dict | None = None) -
                         logfn(f"Price alert triggered! {sym} at {current_price} ({cond} {target})")
                         alerts.notify_price_alert(sym, current_price, target, cond, alert.get("notes", ""))
                         database.mark_price_alert_triggered(alert["id"])
+                        import trade_notify
+                        trade_notify.record_price_alert(sym, current_price, target, cond, alert["id"])
     except Exception as price_alert_err:  # noqa: BLE001
         result["errors"].append(f"price_alerts: {price_alert_err}")
         logfn(f"Price alert check error: {price_alert_err}")

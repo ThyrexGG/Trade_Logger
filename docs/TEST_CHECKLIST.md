@@ -88,6 +88,14 @@ in Expo Go. Same Wi-Fi. If it hangs: `npm start -- --tunnel`.
 - [ ] P&L by symbol / by tag bars and Long vs Short match the website
 - [ ] Pull down to refresh works; turning Wi-Fi off shows the red banner, not a blank screen
 
+**A10 · Price alerts (new, M11)** ⚠️ — More → Price alerts
+- [ ] Type a symbol (e.g. `XAU`) → suggestions appear; tap one to fill it
+- [ ] Pick above/below, enter a target price → **Add alert** → it appears under **Active**
+- [ ] The same alert shows on the website's Price Alerts page (and one made on the website shows here after pulling down)
+- [ ] **Delete** asks to confirm, then removes it
+- [ ] An unknown symbol shows a red message instead of crashing
+- [ ] (Only while the PC's MT5 auto-sync daemon runs) a crossed alert moves to **Triggered** and sends a phone + desktop notification; tapping the phone one opens Price alerts
+
 ---
 
 ## B. Installed Android app + trade alerts (needs your setup first)
