@@ -256,9 +256,24 @@ def patch_journal(
 # free-standing journal entry. No execution path; a screenshot cannot alter a
 # trade fact.
 
+def _open_position_exists(owner_id: str) -> bool:
+    """True when `owner_id` is one of the caller's currently open positions."""
+    try:
+        df_open = database.get_open_positions()
+    except Exception:
+        return False
+    if df_open is None or df_open.empty:
+        return False
+    return bool((df_open["position_id"].astype(str) == owner_id).any())
+
+
 def _journal_owner_exists(owner_id: str) -> bool:
-    """A screenshot can hang off a closed trade OR a free-standing entry."""
+    """A screenshot can hang off a closed trade, a still-open position (its
+    screenshots are re-keyed to the closed trade when it closes — see
+    `database.save_open_positions`) OR a free-standing entry."""
     if _fetch_journal_row(owner_id) is not None:
+        return True
+    if _open_position_exists(owner_id):
         return True
     try:
         return bool(database.journal_entry_exists(owner_id))
