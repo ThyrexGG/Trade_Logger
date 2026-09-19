@@ -1,22 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import Constants, { ExecutionEnvironment } from 'expo-constants'
+import Constants from 'expo-constants'
 import * as Device from 'expo-device'
-import * as Notifications from 'expo-notifications'
 import { Platform } from 'react-native'
 import { registerDevice, unregisterDevice } from '../api/push'
+import { getNotifications, isExpoGo } from './notifications'
 
 const ENABLED_KEY = 'tl.push.enabled'
 const TOKEN_KEY = 'tl.push.token'
-
-// Show the notification even while the app is open (a trade opening is worth a banner).
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-})
 
 export interface PushResult {
   ok: boolean
@@ -28,7 +18,8 @@ class PushError extends Error {}
 
 async function acquireToken(): Promise<string> {
   // Expo Go cannot receive remote push on Android (since SDK 53); only the installed app can.
-  if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient) {
+  const Notifications = getNotifications()
+  if (isExpoGo || !Notifications) {
     throw new PushError('Trade alerts only work in the installed TradeLogger app, not in Expo Go. See docs/MOBILE_ANDROID_BUILD.md.')
   }
   if (!Device.isDevice) throw new PushError('Push notifications need a real phone, not an emulator.')

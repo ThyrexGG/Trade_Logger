@@ -1,8 +1,8 @@
-import * as Notifications from 'expo-notifications'
 import { useEffect, useRef } from 'react'
 import { useJournal } from '../journal/JournalContext'
 import { openFromNotification } from '../navigation/ref'
 import { usePositionsContext } from '../positions/PositionsContext'
+import { getNotifications } from './notifications'
 import { refreshPushRegistration } from './push'
 
 /**
@@ -21,6 +21,8 @@ export function PushBridge() {
   }
 
   useEffect(() => {
+    const Notifications = getNotifications()
+    if (!Notifications) return // Expo Go: no push there, everything else still works
     void refreshPushRegistration()
 
     const received = Notifications.addNotificationReceivedListener(() => refreshAll.current())

@@ -36,7 +36,7 @@ export function MonthCalendar({ daily, onDayPress }: { daily: DailyPnl[]; onDayP
     return { y: d.getFullYear(), m: d.getMonth() }
   })
 
-  const { cells, summary, maxAbs } = useMemo(() => {
+  const { weeks, summary, maxAbs } = useMemo(() => {
     const first = new Date(cursor.y, cursor.m, 1)
     const lead = (first.getDay() + 6) % 7
     const daysInMonth = new Date(cursor.y, cursor.m + 1, 0).getDate()
@@ -48,8 +48,10 @@ export function MonthCalendar({ daily, onDayPress }: { daily: DailyPnl[]; onDayP
     }
     while (out.length % 7 !== 0) out.push({ key: `trail-${out.length}`, day: 0, iso: '' })
     const days = out.filter((c) => c.data).map((c) => c.data as DailyPnl)
+    const chunks: Cell[][] = []
+    for (let i = 0; i < out.length; i += 7) chunks.push(out.slice(i, i + 7))
     return {
-      cells: out,
+      weeks: chunks,
       summary: {
         pnl: days.reduce((a, d) => a + d.net_profit, 0),
         trades: days.reduce((a, d) => a + d.trades, 0),
@@ -97,46 +99,50 @@ export function MonthCalendar({ daily, onDayPress }: { daily: DailyPnl[]; onDayP
           </Text>
         ))}
       </View>
-      <View style={styles.grid}>
-        {cells.map((c) => {
-          if (!c.day) return <View key={c.key} style={styles.cellWrap} />
-          const v = c.data?.net_profit
-          const tint =
-            v === undefined || v === 0
-              ? undefined
-              : v > 0
-                ? `rgba(16,185,129,${0.14 + 0.4 * (v / maxAbs)})`
-                : `rgba(239,68,68,${0.14 + 0.4 * (Math.abs(v) / maxAbs)})`
-          const inner = (
-            <View style={[styles.cell, tint ? { backgroundColor: tint } : null]}>
-              <Text style={styles.dayNum}>{c.day}</Text>
-              {v !== undefined ? (
-                <Text
-                  style={[styles.dayPnl, { color: v > 0 ? colors.positive : v < 0 ? colors.negative : colors.textSecondary }]}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
+      <View>
+        {weeks.map((week, wi) => (
+          <View key={wi} style={styles.weekLine}>
+            {week.map((c) => {
+              if (!c.day) return <View key={c.key} style={styles.cellWrap} />
+              const v = c.data?.net_profit
+              const tint =
+                v === undefined || v === 0
+                  ? undefined
+                  : v > 0
+                    ? `rgba(16,185,129,${0.14 + 0.4 * (v / maxAbs)})`
+                    : `rgba(239,68,68,${0.14 + 0.4 * (Math.abs(v) / maxAbs)})`
+              const inner = (
+                <View style={[styles.cell, tint ? { backgroundColor: tint } : null]}>
+                  <Text style={styles.dayNum}>{c.day}</Text>
+                  {v !== undefined ? (
+                    <Text
+                      style={[styles.dayPnl, { color: v > 0 ? colors.positive : v < 0 ? colors.negative : colors.textSecondary }]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                    >
+                      {compact(v)}
+                    </Text>
+                  ) : null}
+                </View>
+              )
+              return c.data ? (
+                <Pressable
+                  key={c.key}
+                  style={styles.cellWrap}
+                  onPress={() => onDayPress(c.iso)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${c.iso}, ${money(c.data.net_profit)}`}
                 >
-                  {compact(v)}
-                </Text>
-              ) : null}
-            </View>
-          )
-          return c.data ? (
-            <Pressable
-              key={c.key}
-              style={styles.cellWrap}
-              onPress={() => onDayPress(c.iso)}
-              accessibilityRole="button"
-              accessibilityLabel={`${c.iso}, ${money(c.data.net_profit)}`}
-            >
-              {inner}
-            </Pressable>
-          ) : (
-            <View key={c.key} style={styles.cellWrap}>
-              {inner}
-            </View>
-          )
-        })}
+                  {inner}
+                </Pressable>
+              ) : (
+                <View key={c.key} style={styles.cellWrap}>
+                  {inner}
+                </View>
+              )
+            })}
+          </View>
+        ))}
       </View>
     </View>
   )
@@ -152,8 +158,8 @@ const styles = StyleSheet.create({
   summarySub: { color: colors.textMuted, fontSize: 12, marginTop: 2, textAlign: 'center' },
   weekRow: { flexDirection: 'row', marginTop: spacing.xs },
   weekday: { flex: 1, textAlign: 'center', color: colors.textMuted, fontSize: 11, paddingVertical: 4 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap' },
-  cellWrap: { width: `${100 / 7}%`, padding: 2 },
+  weekLine: { flexDirection: 'row' },
+  cellWrap: { flex: 1, padding: 2 },
   cell: {
     aspectRatio: 1,
     borderRadius: radius.sm,
