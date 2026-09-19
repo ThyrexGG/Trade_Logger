@@ -131,4 +131,5 @@ to maintain: new web features do not automatically appear in the app.
 ## Progress log
 - M1 built 2026-09-19 (Expo SDK 57, RN 0.86; typecheck + Metro bundle + expo-doctor 21/21 pass) — **awaiting phone checkpoint**
 - M2 built 2026-09-19 (login + secure token storage; typecheck + Android/iOS bundle pass; live 401 messages verified) — **awaiting phone checkpoint**
-- [ ] M3 · [ ] M4 · [ ] M5 · [ ] M6 · [ ] M7 · [ ] M8 · [ ] M9
+- M3 built 2026-09-19 (Positions tab, 45s poll, pull-to-refresh, Sync now, bottom tabs; bundles on both platforms; doctor 21/21) — **awaiting phone checkpoint**
+- [ ] M4 · [ ] M5 · [ ] M6 · [ ] M7 · [ ] M8 · [ ] M9

@@ -11,14 +11,13 @@ const PILL: Record<HealthState, { label: string; color: string }> = {
   unreachable: { label: 'API unreachable', color: colors.negative },
 }
 
-/** Temporary signed-in landing screen; M3 replaces it with the Positions / Journal tabs. */
-export function HomeScreen() {
+export function AccountScreen() {
   const { user, signOut } = useAuth()
   const { state, health, latencyMs, recheck } = useApiHealth()
   const pill = PILL[state]
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <SafeAreaView style={styles.screen} edges={['top']}>
       <View style={styles.center}>
         <Text style={styles.brand}>TradeLogger</Text>
 
@@ -48,7 +47,6 @@ export function HomeScreen() {
         >
           <Text style={styles.logoutText}>Log out</Text>
         </Pressable>
-        <Text style={styles.hint}>Mobile plan · step M2</Text>
       </View>
     </SafeAreaView>
   )

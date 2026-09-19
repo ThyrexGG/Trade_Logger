@@ -1,10 +1,23 @@
+import { DarkTheme, NavigationContainer, type Theme } from '@react-navigation/native'
 import { StatusBar } from 'expo-status-bar'
 import { ActivityIndicator, StyleSheet, View } from 'react-native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { AuthProvider, useAuth } from './src/auth/AuthContext'
-import { HomeScreen } from './src/screens/HomeScreen'
+import { AppTabs } from './src/navigation/AppTabs'
 import { LoginScreen } from './src/screens/LoginScreen'
 import { colors } from './src/theme'
+
+const navTheme: Theme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    background: colors.background,
+    card: colors.surface,
+    text: colors.textPrimary,
+    border: colors.borderSubtle,
+    primary: colors.accent,
+  },
+}
 
 function Root() {
   const { status } = useAuth()
@@ -15,7 +28,12 @@ function Root() {
       </View>
     )
   }
-  return status === 'signedIn' ? <HomeScreen /> : <LoginScreen />
+  if (status !== 'signedIn') return <LoginScreen />
+  return (
+    <NavigationContainer theme={navTheme}>
+      <AppTabs />
+    </NavigationContainer>
+  )
 }
 
 export default function App() {
