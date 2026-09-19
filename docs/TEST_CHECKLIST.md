@@ -13,10 +13,11 @@ Legend: ✅ = should just work · ⚠️ = newest / least certain, look closely
 
 ---
 
-## A. Phone app in Expo Go (no setup beyond Expo Go)
+## A. Phone app (the installed APK)
 
-Start it: on the PC, `cd C:\Users\Asus\Desktop\Trade_Logger\mobile` then `npm start`, scan the QR
-in Expo Go. Same Wi-Fi. If it hangs: `npm start -- --tunnel`.
+Use the installed TradeLogger app (second build, 2026-09-19). To try changes that aren't built yet: on the PC,
+`cd C:\Users\Asus\Desktop\Trade_Logger\mobile` then `npm start`, scan the QR in Expo Go (same Wi-Fi;
+if it hangs: `npm start -- --tunnel`).
 
 **A1 · Start & connection (M1)**
 - [ ] Gold **TradeLogger** login screen appears (dark, gold accents)
@@ -190,9 +191,12 @@ The new version is running and your **Desktop shortcut** now points to it
 
 **Same behaviour, by hand-check (section A):** autosave after 0.9 s sending only what changed, open-trade notes carrying over on close, big uncropped screenshots, tag suggestions.
 
+**Now on the phone too (Phase 2):** Analytics with the calendar, Price alerts, Log a trade (manual entry), Risk gateway, AI assistant, Killzone scanner (scan list + "Plan this"; the live candle chart and Markdown export stay website-only).
+
 **Not on the phone — on purpose** (the phone app is a companion, not a copy):
-- Analytics, Command Center, Market, Macro, Killzone Scanner, Chart Analyzer, Challenge Tracker, Research, AI assistant
-- Manual trade-entry form, CSV export, calendar view, Pre-Trade Checklist form
+- Command Center, Market, Macro / Market Intelligence, Crypto Carry, Research
+- Chart Analyzer and Challenge Tracker (you chose to leave them out)
+- System Health, Connections, Partners, CSV export
 - The Feed/Table toggle (the phone has one list layout)
 
 **Phone-only extras:** fingerprint/PIN lock, push alerts, camera capture.
