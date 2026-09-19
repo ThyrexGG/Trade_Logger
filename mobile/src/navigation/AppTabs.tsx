@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { AccountScreen } from '../screens/AccountScreen'
+import { JournalScreen } from '../screens/JournalScreen'
 import { PositionsScreen } from '../screens/PositionsScreen'
 import { colors } from '../theme'
-import { JournalStack } from './JournalStack'
 
 const Tab = createBottomTabNavigator()
 
@@ -24,7 +24,7 @@ export function AppTabs() {
       />
       <Tab.Screen
         name="Journal"
-        component={JournalStack}
+        component={JournalScreen}
         options={{ tabBarIcon: ({ color, size }) => <Ionicons name="journal-outline" color={color} size={size} /> }}
       />
       <Tab.Screen

@@ -4,7 +4,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { AuthProvider, useAuth } from './src/auth/AuthContext'
 import { JournalProvider } from './src/journal/JournalContext'
-import { AppTabs } from './src/navigation/AppTabs'
+import { RootStack } from './src/navigation/RootStack'
 import { PositionsProvider } from './src/positions/PositionsContext'
 import { LoginScreen } from './src/screens/LoginScreen'
 import { colors } from './src/theme'
@@ -35,7 +35,7 @@ function Root() {
     <PositionsProvider>
       <JournalProvider>
         <NavigationContainer theme={navTheme}>
-          <AppTabs />
+          <RootStack />
         </NavigationContainer>
       </JournalProvider>
     </PositionsProvider>

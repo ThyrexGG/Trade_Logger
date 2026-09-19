@@ -2,27 +2,29 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { patchJournalEntry } from '../api/journal'
+import { patchPosition } from '../api/positions'
 import { AnnotationEditor } from '../components/AnnotationEditor'
-import { formatMoney, formatPrice, formatUpdated, isBuy } from '../format'
-import { useJournal } from '../journal/JournalContext'
-import { formatDuration } from '../journal/filters'
+import { formatMoney, formatPrice, isBuy } from '../format'
 import { useTagSuggestions } from '../journal/useTagSuggestions'
 import type { RootStackParamList } from '../navigation/RootStack'
+import { usePositionsContext } from '../positions/PositionsContext'
 import { colors, radius, spacing } from '../theme'
 
-export function TradeDetailScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'TradeDetail'>>()
-  const { params } = useRoute<RouteProp<RootStackParamList, 'TradeDetail'>>()
-  const { data, applyEntry } = useJournal()
+/** Journal an open trade while it's still running — the notes carry over to the closed trade automatically. */
+export function PositionDetailScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'PositionDetail'>>()
+  const { params } = useRoute<RouteProp<RootStackParamList, 'PositionDetail'>>()
+  const { data, applyPosition } = usePositionsContext()
   const tagSuggestions = useTagSuggestions()
-  const trade = data?.entries.find((e) => e.trade_id === params.tradeId)
+  const position = data?.positions.find((p) => p.position_id === params.positionId)
 
-  if (!trade) {
+  if (!position) {
     return (
       <SafeAreaView style={styles.screen}>
         <View style={styles.missing}>
-          <Text style={styles.missingText}>This trade is no longer in your journal.</Text>
+          <Text style={styles.missingText}>
+            This trade is no longer open. If it just closed, find it in the Journal tab — your notes carried over.
+          </Text>
           <Pressable onPress={() => navigation.goBack()} style={styles.backBtn} accessibilityRole="button">
             <Text style={styles.backText}>Go back</Text>
           </Pressable>
@@ -31,8 +33,8 @@ export function TradeDetailScreen() {
     )
   }
 
-  const dirColor = isBuy(trade.direction) ? colors.positive : colors.negative
-  const netColor = trade.net_profit > 0 ? colors.positive : trade.net_profit < 0 ? colors.negative : colors.textSecondary
+  const dirColor = isBuy(position.direction) ? colors.positive : colors.negative
+  const pnlColor = position.floating_pnl > 0 ? colors.positive : position.floating_pnl < 0 ? colors.negative : colors.textSecondary
 
   return (
     <SafeAreaView style={styles.screen} edges={['bottom']}>
@@ -40,46 +42,43 @@ export function TradeDetailScreen() {
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.hero}>
             <View style={styles.heroTop}>
-              <Text style={styles.symbol}>{trade.symbol}</Text>
+              <View style={styles.liveDot} />
+              <Text style={styles.symbol}>{position.symbol}</Text>
               <View style={[styles.dirPill, { borderColor: dirColor }]}>
-                <Text style={[styles.dirText, { color: dirColor }]}>{trade.direction.toUpperCase()}</Text>
+                <Text style={[styles.dirText, { color: dirColor }]}>{position.direction.toUpperCase()}</Text>
               </View>
             </View>
-            <Text style={[styles.net, { color: netColor }]}>{formatMoney(trade.net_profit)}</Text>
-            <Text style={styles.sub}>
-              {trade.account_id} · closed {formatUpdated(trade.exit_time)}
-            </Text>
+            <Text style={[styles.pnl, { color: pnlColor }]}>{formatMoney(position.floating_pnl)}</Text>
+            <Text style={styles.sub}>{position.account_id} · floating P&L, still open</Text>
           </View>
 
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Journal</Text>
             <AnnotationEditor
-              key={trade.trade_id}
+              key={position.position_id}
               initial={{
-                setup_tag: trade.setup_tag ?? '',
-                notes: trade.notes ?? '',
-                chart_snapshot_url: trade.chart_snapshot_url ?? '',
-                rating: trade.rating ?? 0,
+                setup_tag: position.setup_tag ?? '',
+                notes: position.notes ?? '',
+                chart_snapshot_url: position.chart_snapshot_url ?? '',
+                rating: position.rating ?? 0,
               }}
               tagSuggestions={tagSuggestions}
+              notesLabel="Notes — the plan and how it's playing out"
               save={async (patch) => {
-                const res = await patchJournalEntry(trade.trade_id, patch)
-                applyEntry(res.entry)
+                const res = await patchPosition(position.position_id, patch)
+                applyPosition(res.entry)
               }}
             />
+            <Text style={styles.carry}>Carries over to the closed trade automatically once this position closes.</Text>
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Execution</Text>
-            <Fact label="Volume" value={String(trade.volume)} />
-            <Fact label="Entry" value={formatPrice(trade.entry_price)} />
-            <Fact label="Exit" value={formatPrice(trade.exit_price)} />
-            <Fact label="Opened" value={formatUpdated(trade.entry_time)} />
-            <Fact label="Closed" value={formatUpdated(trade.exit_time)} />
-            <Fact label="Duration" value={formatDuration(trade.duration_minutes)} />
-            <Fact label="Gross P&L" value={formatMoney(trade.gross_profit)} />
-            <Fact label="Commission" value={formatMoney(trade.commission)} />
-            <Fact label="Swap" value={formatMoney(trade.swap)} last />
+            <Text style={styles.sectionTitle}>Position</Text>
+            <Fact label="Volume" value={String(position.volume)} />
+            <Fact label="Entry" value={formatPrice(position.entry_price)} />
+            <Fact label="Current" value={formatPrice(position.current_price)} />
+            <Fact label="Stop" value={position.sl ? formatPrice(position.sl) : '—'} />
+            <Fact label="Target" value={position.tp ? formatPrice(position.tp) : '—'} last />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -91,9 +90,7 @@ function Fact({ label, value, last }: { label: string; value: string; last?: boo
   return (
     <View style={[styles.fact, !last && styles.factBorder]}>
       <Text style={styles.factLabel}>{label}</Text>
-      <Text style={styles.factValue} numberOfLines={1}>
-        {value}
-      </Text>
+      <Text style={styles.factValue}>{value}</Text>
     </View>
   )
 }
@@ -104,10 +101,11 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl * 2 },
   hero: { gap: spacing.xs },
   heroTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  liveDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.accent },
   symbol: { color: colors.textPrimary, fontSize: 26, fontWeight: '700' },
   dirPill: { borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 2 },
   dirText: { fontSize: 12, fontWeight: '700' },
-  net: { fontSize: 34, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  pnl: { fontSize: 34, fontWeight: '700', fontVariant: ['tabular-nums'] },
   sub: { color: colors.textMuted, fontSize: 13 },
   card: {
     backgroundColor: colors.surface,
@@ -125,10 +123,11 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: spacing.xs,
   },
+  carry: { color: colors.textMuted, fontSize: 11, marginTop: spacing.md },
   fact: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.md, gap: spacing.lg },
   factBorder: { borderBottomColor: colors.borderSubtle, borderBottomWidth: 1 },
   factLabel: { color: colors.textMuted, fontSize: 13 },
-  factValue: { color: colors.textPrimary, fontSize: 14, fontVariant: ['tabular-nums'], flexShrink: 1 },
+  factValue: { color: colors.textPrimary, fontSize: 14, fontVariant: ['tabular-nums'] },
   missing: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.lg, padding: spacing.xl },
   missingText: { color: colors.textSecondary, fontSize: 15, textAlign: 'center' },
   backBtn: { borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.xl, paddingVertical: spacing.md },

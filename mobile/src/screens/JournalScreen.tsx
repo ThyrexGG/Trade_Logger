@@ -7,13 +7,13 @@ import { formatMoney, formatUpdated, isBuy } from '../format'
 import { useJournal } from '../journal/JournalContext'
 import { DATE_FILTERS, filterEntries, summarize, type DateFilter } from '../journal/filters'
 import { loadPrefs, savePref } from '../journal/prefs'
-import type { JournalStackParamList } from '../navigation/JournalStack'
+import type { RootStackParamList } from '../navigation/RootStack'
 import { usePositionsContext } from '../positions/PositionsContext'
 import { colors, radius, spacing } from '../theme'
 import type { JournalTradeItem } from '../types/journal'
 import type { PositionItem } from '../types/positions'
 
-type Nav = NativeStackNavigationProp<JournalStackParamList, 'JournalList'>
+type Nav = NativeStackNavigationProp<RootStackParamList>
 
 function pnlColor(v: number): string {
   return v > 0 ? colors.positive : v < 0 ? colors.negative : colors.textSecondary
@@ -32,10 +32,10 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
   )
 }
 
-function OpenRow({ p }: { p: PositionItem }) {
+function OpenRow({ p, onPress }: { p: PositionItem; onPress: () => void }) {
   const dirColor = isBuy(p.direction) ? colors.positive : colors.negative
   return (
-    <View style={styles.openRow}>
+    <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [styles.openRow, pressed && { opacity: 0.7 }]}>
       <View style={styles.openLeft}>
         <View style={styles.liveDot} />
         <Text style={styles.openSymbol}>{p.symbol}</Text>
@@ -43,7 +43,7 @@ function OpenRow({ p }: { p: PositionItem }) {
         <Text style={styles.openVol}>{p.volume}</Text>
       </View>
       <Text style={[styles.openPnl, { color: pnlColor(p.floating_pnl) }]}>{formatMoney(p.floating_pnl)}</Text>
-    </View>
+    </Pressable>
   )
 }
 
@@ -156,7 +156,7 @@ export function JournalScreen() {
         <View style={styles.openBlock}>
           <Text style={styles.sectionTitle}>Open now ({openPositions.length})</Text>
           {openPositions.map((p) => (
-            <OpenRow key={p.position_id} p={p} />
+            <OpenRow key={p.position_id} p={p} onPress={() => navigation.navigate('PositionDetail', { positionId: p.position_id })} />
           ))}
         </View>
       ) : null}

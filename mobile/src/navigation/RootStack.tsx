@@ -1,0 +1,35 @@
+import { createNativeStackNavigator } from '@react-navigation/native-stack'
+import { PositionDetailScreen } from '../screens/PositionDetailScreen'
+import { TradeDetailScreen } from '../screens/TradeDetailScreen'
+import { colors } from '../theme'
+import { AppTabs } from './AppTabs'
+
+export type RootStackParamList = {
+  Tabs: undefined
+  TradeDetail: { tradeId: string }
+  PositionDetail: { positionId: string }
+}
+
+const Stack = createNativeStackNavigator<RootStackParamList>()
+
+/** Tabs at the root; trade / position detail screens push over them from either tab. */
+export function RootStack() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.surface },
+        headerTintColor: colors.accent,
+        headerTitleStyle: { color: colors.textPrimary },
+        contentStyle: { backgroundColor: colors.background },
+      }}
+    >
+      <Stack.Screen name="Tabs" component={AppTabs} options={{ headerShown: false }} />
+      <Stack.Screen name="TradeDetail" component={TradeDetailScreen} options={{ title: 'Trade', headerBackTitle: 'Back' }} />
+      <Stack.Screen
+        name="PositionDetail"
+        component={PositionDetailScreen}
+        options={{ title: 'Open trade', headerBackTitle: 'Back' }}
+      />
+    </Stack.Navigator>
+  )
+}

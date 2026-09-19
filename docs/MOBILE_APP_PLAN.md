@@ -133,4 +133,5 @@ to maintain: new web features do not automatically appear in the app.
 - M2 built 2026-09-19 (login + secure token storage; typecheck + Android/iOS bundle pass; live 401 messages verified) — **awaiting phone checkpoint**
 - M3 built 2026-09-19 (Positions tab, 45s poll, pull-to-refresh, Sync now, bottom tabs; bundles on both platforms; doctor 21/21) — **awaiting phone checkpoint**
 - M4 built 2026-09-19 (Journal tab: date + account filters, summary, Open now, trade detail; filter logic unit-tested; bundles OK) — **awaiting phone checkpoint**
-- [ ] M5 · [ ] M6 · [ ] M7 · [ ] M8 · [ ] M9
+- M5 built 2026-09-19 (journal editing for closed + open trades: notes, tag, rating, chart link; debounced autosave; root stack navigation; bundles OK) — **awaiting phone checkpoint**
+- [ ] M6 · [ ] M7 · [ ] M8 · [ ] M9

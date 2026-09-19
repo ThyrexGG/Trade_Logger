@@ -1,19 +1,22 @@
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { formatMoney, formatPrice, formatUpdated, isBuy } from '../format'
 import { colors, radius, spacing } from '../theme'
 import type { PositionItem } from '../types/positions'
+import type { RootStackParamList } from '../navigation/RootStack'
 import { usePositionsContext } from '../positions/PositionsContext'
 
 function pnlColor(v: number): string {
   return v > 0 ? colors.positive : v < 0 ? colors.negative : colors.textSecondary
 }
 
-function PositionCard({ p }: { p: PositionItem }) {
+function PositionCard({ p, onPress }: { p: PositionItem; onPress: () => void }) {
   const buy = isBuy(p.direction)
   const dirColor = buy ? colors.positive : colors.negative
   return (
-    <View style={styles.card}>
+    <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [styles.card, pressed && { opacity: 0.75 }]}>
       <View style={styles.cardTop}>
         <View style={styles.symbolRow}>
           <View style={styles.liveDot} />
@@ -44,7 +47,8 @@ function PositionCard({ p }: { p: PositionItem }) {
           ) : null}
         </View>
       ) : null}
-    </View>
+      <Text style={styles.tapHint}>Tap to journal this trade ›</Text>
+    </Pressable>
   )
 }
 
@@ -58,6 +62,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 export function PositionsScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
   const { data, loading, refreshing, error, refresh, syncing, syncError, syncNow } = usePositionsContext()
   const positions = data?.positions ?? []
   const total = data?.total_floating_pnl ?? 0
@@ -103,7 +108,9 @@ export function PositionsScreen() {
         <FlatList
           data={positions}
           keyExtractor={(p) => p.position_id}
-          renderItem={({ item }) => <PositionCard p={item} />}
+          renderItem={({ item }) => (
+            <PositionCard p={item} onPress={() => navigation.navigate('PositionDetail', { positionId: item.position_id })} />
+          )}
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.accent} colors={[colors.accent]} />}
           ListEmptyComponent={
@@ -213,6 +220,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     overflow: 'hidden',
   },
+  tapHint: { color: colors.textMuted, fontSize: 12 },
   meta: { color: colors.textMuted, fontSize: 12 },
   note: { color: colors.textSecondary, fontSize: 13, flexBasis: '100%' },
   empty: { alignItems: 'center', paddingVertical: 64, paddingHorizontal: spacing.xl, gap: spacing.sm },

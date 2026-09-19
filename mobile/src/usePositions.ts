@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { AppState } from 'react-native'
 import { getPositions } from './api/positions'
 import { runSyncNow } from './api/system'
-import type { PositionsResponse } from './types/positions'
+import type { PositionItem, PositionsResponse } from './types/positions'
 
 const REFRESH_MS = 45_000
 
@@ -19,6 +19,8 @@ export interface UsePositions {
   /** error text from the last sync cycle, if it failed */
   syncError: string | null
   syncNow: () => Promise<void>
+  /** Swap one edited position into the cache so screens update without a refetch. */
+  applyPosition: (item: PositionItem) => void
 }
 
 /**
@@ -95,5 +97,11 @@ export function usePositions(): UsePositions {
     }
   }, [load])
 
-  return { data, loading, refreshing, error, refresh, syncing, syncError, syncNow }
+  const applyPosition = useCallback((item: PositionItem) => {
+    setData((prev) =>
+      prev ? { ...prev, positions: prev.positions.map((p) => (p.position_id === item.position_id ? { ...p, ...item } : p)) } : prev,
+    )
+  }, [])
+
+  return { data, loading, refreshing, error, refresh, syncing, syncError, syncNow, applyPosition }
 }
