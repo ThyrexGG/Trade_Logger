@@ -86,6 +86,26 @@ def _auto_enabled_user_ids() -> List[str]:
         return []
 
 
+def _alert_user_ids() -> List[str]:
+    try:
+        return database.user_ids_with_active_price_alerts()
+    except Exception:
+        return []
+
+
+def _check_alerts_for(uids) -> None:
+    """Price alerts need no broker connection: evaluate them for users whose sync cycle
+    did not run (no auto-sync, or no saved connection), so an alert fires either way."""
+    for uid in sorted(uids):
+        if _stop.is_set():
+            break
+        try:
+            with tenant.use(uid):
+                auto_sync.check_price_alerts(logfn=lambda _m: None)
+        except Exception:
+            pass
+
+
 def _heartbeat_age_sec(user_id: Optional[str] = None) -> Optional[float]:
     try:
         raw = database.get_user_setting(_HEARTBEAT_KEY, "", user_id=user_id)
@@ -234,13 +254,17 @@ def _loop() -> None:
             uids = set(_auto_enabled_user_ids())
             if is_auto_enabled(tenant.LOCAL_USER_ID):
                 uids.add(tenant.LOCAL_USER_ID)
+            synced = set()
             for uid in sorted(uids):
                 if _stop.is_set():
                     break
                 try:
-                    run_for_user(uid, source="auto")
+                    out = run_for_user(uid, source="auto")
+                    if not out.get("skipped"):
+                        synced.add(uid)  # its cycle already evaluated the alerts
                 except Exception:
                     pass
+            _check_alerts_for(set(_alert_user_ids()) - synced)
         except Exception:
             pass
         _stop.wait(INTERVAL_SEC)
@@ -265,8 +289,15 @@ def set_auto(enabled: bool, user_id: Optional[str] = None) -> Dict[str, Any]:
 
 def start_if_enabled() -> None:
     """Called from the app lifespan — bring the loop up if anyone left it on."""
-    if _any_auto_enabled():
+    if _any_auto_enabled() or _alert_user_ids():
         _ensure_thread()
+
+
+def watch_alerts() -> None:
+    """Called when a price alert is created: make sure the loop that evaluates it is running."""
+    if os.getenv("TL_ALERT_WATCH", "1") == "0":
+        return
+    _ensure_thread()
 
 
 def status(user_id: Optional[str] = None) -> Dict[str, Any]:

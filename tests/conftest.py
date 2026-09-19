@@ -41,6 +41,7 @@ def _reset_auth_env() -> None:
     os.environ.pop("TL_AUTH_PASSWORD", None)
     os.environ.pop("TL_AUTH_PASSWORD_HASH", None)
     os.environ.pop("TL_AUTH_DISABLED", None)
+    os.environ["TL_ALERT_WATCH"] = "0"  # creating an alert must not start the background price watcher in tests
 
 
 _reset_auth_env()  # covers collection-time pollution from this file's own import above

@@ -42,6 +42,77 @@ def _inprocess_sync_active() -> bool:
         return False
 
 
+def _alert_price(sym: str, mt5_ok: bool, cache: dict):
+    """Current price for one alert symbol, or None when no REAL quote is available.
+    MT5 tick first (when the terminal is enabled), then the verified public feeds.
+    Never a placeholder: a made-up price must not be able to trigger an alert."""
+    if sym in cache:
+        return cache[sym]
+    price = None
+    if mt5_ok:
+        try:
+            import MetaTrader5 as mt5
+            tick = mt5.symbol_info_tick(sym)
+            if tick:
+                price = float(tick.bid)
+        except Exception:
+            price = None
+    if price is None:
+        try:
+            import market_data
+            price = market_data.get_verified_price(sym)
+        except Exception:
+            price = None
+    cache[sym] = price
+    return price
+
+
+def _tenant_owns_global_channels() -> bool:
+    """Telegram / Discord / Windows toast are configured once, in the server's env, for
+    the owner. Another user's alert must never be posted there (only pushed to their own
+    devices via the trade-event feed)."""
+    try:
+        from api import sync_service
+        import tenant
+        return sync_service._env_fallback_ok(tenant.current_user_id())
+    except Exception:
+        return False
+
+
+def check_price_alerts(logfn=log) -> int:
+    """Evaluate the current tenant's ACTIVE price alerts against live prices and fire
+    the ones that crossed. Returns how many fired."""
+    active_alerts = database.get_active_price_alerts()
+    if not active_alerts:
+        return 0
+    mt5_ok = mt5_sync.MT5_AVAILABLE
+    try:
+        import mt5_gate
+        mt5_ok = mt5_ok and mt5_gate.is_mt5_enabled()
+    except Exception:
+        pass
+    prices: dict = {}
+    fired = 0
+    for alert in active_alerts:
+        sym = alert["symbol"]
+        target = float(alert["target_price"])
+        cond = alert["condition"]
+        current_price = _alert_price(sym, mt5_ok, prices)
+        if current_price is None:
+            continue
+        triggered = (cond == "ABOVE" and current_price >= target) or                     (cond == "BELOW" and current_price <= target)
+        if not triggered:
+            continue
+        logfn(f"Price alert triggered! {sym} at {current_price} ({cond} {target})")
+        database.mark_price_alert_triggered(alert["id"])  # first, so a notify failure can't re-fire it every cycle
+        fired += 1
+        import trade_notify
+        trade_notify.record_price_alert(sym, current_price, target, cond, alert["id"])
+        if _tenant_owns_global_channels():
+            alerts.notify_price_alert(sym, current_price, target, cond, alert.get("notes", ""))
+    return fired
+
+
 def run_sync_cycle(known_trade_ids: set, logfn=log, creds: dict | None = None) -> dict:
     """One sync iteration — Capital.com trade/position sync, closed-trade push
     alerts, and price-alert checks (plus MT5 only if MT5_ENABLED). Shared by
@@ -103,36 +174,7 @@ def run_sync_cycle(known_trade_ids: set, logfn=log, creds: dict | None = None) -
 
     # 4. Active price alerts
     try:
-        active_alerts = database.get_active_price_alerts()
-        if active_alerts:
-            _mt5_ok = mt5_sync.MT5_AVAILABLE
-            try:
-                import mt5_gate
-                _mt5_ok = _mt5_ok and mt5_gate.is_mt5_enabled()
-            except Exception:
-                pass
-            for alert in active_alerts:
-                sym = alert["symbol"]
-                target = float(alert["target_price"])
-                cond = alert["condition"]
-                current_price = None
-                if _mt5_ok:
-                    try:
-                        import MetaTrader5 as mt5
-                        tick = mt5.symbol_info_tick(sym)
-                        if tick:
-                            current_price = float(tick.bid)
-                    except Exception:
-                        pass
-                if current_price is not None:
-                    triggered = (cond == "ABOVE" and current_price >= target) or \
-                                (cond == "BELOW" and current_price <= target)
-                    if triggered:
-                        logfn(f"Price alert triggered! {sym} at {current_price} ({cond} {target})")
-                        alerts.notify_price_alert(sym, current_price, target, cond, alert.get("notes", ""))
-                        database.mark_price_alert_triggered(alert["id"])
-                        import trade_notify
-                        trade_notify.record_price_alert(sym, current_price, target, cond, alert["id"])
+        check_price_alerts(logfn)
     except Exception as price_alert_err:  # noqa: BLE001
         result["errors"].append(f"price_alerts: {price_alert_err}")
         logfn(f"Price alert check error: {price_alert_err}")

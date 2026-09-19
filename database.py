@@ -1466,6 +1466,19 @@ def get_all_price_alerts(limit=50, ttl_sec: float = 0.0):
         _DB_CACHE[cache_key] = (df, time.time())
     return df.copy()
 
+def user_ids_with_active_price_alerts():
+    """Every user_id that has at least one ACTIVE price alert — for the server's alert watcher."""
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT DISTINCT user_id FROM price_alerts WHERE status = 'ACTIVE'")
+        rows = [r[0] for r in cur.fetchall() if r[0]]
+        conn.close()
+        return rows
+    except Exception:
+        return []
+
+
 def mark_price_alert_triggered(alert_id):
     """Marks the current tenant's price alert as TRIGGERED."""
     uid = tenant.current_user_id()

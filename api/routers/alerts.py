@@ -137,6 +137,12 @@ def create_alert(payload: AlertCreateRequest) -> AlertCreateResponse:
         notes=notes,
     )
 
+    try:
+        from api import sync_service
+        sync_service.watch_alerts()
+    except Exception:  # noqa: BLE001 - never fail the create because the watcher could not start
+        pass
+
     row = _fetch_alert_row(int(new_id)) if new_id is not None else None
     if row is None:  # pragma: no cover - defensive; the row was just written
         raise HTTPException(status_code=500, detail="Alert was created but could not be read back")

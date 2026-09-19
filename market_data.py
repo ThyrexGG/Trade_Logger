@@ -308,6 +308,27 @@ def get_latest_price(symbol: str = "EURUSD", ttl_sec: float = 8.0) -> Optional[f
     return None
 
 
+def get_verified_price(symbol: str, ttl_sec: float = 20.0) -> Optional[float]:
+    """Latest price ONLY when a real feed served it (FMP quote, MT5, Binance or Yahoo);
+    None otherwise. Unlike get_latest_price it never falls back to DEFAULT_UNIVERSE_PRICES
+    or the synthetic offline candles, so it is safe to compare against a user's alert target."""
+    sym = symbol.upper().replace("/", "").replace(":", "").strip()
+    if "BTC" not in sym and "ETH" not in sym and "SOL" not in sym:
+        fp = _fmp_quote(sym)
+        if fp is not None:
+            return fp
+    try:
+        candles, source = get_candles_with_source(sym, "1m", 2, ttl_sec)
+    except Exception:
+        return None
+    if source in ("mt5", "binance", "yahoo") and candles:
+        try:
+            return float(candles[-1]["close"])
+        except (KeyError, TypeError, ValueError):
+            return None
+    return None
+
+
 def get_batch_prices(symbols: List[str], ttl_sec: float = 8.0) -> Dict[str, float]:
     """
     High-speed batch price retrieval for multi-asset universe scanning.

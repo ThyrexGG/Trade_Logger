@@ -162,7 +162,7 @@ export function PriceAlertsScreen() {
               {saving ? <ActivityIndicator color="#000" /> : <Text style={styles.primaryText}>Add alert</Text>}
             </Pressable>
             <Text style={styles.note}>
-              Alerts are checked by the background sync that watches live prices. This only notifies you — it never places a trade.
+              The server checks alerts about every 2 minutes against public market prices, which can differ slightly from your broker's. You get a notification when one is hit. This only notifies you — it never places a trade.
             </Text>
           </View>
 
