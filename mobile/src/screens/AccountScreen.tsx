@@ -1,10 +1,12 @@
-import { useState } from 'react'
-import { Pressable, StyleSheet, Switch, Text, View } from 'react-native'
+import { useEffect, useState } from 'react'
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { sendTestPush } from '../api/push'
 import { API_BASE_URL } from '../config'
 import { useAuth } from '../auth/AuthContext'
 import { useHealth } from '../HealthContext'
 import { useLock } from '../lock/LockContext'
+import { disablePush, enablePush, isPushEnabled, unregisterStoredToken } from '../push/push'
 import { colors, radius, spacing } from '../theme'
 import type { HealthState } from '../useApiHealth'
 
@@ -21,6 +23,44 @@ export function AccountScreen() {
   const [lockError, setLockError] = useState<string | null>(null)
   const pill = PILL[state]
 
+  const [pushOn, setPushOn] = useState(false)
+  const [pushBusy, setPushBusy] = useState(false)
+  const [pushMsg, setPushMsg] = useState<{ text: string; ok: boolean } | null>(null)
+
+  useEffect(() => {
+    void isPushEnabled().then(setPushOn)
+  }, [])
+
+  async function togglePush(on: boolean) {
+    setPushBusy(true)
+    setPushMsg(null)
+    if (on) {
+      const r = await enablePush()
+      setPushOn(r.ok)
+      setPushMsg(r.ok ? { text: 'Trade alerts are on for this phone.', ok: true } : { text: r.message ?? 'Could not turn on alerts.', ok: false })
+    } else {
+      await disablePush()
+      setPushOn(false)
+    }
+    setPushBusy(false)
+  }
+
+  async function testPush() {
+    setPushBusy(true)
+    setPushMsg(null)
+    try {
+      const r = await sendTestPush()
+      setPushMsg(
+        r.sent > 0
+          ? { text: 'Sent — it should arrive in a few seconds.', ok: true }
+          : { text: r.error ?? 'Nothing was delivered.', ok: false },
+      )
+    } catch (err) {
+      setPushMsg({ text: err instanceof Error ? err.message : 'Test failed.', ok: false })
+    }
+    setPushBusy(false)
+  }
+
   async function toggleLock(on: boolean) {
     setLockError(null)
     setLockError(await lock.setEnabled(on))
@@ -28,7 +68,7 @@ export function AccountScreen() {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
-      <View style={styles.center}>
+      <ScrollView contentContainerStyle={styles.center} showsVerticalScrollIndicator={false}>
         <Text style={styles.brand}>TradeLogger</Text>
 
         <View style={styles.card}>
@@ -56,6 +96,29 @@ export function AccountScreen() {
         </View>
         {lockError ? <Text style={styles.lockError}>{lockError}</Text> : null}
 
+        <View style={styles.lockCard}>
+          <View style={styles.lockText}>
+            <Text style={styles.lockTitle}>Trade alerts</Text>
+            <Text style={styles.lockSub}>A notification when a trade opens or closes, with the P&L.</Text>
+          </View>
+          {pushBusy ? (
+            <ActivityIndicator color={colors.accent} />
+          ) : (
+            <Switch
+              value={pushOn}
+              onValueChange={(v) => void togglePush(v)}
+              trackColor={{ true: colors.accent, false: colors.surfaceElevated }}
+              thumbColor="#ffffff"
+            />
+          )}
+        </View>
+        {pushOn ? (
+          <Pressable onPress={() => void testPush()} disabled={pushBusy} accessibilityRole="button" style={styles.testBtn}>
+            <Text style={styles.testText}>Send a test notification</Text>
+          </Pressable>
+        ) : null}
+        {pushMsg ? <Text style={[styles.lockError, pushMsg.ok && { color: colors.positive }]}>{pushMsg.text}</Text> : null}
+
         <Pressable onPress={recheck} accessibilityRole="button" accessibilityLabel="Recheck API connection">
           <View style={[styles.pill, { borderColor: pill.color }]}>
             <View style={[styles.dot, { backgroundColor: pill.color }]} />
@@ -70,20 +133,20 @@ export function AccountScreen() {
         </Text>
 
         <Pressable
-          onPress={() => void signOut()}
+          onPress={() => void unregisterStoredToken().finally(() => signOut())}
           accessibilityRole="button"
           style={({ pressed }) => [styles.logout, pressed && { opacity: 0.7 }]}
         >
           <Text style={styles.logoutText}>Log out</Text>
         </Pressable>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   )
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.lg, gap: spacing.lg },
+  center: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg, gap: spacing.lg },
   brand: { color: colors.accent, fontSize: 34, fontWeight: '700' },
   card: {
     alignSelf: 'stretch',
@@ -112,6 +175,8 @@ const styles = StyleSheet.create({
   lockText: { flex: 1, gap: 2 },
   lockTitle: { color: colors.textPrimary, fontSize: 15, fontWeight: '600' },
   lockSub: { color: colors.textMuted, fontSize: 12 },
+  testBtn: { borderColor: 'rgba(240,185,11,0.4)', borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm + 2 },
+  testText: { color: colors.accent, fontSize: 13, fontWeight: '600' },
   lockError: { color: colors.negative, fontSize: 12, marginTop: -spacing.sm },
   pill: {
     flexDirection: 'row',

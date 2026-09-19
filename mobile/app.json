@@ -50,6 +50,14 @@
           "resizeMode": "contain",
           "backgroundColor": "#0a0a0a"
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#f0b90b",
+          "defaultChannel": "trades"
+        }
       ]
     ]
   }

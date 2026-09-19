@@ -9,8 +9,10 @@ import { HealthProvider } from './src/HealthContext'
 import { JournalProvider } from './src/journal/JournalContext'
 import { LockProvider, useLock } from './src/lock/LockContext'
 import { LockScreen } from './src/lock/LockScreen'
+import { flushPendingNavigation, navigationRef } from './src/navigation/ref'
 import { RootStack } from './src/navigation/RootStack'
 import { PositionsProvider } from './src/positions/PositionsContext'
+import { PushBridge } from './src/push/PushBridge'
 import { LoginScreen } from './src/screens/LoginScreen'
 import { colors } from './src/theme'
 
@@ -56,9 +58,10 @@ function Root() {
     <HealthProvider>
       <PositionsProvider>
         <JournalProvider>
-          <NavigationContainer theme={navTheme}>
+          <NavigationContainer theme={navTheme} ref={navigationRef} onReady={flushPendingNavigation}>
             <RootStack />
           </NavigationContainer>
+          <PushBridge />
         </JournalProvider>
       </PositionsProvider>
       {/* Overlay (not a replacement) so screens keep their state while locked. */}

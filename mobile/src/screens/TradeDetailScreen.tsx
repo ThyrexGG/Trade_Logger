@@ -1,6 +1,6 @@
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { patchJournalEntry } from '../api/journal'
 import { AnnotationEditor } from '../components/AnnotationEditor'
@@ -15,9 +15,20 @@ import { colors, radius, spacing } from '../theme'
 export function TradeDetailScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'TradeDetail'>>()
   const { params } = useRoute<RouteProp<RootStackParamList, 'TradeDetail'>>()
-  const { data, applyEntry } = useJournal()
+  const { data, applyEntry, loading, refreshing } = useJournal()
   const tagSuggestions = useTagSuggestions()
   const trade = data?.entries.find((e) => e.trade_id === params.tradeId)
+
+  // Opened from a push notification: the trade may still be on its way in from the server.
+  if (!trade && (loading || refreshing)) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <View style={styles.missing}>
+          <ActivityIndicator color={colors.accent} size="large" />
+        </View>
+      </SafeAreaView>
+    )
+  }
 
   if (!trade) {
     return (
