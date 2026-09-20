@@ -1,0 +1,18 @@
+# EAS Build uploads the whole repository, but the phone app is built from mobile/ alone.
+# Leave out everything else (the website, desktop app, Python backend, data, docs) and the folders
+# the app never ships. Without this the upload was ~633 MB, almost all of it mobile/node_modules
+# (EAS ignores the nested mobile/.gitignore) and the git history.
+/*
+!/mobile
+/mobile/node_modules
+/mobile/.expo
+/mobile/dist
+/mobile/web-build
+/mobile/*.tsbuildinfo
+/mobile/.env*.local
+*.jks
+*.p8
+*.p12
+*.key
+*.pem
+*.mobileprovision
