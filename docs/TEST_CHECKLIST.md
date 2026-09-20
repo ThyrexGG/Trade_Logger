@@ -218,10 +218,10 @@ The new version is running and your **Desktop shortcut** now points to it
 (`desktop\release-v1.1.1\win-unpacked\TradeLogger.exe`). Optional proper installer:
 `desktop\release-v1.1\TradeLogger Setup 1.1.0.exe` (Windows will warn "unknown publisher" → More info → Run anyway).
 
-- [ ] Window opens on tradelogger.site and you're still signed in — 🖥️ needs your PC
-- [ ] Tray icon (bottom-right) has: Open TradeLogger · Backend: healthy · alerts · **Start with Windows** · Quit — 🖥️ needs your PC
-- [ ] Tray says **"Backend: healthy"** (before the update it was checking the retired server) — 🖥️ needs your PC
-- [ ] Close the window with ✕ → app stays in the tray; **Ctrl+Shift+L** brings it back — 🖥️ needs your PC
+- [x] Window opens on tradelogger.site and you're still signed in — ✅ owner confirmed on the PC (2026-09-20)
+- [x] Tray icon (bottom-right) has: Open TradeLogger · Backend: healthy · alerts · **Start with Windows** · Quit — ✅ owner confirmed on the PC (2026-09-20)
+- [x] Tray says **"Backend: healthy"** (before the update it was checking the retired server) — ✅ owner confirmed on the PC (2026-09-20)
+- [x] Close the window with ✕ → app stays in the tray; **Ctrl+Shift+L** brings it back — ✅ owner confirmed on the PC (2026-09-20)
 - [ ] (Auto-sync must be ON — see the note at the top) Open a trade on Capital.com → within ~2 min a **Windows notification** "… opened". Click it → opens the Journal — 🖥️ needs your PC
 - [ ] Close the trade → "… closed +$X.XX" notification — 🖥️ needs your PC
 - [ ] Quit the app, open/close a trade, start the app again → you get the notification(s) you missed (max 4 individually, otherwise one summary) — 🖥️ needs your PC
