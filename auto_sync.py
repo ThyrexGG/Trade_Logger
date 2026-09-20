@@ -179,6 +179,14 @@ def run_sync_cycle(known_trade_ids: set, logfn=log, creds: dict | None = None) -
         result["errors"].append(f"price_alerts: {price_alert_err}")
         logfn(f"Price alert check error: {price_alert_err}")
 
+    # 5. Loss limits (daily loss / drawdown) -> notification when a limit is approached or reached
+    try:
+        from api import loss_limits
+        loss_limits.check(logfn)
+    except Exception as limit_err:  # noqa: BLE001
+        result["errors"].append(f"loss_limits: {limit_err}")
+        logfn(f"Loss limit check error: {limit_err}")
+
     return result
 
 

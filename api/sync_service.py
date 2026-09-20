@@ -87,10 +87,14 @@ def _auto_enabled_user_ids() -> List[str]:
 
 
 def _alert_user_ids() -> List[str]:
-    try:
-        return database.user_ids_with_active_price_alerts()
-    except Exception:
-        return []
+    """Everyone the background watcher has something to evaluate for: an active price alert or a loss limit."""
+    ids: set = set()
+    for getter in (database.user_ids_with_active_price_alerts, lambda: database.user_ids_with_setting_key("loss_limits")):
+        try:
+            ids.update(getter())
+        except Exception:
+            pass
+    return sorted(ids)
 
 
 def _check_alerts_for(uids) -> None:
@@ -101,7 +105,15 @@ def _check_alerts_for(uids) -> None:
             break
         try:
             with tenant.use(uid):
-                auto_sync.check_price_alerts(logfn=lambda _m: None)
+                try:
+                    auto_sync.check_price_alerts(logfn=lambda _m: None)
+                except Exception:
+                    pass
+                try:
+                    from api import loss_limits
+                    loss_limits.check(lambda _m: None)
+                except Exception:
+                    pass
         except Exception:
             pass
 

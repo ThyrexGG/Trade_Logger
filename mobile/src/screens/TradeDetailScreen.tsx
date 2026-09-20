@@ -1,8 +1,10 @@
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { useState } from 'react'
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { patchJournalEntry } from '../api/journal'
+import { clearAnalyticsCache } from '../analytics/useAnalytics'
+import { deleteManualTrade, patchJournalEntry } from '../api/journal'
 import { AnnotationEditor } from '../components/AnnotationEditor'
 import { ScreenshotGallery } from '../components/ScreenshotGallery'
 import { formatMoney, formatPrice, formatUpdated, isBuy } from '../format'
@@ -15,7 +17,9 @@ import { colors, radius, spacing } from '../theme'
 export function TradeDetailScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'TradeDetail'>>()
   const { params } = useRoute<RouteProp<RootStackParamList, 'TradeDetail'>>()
-  const { data, applyEntry, loading, refreshing } = useJournal()
+  const { data, applyEntry, loading, refreshing, refresh } = useJournal()
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const tagSuggestions = useTagSuggestions()
   const trade = data?.entries.find((e) => e.trade_id === params.tradeId)
 
@@ -41,6 +45,32 @@ export function TradeDetailScreen() {
         </View>
       </SafeAreaView>
     )
+  }
+
+  const isManual = trade.trade_id.startsWith('MANUAL_')
+
+  function confirmDelete() {
+    if (!trade) return
+    Alert.alert('Delete this trade?', 'It is removed from your Journal, Analytics and calendar, along with its notes and screenshots. This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          setDeleting(true)
+          setDeleteError(null)
+          try {
+            await deleteManualTrade(trade.trade_id)
+            clearAnalyticsCache()
+            await refresh()
+            navigation.goBack()
+          } catch (err) {
+            setDeleteError(err instanceof Error ? err.message : 'Could not delete the trade.')
+            setDeleting(false)
+          }
+        },
+      },
+    ])
   }
 
   const dirColor = isBuy(trade.direction) ? colors.positive : colors.negative
@@ -102,6 +132,22 @@ export function TradeDetailScreen() {
             <Fact label="Commission" value={formatMoney(trade.commission)} />
             <Fact label="Swap" value={formatMoney(trade.swap)} last />
           </View>
+
+          {isManual ? (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Logged by hand</Text>
+              <Text style={styles.sub}>You entered this trade yourself, so you can fix or remove it. Trades synced from a broker can't be changed here.</Text>
+              <View style={styles.manualRow}>
+                <Pressable onPress={() => navigation.navigate('ManualTrade', { trade })} style={styles.editBtn} accessibilityRole="button">
+                  <Text style={styles.editText}>Edit trade</Text>
+                </Pressable>
+                <Pressable onPress={confirmDelete} disabled={deleting} style={[styles.deleteBtn, deleting && { opacity: 0.6 }]} accessibilityRole="button">
+                  {deleting ? <ActivityIndicator color={colors.negative} /> : <Text style={styles.deleteText}>Delete trade</Text>}
+                </Pressable>
+              </View>
+              {deleteError ? <Text style={styles.deleteError}>{deleteError}</Text> : null}
+            </View>
+          ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -150,6 +196,12 @@ const styles = StyleSheet.create({
   factBorder: { borderBottomColor: colors.borderSubtle, borderBottomWidth: 1 },
   factLabel: { color: colors.textMuted, fontSize: 13 },
   factValue: { color: colors.textPrimary, fontSize: 14, fontVariant: ['tabular-nums'], flexShrink: 1 },
+  manualRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
+  editBtn: { flex: 1, alignItems: 'center', borderColor: 'rgba(240,185,11,0.5)', backgroundColor: 'rgba(240,185,11,0.1)', borderWidth: 1, borderRadius: radius.md, paddingVertical: spacing.md },
+  editText: { color: colors.accent, fontWeight: '700', fontSize: 14 },
+  deleteBtn: { flex: 1, alignItems: 'center', borderColor: 'rgba(239,68,68,0.5)', backgroundColor: 'rgba(239,68,68,0.08)', borderWidth: 1, borderRadius: radius.md, paddingVertical: spacing.md },
+  deleteText: { color: colors.negative, fontWeight: '700', fontSize: 14 },
+  deleteError: { color: colors.negative, fontSize: 13, marginTop: spacing.sm },
   missing: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.lg, padding: spacing.xl },
   missingText: { color: colors.textSecondary, fontSize: 15, textAlign: 'center' },
   backBtn: { borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.xl, paddingVertical: spacing.md },

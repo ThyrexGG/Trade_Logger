@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker'
-import { useNavigation } from '@react-navigation/native'
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useEffect, useMemo, useState } from 'react'
 import {
@@ -16,7 +16,8 @@ import {
   type KeyboardTypeOptions,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { createManualTrade } from '../api/journal'
+import { clearAnalyticsCache } from '../analytics/useAnalytics'
+import { createManualTrade, updateManualTrade } from '../api/journal'
 import { formatMoney } from '../format'
 import { useJournal } from '../journal/JournalContext'
 import { useTagSuggestions } from '../journal/useTagSuggestions'
@@ -96,16 +97,27 @@ function Field({
   )
 }
 
+/** Server timestamps are UTC; one without a zone marker would otherwise be read as the phone's local time. */
+const parseServerTime = (iso: string) => {
+  const d = new Date(/[zZ]|[+-]\d\d:\d\d$/.test(iso) ? iso : `${iso.replace(' ', 'T')}Z`)
+  return Number.isNaN(d.getTime()) ? new Date() : d
+}
+const numText = (n: number | null | undefined) => (n ? String(n) : '')
+
 const num = (s: string) => {
   if (!s.trim()) return NaN // Number('') is 0, which would pass as a real profit
   const n = Number(s.replace(/,/g, ''))
   return Number.isFinite(n) ? n : NaN
 }
 
-/** Record a trade you took outside any synced broker. It lands in the Journal, Analytics and the calendar like any other closed trade. */
+/**
+ * Record a trade you took outside any synced broker — or, when opened from a hand-logged trade, correct it.
+ * It lands in the Journal, Analytics and the calendar like any other closed trade.
+ */
 export function ManualTradeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
-  const { data: journal, refresh } = useJournal()
+  const editing = useRoute<RouteProp<RootStackParamList, 'ManualTrade'>>().params?.trade
+  const { data: journal, refresh, applyEntry } = useJournal()
   const { data: positions } = usePositionsContext()
   const tagSuggestions = useTagSuggestions()
 
@@ -116,23 +128,28 @@ export function ManualTradeScreen() {
     return [...set]
   }, [journal, positions])
 
-  const [account, setAccount] = useState('')
-  const [symbol, setSymbol] = useState('')
-  const [direction, setDirection] = useState<'BUY' | 'SELL'>('BUY')
-  const [volume, setVolume] = useState('')
-  const [entryPrice, setEntryPrice] = useState('')
-  const [exitPrice, setExitPrice] = useState('')
-  const [grossProfit, setGrossProfit] = useState('')
-  const [commission, setCommission] = useState('')
-  const [swap, setSwap] = useState('')
-  const [exitTime, setExitTime] = useState(() => new Date())
-  const [entryTime, setEntryTime] = useState(() => new Date(Date.now() - 60 * 60 * 1000))
-  const [tag, setTag] = useState('')
-  const [notes, setNotes] = useState('')
+  const [account, setAccount] = useState(editing?.account_id ?? '')
+  const [symbol, setSymbol] = useState(editing?.symbol ?? '')
+  const [direction, setDirection] = useState<'BUY' | 'SELL'>(editing && editing.direction.toUpperCase().includes('SELL') ? 'SELL' : 'BUY')
+  const [volume, setVolume] = useState(numText(editing?.volume))
+  const [entryPrice, setEntryPrice] = useState(numText(editing?.entry_price))
+  const [exitPrice, setExitPrice] = useState(numText(editing?.exit_price))
+  const [grossProfit, setGrossProfit] = useState(editing ? String(editing.gross_profit) : '')
+  const [commission, setCommission] = useState(numText(editing?.commission))
+  const [swap, setSwap] = useState(numText(editing?.swap))
+  const [exitTime, setExitTime] = useState(() => (editing ? parseServerTime(editing.exit_time) : new Date()))
+  const [entryTime, setEntryTime] = useState(() => (editing ? parseServerTime(editing.entry_time) : new Date(Date.now() - 60 * 60 * 1000)))
+  const [tag, setTag] = useState(editing?.setup_tag ?? '')
+  const [notes, setNotes] = useState(editing?.notes ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    navigation.setOptions({ title: editing ? 'Edit trade' : 'Log a trade' })
+  }, [navigation, editing])
+
+  useEffect(() => {
+    if (editing) return // fixing an old trade keeps its own account
     AsyncStorage.getItem(ACCOUNT_KEY)
       .then((v) => v && setAccount((cur) => cur || v))
       .catch(() => {})
@@ -155,7 +172,7 @@ export function ManualTradeScreen() {
     if (exitTime < entryTime) return setError('Exit time is before entry time.')
     setBusy(true)
     try {
-      await createManualTrade({
+      const body = {
         account_id: acc,
         symbol: sym,
         direction,
@@ -168,9 +185,13 @@ export function ManualTradeScreen() {
         entry_time: entryTime.toISOString(),
         exit_time: exitTime.toISOString(),
         setup_tag: tag.trim() || undefined,
-        notes: notes.trim() || undefined,
-      })
-      AsyncStorage.setItem(ACCOUNT_KEY, acc).catch(() => {})
+        // an edit sends the notes as they now are (empty clears them); a new trade sends none when blank
+        notes: editing ? notes.trim() : notes.trim() || undefined,
+      }
+      if (editing) applyEntry(await updateManualTrade(editing.trade_id, body))
+      else await createManualTrade(body)
+      if (!editing) AsyncStorage.setItem(ACCOUNT_KEY, acc).catch(() => {})
+      clearAnalyticsCache()
       void refresh()
       navigation.goBack()
     } catch (err) {
@@ -185,7 +206,9 @@ export function ManualTradeScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Text style={styles.intro}>
-            For a trade that never went through a synced broker. It appears in your Journal, Analytics and calendar like any other closed trade. Enter profit and fees as your platform reported them.
+            {editing
+              ? 'Fix a mistake in this trade. Analytics and the calendar update to match.'
+              : 'For a trade that never went through a synced broker. It appears in your Journal, Analytics and calendar like any other closed trade. Enter profit and fees as your platform reported them.'}
           </Text>
 
           <Field label="Account" value={account} onChangeText={setAccount} placeholder="e.g. OWN_MONEY" />
@@ -254,7 +277,7 @@ export function ManualTradeScreen() {
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
           <Pressable onPress={() => void submit()} disabled={busy} style={[styles.primary, busy && { opacity: 0.6 }]} accessibilityRole="button">
-            {busy ? <ActivityIndicator color="#000" /> : <Text style={styles.primaryText}>Save trade</Text>}
+            {busy ? <ActivityIndicator color="#000" /> : <Text style={styles.primaryText}>{editing ? 'Save changes' : 'Save trade'}</Text>}
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>

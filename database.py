@@ -1096,6 +1096,81 @@ def add_manual_trade(fields: dict) -> str:
     return trade_id
 
 
+def is_manual_trade_id(trade_id) -> bool:
+    return str(trade_id).startswith("MANUAL_")
+
+
+def update_manual_trade(trade_id: str, fields: dict) -> bool:
+    """Correct a hand-entered closed trade in place (same trade_id, so its notes and screenshots stay
+    attached). Only the current tenant's `MANUAL_` trades: a broker-synced trade would be overwritten
+    by the next sync, so it is refused. `fields` is a validated ManualTradeIn dict. Returns False when
+    there is no such manual trade for this user."""
+    if not is_manual_trade_id(trade_id):
+        return False
+
+    def _epoch(iso: str) -> float:
+        return datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp()
+
+    entry_epoch = _epoch(fields["entry_time"])
+    exit_epoch = _epoch(fields["exit_time"])
+    if exit_epoch < entry_epoch:
+        raise ValueError("exit_time is before entry_time")
+    gross = float(fields["gross_profit"])
+    commission = float(fields.get("commission") or 0.0)
+    swap = float(fields.get("swap") or 0.0)
+
+    uid = tenant.current_user_id()
+    ph = "%s" if is_postgres() else "?"
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE closed_trades SET account_id = {p}, symbol = {p}, direction = {p}, volume = {p}, "
+            "entry_price = {p}, exit_price = {p}, commission = {p}, swap = {p}, gross_profit = {p}, "
+            "net_profit = {p}, entry_time = {p}, exit_time = {p}, duration_minutes = {p}, setup_tag = {p} "
+            "WHERE trade_id = {p} AND user_id = {p}".format(p=ph),
+            (
+                fields["account_id"], fields["symbol"].upper(), fields["direction"],
+                float(fields.get("volume") or 0.0), float(fields.get("entry_price") or 0.0),
+                float(fields.get("exit_price") or 0.0), commission, swap, gross, gross + commission + swap,
+                fields["entry_time"], fields["exit_time"], (exit_epoch - entry_epoch) / 60.0,
+                fields.get("setup_tag") or None, str(trade_id), uid,
+            ),
+        )
+        changed = (cur.rowcount or 0) > 0
+        conn.commit()
+    finally:
+        conn.close()
+    if not changed:
+        return False
+    if fields.get("notes") is not None:
+        update_trade_journal(trade_id, notes=(fields.get("notes") or "").strip())
+    invalidate_db_cache("closed_trades")
+    return True
+
+
+def delete_manual_trade(trade_id: str) -> bool:
+    """Delete one hand-entered closed trade and its screenshots (current tenant, `MANUAL_` ids only —
+    a broker-synced trade would simply come back on the next sync). Returns whether a row was removed."""
+    if not is_manual_trade_id(trade_id):
+        return False
+    uid = tenant.current_user_id()
+    ph = "%s" if is_postgres() else "?"
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(f"DELETE FROM closed_trades WHERE trade_id = {ph} AND user_id = {ph}", (str(trade_id), uid))
+        removed = (cur.rowcount or 0) > 0
+        if removed:
+            cur.execute(f"DELETE FROM journal_screenshots WHERE trade_id = {ph} AND user_id = {ph}", (str(trade_id), uid))
+        conn.commit()
+    finally:
+        conn.close()
+    if removed:
+        invalidate_db_cache("closed_trades")
+    return removed
+
+
 def get_last_deal_timestamp(account_id):
     """Returns the timestamp of the latest logged deal for a given account to fetch incrementally."""
     uid = tenant.current_user_id()
@@ -1465,6 +1540,21 @@ def get_all_price_alerts(limit=50, ttl_sec: float = 0.0):
     if ttl_sec > 0:
         _DB_CACHE[cache_key] = (df, time.time())
     return df.copy()
+
+def user_ids_with_setting_key(key):
+    """Every user_id that has *any* value saved under ``user_settings[key]`` (e.g. anyone with loss limits)."""
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        _ensure_user_settings(cur)
+        ph = get_sql_placeholder(conn)
+        cur.execute(f"SELECT user_id FROM user_settings WHERE key = {ph} AND value <> ''", (key,))
+        rows = [r[0] for r in cur.fetchall() if r[0]]
+        conn.close()
+        return rows
+    except Exception:
+        return []
+
 
 def user_ids_with_active_price_alerts():
     """Every user_id that has at least one ACTIVE price alert — for the server's alert watcher."""

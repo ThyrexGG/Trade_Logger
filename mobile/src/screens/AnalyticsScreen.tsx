@@ -1,6 +1,6 @@
-import { useNavigation } from '@react-navigation/native'
+import { useFocusEffect, useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { saveInitialBalance } from '../api/analytics'
@@ -95,6 +95,17 @@ export function AnalyticsScreen() {
 
   const query: AnalyticsQuery = { account, start: rangeStart(range), initial_balance: balance }
   const { data, loading, refreshing, error, refresh } = useAnalytics(query)
+
+  // The tab stays mounted, so a trade logged / fixed / deleted elsewhere is picked up when you come back to it.
+  const refreshRef = useRef(refresh)
+  refreshRef.current = refresh
+  const seenOnce = useRef(false)
+  useFocusEffect(
+    useCallback(() => {
+      if (seenOnce.current) refreshRef.current()
+      seenOnce.current = true
+    }, []),
+  )
   const accounts = data?.available.accounts ?? []
   const noAccount = !account || account === 'ALL'
 

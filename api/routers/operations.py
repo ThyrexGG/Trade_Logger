@@ -188,12 +188,22 @@ def get_journal() -> JournalResponse:
 # them apart. Still no execution path: this never touches an order, a
 # position, or a broker.
 
+def _recheck_loss_limits() -> None:
+    """A hand-logged trade changes today's P&L: re-evaluate the loss limits now, not at the next 2-minute pass."""
+    try:
+        from api import loss_limits
+        loss_limits.check(lambda _m: None)
+    except Exception:  # noqa: BLE001 - never fail a save because a notification could not be evaluated
+        pass
+
+
 @router.post("/journal/trades", response_model=JournalTradeItem)
 def create_manual_trade(payload: ManualTradeIn) -> JournalTradeItem:
     try:
         trade_id = database.add_manual_trade(payload.model_dump())
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    _recheck_loss_limits()
     row = _fetch_journal_row(trade_id)
     if row is None:  # pragma: no cover - save_closed_trades just wrote it
         raise HTTPException(status_code=500, detail="Trade was saved but could not be read back.")
@@ -202,6 +212,40 @@ def create_manual_trade(payload: ManualTradeIn) -> JournalTradeItem:
     except Exception:
         sc_count = 0
     return _journal_item(row, sc_count)
+
+
+@router.put("/journal/trades/{trade_id}", response_model=JournalTradeItem)
+def update_manual_trade(payload: ManualTradeIn, trade_id: str = Path(..., min_length=1, max_length=128)) -> JournalTradeItem:
+    """Correct a trade you logged by hand (same fields as creating one). Broker-synced trades are read-only
+    here: the next sync would overwrite any change."""
+    if not database.is_manual_trade_id(trade_id):
+        raise HTTPException(status_code=409, detail="Only trades you logged by hand can be edited. Synced trades come from your broker.")
+    try:
+        found = database.update_manual_trade(trade_id, payload.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if not found:
+        raise HTTPException(status_code=404, detail=f"Trade '{trade_id}' not found")
+    _recheck_loss_limits()
+    row = _fetch_journal_row(trade_id)
+    if row is None:  # pragma: no cover - just updated
+        raise HTTPException(status_code=500, detail="Trade was saved but could not be read back.")
+    try:
+        sc_count = database.count_journal_screenshots().get(trade_id, 0)
+    except Exception:
+        sc_count = 0
+    return _journal_item(row, sc_count)
+
+
+@router.delete("/journal/trades/{trade_id}")
+def delete_manual_trade(trade_id: str = Path(..., min_length=1, max_length=128)) -> Dict[str, Any]:
+    """Delete a trade you logged by hand, with its screenshots. Broker-synced trades cannot be deleted
+    (they would return on the next sync)."""
+    if not database.is_manual_trade_id(trade_id):
+        raise HTTPException(status_code=409, detail="Only trades you logged by hand can be deleted. Synced trades come from your broker.")
+    if not database.delete_manual_trade(trade_id):
+        raise HTTPException(status_code=404, detail=f"Trade '{trade_id}' not found")
+    return {"deleted": True, "trade_id": trade_id}
 
 
 # --- Journal edit (Stage 12) --------------------------------------------

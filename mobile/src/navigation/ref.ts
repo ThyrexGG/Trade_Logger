@@ -15,6 +15,7 @@ function go(t: Target): void {
   if (t.kind === 'opened') navigationRef.navigate('PositionDetail', { positionId: t.refId })
   else if (t.kind === 'closed') navigationRef.navigate('TradeDetail', { tradeId: t.refId })
   else if (t.kind === 'alert') navigationRef.navigate('PriceAlerts')
+  else if (t.kind === 'risk') navigationRef.navigate('LossLimits')
 }
 
 /** Open the trade a push notification is about. `data` is the payload the server attached. */

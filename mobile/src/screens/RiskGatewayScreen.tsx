@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { useRoute, type RouteProp } from '@react-navigation/native'
 import { useEffect, useMemo, useState } from 'react'
 import {
   ActivityIndicator,
@@ -15,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { postRiskPreview } from '../api/risk'
 import { formatMoney, formatPrice } from '../format'
 import { useJournal } from '../journal/JournalContext'
+import type { RootStackParamList } from '../navigation/RootStack'
 import { colors, radius, spacing } from '../theme'
 import type { RiskPreviewRequest, RiskPreviewResponse } from '../types/risk'
 
@@ -78,14 +80,16 @@ function Metric({ label, value, sub }: { label: string; value: string; sub?: str
 /** Pre-trade position sizing — the server's risk gateway does the maths. Planning only; nothing is ever placed. */
 export function RiskGatewayScreen() {
   const { data: journal } = useJournal()
-  const [symbol, setSymbol] = useState('XAUUSD')
-  const [side, setSide] = useState<'BUY' | 'SELL'>('BUY')
+  // opened from the chart analyzer: start from the levels it read (balance and risk % still come from your saved choices)
+  const prefill = useRoute<RouteProp<RootStackParamList, 'RiskGateway'>>().params?.prefill
+  const [symbol, setSymbol] = useState(prefill?.symbol?.toUpperCase() ?? 'XAUUSD')
+  const [side, setSide] = useState<'BUY' | 'SELL'>(prefill?.side ?? 'BUY')
   const [balance, setBalance] = useState('10000')
   const [riskPct, setRiskPct] = useState('1.0')
-  const [entry, setEntry] = useState('')
-  const [stop, setStop] = useState('')
-  const [tp1, setTp1] = useState('')
-  const [tp2, setTp2] = useState('')
+  const [entry, setEntry] = useState(prefill?.entry != null ? String(prefill.entry) : '')
+  const [stop, setStop] = useState(prefill?.stop != null ? String(prefill.stop) : '')
+  const [tp1, setTp1] = useState(prefill?.tp1 != null ? String(prefill.tp1) : '')
+  const [tp2, setTp2] = useState(prefill?.tp2 != null ? String(prefill.tp2) : '')
   const [showErrors, setShowErrors] = useState(false)
 
   const [busy, setBusy] = useState(false)
@@ -99,7 +103,7 @@ export function RiskGatewayScreen() {
       .then((raw) => {
         if (!raw) return
         const p = JSON.parse(raw) as { symbol?: string; balance?: string; riskPct?: string }
-        if (p.symbol) setSymbol(p.symbol)
+        if (p.symbol && !prefill?.symbol) setSymbol(p.symbol)
         if (p.balance) setBalance(p.balance)
         if (p.riskPct) setRiskPct(p.riskPct)
       })

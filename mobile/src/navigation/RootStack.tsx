@@ -7,12 +7,17 @@ import { EntryScreen } from '../screens/EntryScreen'
 import { ManualTradeScreen } from '../screens/ManualTradeScreen'
 import { KillzoneScreen } from '../screens/KillzoneScreen'
 import { TodayScreen } from '../screens/TodayScreen'
+import { ChallengeScreen } from '../screens/ChallengeScreen'
+import { ChartAnalyzerScreen } from '../screens/ChartAnalyzerScreen'
+import { ConnectionsScreen } from '../screens/ConnectionsScreen'
+import { LossLimitsScreen } from '../screens/LossLimitsScreen'
 import { PositionDetailScreen } from '../screens/PositionDetailScreen'
 import { PriceAlertsScreen } from '../screens/PriceAlertsScreen'
 import { RiskGatewayScreen } from '../screens/RiskGatewayScreen'
 import { TradeDetailScreen } from '../screens/TradeDetailScreen'
 import { colors } from '../theme'
 import type { JournalEntry, JournalEntryInput } from '../types/entries'
+import type { JournalTradeItem } from '../types/journal'
 import { AppTabs } from './AppTabs'
 
 export type RootStackParamList = {
@@ -24,11 +29,15 @@ export type RootStackParamList = {
   Account: undefined
   DayTrades: { date: string; account?: string }
   PriceAlerts: undefined
-  ManualTrade: undefined
-  RiskGateway: undefined
+  ManualTrade: { trade?: JournalTradeItem } | undefined
+  RiskGateway: { prefill?: { symbol?: string; side?: 'BUY' | 'SELL'; entry?: number; stop?: number; tp1?: number; tp2?: number } } | undefined
   Assistant: undefined
   Killzone: undefined
   Today: undefined
+  Connections: undefined
+  LossLimits: undefined
+  Challenge: undefined
+  ChartAnalyzer: undefined
 }
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
@@ -61,6 +70,10 @@ export function RootStack() {
       <Stack.Screen name="Assistant" component={AssistantScreen} options={{ title: 'AI assistant', headerBackTitle: 'Back' }} />
       <Stack.Screen name="Killzone" component={KillzoneScreen} options={{ title: 'Killzone scanner', headerBackTitle: 'Back' }} />
       <Stack.Screen name="Today" component={TodayScreen} options={{ title: 'Today', headerBackTitle: 'Back' }} />
+      <Stack.Screen name="Connections" component={ConnectionsScreen} options={{ title: 'Broker connection', headerBackTitle: 'Back' }} />
+      <Stack.Screen name="LossLimits" component={LossLimitsScreen} options={{ title: 'Loss limits', headerBackTitle: 'Back' }} />
+      <Stack.Screen name="Challenge" component={ChallengeScreen} options={{ title: 'Challenge tracker', headerBackTitle: 'Back' }} />
+      <Stack.Screen name="ChartAnalyzer" component={ChartAnalyzerScreen} options={{ title: 'Chart analyzer', headerBackTitle: 'Back' }} />
     </Stack.Navigator>
   )
 }

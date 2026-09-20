@@ -212,3 +212,64 @@ def test_command_center_overview_matches_phone_type(db):
                            ("positions", "CCPositions"), ("alerts", "CCAlerts"), ("market_context", "CCMarketContext")):
         if body.get(key):
             assert_has(body[key], "commandCenter.ts", interface)
+
+
+def test_loss_limits_match_phone_type(db):
+    _manual(gross=-30.0, days_ago=0)
+    r = client.put("/api/loss-limits/OWN_MONEY", json={"daily_loss": 100, "drawdown_pct": 10})
+    assert r.status_code == 200, r.text
+    assert_has(r.json(), "lossLimits.ts", "LossLimitStatus")
+    body = client.get("/api/loss-limits").json()
+    assert_has(body, "lossLimits.ts", "LossLimitsResponse")
+    assert body["accounts"], "the account with trades should be listed"
+    for acct in body["accounts"]:
+        assert_has(acct, "lossLimits.ts", "LossLimitStatus")
+
+
+def test_challenge_status_matches_phone_type(db):
+    _manual(gross=25.0, days_ago=1)
+    empty = client.get("/api/challenge/status?account=OWN_MONEY").json()
+    assert_has(empty, "challenge.ts", "ChallengeStatus")
+    assert empty["configured"] is False
+    r = client.post("/api/challenge/config", json={"account_id": "OWN_MONEY", "account_size": 5000})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert_has(body, "challenge.ts", "ChallengeStatus")
+    assert_has(body["config"], "challenge.ts", "ChallengeConfig")
+    assert client.post("/api/challenge/advance", json={"account_id": "OWN_MONEY", "to": "2"}).status_code == 200
+    assert client.post("/api/challenge/reset", json={"account_id": "OWN_MONEY"}).status_code == 200
+    assert client.delete("/api/challenge/config?account=OWN_MONEY").json()["deleted"] is True
+
+
+def test_connections_match_phone_type(db, monkeypatch):
+    from api import broker_credentials as bc
+    monkeypatch.setenv("TL_CREDENTIAL_ENC_KEY", bc.generate_key())
+    created = client.post("/api/connections", json={
+        "label": "Capital demo", "account_id": "123", "is_demo": True,
+        "secret": {"api_key": "k", "email": "a@b.co", "password": "pw"},
+    })
+    assert created.status_code == 201, created.text
+    assert_has(created.json(), "connections.ts", "ConnectionsEnvelope")
+    assert_has(created.json()["connection"], "connections.ts", "BrokerConnection")
+    listing = client.get("/api/connections").json()
+    assert_has(listing, "connections.ts", "ConnectionsEnvelope")
+    assert "secret_ciphertext" not in str(listing) and "a@b.co" not in str(listing)   # the server never sends a credential back
+    assert_has(listing["connections"][0], "connections.ts", "BrokerConnection")
+    assert client.delete(f"/api/connections/{created.json()['connection']['id']}").status_code == 200
+
+
+def test_chart_analysis_matches_phone_type(db, monkeypatch):
+    from api import chart_analysis
+    from api.routers import ai as ai_router
+    monkeypatch.setattr(ai_router, "is_configured", lambda: True)
+    fields = chart_analysis._normalize({
+        "symbol": "EURUSD", "timeframe": "15m", "direction": "long", "entry": 1.08, "stop_loss": 1.075,
+        "take_profit": 1.09, "additional_targets": [1.1], "pattern": "flag", "confluences": ["support"],
+        "setup_rating": 7, "rating_reasoning": "clean", "caveats": None, "extraction_confidence": "high",
+    })
+    monkeypatch.setattr(chart_analysis, "analyze", lambda data, mime: (fields, {"model": "test", "usage": {}}))
+    png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+    r = client.post("/api/ai/chart/analyze", files={"file": ("chart.jpg", png, "image/png")})
+    assert r.status_code == 200, r.text
+    assert_has(r.json(), "chartAnalysis.ts", "ChartAnalysisResponse")
+    assert r.json()["risk_reward"] == 2.0

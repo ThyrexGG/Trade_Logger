@@ -1,5 +1,5 @@
 import type { JournalResponse, JournalTradeItem, JournalUpdateRequest, JournalUpdateResponse, ManualTradeRequest } from '../types/journal'
-import { apiGet, apiPatch, apiPost } from './client'
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './client'
 
 /** GET /api/operations/journal — every closed trade for the signed-in user. */
 export function getJournal(signal?: AbortSignal): Promise<JournalResponse> {
@@ -18,6 +18,16 @@ export function patchJournalEntry(
 /** POST /api/operations/journal/trades — record a trade that never went through a broker sync. */
 export function createManualTrade(body: ManualTradeRequest, signal?: AbortSignal): Promise<JournalTradeItem> {
   return apiPost<JournalTradeItem>('/api/operations/journal/trades', body, signal)
+}
+
+/** PUT /api/operations/journal/trades/{id} — correct a trade you logged by hand (broker-synced trades are refused). */
+export function updateManualTrade(tradeId: string, body: ManualTradeRequest, signal?: AbortSignal): Promise<JournalTradeItem> {
+  return apiPut<JournalTradeItem>(`/api/operations/journal/trades/${encodeURIComponent(tradeId)}`, body, signal)
+}
+
+/** DELETE /api/operations/journal/trades/{id} — remove a trade you logged by hand, with its screenshots. */
+export function deleteManualTrade(tradeId: string, signal?: AbortSignal): Promise<{ deleted: boolean; trade_id: string }> {
+  return apiDelete<{ deleted: boolean; trade_id: string }>(`/api/operations/journal/trades/${encodeURIComponent(tradeId)}`, signal)
 }
 
 export interface JournalTagStat {

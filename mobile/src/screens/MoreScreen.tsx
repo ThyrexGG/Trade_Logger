@@ -17,6 +17,10 @@ type Row = {
 /** Everything that doesn't get its own tab. New phone features are added here as they're built. */
 const ROWS: Row[] = [
   { route: 'Today', icon: 'today-outline', title: 'Today', sub: "Today's P&L, open risk, alerts and market context" },
+  { route: 'LossLimits', icon: 'trending-down-outline', title: 'Loss limits', sub: 'Get told before a daily loss or drawdown limit is hit' },
+  { route: 'Challenge', icon: 'trophy-outline', title: 'Challenge tracker', sub: 'Prop-firm phase, drawdown and daily-loss budgets' },
+  { route: 'ChartAnalyzer', icon: 'scan-outline', title: 'Chart analyzer', sub: 'An AI reads the trade plan drawn on a chart screenshot' },
+  { route: 'Connections', icon: 'link-outline', title: 'Broker connection', sub: 'Connect Capital.com so trades sync in' },
   { route: 'PriceAlerts', icon: 'notifications-outline', title: 'Price alerts', sub: 'Get told when a price crosses your level' },
   { route: 'Killzone', icon: 'radio-outline', title: 'Killzone scanner', sub: 'Liquidity sweeps + structure shifts, by session' },
   { route: 'Assistant', icon: 'sparkles-outline', title: 'AI assistant', sub: 'Ask questions about your trading (read-only)' },

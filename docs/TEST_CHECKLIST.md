@@ -152,6 +152,38 @@ if it hangs: `npm start -- --tunnel`).
 - [ ] Price alerts: active / triggered counts and recent triggers; **Manage alerts** opens Price alerts
 - [ ] Market context and Watchlist show; pull down refreshes; it also refreshes by itself every minute
 
+**A17 · Fix or delete a trade you logged by hand (new)** ⚠️ — Journal → tap a trade you entered yourself (its id starts with MANUAL) → the **Logged by hand** card at the bottom
+- [ ] **Edit trade** opens the form already filled in (account, symbol, prices, profit, times, tag, notes) with "Save changes"
+- [ ] Change the profit and save → the trade screen, Journal, Analytics and the calendar show the new number (pull down on Analytics if it does not update by itself)
+- [ ] **Delete trade** asks to confirm, then the trade is gone from Journal, Analytics and the calendar (and its screenshots with it)
+- [ ] A trade that came from a broker sync has no such card — it cannot be edited or deleted here
+
+**A18 · Loss limits (new)** ⚠️ — More → Loss limits
+- [ ] Every account you trade on has a card; set a **Daily loss limit ($)** and/or a **Drawdown limit (%)** and tap **Save limits** — it says "Saved"
+- [ ] The card shows today's loss against the limit as a bar: green, amber from 80%, red once reached
+- [ ] Drawdown shows "x% below peak"; if it says it needs a starting balance, enter one for that account in Analytics first
+- [ ] Log a losing trade by hand that takes you past 80% of the daily limit → within a few seconds a **"close to"** notification arrives on the phone (installed APK) and the desktop app; past 100% → a **"reached"** one. Each comes once, not again every couple of minutes
+- [ ] Tapping the phone notification opens Loss limits. **Clear** removes the limits
+- [ ] Not counted on purpose: an open position's floating loss (closed trades only)
+
+**A19 · Challenge tracker (new)** ⚠️ — More → Challenge tracker. Compare with the website's Challenge Tracker (Analytics page) for the same account
+- [ ] Pick an account, fill the rules (defaults are 5ers $5K) → **Start tracking** → Phase 1 progress, drawdown, daily-loss and profit-day cards appear
+- [ ] Balance, drawdown used/floor and today's loss match the website
+- [ ] **Edit the rules** changes numbers without restarting progress; **Mark Phase 1 passed** asks to confirm and moves to Phase 2 (then Funded); **Restart** and **Stop tracking** ask to confirm
+
+**A20 · Chart analyzer (new)** ⚠️ — More → Chart analyzer
+- [ ] **Choose or take a screenshot** → pick a chart with entry/stop/target drawn on it → "Reading the chart…" for 10–30 s → symbol, timeframe, direction, entry, stop, target and R:R match what is on the chart
+- [ ] A setup rating out of 10 with reasoning, pattern and confluences; anything it could not see says "not visible" instead of a made-up number
+- [ ] **Size this trade** opens the Risk gateway with the symbol, direction and levels filled in
+- [ ] **Save as note** opens a new note with the reading written into it
+- [ ] A TradingView share link (https://www.tradingview.com/x/…) works too; a non-TradingView link is refused with a message
+
+**A21 · Broker connection (new)** ⚠️ — More → Broker connection
+- [ ] It lists your Capital.com connection(s) (the same ones as the website's Connections page); no password or key is ever shown
+- [ ] **Test** says OK (or a clear failure such as "auth failed (401)"); **Sync now** pulls your trades and they show up in Journal / Positions
+- [ ] Adding a connection needs account ID, API key, login email and API password; the form clears after a successful add
+- [ ] **Delete** asks to confirm and removes it. Only do this with a spare connection unless you mean it
+
 ---
 
 ## B. Installed Android app + trade alerts (needs your setup first)

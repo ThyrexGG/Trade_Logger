@@ -114,7 +114,7 @@ export const apiPostSlow = <T>(path: string, body: unknown, signal?: AbortSignal
  * spec-strict implementation that rejects React Native's `{ uri, name, type }` file parts with
  * "Unsupported FormDataPart implementation"; XHR still sends them natively.
  */
-export function apiPostForm<T>(path: string, form: FormData, signal?: AbortSignal): Promise<T> {
+export function apiPostForm<T>(path: string, form: FormData, signal?: AbortSignal, timeoutMs: number = UPLOAD_TIMEOUT_MS): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     const fail = (why: string) => {
@@ -125,7 +125,7 @@ export function apiPostForm<T>(path: string, form: FormData, signal?: AbortSigna
     xhr.setRequestHeader('Accept', 'application/json')
     const token = tokenProvider?.()
     if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`) // no Content-Type: the multipart boundary is added for us
-    xhr.timeout = UPLOAD_TIMEOUT_MS
+    xhr.timeout = timeoutMs
     xhr.onload = () => {
       if (xhr.status === 401 && !path.startsWith('/api/auth/')) unauthorizedHandler?.()
       let parsed: unknown = null
