@@ -22,13 +22,13 @@ Legend: ✅ = should just work · ⚠️ = newest / least certain, look closely
 > 3. **Killzone scanner showed a confident bias on fake prices** for an unknown symbol; it now says "No real market data" (6d35780).
 > 4. Earlier the same day: price alerts could never fire (they only read MT5 prices) — fixed and live-tested.
 >
-> **Not tested by anyone yet:** the installed app is still build 2 (none of today's phone features are in it — build 3 needed), push delivery, the desktop app's notifications, and anything against your real Capital.com account.
+> **Not tested by anyone yet:** build 3 (2026-09-20) has all of today's phone features but has not been installed on a real phone yet, push delivery, the desktop app's notifications, and anything against your real Capital.com account.
 
 ---
 
 ## A. Phone app (the installed APK)
 
-Use the installed TradeLogger app (second build, 2026-09-19). To try changes that aren't built yet: on the PC,
+Use the installed TradeLogger app (third build, 2026-09-20 — it has everything on this page). To try changes that aren't built yet: on the PC,
 `cd C:\Users\Asus\Desktop\Trade_Logger\mobile` then `npm start`, scan the QR in Expo Go (same Wi-Fi;
 if it hangs: `npm start -- --tunnel`).
 
@@ -199,8 +199,8 @@ Firebase project → `google-services.json` in `mobile/` → FCM key via `npx ea
 - [x] `npm run preflight` (in `mobile/`) shows all ✓
 - [x] The build finishes and gives a download link/QR
 - [x] APK installs on the phone (allow "install from this source"); app opens with the gold icon, no Expo Go *(installed and opened on the emulator; the icon itself was not inspected)*
-- [ ] All of section A still works in the installed app — the installed app is build 2 and lacks today's fixes; needs build 3
-- [ ] More → Account & alerts → **Auto-sync trades** ON (required — see the note at the top) — build 2 has no such switch (added later); needs build 3
+- [ ] All of section A still works in the installed app — build 3 has them; needs installing on your phone
+- [ ] More → Account & alerts → **Auto-sync trades** ON (required — see the note at the top) — build 3 has the switch; needs installing on your phone
 - [ ] More → Account & alerts → **Trade alerts** on → allow notifications — 📱 needs your real phone (the emulator refuses push: "Push notifications need a real phone")
 - [ ] **Send a test notification** → arrives within seconds. If it shows an error, send it to Claude (it names the missing piece) — 📱 needs your real phone (the emulator refuses push: "Push notifications need a real phone")
 - [ ] **Real alert:** open a small demo trade → notification "US500 BUY opened — 0.5 @ price" within ~2 min — 📱 needs your real phone (the emulator refuses push: "Push notifications need a real phone")
