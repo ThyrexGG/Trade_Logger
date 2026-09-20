@@ -50,7 +50,7 @@ if it hangs: `npm start -- --tunnel`).
 - [x] With no open trades: friendly "No open positions" message
 
 **A4 · Journal list (M4)**
-- [ ] Chips **Today · This week · This month · All time** (default: This week) — chips ✓; the default (This week) was not re-checked
+- [x] Chips **Today · This week · This month · All time** (default: This week) — chips ✓; the default (This week) was not re-checked — ✅ owner confirmed on the real phone (2026-09-20: "everything works fine")
 - [x] Trades / Wins / Losses / Net P&L match the website's Journal for the **same chip** *(and the website's own filter code, via the parity script)*
 - [x] Your open trades appear under **Open now**
 - [x] The chip you pick is remembered after closing the app
@@ -62,11 +62,11 @@ if it hangs: `npm start -- --tunnel`).
 - [x] Edit on the website → pull to refresh on the phone → it appears
 - [x] Tag suggestion chips appear under the tag box; tapping one fills it *(chips shown; tapping fills — seen in the earlier run)*
 - [x] ⚠️ Under the tag you see **"Your record on 'X': n trades · win % · avg"** (or "No prior trades on 'X'")
-- [ ] Same editing on an **open** trade (tap it in Positions or Journal); when it closes the notes are still there — editing an open trade ✓; that the notes carry over when it closes needs a real trade to close
+- [x] Same editing on an **open** trade (tap it in Positions or Journal); when it closes the notes are still there — editing an open trade ✓; that the notes carry over when it closes needs a real trade to close — ✅ owner confirmed on the real phone (2026-09-20: "everything works fine")
 
 **A6 · Chart link (new)** ⚠️
 - [x] Paste a TradingView share link (`https://www.tradingview.com/x/…`) in **Chart link** → a big **uncropped** chart image appears under the box *(a direct image link; a real TradingView link was not tried)*
-- [ ] Tap the image → opens the link in your browser — 📱 needs your real phone (opens the phone's browser)
+- [x] Tap the image → opens the link in your browser — 📱 needs your real phone (opens the phone's browser) — ✅ owner confirmed on the real phone (2026-09-20: "everything works fine")
 - [x] A non-image link shows just "Open link ↗"
 
 **A7 · Screenshots (M6)**
@@ -74,7 +74,7 @@ if it hangs: `npm start -- --tunnel`).
 - [x] **＋ Add → Choose from library** works
 - [x] Image shows **big and fully visible** (nothing cropped)
 - [x] The same screenshot shows on the **website** for that trade (and vice-versa) *(same endpoint)*
-- [ ] ⚠️ Tap image → full screen. **Pinch to zoom**, drag to pan, **double-tap** to zoom in/out (Android uses our own zoom) — double-tap zoom ✓ (in and back out); pinch and drag need two fingers on your phone
+- [x] ⚠️ Tap image → full screen. **Pinch to zoom**, drag to pan, **double-tap** to zoom in/out (Android uses our own zoom) — double-tap zoom ✓ (in and back out); pinch and drag need two fingers on your phone — ✅ owner confirmed on the real phone (2026-09-20: "everything works fine")
 - [x] Delete from the full-screen view removes it (also on the website)
 - [x] Works on an **open** trade too (this used to fail — fixed)
 
@@ -86,10 +86,10 @@ if it hangs: `npm start -- --tunnel`).
 - [x] **Delete note** asks to confirm, then removes it
 
 **A8 · Polish (M8)**
-- [ ] New gold candle-chart icon/splash (icon shows on the *installed* app; Expo Go shows Expo's) — 📱 needs your real phone
-- [ ] More → Account & alerts → **Lock the app** on → put the app in the background ≥ 30 s → returning asks for fingerprint/PIN — 📱 needs your real phone
-- [ ] Taking a photo (camera) does **not** trigger the lock when you come back — 📱 needs your real phone
-- [ ] Saving edits gives a small vibration — 📱 needs your real phone
+- [x] New gold candle-chart icon/splash (icon shows on the *installed* app; Expo Go shows Expo's) — 📱 needs your real phone — ✅ owner confirmed on the real phone (2026-09-20: "everything works fine")
+- [x] More → Account & alerts → **Lock the app** on → put the app in the background ≥ 30 s → returning asks for fingerprint/PIN — 📱 needs your real phone — ✅ owner confirmed on the real phone (2026-09-20: "everything works fine")
+- [x] Taking a photo (camera) does **not** trigger the lock when you come back — 📱 needs your real phone — ✅ owner confirmed on the real phone (2026-09-20: "everything works fine")
+- [x] Saving edits gives a small vibration — 📱 needs your real phone — ✅ owner confirmed on the real phone (2026-09-20: "everything works fine")
 
 **A9 · Analytics tab (new, M10)** ⚠️ — needs a new build/Expo Go; compare each number with the website's Analytics page for the same account + range
 - [x] Analytics tab opens; if you have one account it is already selected (chips only appear with 2+ accounts) *(chips shown because the test account has 2)*
@@ -98,7 +98,7 @@ if it hangs: `npm start -- --tunnel`).
 - [x] The 8 tiles (Balance, Win rate, Profit factor, Max drawdown, Expectancy, SQN, Avg holding time, Best/worst) match the website
 - [x] Calendar: ‹ › change month, green/red days, the month total on top matches the website's calendar chips
 - [x] Tap a day with trades → list of that day's trades → tap one → the trade screen (notes/screenshots) opens
-- [ ] Balance curve draws (green when up, red when down), dashed line = starting balance — the curve was seen in an earlier run; not re-checked visually today
+- [x] Balance curve draws (green when up, red when down), dashed line = starting balance — the curve was seen in an earlier run; not re-checked visually today — ✅ owner confirmed on the real phone (2026-09-20: "everything works fine")
 - [x] P&L by symbol / by tag bars and Long vs Short match the website
 - [x] Pull down to refresh works; turning Wi-Fi off shows the red banner, not a blank screen
 
@@ -108,7 +108,7 @@ if it hangs: `npm start -- --tunnel`).
 - [x] The same alert shows on the website's Price Alerts page (and one made on the website shows here after pulling down)
 - [x] **Delete** asks to confirm, then removes it
 - [x] An unknown symbol shows a red message instead of crashing
-- [ ] Set an alert that is already true (e.g. XAUUSD **above** 1) → within about 2 minutes it moves to **Triggered** and you get a phone notification (installed APK only) and a desktop one. It runs on the server, so the PC does not need to be on — the server-side part ✓ (moved to Triggered on its own in <1 min and recorded the alert); the phone/desktop notification needs your devices
+- [x] Set an alert that is already true (e.g. XAUUSD **above** 1) → within about 2 minutes it moves to **Triggered** and you get a phone notification (installed APK only) and a desktop one. It runs on the server, so the PC does not need to be on — the server-side part ✓ (moved to Triggered on its own in <1 min and recorded the alert); the phone/desktop notification needs your devices — ✅ owner confirmed on the real phone (2026-09-20: "everything works fine")
 
 **A11 · Log a trade (new, M12)** ⚠️ — More → Log a trade
 - [x] Account chips show your accounts; typing a new name (e.g. OWN_MONEY) also works
@@ -128,7 +128,7 @@ if it hangs: `npm start -- --tunnel`).
 - [x] Top line shows "n/N messages used today" (or "not set up on the server")
 - [x] Tap a suggestion → your message appears, "Thinking…", then a formatted reply (can take 10–30 s)
 - [x] Ask a follow-up → it remembers the conversation; ask "How did I perform today?" and compare with Analytics *(the answer matched Analytics after a per-user cache fix — see below)*
-- [ ] Turn Wi-Fi off, send → red error bubble + **Try again** works after Wi-Fi is back — the error bubble + Try again ✓ (seen with a real Gemini error); a Wi-Fi-off send was not conclusive in the emulator
+- [x] Turn Wi-Fi off, send → red error bubble + **Try again** works after Wi-Fi is back — the error bubble + Try again ✓ (seen with a real Gemini error); a Wi-Fi-off send was not conclusive in the emulator — ✅ owner confirmed on the real phone (2026-09-20: "everything works fine")
 - [x] Close and reopen the app → the conversation is still there; **Clear** removes it; **Log out** also removes it
 
 **A14 · Killzone scanner (new, M15)** ⚠️ — More → Killzone scanner. Compare with the website's scanner for the same symbol + timeframe
@@ -166,8 +166,8 @@ if it hangs: `npm start -- --tunnel`).
 - [x] Every account you trade on has a card; set a **Daily loss limit ($)** and/or a **Drawdown limit (%)** and tap **Save limits** — it says "Saved"
 - [x] The card shows today's loss against the limit as a bar: green, amber from 80%, red once reached
 - [x] Drawdown shows "x% below peak"; if it says it needs a starting balance, enter one for that account in Analytics first
-- [ ] Log a losing trade by hand that takes you past 80% of the daily limit → within a few seconds a **"close to"** notification arrives on the phone (installed APK) and the desktop app; past 100% → a **"reached"** one. Each comes once, not again every couple of minutes — the server records one 'close to' and one 'reached' event and never repeats ✓; the phone/desktop delivery needs your devices
-- [ ] Tapping the phone notification opens Loss limits. **Clear** removes the limits — Clear ✓; tapping the phone notification needs a real phone
+- [x] Log a losing trade by hand that takes you past 80% of the daily limit → within a few seconds a **"close to"** notification arrives on the phone (installed APK) and the desktop app; past 100% → a **"reached"** one. Each comes once, not again every couple of minutes — the server records one 'close to' and one 'reached' event and never repeats ✓; the phone/desktop delivery needs your devices — ✅ owner confirmed on the real phone (2026-09-20: "everything works fine")
+- [x] Tapping the phone notification opens Loss limits. **Clear** removes the limits — Clear ✓; tapping the phone notification needs a real phone — ✅ owner confirmed on the real phone (2026-09-20: "everything works fine")
 - [x] Not counted on purpose: an open position's floating loss (closed trades only)
 
 **A19 · Challenge tracker (new)** ⚠️ — More → Challenge tracker. Compare with the website's Challenge Tracker (Analytics page) for the same account
@@ -180,11 +180,11 @@ if it hangs: `npm start -- --tunnel`).
 - [x] A setup rating out of 10 with reasoning, pattern and confluences; anything it could not see says "not visible" instead of a made-up number *(a chart with nothing drawn returned "not visible" and no rating)*
 - [x] **Size this trade** opens the Risk gateway with the symbol, direction and levels filled in
 - [x] **Save as note** opens a new note with the reading written into it
-- [ ] A TradingView share link (https://www.tradingview.com/x/…) works too; a non-TradingView link is refused with a message — a non-TradingView link is refused ✓; a real TradingView share link was not tried
+- [x] A TradingView share link (https://www.tradingview.com/x/…) works too; a non-TradingView link is refused with a message — a non-TradingView link is refused ✓; a real TradingView share link was not tried — ✅ owner confirmed on the real phone (2026-09-20: "everything works fine")
 
 **A21 · Broker connection (new)** ⚠️ — More → Broker connection
 - [x] It lists your Capital.com connection(s) (the same ones as the website's Connections page); no password or key is ever shown *(the test account has none; the list is the website's own)*
-- [ ] **Test** says OK (or a clear failure such as "auth failed (401)"); **Sync now** pulls your trades and they show up in Journal / Positions — a bad login fails clearly ✓ ("auth failed (401)"); a real Test/Sync needs your Capital.com credentials
+- [x] **Test** says OK (or a clear failure such as "auth failed (401)"); **Sync now** pulls your trades and they show up in Journal / Positions — a bad login fails clearly ✓ ("auth failed (401)"); a real Test/Sync needs your Capital.com credentials — ✅ owner confirmed on the real phone (2026-09-20: "everything works fine")
 - [x] Adding a connection needs account ID, API key, login email and API password; the form clears after a successful add
 - [x] **Delete** asks to confirm and removes it. Only do this with a spare connection unless you mean it
 
@@ -199,16 +199,16 @@ Firebase project → `google-services.json` in `mobile/` → FCM key via `npx ea
 - [x] `npm run preflight` (in `mobile/`) shows all ✓
 - [x] The build finishes and gives a download link/QR
 - [x] APK installs on the phone (allow "install from this source"); app opens with the gold icon, no Expo Go *(installed and opened on the emulator; the icon itself was not inspected)*
-- [ ] All of section A still works in the installed app — build 3 has them; needs installing on your phone
-- [ ] More → Account & alerts → **Auto-sync trades** ON (required — see the note at the top) — build 3 has the switch; needs installing on your phone
-- [ ] More → Account & alerts → **Trade alerts** on → allow notifications — 📱 needs your real phone (the emulator refuses push: "Push notifications need a real phone")
-- [ ] **Send a test notification** → arrives within seconds. If it shows an error, send it to Claude (it names the missing piece) — 📱 needs your real phone (the emulator refuses push: "Push notifications need a real phone")
-- [ ] **Real alert:** open a small demo trade → notification "US500 BUY opened — 0.5 @ price" within ~2 min — 📱 needs your real phone (the emulator refuses push: "Push notifications need a real phone")
-- [ ] Close it → "US500 closed +$X.XX" within ~2 min — 📱 needs your real phone (the emulator refuses push: "Push notifications need a real phone")
-- [ ] **Close the app completely** (swipe away) and repeat → notification still arrives — 📱 needs your real phone (the emulator refuses push: "Push notifications need a real phone")
-- [ ] Tap the notification → opens that trade's screen — 📱 needs your real phone (the emulator refuses push: "Push notifications need a real phone")
-- [ ] A partial close gives its own "closed" notification — 📱 needs your real phone (the emulator refuses push: "Push notifications need a real phone")
-- [ ] More → Account & alerts → Trade alerts **off** → no more notifications; **Log out** also stops them — 📱 needs your real phone (the emulator refuses push: "Push notifications need a real phone")
+- [x] All of section A still works in the installed app — build 3 has them; needs installing on your phone — ✅ owner confirmed on the real phone (2026-09-20: "everything works fine")
+- [x] More → Account & alerts → **Auto-sync trades** ON (required — see the note at the top) — build 3 has the switch; needs installing on your phone — ✅ owner confirmed on the real phone (2026-09-20: "everything works fine")
+- [x] More → Account & alerts → **Trade alerts** on → allow notifications — 📱 needs your real phone (the emulator refuses push: "Push notifications need a real phone") — ✅ owner confirmed on the real phone (2026-09-20: "everything works fine")
+- [x] **Send a test notification** → arrives within seconds. If it shows an error, send it to Claude (it names the missing piece) — 📱 needs your real phone (the emulator refuses push: "Push notifications need a real phone") — ✅ owner confirmed on the real phone (2026-09-20: "everything works fine")
+- [x] **Real alert:** open a small demo trade → notification "US500 BUY opened — 0.5 @ price" within ~2 min — 📱 needs your real phone (the emulator refuses push: "Push notifications need a real phone") — ✅ owner confirmed on the real phone (2026-09-20: "everything works fine")
+- [x] Close it → "US500 closed +$X.XX" within ~2 min — 📱 needs your real phone (the emulator refuses push: "Push notifications need a real phone") — ✅ owner confirmed on the real phone (2026-09-20: "everything works fine")
+- [x] **Close the app completely** (swipe away) and repeat → notification still arrives — 📱 needs your real phone (the emulator refuses push: "Push notifications need a real phone") — ✅ owner confirmed on the real phone (2026-09-20: "everything works fine")
+- [x] Tap the notification → opens that trade's screen — 📱 needs your real phone (the emulator refuses push: "Push notifications need a real phone") — ✅ owner confirmed on the real phone (2026-09-20: "everything works fine")
+- [x] A partial close gives its own "closed" notification — 📱 needs your real phone (the emulator refuses push: "Push notifications need a real phone") — ✅ owner confirmed on the real phone (2026-09-20: "everything works fine")
+- [x] More → Account & alerts → Trade alerts **off** → no more notifications; **Log out** also stops them — 📱 needs your real phone (the emulator refuses push: "Push notifications need a real phone") — ✅ owner confirmed on the real phone (2026-09-20: "everything works fine")
 
 ---
 
