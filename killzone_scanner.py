@@ -418,6 +418,15 @@ def scan(symbol: str = "USDJPY", ltf: str = "15m", htf: str = "1h",
     except Exception as exc:
         return {"ok": False, "symbol": sym.upper(), "error": f"Data fetch failed: {exc}", "timestamp": now_iso}
 
+    if "synthetic_fallback" in {ltf_source, htf_source}:
+        # The feed had nothing real for this symbol (unknown symbol, or it is unreachable) and served the offline
+        # placeholder candles. Patterns "found" in placeholder prices mean nothing, so do not present any.
+        return {
+            "ok": False, "symbol": sym.upper(),
+            "error": f"No real market data for {sym.upper()} right now — the price feed does not have that symbol or is unreachable — so there is nothing meaningful to scan.",
+            "timestamp": now_iso,
+        }
+
     ltf_df = _candles_to_df(ltf_candles)
     base_df = _candles_to_df(base_candles)
     if ltf_df.empty or base_df.empty:

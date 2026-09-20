@@ -392,3 +392,14 @@ def test_bias_alignment_with_nothing_readable_is_unknown():
     out = ks._bias_alignment([_rung("1h", "unknown", sufficient=False)])
     assert out["verdict"] == "unknown"
     assert out["usable"] == 0
+
+
+def test_scan_refuses_to_present_patterns_found_in_placeholder_prices(monkeypatch):
+    """A symbol the feed does not know comes back as the offline synthetic candles. Scanning those would show a
+    confident bias / liquidity / candidates for fake data, so the scan must report 'no real data' instead."""
+    fake = [{"time": 1_700_000_000 + i * 900, "open": 100.0, "high": 100.05, "low": 99.95, "close": 100.0, "volume": 100.0} for i in range(400)]
+    monkeypatch.setattr(market_data, "get_candles_with_source", lambda *a, **k: (fake, "synthetic_fallback"))
+    out = ks.scan("QQQQQQ")
+    assert out["ok"] is False
+    assert "No real market data" in out["error"]
+    assert "candidates" not in out and "htf_bias" not in out
