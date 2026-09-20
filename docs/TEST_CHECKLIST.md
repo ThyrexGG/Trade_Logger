@@ -188,6 +188,20 @@ if it hangs: `npm start -- --tunnel`).
 - [x] Adding a connection needs account ID, API key, login email and API password; the form clears after a successful add
 - [x] **Delete** asks to confirm and removes it. Only do this with a spare connection unless you mean it
 
+
+**A22 · Weekly summary (new — needs build 4)** ⚠️ — More → Weekly summary
+- [x] Shows **This week so far** and **Last week** with net P&L, trade count, win rate, profit factor, best/worst trade, one bar per day and the best/costliest setup — *(checked on the emulator against the server's own numbers)*
+- [x] The **Send me this every Sunday** switch turns off and back on and the choice is kept *(emulator: saved on the server both ways)*
+- [ ] On Sunday (about 12:00 UTC = 7 PM in Thailand) one notification arrives: "Your week: +$X on N trades". Tapping it opens Weekly summary — 📱 needs your real phone and a Sunday (the server part is covered by 10 automated tests)
+- [ ] With the switch off, no notification arrives — 📱 needs your real phone
+
+**A23 · Setups and faster tagging (new — needs build 4)** ⚠️ — More → Setups
+- [x] Top card says how many closed trades are tagged ("50 of 62") and the bar matches *(emulator, equal to the server)*
+- [x] **Your setups** lists each tag with trades, win % and average P&L; a tag with fewer than 5 trades says "too few trades to judge"; the best one (5+ trades) is marked BEST
+- [x] **Tag the rest** lists untagged trades, newest first, each with a swipeable row of setup chips; one tap tags the trade, it leaves the list and the top counter goes up by one
+- [x] Opening any trade or open position, the Setup tag chips now include the starter setups (LIQUIDITY GRAB, TREND FOLLOWING…) after your own tags
+- [ ] On your real phone the chip row swipes smoothly inside the scrolling page — 📱 needs your real phone
+
 ---
 
 ## B. Installed Android app + trade alerts (needs your setup first)

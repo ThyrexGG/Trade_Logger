@@ -57,6 +57,11 @@ export function formatUsd(value: number): string {
   })}`
 }
 
+/** A P&L amount with an explicit "+" on gains and no currency symbol, e.g. "+1,005.67" / "-42.00" (the "$" is shown by the column or label). */
+export function formatSignedAmount(value: number): string {
+  return `${value >= 0 ? '+' : ''}${formatUsd(value).replace('$', '')}`
+}
+
 /** Percentage with 2dp, e.g. "1.05%". */
 export function formatPercent(value: number): string {
   if (!Number.isFinite(value)) return '—'

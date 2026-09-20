@@ -4,23 +4,9 @@ import { SaveToJournal } from './SaveToJournal'
 import { getJournal } from '../../api/operations'
 import { getChallengeStatus } from '../../api/challenge'
 import type { ChallengeStatus } from '../../types/challenge'
+import { SETUP_PRESETS } from '../../lib/setupPresets'
 
 const ACCOUNT_KEY = 'tl.pretrade.account'
-
-// Exported so ManualTradeForm (logging a trade after the fact) offers the
-// same setup vocabulary as planning one before the fact — one tag taxonomy.
-export const SETUP_PRESETS = [
-  'BREAKOUT',
-  'SUPPORT / RESISTANCE BOUNCE',
-  'ORDER BLOCK / FVG',
-  'NEWS SCALP',
-  'TREND FOLLOWING',
-  'MEAN REVERSION',
-  'LIQUIDITY GRAB',
-  'SUPPLY & DEMAND',
-  'CHART PATTERN',
-  'CUSTOM SETUP',
-]
 
 interface ChecklistItem {
   id: string

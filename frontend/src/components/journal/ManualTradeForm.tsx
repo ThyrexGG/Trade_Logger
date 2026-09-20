@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { SectionCard } from '../intelligence/primitives'
 import { createManualTrade, updateManualTrade } from '../../api/operations'
-import { SETUP_PRESETS } from './PreTradeChecklistForm'
+import { SETUP_PRESETS } from '../../lib/setupPresets'
 import type { JournalTradeItem } from '../../types/operations'
 
 const ACCOUNT_KEY = 'tl.manualtrade.account'

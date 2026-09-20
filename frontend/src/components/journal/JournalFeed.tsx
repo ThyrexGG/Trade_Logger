@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { JournalResponse, JournalTradeItem, JournalUpdateRequest } from '../../types/operations'
-import { formatUsd } from '../../lib/format'
+import { formatSignedAmount } from '../../lib/format'
 import { patchJournalEntry } from '../../api/operations'
 import { ChartSnapshot } from './ChartSnapshot'
 import { HandLoggedControls } from './HandLoggedControls'
@@ -11,10 +11,6 @@ import { invalidateTagRecord } from './TagRecord'
 import { OpsUnavailable } from '../operations/primitives'
 
 const SAVE_DEBOUNCE_MS = 900
-
-function money(v: number): string {
-  return `${v >= 0 ? '+' : ''}${formatUsd(v).replace('$', '')}`
-}
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -121,7 +117,7 @@ function FeedCard({
         </div>
         <span className={`font-mono text-lg font-semibold ${win ? 'text-positive' : loss ? 'text-negative' : 'text-secondary'}`}>
           {win ? 'Won: ' : loss ? 'Lost: ' : 'Net: '}
-          {money(entry.net_profit)}
+          {formatSignedAmount(entry.net_profit)}
         </span>
       </div>
 

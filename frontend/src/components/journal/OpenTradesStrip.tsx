@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { PositionItem, PositionUpdateRequest } from '../../types/positions'
-import { formatUsd } from '../../lib/format'
+import { formatSignedAmount } from '../../lib/format'
 import { patchPosition } from '../../api/positions'
 import { ChartSnapshot } from './ChartSnapshot'
 import { ScreenshotStrip, type ScreenshotStripHandle } from './ScreenshotStrip'
@@ -9,10 +9,6 @@ import { StarRating } from './StarRating'
 import { invalidateTagRecord } from './TagRecord'
 
 const SAVE_DEBOUNCE_MS = 900
-
-function money(v: number): string {
-  return `${v >= 0 ? '+' : ''}${formatUsd(v).replace('$', '')}`
-}
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -108,7 +104,7 @@ function OpenTradeCard({ position }: { position: PositionItem }) {
           </span>
         </div>
         <span className={`font-mono text-lg font-semibold ${win ? 'text-positive' : loss ? 'text-negative' : 'text-secondary'}`}>
-          Floating: {money(position.floating_pnl)}
+          Floating: {formatSignedAmount(position.floating_pnl)}
         </span>
       </div>
 

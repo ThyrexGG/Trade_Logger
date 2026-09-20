@@ -1,16 +1,12 @@
 import { Fragment, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { PositionItem, PositionUpdateRequest } from '../../types/positions'
-import { formatUsd } from '../../lib/format'
+import { formatSignedAmount } from '../../lib/format'
 import { patchPosition } from '../../api/positions'
 import { ChartSnapshot } from './ChartSnapshot'
 import { ScreenshotStrip, type ScreenshotStripHandle } from './ScreenshotStrip'
 import { StarRating } from './StarRating'
 import { invalidateTagRecord } from './TagRecord'
-
-function money(v: number): string {
-  return `${v >= 0 ? '+' : ''}${formatUsd(v).replace('$', '')}`
-}
 
 function Stars({ n }: { n: number | null | undefined }) {
   if (!n || n <= 0) return <span className="text-muted">—</span>
@@ -211,7 +207,7 @@ export function OpenPositionsTable({ positions }: { positions: PositionItem[] })
                     <td className="px-2 py-1.5 text-right font-mono tabular-nums text-primary">{p.entry_price}</td>
                     <td className="px-2 py-1.5 text-right font-mono tabular-nums text-primary">{p.current_price}</td>
                     <td className={`px-2 py-1.5 text-right font-mono tabular-nums ${p.floating_pnl > 0 ? 'text-positive' : p.floating_pnl < 0 ? 'text-negative' : 'text-secondary'}`}>
-                      {money(p.floating_pnl)}
+                      {formatSignedAmount(p.floating_pnl)}
                     </td>
                     <td className="max-w-[16rem] px-2 py-1.5 text-secondary">
                       {p.setup_tag ? <span className="mr-1 rounded bg-surface-elevated px-1 text-[10px] text-muted">{p.setup_tag}</span> : null}

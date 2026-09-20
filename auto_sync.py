@@ -1,8 +1,6 @@
 import time
 import os
-import sys
 from datetime import datetime
-from dotenv import load_dotenv
 
 LOG_FILE = os.path.join(os.path.dirname(__file__), "sync_log.txt")
 

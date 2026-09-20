@@ -6,7 +6,7 @@ Directly consumes UserPreferencesManager with SQLite persistence.
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from api.schemas import UserPreferencesModel, UserPreferencesUpdateRequest, UserPreferencesResponse
-from user_preferences import UserPreferencesManager, DEFAULT_PREFERENCES
+from user_preferences import UserPreferencesManager
 
 router = APIRouter(prefix="/api", tags=["Preferences"])
 

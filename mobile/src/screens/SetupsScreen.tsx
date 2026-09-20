@@ -8,6 +8,7 @@ import { getJournalTagStats, patchJournalEntry, type JournalTagStats } from '../
 import { Card, Pill } from '../components/ui'
 import { invalidateTagRecord } from '../components/TagRecord'
 import { formatMoney, formatUpdated, isBuy } from '../format'
+import { parseTime } from '../journal/filters'
 import { useJournal } from '../journal/JournalContext'
 import { useTagSuggestions } from '../journal/useTagSuggestions'
 import type { RootStackParamList } from '../navigation/RootStack'
@@ -20,11 +21,6 @@ const QUICK_CHIPS = 8
 const UNTAGGED_SHOWN = 20
 
 const tone = (v: number) => (v > 0 ? colors.positive : v < 0 ? colors.negative : colors.textSecondary)
-
-function exitMs(iso: string): number {
-  const t = new Date(/[zZ]|[+-]\d\d:\d\d$/.test(iso) ? iso : `${iso}Z`).getTime()
-  return Number.isNaN(t) ? 0 : t
-}
 
 /** One untagged trade with one-tap chips: tapping a chip tags it and the row drops out of the list. */
 function UntaggedRow({ trade, chips, busy, onTag, onOpen }: { trade: JournalTradeItem; chips: string[]; busy: boolean; onTag: (tag: string) => void; onOpen: () => void }) {
@@ -83,7 +79,7 @@ export function SetupsScreen() {
   )
 
   const untagged = useMemo(
-    () => (journal?.entries ?? []).filter((e) => !e.setup_tag?.trim()).sort((a, b) => exitMs(b.exit_time) - exitMs(a.exit_time)),
+    () => (journal?.entries ?? []).filter((e) => !e.setup_tag?.trim()).sort((a, b) => parseTime(b.exit_time) - parseTime(a.exit_time)),
     [journal],
   )
   const chips = useMemo(() => suggestions.slice(0, QUICK_CHIPS), [suggestions])

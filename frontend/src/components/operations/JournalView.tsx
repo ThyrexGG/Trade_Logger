@@ -2,7 +2,8 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { JournalResponse, JournalTradeItem, JournalUpdateRequest } from '../../types/operations'
 import { OpsMetric, OpsUnavailable, SectionCard } from './primitives'
-import { formatUsd, timeAgo } from '../../lib/format'
+import { timeAgo, formatSignedAmount } from '../../lib/format'
+import { SETUP_PRESETS } from '../../lib/setupPresets'
 import { patchJournalEntry } from '../../api/operations'
 import { ChartSnapshot } from '../journal/ChartSnapshot'
 import { HandLoggedControls } from '../journal/HandLoggedControls'
@@ -13,24 +14,6 @@ import { useToast } from '../../lib/toast'
 
 type Outcome = 'all' | 'win' | 'loss'
 const PAGE = 40
-
-/** Preset setup categories from the legacy Streamlit journal form (free text still allowed). */
-const SETUP_PRESETS = [
-  'BREAKOUT',
-  'SUPPORT / RESISTANCE BOUNCE',
-  'ORDER BLOCK / FVG',
-  'NEWS SCALP',
-  'TREND FOLLOWING',
-  'MEAN REVERSION',
-  'LIQUIDITY GRAB',
-  'SUPPLY & DEMAND',
-  'CHART PATTERN',
-  'CUSTOM SETUP',
-]
-
-function money(v: number): string {
-  return `${v >= 0 ? '+' : ''}${formatUsd(v).replace('$', '')}`
-}
 
 export function JournalSummary({ data }: { data: JournalResponse }) {
   const wr = data.total_trades > 0 ? (data.wins / data.total_trades) * 100 : null
@@ -44,7 +27,7 @@ export function JournalSummary({ data }: { data: JournalResponse }) {
       />
       <OpsMetric
         label="Net P&L (recorded)"
-        value={money(data.total_net_profit)}
+        value={formatSignedAmount(data.total_net_profit)}
         tone={data.total_net_profit > 0 ? 'positive' : data.total_net_profit < 0 ? 'negative' : 'neutral'}
       />
       <OpsMetric label="Updated" value={timeAgo(data.timestamp) ?? '—'} />
@@ -374,7 +357,7 @@ export function JournalView({
                     <td className="px-2 py-1.5 text-right font-mono tabular-nums text-primary">{e.entry_price}</td>
                     <td className="px-2 py-1.5 text-right font-mono tabular-nums text-primary">{e.exit_price}</td>
                     <td className={`px-2 py-1.5 text-right font-mono tabular-nums ${e.net_profit > 0 ? 'text-positive' : e.net_profit < 0 ? 'text-negative' : 'text-secondary'}`}>
-                      {money(e.net_profit)}
+                      {formatSignedAmount(e.net_profit)}
                     </td>
                     <td className="max-w-[16rem] px-2 py-1.5 text-secondary">
                       {e.setup_tag ? <span className="mr-1 rounded bg-surface-elevated px-1 text-[10px] text-muted">{e.setup_tag}</span> : null}

@@ -8,7 +8,7 @@ import { formatMoney } from '../format'
 import { colors, spacing } from '../theme'
 import type { LossLimitStatus } from '../types/lossLimits'
 
-const money = (v: number) => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+const money = (v: number) => formatMoney(v, false)
 
 function stateOf(ratio: number | null, warnPct: number): { text: string; color: string } | null {
   if (ratio == null) return null

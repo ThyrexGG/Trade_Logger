@@ -9,11 +9,7 @@ import {
   SectionCard,
   opsTone,
 } from '../components/operations/primitives'
-import { formatUsd, timeAgo } from '../lib/format'
-
-function money(v: number): string {
-  return `${v >= 0 ? '+' : ''}${formatUsd(v).replace('$', '')}`
-}
+import { timeAgo, formatSignedAmount } from '../lib/format'
 
 /**
  * `/operations` overview. Every card is backed by a real endpoint — system
@@ -77,7 +73,7 @@ export function OperationsOverviewPage() {
             ) : latestTrade ? (
               <div className="text-xs">
                 <p className="font-mono font-semibold text-primary">{latestTrade.symbol} · {latestTrade.direction}</p>
-                <p className={`mt-1 font-mono ${latestTrade.net_profit >= 0 ? 'text-positive' : 'text-negative'}`}>{money(latestTrade.net_profit)}</p>
+                <p className={`mt-1 font-mono ${latestTrade.net_profit >= 0 ? 'text-positive' : 'text-negative'}`}>{formatSignedAmount(latestTrade.net_profit)}</p>
                 <p className="mt-1 text-muted">{timeAgo(latestTrade.exit_time) ?? latestTrade.exit_time.slice(0, 10)} · {journal.data?.total_trades} closed trades</p>
               </div>
             ) : (

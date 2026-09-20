@@ -5,7 +5,7 @@ Directly consumes UnifiedMarketIntelligenceAggregator, MarketScannerEngine,
 AssetContextProfileEngine, and EconomicHeatmapEngine without formula duplication.
 """
 from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 
 from api.schemas import (
