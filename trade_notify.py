@@ -179,6 +179,18 @@ def record_risk_alert(key: str, title: str, body: str, account: Any, pnl: Any = 
         return None
 
 
+def record_summary(key: str, title: str, body: str, week: str, pnl: Any = None) -> Optional[int]:
+    """The weekly performance summary. `key` is unique per user + week, so it is sent once.
+    Returns the event id, or None if it was already recorded."""
+    try:
+        if not key or not week:
+            return None
+        return _record(key, "summary", title, body, "", "", None, None, _num(pnl), week)
+    except Exception:  # noqa: BLE001
+        log.exception("record_summary failed")
+        return None
+
+
 def _record(key, kind, title, body, symbol, direction, volume, price, pnl, ref_id) -> Optional[int]:
     event_id = database.add_trade_event(
         key, kind, title, body, symbol=symbol, direction=direction,

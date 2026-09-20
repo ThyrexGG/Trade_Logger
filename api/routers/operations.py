@@ -503,12 +503,17 @@ def journal_tag_stats() -> Dict[str, Any]:
     stop-loss per trade, which closed_trades does not store.)"""
     df = database.get_closed_trades(ttl_sec=database.CACHE_TTL_CLOSED_TRADES)
     stats: Dict[str, Dict[str, Any]] = {}
+    untagged = {"n": 0, "net_total": 0.0}
+    total = 0
     if isinstance(df, pd.DataFrame) and not df.empty:
         for _, r in df.iterrows():
             tag = (_s(r.get("setup_tag")) or "").strip()
-            if not tag:
-                continue
             net = _f(r.get("net_profit"))
+            total += 1
+            if not tag:
+                untagged["n"] += 1
+                untagged["net_total"] += net
+                continue
             s = stats.setdefault(tag, {"tag": tag, "n": 0, "wins": 0, "net_total": 0.0})
             s["n"] += 1
             s["net_total"] += net
@@ -526,7 +531,13 @@ def journal_tag_stats() -> Dict[str, Any]:
             "expectancy": round(s["net_total"] / n, 2) if n else None,
         })
     out.sort(key=lambda x: x["n"], reverse=True)
-    return {"tags": out, "timestamp": datetime.now(timezone.utc).isoformat()}
+    return {
+        "tags": out,
+        # trades with no setup tag, so the app can say "12 of 62 trades are tagged" and offer to tag the rest
+        "untagged": {"n": untagged["n"], "net_total": round(untagged["net_total"], 2)},
+        "total_trades": total,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 # --- Audit ---------------------------------------------------------------

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
@@ -29,6 +29,12 @@ log = logging.getLogger(__name__)
 
 SETTING_KEY = "loss_limits"
 WARN_RATIO = 0.8
+
+
+def _utc_today() -> date:
+    """'Today' is the UTC calendar day, as trade times are stored — not the machine's local date, which
+    disagrees with them for part of every day anywhere east or west of UTC."""
+    return datetime.now(timezone.utc).date()
 
 
 def _load_raw() -> Dict[str, Dict[str, Any]]:
@@ -115,7 +121,7 @@ def compute_status(account: str, limits: Optional[Dict[str, Optional[float]]] = 
 
     today_pnl = 0.0
     if not df.empty:
-        today_df = df[df["exit_time"].dt.date == date.today()]
+        today_df = df[df["exit_time"].dt.date == _utc_today()]
         today_pnl = float(today_df["net_profit"].sum()) if not today_df.empty else 0.0
     today_loss = max(0.0, -today_pnl)
 
@@ -188,7 +194,7 @@ def check(logfn=log.info) -> int:
             title = f"Daily loss limit {label} — {account}"
             body = (f"Closed trades on {account} are down ${st['today_loss']:,.2f} today; "
                     f"your daily loss limit is ${lim['daily_loss']:,.2f}.")
-            key = f"risk:{account}:daily:{level}:{date.today().isoformat()}"
+            key = f"risk:{account}:daily:{level}:{_utc_today().isoformat()}"
             if trade_notify.record_risk_alert(key, title, body, account, -st["today_loss"]) is not None:
                 fired += 1
                 logfn(f"Loss limit ({level}): {account} daily")

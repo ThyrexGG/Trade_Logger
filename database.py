@@ -1556,6 +1556,21 @@ def user_ids_with_setting_key(key):
         return []
 
 
+def user_ids_with_push_devices():
+    """Every user_id with at least one registered phone — the people the weekly summary can reach."""
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        _ensure_push_tables(cur)
+        cur.execute("SELECT DISTINCT user_id FROM push_devices")
+        rows = [r[0] for r in cur.fetchall() if r[0]]
+        conn.commit()
+        conn.close()
+        return rows
+    except Exception:
+        return []
+
+
 def user_ids_with_active_price_alerts():
     """Every user_id that has at least one ACTIVE price alert — for the server's alert watcher."""
     try:

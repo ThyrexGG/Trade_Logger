@@ -87,9 +87,11 @@ def _auto_enabled_user_ids() -> List[str]:
 
 
 def _alert_user_ids() -> List[str]:
-    """Everyone the background watcher has something to evaluate for: an active price alert or a loss limit."""
+    """Everyone the background watcher has something to evaluate for: an active price alert, a loss limit,
+    or a registered phone (which gets the weekly summary)."""
     ids: set = set()
-    for getter in (database.user_ids_with_active_price_alerts, lambda: database.user_ids_with_setting_key("loss_limits")):
+    for getter in (database.user_ids_with_active_price_alerts, lambda: database.user_ids_with_setting_key("loss_limits"),
+                   database.user_ids_with_push_devices):
         try:
             ids.update(getter())
         except Exception:
@@ -112,6 +114,11 @@ def _check_alerts_for(uids) -> None:
                 try:
                     from api import loss_limits
                     loss_limits.check(lambda _m: None)
+                except Exception:
+                    pass
+                try:
+                    from api import weekly_summary
+                    weekly_summary.check(lambda _m: None)
                 except Exception:
                     pass
         except Exception:

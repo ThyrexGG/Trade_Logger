@@ -187,6 +187,14 @@ def run_sync_cycle(known_trade_ids: set, logfn=log, creds: dict | None = None) -
         result["errors"].append(f"loss_limits: {limit_err}")
         logfn(f"Loss limit check error: {limit_err}")
 
+    # 6. Weekly performance summary (sends at most once a week per user, and only inside its send window)
+    try:
+        from api import weekly_summary
+        weekly_summary.check(logfn)
+    except Exception as summary_err:  # noqa: BLE001
+        result["errors"].append(f"weekly_summary: {summary_err}")
+        logfn(f"Weekly summary check error: {summary_err}")
+
     return result
 
 
