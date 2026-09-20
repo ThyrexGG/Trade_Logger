@@ -51,7 +51,17 @@ def _position_item(pos: Dict[str, Any], sc_count: int = 0) -> PositionItem:
         mfe_str = "N/A"
         r_disp = "N/A"
 
+    def _text(key):
+        """A text column with some NULL rows comes back from pandas as NaN for those rows, and NaN is truthy —
+        `nan or None` is NaN. Treat it as missing."""
+        v = pos.get(key)
+        if v is None or (isinstance(v, float) and v != v):
+            return None
+        return str(v) or None
+
     rating = pos.get("rating")
+    if isinstance(rating, float) and rating != rating:
+        rating = None
     return PositionItem(
         position_id=pos_id,
         symbol=sym,
@@ -66,9 +76,9 @@ def _position_item(pos: Dict[str, Any], sc_count: int = 0) -> PositionItem:
         mae=mae_str,
         mfe=mfe_str,
         account_id=acc,
-        setup_tag=pos.get("setup_tag") or None,
-        notes=pos.get("notes") or None,
-        chart_snapshot_url=pos.get("chart_snapshot_url") or None,
+        setup_tag=_text("setup_tag"),
+        notes=_text("notes"),
+        chart_snapshot_url=_text("chart_snapshot_url"),
         rating=int(rating) if rating not in (None, "") else 0,
         screenshot_count=sc_count,
     )

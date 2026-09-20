@@ -273,3 +273,21 @@ def test_chart_analysis_matches_phone_type(db, monkeypatch):
     assert r.status_code == 200, r.text
     assert_has(r.json(), "chartAnalysis.ts", "ChartAnalysisResponse")
     assert r.json()["risk_reward"] == 2.0
+
+
+def test_positions_endpoint_survives_one_annotated_and_one_plain_open_trade(db):
+    """Regression: with one open position annotated (note/tag/link) and another not, pandas turns the plain
+    one's NULLs into NaN, which used to make GET /api/positions answer 500."""
+    now = datetime.now(timezone.utc).isoformat()
+    base = {"account_id": "ACC", "volume": 1.0, "entry_price": 1.0, "current_price": 1.1, "sl": 0.9, "tp": 1.2,
+            "floating_pnl": 5.0, "swap": 0.0, "open_time": now, "updated_at": now}
+    database.save_open_positions("ACC", [
+        {**base, "position_id": "P1", "symbol": "EURUSD", "direction": "BUY"},
+        {**base, "position_id": "P2", "symbol": "XAUUSD", "direction": "SELL"},
+    ])
+    database.update_open_position_annotation("P1", notes="n", setup_tag="T", chart_snapshot_url="https://x.y/z.png", rating=3)
+    database.invalidate_db_cache()
+    resp = client.get("/api/positions")
+    assert resp.status_code == 200, resp.text
+    by_id = {p["position_id"]: p for p in resp.json()["positions"]}
+    assert by_id["P2"]["notes"] is None and by_id["P2"]["setup_tag"] is None and by_id["P2"]["chart_snapshot_url"] is None and by_id["P2"]["rating"] == 0
