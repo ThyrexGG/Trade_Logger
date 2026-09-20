@@ -239,6 +239,8 @@ The new version is running and your **Desktop shortcut** now points to it
 - [ ] Open trades show at the top of the Journal and can be journaled; **Table view** folds them into rows — the Feed/Table toggle ✓ (a table shows); open trades need a broker sync on your account
 - [ ] The US500 partial close (0.85 + the other part) both appear as closed trades — that is your own trade data
 - [ ] Journal screenshots show fully (not cropped) — the viewer uses object-contain in the code; needs a screenshot on your account to see
+- [x] Website → **Loss limits** (Workspace menu): set a daily loss and a drawdown limit for an account, Save, reload — they stay; Clear removes them *(checked in a real browser on test data, and the page loads on tradelogger.site with the demo account; nothing saved there)*
+- [ ] Website → Journal → a trade you logged by hand (from the phone) shows **Logged by hand** with **Edit details** and **Delete**; a broker-synced trade shows neither — *checked in a real browser on test data (edit keeps tag/notes/times, delete asks first, totals update); the demo account has no hand-logged trades, so try it with one of yours*
 
 ---
 
