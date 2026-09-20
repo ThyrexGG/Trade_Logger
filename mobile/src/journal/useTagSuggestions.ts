@@ -1,8 +1,9 @@
 import { useMemo } from 'react'
 import { usePositionsContext } from '../positions/PositionsContext'
 import { useJournal } from './JournalContext'
+import { SETUP_PRESETS } from './presets'
 
-/** Setup tags already used on any trade (open or closed), most-used first. */
+/** Setup tags for the one-tap chips: the ones already used on any trade (open or closed) most-used first, then the starter presets you have not used yet. */
 export function useTagSuggestions(): string[] {
   const { data: journal } = useJournal()
   const { data: positions } = usePositionsContext()
@@ -14,6 +15,8 @@ export function useTagSuggestions(): string[] {
     }
     journal?.entries.forEach((e) => add(e.setup_tag))
     positions?.positions.forEach((p) => add(p.setup_tag))
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => t)
+    const used = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => t)
+    const seen = new Set(used.map((t) => t.toUpperCase()))
+    return [...used, ...SETUP_PRESETS.filter((p) => !seen.has(p))]
   }, [journal, positions])
 }

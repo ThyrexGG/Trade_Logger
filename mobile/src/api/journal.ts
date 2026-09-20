@@ -39,7 +39,15 @@ export interface JournalTagStat {
   expectancy: number | null
 }
 
-/** GET /api/operations/journal/tag-stats — realised record per setup tag. */
-export function getJournalTagStats(signal?: AbortSignal): Promise<{ tags: JournalTagStat[]; timestamp: string }> {
-  return apiGet<{ tags: JournalTagStat[]; timestamp: string }>('/api/operations/journal/tag-stats', signal)
+export interface JournalTagStats {
+  tags: JournalTagStat[]
+  /** closed trades that have no setup tag, and what they made in total */
+  untagged: { n: number; net_total: number }
+  total_trades: number
+  timestamp: string
+}
+
+/** GET /api/operations/journal/tag-stats — realised record per setup tag, and how many trades have none. */
+export function getJournalTagStats(signal?: AbortSignal): Promise<JournalTagStats> {
+  return apiGet<JournalTagStats>('/api/operations/journal/tag-stats', signal)
 }

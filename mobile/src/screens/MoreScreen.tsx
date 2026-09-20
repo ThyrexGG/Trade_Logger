@@ -17,6 +17,8 @@ type Row = {
 /** Everything that doesn't get its own tab. New phone features are added here as they're built. */
 const ROWS: Row[] = [
   { route: 'Today', icon: 'today-outline', title: 'Today', sub: "Today's P&L, open risk, alerts and market context" },
+  { route: 'WeeklySummary', icon: 'calendar-outline', title: 'Weekly summary', sub: 'How your week went, sent every Sunday' },
+  { route: 'Setups', icon: 'pricetags-outline', title: 'Setups', sub: 'Which setups make money, and tag the trades you have not' },
   { route: 'LossLimits', icon: 'trending-down-outline', title: 'Loss limits', sub: 'Get told before a daily loss or drawdown limit is hit' },
   { route: 'Challenge', icon: 'trophy-outline', title: 'Challenge tracker', sub: 'Prop-firm phase, drawdown and daily-loss budgets' },
   { route: 'ChartAnalyzer', icon: 'scan-outline', title: 'Chart analyzer', sub: 'An AI reads the trade plan drawn on a chart screenshot' },

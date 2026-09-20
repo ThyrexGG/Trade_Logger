@@ -11,6 +11,8 @@ import { ChallengeScreen } from '../screens/ChallengeScreen'
 import { ChartAnalyzerScreen } from '../screens/ChartAnalyzerScreen'
 import { ConnectionsScreen } from '../screens/ConnectionsScreen'
 import { LossLimitsScreen } from '../screens/LossLimitsScreen'
+import { SetupsScreen } from '../screens/SetupsScreen'
+import { WeeklySummaryScreen } from '../screens/WeeklySummaryScreen'
 import { PositionDetailScreen } from '../screens/PositionDetailScreen'
 import { PriceAlertsScreen } from '../screens/PriceAlertsScreen'
 import { RiskGatewayScreen } from '../screens/RiskGatewayScreen'
@@ -38,6 +40,8 @@ export type RootStackParamList = {
   LossLimits: undefined
   Challenge: undefined
   ChartAnalyzer: undefined
+  Setups: undefined
+  WeeklySummary: undefined
 }
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
@@ -74,6 +78,8 @@ export function RootStack() {
       <Stack.Screen name="LossLimits" component={LossLimitsScreen} options={{ title: 'Loss limits', headerBackTitle: 'Back' }} />
       <Stack.Screen name="Challenge" component={ChallengeScreen} options={{ title: 'Challenge tracker', headerBackTitle: 'Back' }} />
       <Stack.Screen name="ChartAnalyzer" component={ChartAnalyzerScreen} options={{ title: 'Chart analyzer', headerBackTitle: 'Back' }} />
+      <Stack.Screen name="Setups" component={SetupsScreen} options={{ title: 'Setups', headerBackTitle: 'Back' }} />
+      <Stack.Screen name="WeeklySummary" component={WeeklySummaryScreen} options={{ title: 'Weekly summary', headerBackTitle: 'Back' }} />
     </Stack.Navigator>
   )
 }
