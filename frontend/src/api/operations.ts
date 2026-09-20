@@ -1,4 +1,4 @@
-import { API_BASE_URL, ApiError, apiDelete, apiGet, apiPatch, apiPost } from './client'
+import { API_BASE_URL, ApiError, apiDelete, apiGet, apiPatch, apiPost, apiPut } from './client'
 import type {
   AuditResponse,
   JournalEntriesResponse,
@@ -23,6 +23,17 @@ export function getJournal(signal?: AbortSignal): Promise<JournalResponse> {
  * a broker sync. Lands in the same table an MT5-synced trade does. */
 export function createManualTrade(body: ManualTradeInput): Promise<JournalTradeItem> {
   return apiPost<JournalTradeItem>('/api/operations/journal/trades', body)
+}
+
+/** PUT /api/operations/journal/trades/{trade_id} — correct a trade you logged by hand (same fields as
+ * creating one). A broker-synced trade is refused (409): the next sync would overwrite the change. */
+export function updateManualTrade(tradeId: string, body: ManualTradeInput): Promise<JournalTradeItem> {
+  return apiPut<JournalTradeItem>(`/api/operations/journal/trades/${encodeURIComponent(tradeId)}`, body)
+}
+
+/** DELETE /api/operations/journal/trades/{trade_id} — remove a trade you logged by hand, with its screenshots. */
+export function deleteManualTrade(tradeId: string): Promise<{ deleted: boolean; trade_id: string }> {
+  return apiDelete<{ deleted: boolean; trade_id: string }>(`/api/operations/journal/trades/${encodeURIComponent(tradeId)}`)
 }
 
 /**

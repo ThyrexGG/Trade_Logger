@@ -104,6 +104,15 @@ const ALL_ZONES: Zone[] = [
         friendsVisible: true,
       },
       {
+        id: 'workspace.loss-limits',
+        label: 'Loss limits',
+        description: 'A daily-loss and a drawdown limit per account — you are notified when you get close and when you hit them (notification only).',
+        path: '/workspace/loss-limits',
+        icon: ScaleIcon,
+        status: 'live',
+        friendsVisible: true,
+      },
+      {
         id: 'workspace.alerts',
         label: 'Price Alerts',
         description: 'Price-target alerts (notification only, no orders).',

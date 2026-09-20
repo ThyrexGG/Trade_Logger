@@ -28,6 +28,7 @@ const AssetProfilePage = page(() => import('./pages/AssetProfilePage'), 'AssetPr
 const CryptoCarryPage = page(() => import('./pages/CryptoCarryPage'), 'CryptoCarryPage')
 const MacroIntelligencePage = page(() => import('./pages/MacroIntelligencePage'), 'MacroIntelligencePage')
 const PriceAlertsPage = page(() => import('./pages/PriceAlertsPage'), 'PriceAlertsPage')
+const LossLimitsPage = page(() => import('./pages/LossLimitsPage'), 'LossLimitsPage')
 const AnalyticsPage = page(() => import('./pages/AnalyticsPage'), 'AnalyticsPage')
 const CommandCenterPage = page(() => import('./pages/CommandCenterPage'), 'CommandCenterPage')
 const AssistantPage = page(() => import('./pages/AssistantPage'), 'AssistantPage')
@@ -44,6 +45,7 @@ const LIVE_ITEM_PAGES: Record<string, ReactElement> = {
   'workspace.market': <MarketWorkspacePage />,
   'workspace.positions': <PositionsPage />,
   'workspace.risk': <RiskGatewayPage />,
+  'workspace.loss-limits': <LossLimitsPage />,
   'workspace.alerts': <PriceAlertsPage />,
   'workspace.analytics': <AnalyticsPage />,
   'workspace.assistant': <AssistantPage />,

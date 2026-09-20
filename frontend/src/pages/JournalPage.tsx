@@ -108,7 +108,7 @@ function filterJournal(data: JournalResponse, account: string, dateFilter: DateF
  * `PATCH /api/operations/journal/{trade_id}`; execution facts stay immutable.
  */
 export function JournalPage() {
-  const { state, data, error, refreshing, refetch, applyEntry } = useJournal()
+  const { state, data, error, refreshing, refetch, applyEntry, removeEntry } = useJournal()
   const openPositions = useOpenPositions()
   const sync = useSyncControl(refetch)
   const [params] = useSearchParams()
@@ -267,9 +267,9 @@ export function JournalPage() {
             ) : null}
             <JournalSummary data={viewData} />
             {view === 'feed' ? (
-              <JournalFeed data={viewData} onEntryUpdated={applyEntry} />
+              <JournalFeed data={viewData} onEntryUpdated={applyEntry} onEntryDeleted={removeEntry} />
             ) : (
-              <JournalView data={viewData} onEntryUpdated={applyEntry} focusTradeId={focusTradeId} />
+              <JournalView data={viewData} onEntryUpdated={applyEntry} onEntryDeleted={removeEntry} focusTradeId={focusTradeId} />
             )}
             <FreeEntries />
           </div>

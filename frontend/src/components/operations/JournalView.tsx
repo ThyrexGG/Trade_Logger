@@ -5,6 +5,7 @@ import { OpsMetric, OpsUnavailable, SectionCard } from './primitives'
 import { formatUsd, timeAgo } from '../../lib/format'
 import { patchJournalEntry } from '../../api/operations'
 import { ChartSnapshot } from '../journal/ChartSnapshot'
+import { HandLoggedControls } from '../journal/HandLoggedControls'
 import { ScreenshotStrip, type ScreenshotStripHandle } from '../journal/ScreenshotStrip'
 import { StarRating } from '../journal/StarRating'
 import { TagRecord, invalidateTagRecord } from '../journal/TagRecord'
@@ -224,10 +225,12 @@ function JournalEditor({
 export function JournalView({
   data,
   onEntryUpdated,
+  onEntryDeleted,
   focusTradeId,
 }: {
   data: JournalResponse
   onEntryUpdated?: (entry: JournalTradeItem) => void
+  onEntryDeleted?: (tradeId: string) => void
   /** deep-link: open this trade's editor and scroll to it (from the calendar) */
   focusTradeId?: string | null
 }) {
@@ -415,6 +418,20 @@ export function JournalView({
                             }}
                             onCancel={() => setEditing(null)}
                           />
+                          <div className="mt-2">
+                            <HandLoggedControls
+                              entry={e}
+                              knownAccounts={data.accounts}
+                              onUpdated={(updated) => {
+                                onEntryUpdated?.(updated)
+                                setEditing(null)
+                              }}
+                              onDeleted={(id) => {
+                                onEntryDeleted?.(id)
+                                setEditing(null)
+                              }}
+                            />
+                          </div>
                         </div>
                       </td>
                     </tr>

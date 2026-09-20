@@ -4,6 +4,7 @@ import type { JournalResponse, JournalTradeItem, JournalUpdateRequest } from '..
 import { formatUsd } from '../../lib/format'
 import { patchJournalEntry } from '../../api/operations'
 import { ChartSnapshot } from './ChartSnapshot'
+import { HandLoggedControls } from './HandLoggedControls'
 import { ScreenshotStrip, type ScreenshotStripHandle } from './ScreenshotStrip'
 import { StarRating } from './StarRating'
 import { invalidateTagRecord } from './TagRecord'
@@ -25,10 +26,17 @@ type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
  */
 function FeedCard({
   entry,
+  knownAccounts,
   onSaved,
+  onHandEdited,
+  onDeleted,
 }: {
   entry: JournalTradeItem
+  knownAccounts: string[]
   onSaved: (updated: JournalTradeItem) => void
+  /** the trade's own numbers were corrected (hand-logged trades only) */
+  onHandEdited: (updated: JournalTradeItem) => void
+  onDeleted: (tradeId: string) => void
 }) {
   const [notes, setNotes] = useState(entry.notes ?? '')
   const [setupTag, setSetupTag] = useState(entry.setup_tag ?? '')
@@ -169,6 +177,8 @@ function FeedCard({
           {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : status === 'error' ? 'Save failed — check your connection' : ''}
         </span>
       </div>
+
+      <HandLoggedControls entry={entry} knownAccounts={knownAccounts} onUpdated={onHandEdited} onDeleted={onDeleted} />
     </article>
   )
 }
@@ -183,11 +193,16 @@ function FeedCard({
 export function JournalFeed({
   data,
   onEntryUpdated,
+  onEntryDeleted,
 }: {
   data: JournalResponse
   onEntryUpdated?: (entry: JournalTradeItem) => void
+  onEntryDeleted?: (tradeId: string) => void
 }) {
   const [limit, setLimit] = useState(20)
+  // A card keeps its own copy of the notes/tag while you type. When the trade's details are corrected the
+  // saved row can differ from that copy, so that one card is remounted to pick the new values up.
+  const [rev, setRev] = useState<Record<string, number>>({})
   const shown = data.entries.slice(0, limit)
 
   if (data.entries.length === 0) {
@@ -197,7 +212,17 @@ export function JournalFeed({
   return (
     <div className="space-y-3">
       {shown.map((e) => (
-        <FeedCard key={e.trade_id} entry={e} onSaved={(u) => onEntryUpdated?.(u)} />
+        <FeedCard
+          key={`${e.trade_id}:${rev[e.trade_id] ?? 0}`}
+          entry={e}
+          knownAccounts={data.accounts}
+          onSaved={(u) => onEntryUpdated?.(u)}
+          onHandEdited={(u) => {
+            setRev((r) => ({ ...r, [u.trade_id]: (r[u.trade_id] ?? 0) + 1 }))
+            onEntryUpdated?.(u)
+          }}
+          onDeleted={(id) => onEntryDeleted?.(id)}
+        />
       ))}
       {limit < data.entries.length ? (
         <button

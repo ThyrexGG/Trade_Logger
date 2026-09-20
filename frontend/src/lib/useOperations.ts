@@ -26,6 +26,8 @@ function useOpsResource<T>(
 export interface JournalResource extends OpsResource<JournalResponse> {
   /** Splice an authoritative updated entry (from a PATCH response) into the list. */
   applyEntry: (entry: JournalTradeItem) => void
+  /** Drop a deleted (hand-logged) trade from the list, and fix the totals, without a refetch. */
+  removeEntry: (tradeId: string) => void
 }
 
 /** Trade journal (`closed_trades`). Slow refresh — journal changes rarely.
@@ -46,7 +48,25 @@ export function useJournal(): JournalResource {
     },
     [base],
   )
-  return { ...base, applyEntry }
+  const removeEntry = useCallback(
+    (tradeId: string) => {
+      base.setLocal((prev) => {
+        if (!prev) return prev
+        const entries = prev.entries.filter((e) => e.trade_id !== tradeId)
+        return {
+          ...prev,
+          entries,
+          total_trades: entries.length,
+          wins: entries.filter((e) => e.net_profit > 0).length,
+          losses: entries.filter((e) => e.net_profit < 0).length,
+          total_net_profit: Math.round(entries.reduce((sum, e) => sum + e.net_profit, 0) * 100) / 100,
+          timestamp: new Date().toISOString(),
+        }
+      })
+    },
+    [base],
+  )
+  return { ...base, applyEntry, removeEntry }
 }
 
 /** Read-only execution audit trail (`execution_orders`). */
