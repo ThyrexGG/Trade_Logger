@@ -185,19 +185,23 @@ def _trade_setup_context(symbols: list) -> list:
 # and costs ~15-20s cold. A short TTL means only the first message of a
 # conversation pays that — every follow-up reuses the same fresh-enough snapshot.
 _CTX_TTL_SEC = 120.0
-_ctx_cache: Dict[str, Any] = {"at": 0.0, "value": None}
+# One cached snapshot PER USER. This used to be a single global, so whoever asked first filled it and every
+# other user's next AI answer (for 2 minutes) was built from that person's balance, positions and P&L.
+_ctx_cache: Dict[str, Dict[str, Any]] = {}
 
 
 def build_context(force: bool = False) -> Dict[str, Any]:
+    import tenant
+    uid = tenant.current_user_id()
     now_ts = datetime.now(timezone.utc).timestamp()
-    if (
-        not force
-        and _ctx_cache["value"] is not None
-        and (now_ts - _ctx_cache["at"]) < _CTX_TTL_SEC
-    ):
-        return _ctx_cache["value"]
+    entry = _ctx_cache.get(uid)
+    if not force and entry is not None and entry["value"] is not None and (now_ts - entry["at"]) < _CTX_TTL_SEC:
+        return entry["value"]
     value = _build_context_uncached()
-    _ctx_cache.update(at=datetime.now(timezone.utc).timestamp(), value=value)
+    _ctx_cache[uid] = {"at": datetime.now(timezone.utc).timestamp(), "value": value}
+    if len(_ctx_cache) > 200:  # bounded: drop the stalest entries
+        for k in sorted(_ctx_cache, key=lambda k: _ctx_cache[k]["at"])[:100]:
+            _ctx_cache.pop(k, None)
     return value
 
 

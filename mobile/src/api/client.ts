@@ -80,7 +80,8 @@ async function request<T>(
       signal: timeout.signal,
     })
   } catch (err) {
-    console.warn(`[api] ${method} ${path} failed before a response:`, err instanceof Error ? err.message : err)
+    // a request the caller itself cancelled (a newer one replaced it, or the screen closed) is not a failure worth a warning
+    if (!signal?.aborted) console.warn(`[api] ${method} ${path} failed before a response:`, err instanceof Error ? err.message : err)
     throw new ApiError('Cannot reach the TradeLogger server. Check your connection.', 0)
   } finally {
     clearTimeout(timer)
