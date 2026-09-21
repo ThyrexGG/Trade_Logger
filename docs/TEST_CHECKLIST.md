@@ -202,6 +202,16 @@ if it hangs: `npm start -- --tunnel`).
 - [x] Opening any trade or open position, the Setup tag chips now include the starter setups (LIQUIDITY GRAB, TREND FOLLOWING…) after your own tags
 - [ ] On your real phone the chip row swipes smoothly inside the scrolling page — 📱 needs your real phone
 
+**A24 · Partial closes grouped under one trade** ⚠️ — Journal on the website (live), Journal + trade screen on the phone (needs build 4)
+- [x] Website Journal (feed and table): your 21 Sep USDJPY trade is ONE entry ("4 exits", +$6.26), not four *(browser test on seeded data shaped like it, and the same grouping run over your real rows: 108 rows → 101 trades, 4 with parts)*
+- [x] The entry lists Partial 1, 2, 3 in time order and a Final exit, each with its P&L, and a Position total that equals the entry's P&L
+- [x] An MT5 trade closed in two pieces shows both exits with lot size and price, and they add up to the trade's net *(seeded)*
+- [x] Typing notes on the main trade autosaves and keeps the exits list
+- [x] Opening the Journal from an old link to one partial (`?trade=<id>_2`) lands on the main trade
+- [ ] 🌐 Take a real partial on Capital.com (close half, later the rest): after the next sync it shows as one trade with a Partial and a Final exit — 📱 needs a live partial
+- [ ] 📱 Phone (after build 4): the Journal row shows the "4 exits" pill and the trade screen has an Exits card
+- [ ] Setups → "Tag the rest" no longer lists the partials separately (each partial used to need its own tag)
+
 ---
 
 ## B. Installed Android app + trade alerts (needs your setup first)

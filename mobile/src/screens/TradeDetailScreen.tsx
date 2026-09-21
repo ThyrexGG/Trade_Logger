@@ -7,6 +7,7 @@ import { clearAnalyticsCache } from '../analytics/useAnalytics'
 import { deleteManualTrade, patchJournalEntry } from '../api/journal'
 import { AnnotationEditor } from '../components/AnnotationEditor'
 import { ScreenshotGallery } from '../components/ScreenshotGallery'
+import { ExitsPill, TradeLegsCard } from '../components/TradeLegs'
 import { formatMoney, formatPrice, formatUpdated, isBuy } from '../format'
 import { useJournal } from '../journal/JournalContext'
 import { formatDuration } from '../journal/filters'
@@ -21,7 +22,8 @@ export function TradeDetailScreen() {
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const tagSuggestions = useTagSuggestions()
-  const trade = data?.entries.find((e) => e.trade_id === params.tradeId)
+  // A link to one partial close (an old notification) opens the trade it belongs to.
+  const trade = data?.entries.find((e) => e.trade_id === params.tradeId || e.legs?.some((l) => l.trade_id === params.tradeId))
 
   // Opened from a push notification: the trade may still be on its way in from the server.
   if (!trade && (loading || refreshing)) {
@@ -86,12 +88,15 @@ export function TradeDetailScreen() {
               <View style={[styles.dirPill, { borderColor: dirColor }]}>
                 <Text style={[styles.dirText, { color: dirColor }]}>{trade.direction.toUpperCase()}</Text>
               </View>
+              <ExitsPill t={trade} />
             </View>
             <Text style={[styles.net, { color: netColor }]}>{formatMoney(trade.net_profit)}</Text>
             <Text style={styles.sub}>
               {trade.account_id} · closed {formatUpdated(trade.exit_time)}
             </Text>
           </View>
+
+          <TradeLegsCard t={trade} />
 
           <View style={styles.card}>
             <ScreenshotGallery

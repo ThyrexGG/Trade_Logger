@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { ConnectionBanner } from '../components/ConnectionBanner'
+import { ExitsPill } from '../components/TradeLegs'
 import { formatMoney, formatUpdated, isBuy } from '../format'
 import { useJournal } from '../journal/JournalContext'
 import { DATE_FILTERS, filterEntries, summarize, type DateFilter } from '../journal/filters'
@@ -57,6 +58,7 @@ function TradeRow({ t, onPress }: { t: JournalTradeItem; onPress: () => void }) 
           <Text style={styles.symbol}>{t.symbol}</Text>
           <Text style={[styles.dir, { color: dirColor }]}>{t.direction.toUpperCase()}</Text>
           <Text style={styles.vol}>{t.volume}</Text>
+          <ExitsPill t={t} />
         </View>
         <Text style={[styles.net, { color: pnlColor(t.net_profit) }]}>{formatMoney(t.net_profit)}</Text>
       </View>

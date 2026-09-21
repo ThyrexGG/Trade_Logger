@@ -29,6 +29,7 @@ import pandas as pd
 from fastapi import APIRouter, File, Form, HTTPException, Path, Query, Response, UploadFile
 
 import database
+from api import trade_groups
 from api.schemas import (
     JournalEntriesResponse,
     JournalEntry,
@@ -114,6 +115,8 @@ def _journal_item(r: Mapping[str, Any], sc_count: int = 0) -> JournalTradeItem:
         rating=rating,
         chart_snapshot_url=_s(r.get("chart_snapshot_url")),
         screenshot_count=int(sc_count or 0),
+        legs=r.get("legs") or [],
+        position_open=bool(r.get("position_open")),
     )
 
 
@@ -152,18 +155,18 @@ def get_journal() -> JournalResponse:
     total_net = 0.0
     accounts: set[str] = set()
 
-    if isinstance(df, pd.DataFrame) and not df.empty:
-        for _, r in df.iterrows():
-            net = _f(r.get("net_profit"))
-            total_net += net
-            if net > 0:
-                wins += 1
-            elif net < 0:
-                losses += 1
-            acc = _s(r.get("account_id")) or "UNKNOWN"
-            accounts.add(acc)
-            tid = _s(r.get("trade_id")) or ""
-            entries.append(_journal_item(r, sc_counts.get(tid, 0)))
+    # One entry per POSITION: partial closes are folded into the trade they belong to (see api/trade_groups.py).
+    for r in trade_groups.load_positions(df if isinstance(df, pd.DataFrame) else None):
+        net = _f(r.get("net_profit"))
+        total_net += net
+        if net > 0:
+            wins += 1
+        elif net < 0:
+            losses += 1
+        acc = _s(r.get("account_id")) or "UNKNOWN"
+        accounts.add(acc)
+        tid = _s(r.get("trade_id")) or ""
+        entries.append(_journal_item(r, sc_counts.get(tid, 0)))
 
     return JournalResponse(
         entries=entries,
@@ -288,6 +291,10 @@ def patch_journal(
         sc_count = len(database.list_journal_screenshots(trade_id))
     except Exception:
         sc_count = 0
+    try:
+        updated = trade_groups.position_for(updated)   # keep the partial-close legs on the entry the client swaps in
+    except Exception:  # noqa: BLE001 - the annotation is saved; never fail the reply over the breakdown
+        pass
     return JournalUpdateResponse(
         entry=_journal_item(updated, sc_count),
         updated_fields=list(kwargs.keys()),
@@ -505,20 +512,20 @@ def journal_tag_stats() -> Dict[str, Any]:
     stats: Dict[str, Dict[str, Any]] = {}
     untagged = {"n": 0, "net_total": 0.0}
     total = 0
-    if isinstance(df, pd.DataFrame) and not df.empty:
-        for _, r in df.iterrows():
-            tag = (_s(r.get("setup_tag")) or "").strip()
-            net = _f(r.get("net_profit"))
-            total += 1
-            if not tag:
-                untagged["n"] += 1
-                untagged["net_total"] += net
-                continue
-            s = stats.setdefault(tag, {"tag": tag, "n": 0, "wins": 0, "net_total": 0.0})
-            s["n"] += 1
-            s["net_total"] += net
-            if net > 0:
-                s["wins"] += 1
+    # Positions, not rows: a trade closed in three pieces is one trade with one tag.
+    for r in trade_groups.load_positions(df if isinstance(df, pd.DataFrame) else None):
+        tag = (_s(r.get("setup_tag")) or "").strip()
+        net = _f(r.get("net_profit"))
+        total += 1
+        if not tag:
+            untagged["n"] += 1
+            untagged["net_total"] += net
+            continue
+        s = stats.setdefault(tag, {"tag": tag, "n": 0, "wins": 0, "net_total": 0.0})
+        s["n"] += 1
+        s["net_total"] += net
+        if net > 0:
+            s["wins"] += 1
     out = []
     for s in stats.values():
         n = s["n"]

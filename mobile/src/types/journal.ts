@@ -1,4 +1,16 @@
 /** Mirrors api/schemas.py journal models (kept in sync by hand). */
+/** One exit of a position that was closed in pieces: 'partial' for every exit but the last, 'final' for the last. */
+export interface TradeLeg {
+  trade_id: string | null
+  n: number
+  kind: 'partial' | 'final'
+  time: string
+  /** unknown for a Capital.com partial (the broker repeats the last exit's size on every partial) */
+  volume: number | null
+  price: number | null
+  net: number
+}
+
 export interface JournalTradeItem {
   trade_id: string
   account_id: string
@@ -19,6 +31,10 @@ export interface JournalTradeItem {
   rating: number | null
   chart_snapshot_url: string | null
   screenshot_count?: number
+  /** Set when the position was closed in pieces: the P&L fields are then the whole position's totals. */
+  legs?: TradeLeg[]
+  /** some of the position is still open at the broker, so every leg so far is a partial */
+  position_open?: boolean
 }
 
 export interface JournalResponse {

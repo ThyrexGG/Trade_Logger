@@ -9,6 +9,7 @@ import { ChartSnapshot } from '../journal/ChartSnapshot'
 import { HandLoggedControls } from '../journal/HandLoggedControls'
 import { ScreenshotStrip, type ScreenshotStripHandle } from '../journal/ScreenshotStrip'
 import { StarRating } from '../journal/StarRating'
+import { ExitsBadge, TradeLegs, exitCount } from '../journal/TradeLegs'
 import { TagRecord, invalidateTagRecord } from '../journal/TagRecord'
 import { useToast } from '../../lib/toast'
 
@@ -222,16 +223,19 @@ export function JournalView({
   const [query, setQuery] = useState('')
   const [limit, setLimit] = useState(PAGE)
   const [editing, setEditing] = useState<string | null>(null)
+  const [showLegs, setShowLegs] = useState<string | null>(null)
   const focusedRef = useRef<HTMLTableRowElement>(null)
   const focusHandled = useRef<string | null>(null)
 
   useEffect(() => {
     if (!focusTradeId || focusHandled.current === focusTradeId) return
-    if (!data.entries.some((e) => e.trade_id === focusTradeId)) return
+    // a link to one partial close (an old notification) lands on the trade it belongs to
+    const target = data.entries.find((e) => e.trade_id === focusTradeId || e.legs?.some((l) => l.trade_id === focusTradeId))
+    if (!target) return
     focusHandled.current = focusTradeId
-    setEditing(focusTradeId)
+    setEditing(target.trade_id)
     // make sure it's within the paged window
-    const idx = data.entries.findIndex((e) => e.trade_id === focusTradeId)
+    const idx = data.entries.indexOf(target)
     if (idx >= 0) setLimit((l) => Math.max(l, idx + PAGE))
     setTimeout(() => focusedRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 60)
   }, [focusTradeId, data.entries])
@@ -336,12 +340,14 @@ export function JournalView({
             <tbody>
               {shown.map((e: JournalTradeItem) => {
                 const isEditing = editing === e.trade_id
+                const legsOpen = showLegs === e.trade_id
+                const isFocus = Boolean(focusTradeId) && (e.trade_id === focusTradeId || Boolean(e.legs?.some((l) => l.trade_id === focusTradeId)))
                 return (
                   <Fragment key={e.trade_id}>
                   <tr
-                    ref={e.trade_id === focusTradeId ? focusedRef : undefined}
-                    className={`align-top ${isEditing ? '' : 'border-b border-border-subtle/60'} ${
-                      e.trade_id === focusTradeId ? 'bg-accent/5' : ''
+                    ref={isFocus ? focusedRef : undefined}
+                    className={`align-top ${isEditing || legsOpen ? '' : 'border-b border-border-subtle/60'} ${
+                      isFocus ? 'bg-accent/5' : ''
                     }`}
                   >
                     <td className="whitespace-nowrap px-2 py-1.5 font-mono text-secondary">{e.exit_time.slice(0, 16).replace('T', ' ')}</td>
@@ -349,6 +355,17 @@ export function JournalView({
                       <Link to={`/workspace/market?symbol=${encodeURIComponent(e.symbol)}`} className="font-mono font-semibold text-primary hover:text-accent">
                         {e.symbol}
                       </Link>
+                      {exitCount(e) !== null ? (
+                        <button
+                          type="button"
+                          onClick={() => setShowLegs(legsOpen ? null : e.trade_id)}
+                          aria-expanded={legsOpen}
+                          className="ml-1.5 align-middle"
+                          title="Show the partial closes and the final exit"
+                        >
+                          <ExitsBadge entry={e} />
+                        </button>
+                      ) : null}
                     </td>
                     <td className={`px-2 py-1.5 font-mono ${e.direction.includes('LONG') || e.direction.includes('BUY') ? 'text-positive' : 'text-negative'}`}>
                       {e.direction}
@@ -387,6 +404,15 @@ export function JournalView({
                       </button>
                     </td>
                   </tr>
+                  {legsOpen ? (
+                    <tr className={`${isEditing ? '' : 'border-b border-border-subtle/60'} bg-surface-elevated/20`}>
+                      <td colSpan={colCount} className="p-0">
+                        <div className="sticky left-0 w-[calc(100vw-2rem)] p-3 sm:w-auto sm:max-w-xl">
+                          <TradeLegs entry={e} />
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
                   {isEditing ? (
                     <tr className="border-b border-border-subtle/60 bg-surface-elevated/20">
                       <td colSpan={colCount} className="p-0">

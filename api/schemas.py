@@ -711,6 +711,17 @@ class ResearchAuditResponse(BaseModel):
 #     NEW closed_trades row rather than annotating an existing one -- for
 #     trading your own money outside any broker sync.
 # -------------------------------------------------------------------------
+class TradeLeg(BaseModel):
+    """One exit of a position that was closed in pieces: 'partial' for every exit but the last, 'final' for the last."""
+    trade_id: Optional[str] = None
+    n: int
+    kind: str
+    time: str
+    volume: Optional[float] = None   # unknown for a Capital.com partial (the broker repeats the last exit's size)
+    price: Optional[float] = None
+    net: float
+
+
 class JournalTradeItem(BaseModel):
     trade_id: str
     account_id: str
@@ -731,6 +742,10 @@ class JournalTradeItem(BaseModel):
     rating: Optional[int] = None
     chart_snapshot_url: Optional[str] = None
     screenshot_count: int = 0
+    # Set when the position was closed in pieces: net/gross/commission/swap are then the whole position's totals,
+    # and `legs` breaks them down. `position_open` = some of it is still open at the broker.
+    legs: List[TradeLeg] = []
+    position_open: bool = False
 
 
 class ManualTradeIn(BaseModel):
