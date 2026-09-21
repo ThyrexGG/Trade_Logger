@@ -29,7 +29,11 @@ let isQuitting = false
 // Tracks whether the last known state was "down" so we notify once on
 // failure and once on recovery, not every single poll.
 let backendIsDown = false
+// Alerts stay TRIGGERED on the server until deleted, so the badge counts only the ones
+// fired since the window was last in front of you (compared on the server's own clock).
 let lastTriggeredAlertCount = 0
+let triggeredStamps = []
+let alertsSeenAt = null
 // Launched by "Start with Windows": stay in the tray instead of popping a window.
 const startHidden = process.argv.includes('--hidden')
 
@@ -76,6 +80,9 @@ function createWindow() {
 
   mainWindow.loadURL(SITE_URL)
 
+  mainWindow.on('focus', markAlertsSeen)
+  mainWindow.on('show', markAlertsSeen)
+
   // Open anything that isn't the app itself (e.g. an affiliate link on the
   // Partners page) in the user's real browser instead of inside the shell.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -117,8 +124,8 @@ function rebuildTrayMenu() {
   const statusLabel = backendIsDown ? 'Backend: DOWN' : 'Backend: healthy'
   const alertsLabel =
     lastTriggeredAlertCount > 0
-      ? `${lastTriggeredAlertCount} triggered alert${lastTriggeredAlertCount === 1 ? '' : 's'}`
-      : 'No triggered alerts'
+      ? `${lastTriggeredAlertCount} new triggered alert${lastTriggeredAlertCount === 1 ? '' : 's'}`
+      : 'No new triggered alerts'
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: 'Open TradeLogger', click: showWindow },
@@ -148,17 +155,36 @@ function rebuildTrayMenu() {
   )
 }
 
-function setTriggeredAlertBadge(count) {
+function applyAlertBadge() {
+  if (alertsSeenAt == null) alertsSeenAt = Number(readState().alertsSeenAt) || 0
+  const count = triggeredStamps.filter((t) => t > alertsSeenAt).length
   lastTriggeredAlertCount = count
   if (mainWindow) {
     if (count > 0) {
       const badge = nativeImage.createFromPath(OVERLAY_BADGE_PATH)
-      mainWindow.setOverlayIcon(badge, `${count} triggered price alert${count === 1 ? '' : 's'}`)
+      mainWindow.setOverlayIcon(badge, `${count} new triggered price alert${count === 1 ? '' : 's'}`)
     } else {
       mainWindow.setOverlayIcon(null, '')
     }
   }
   if (tray) rebuildTrayMenu()
+}
+
+// The window is in front of you: every alert fired so far counts as seen, and the badge clears.
+function markAlertsSeen() {
+  if (alertsSeenAt == null) alertsSeenAt = Number(readState().alertsSeenAt) || 0
+  const latest = triggeredStamps.length ? Math.max(...triggeredStamps) : 0
+  if (latest > alertsSeenAt) {
+    alertsSeenAt = latest
+    writeState({ ...readState(), alertsSeenAt })
+  }
+  applyAlertBadge()
+}
+
+function setTriggeredAlertBadge(stamps) {
+  triggeredStamps = stamps
+  if (mainWindow && mainWindow.isVisible() && mainWindow.isFocused()) markAlertsSeen()
+  else applyAlertBadge()
 }
 
 function openJournal() {
@@ -276,8 +302,8 @@ if (!gotSingleInstanceLock) {
   // the page's own session) and reports the triggered count here so it can
   // become a taskbar badge -- a background signal that something needs
   // attention without having to keep the window open.
-  ipcMain.on('tradelogger:triggered-alerts', (_event, count) => {
-    setTriggeredAlertBadge(Number(count) || 0)
+  ipcMain.on('tradelogger:triggered-alerts', (_event, stamps) => {
+    setTriggeredAlertBadge(Array.isArray(stamps) ? stamps.map(Number).filter(Number.isFinite) : [])
   })
 
   // Last trade-event id already shown, remembered per TradeLogger account so a

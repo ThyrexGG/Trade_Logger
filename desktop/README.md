@@ -19,9 +19,11 @@ gives you:
   minimised to the tray at login, so trade notifications are always on.
 - A global hotkey, **Ctrl+Shift+L**, that brings the window to front from
   anywhere — even minimized to tray — without touching the mouse.
-- A taskbar overlay badge showing how many price alerts have triggered,
-  read via `preload.js` using the page's own logged-in session (polled every
-  60s), so you can tell something needs attention without opening the window.
+- A taskbar overlay badge showing how many price alerts have triggered since you
+  last had the window in front of you, read via `preload.js` using the page's own
+  logged-in session (polled every 60s). Opening or focusing the window clears it;
+  the next alert that fires brings it back. (Triggered alerts stay in the list until
+  you delete them, so the badge deliberately doesn't count those.)
 
 It always loads whatever is live at `https://tradelogger.site` — there is no
 separate frontend build to keep in sync. Update the app itself only if the

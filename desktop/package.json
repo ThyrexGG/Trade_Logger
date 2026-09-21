@@ -1,7 +1,7 @@
 {
   "name": "tradelogger-desktop",
   "productName": "TradeLogger",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Desktop shell for TradeLogger — opens the live site in its own window, lives in the system tray, and alerts you natively if the backend goes down.",
   "author": "TradeLogger",
   "private": true,

@@ -6,7 +6,7 @@
 // notifications / a taskbar badge without needing to fake authentication.
 //
 // It does two jobs:
-//   1. triggered price alerts  -> taskbar badge
+//   1. newly triggered price alerts  -> taskbar badge (clears when you open the window)
 //   2. trade opened / closed   -> native Windows notification
 const { ipcRenderer } = require('electron')
 
@@ -22,7 +22,9 @@ async function pollTriggeredAlerts() {
     const res = await fetch(ALERTS_URL, { credentials: 'include' })
     if (!res.ok) return // not logged in yet, or a transient error -- just skip this tick
     const data = await res.json()
-    ipcRenderer.send('tradelogger:triggered-alerts', Number(data.triggered) || 0)
+    // When each triggered alert fired (ms). main.js badges only the ones you have not seen.
+    const stamps = (data.alerts || []).filter((a) => a.status === 'TRIGGERED').map((a) => Date.parse(a.triggered_at) || 1)
+    ipcRenderer.send('tradelogger:triggered-alerts', stamps)
   } catch {
     // offline or backend down -- the health-check notification already covers that
   }
