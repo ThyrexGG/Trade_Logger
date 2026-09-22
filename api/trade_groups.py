@@ -93,6 +93,27 @@ def _fold_capital(group: List[Dict[str, Any]], is_open: bool) -> Dict[str, Any]:
     return main
 
 
+def folded_dataframe(df: Optional[pd.DataFrame]) -> pd.DataFrame:
+    """`df` (a `closed_trades` frame, any tenant) with Capital.com partial-close rows folded into one
+    row per position — same columns and dtypes, so it drops straight into any pandas-based stat over
+    closed trades (win rate, daily P&L, symbol/tag breakdown, calendar counts) without that stat's own
+    code changing. MT5 already stores one row per position, so this only touches Capital's `<deal>_N`
+    duplicate rows; a still-open position's partials so far are folded too (their sum is correct either
+    way). Net-P&L sums are unaffected by folding either way, only the trade/win/loss COUNTS are.
+
+    One behavior change worth knowing: a position is now dated and located by its LAST exit, so a scale
+    -out that started on one day and finished on the next now shows its whole P&L on the finishing day,
+    where each partial used to count on the day it actually happened. In your data every partial closes
+    within the same day, so this only matters if that changes."""
+    if df is None or df.empty:
+        return df if df is not None else pd.DataFrame()
+    folded = collapse_positions(df.to_dict("records"))
+    for r in folded:
+        r.pop("legs", None)
+        r.pop("position_open", None)
+    return pd.DataFrame(folded, columns=df.columns)
+
+
 def _open_capital_bases(open_ids: Iterable[str]) -> Set[str]:
     out: Set[str] = set()
     for pid in open_ids:

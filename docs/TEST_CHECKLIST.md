@@ -211,6 +211,7 @@ if it hangs: `npm start -- --tunnel`).
 - [ ] 🌐 Take a real partial on Capital.com (close half, later the rest): after the next sync it shows as one trade with a Partial and a Final exit — 📱 needs a live partial
 - [ ] 📱 Phone (after build 4): the Journal row shows the "4 exits" pill and the trade screen has an Exits card
 - [ ] Setups → "Tag the rest" no longer lists the partials separately (each partial used to need its own tag)
+- [x] Analytics, the Command Center and the weekly summary now count the scaled-out position once too, not once per partial *(checked against the owner's real account: trade count 115 → 105, win rate 33.0% → 28.6%, net P&L unchanged at -$94.51 — the inflated win rate from partials is gone, nothing else moved)*
 
 ---
 

@@ -1,12 +1,16 @@
 # -*- coding: utf-8 -*-
 """Partial closes are folded into the trade they belong to: one journal entry per position, with its legs."""
 import sqlite3
+from datetime import date, datetime, timedelta, timezone
 
+import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
 import database
+import tenant
 from api import trade_groups as tg
+from api import weekly_summary as ws
 from api.main import app
 
 client = TestClient(app)
@@ -157,3 +161,48 @@ def test_annotating_an_old_partial_row_id_answers_with_the_main_trade(db):
     r = client.patch(f"/api/operations/journal/{DEAL}_1", json={"rating": 3})
     assert r.status_code == 200
     assert r.json()["entry"]["trade_id"] == DEAL and r.json()["entry"]["net_profit"] == 6.26
+
+
+# ------------------------------------------------------------------------------------------------
+# folded_dataframe: the same grouping, shaped for Analytics / Command Center / the weekly summary
+# ------------------------------------------------------------------------------------------------
+def test_folded_dataframe_merges_partials_and_keeps_the_frame_shape():
+    df = pd.DataFrame(_four_part_position() + [_row("MANUAL_x", 5.0, "2026-09-22T10:00:00")])
+    out = tg.folded_dataframe(df)
+    assert list(out.columns) == list(df.columns)          # same columns, so it drops into any existing pandas code
+    assert len(out) == 2 and "legs" not in out.columns and "position_open" not in out.columns
+    main = out[out["trade_id"] == DEAL].iloc[0]
+    assert main["net_profit"] == 6.26 and main["exit_time"] == "2026-09-21T13:32:10.395"   # dated by its last exit
+
+
+def test_folded_dataframe_is_a_noop_on_a_plain_frame():
+    df = pd.DataFrame([_row("MT5_1_500", 10.0, "2026-09-20T10:00:00"), _row("MANUAL_x", -2.0, "2026-09-20T11:00:00")])
+    out = tg.folded_dataframe(df)
+    assert out["trade_id"].tolist() == df["trade_id"].tolist() and out["net_profit"].tolist() == df["net_profit"].tolist()
+
+
+def test_folded_dataframe_handles_none_and_empty():
+    assert tg.folded_dataframe(None).empty
+    assert tg.folded_dataframe(pd.DataFrame()).empty
+
+
+def test_analytics_and_command_center_count_positions_not_partial_rows(db):
+    _save_position()
+    perf = client.get("/api/analytics/performance").json()
+    assert perf["metrics"]["total_trades"] == 1 and perf["matched_trades"] == 1
+    assert perf["metrics"]["total_net_pnl"] == 6.26
+    day = client.get("/api/analytics/day", params={"date": "2026-09-21"}).json()
+    assert day["count"] == 1 and day["trades"][0]["trade_id"] == DEAL and day["trades"][0]["net_profit"] == 6.26
+
+    cc = client.get("/api/command-center/overview").json()
+    assert cc["account_summary"]["all_time_trades"] == 1
+    assert cc["account_summary"]["all_time_net_pnl"] == 6.26
+    if cc["daily_performance"]:
+        assert cc["daily_performance"]["trades"] in (0, 1)   # 1 only if "today" happens to be 2026-09-21 in this run
+
+
+def test_weekly_summary_counts_one_trade_for_the_scaled_out_position(db):
+    with tenant.use("alice"):
+        _save_position()
+        s = ws.summarize(date(2026, 9, 21) - timedelta(days=date(2026, 9, 21).weekday()))
+        assert s["trades"] == 1 and s["net"] == 6.26 and s["best_trade"] == {"symbol": "USDJPY", "net": 6.26}

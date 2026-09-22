@@ -36,6 +36,7 @@ from fastapi import APIRouter
 
 import analytics
 import database
+from api import trade_groups
 from api.schemas import (
     CCAccountSummary,
     CCAlerts,
@@ -86,7 +87,9 @@ def _session_clock(now: datetime) -> CCSessionClock:
 
 # --- section builders --------------------------------------------------
 def _load_trades() -> pd.DataFrame:
-    df = database.get_closed_trades(ttl_sec=database.CACHE_TTL_CLOSED_TRADES)
+    """One row per POSITION — see api/trade_groups.py — so "Trades today" / all-time counts and win
+    rate agree with the Journal instead of counting each partial close as its own trade."""
+    df = trade_groups.folded_dataframe(database.get_closed_trades(ttl_sec=database.CACHE_TTL_CLOSED_TRADES))
     if df is None or df.empty:
         return pd.DataFrame()
     df = df.copy()

@@ -21,6 +21,7 @@ import pandas as pd
 
 import database
 import tenant
+from api import trade_groups
 
 log = logging.getLogger(__name__)
 
@@ -75,7 +76,7 @@ def summarize(start: date) -> Dict[str, Any]:
         "untagged": 0, "by_day": [{"date": (start + timedelta(days=i)).isoformat(), "net": 0.0, "trades": 0} for i in range(7)],
         "by_tag": [],
     }
-    df = database.get_closed_trades(ttl_sec=database.CACHE_TTL_CLOSED_TRADES)
+    df = trade_groups.folded_dataframe(database.get_closed_trades(ttl_sec=database.CACHE_TTL_CLOSED_TRADES))
     if df is None or df.empty:
         return out
     df = df.copy()

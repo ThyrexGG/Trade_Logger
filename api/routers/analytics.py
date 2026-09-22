@@ -30,6 +30,7 @@ from fastapi import APIRouter, HTTPException, Query
 import analytics
 import database
 import tenant
+from api import trade_groups
 from api.schemas import (
     AnalyticsAvailable,
     AnalyticsDayTradesResponse,
@@ -74,8 +75,9 @@ def _get_saved_initial_balance(account: str) -> Optional[float]:
 
 
 def _load_trades() -> pd.DataFrame:
-    """The authoritative closed-trade population, dates parsed exactly as `app.py`."""
-    df = database.get_closed_trades(ttl_sec=database.CACHE_TTL_CLOSED_TRADES)
+    """The authoritative closed-trade population, one row per POSITION (partial closes folded — see
+    api/trade_groups.py) with dates parsed exactly as `app.py`."""
+    df = trade_groups.folded_dataframe(database.get_closed_trades(ttl_sec=database.CACHE_TTL_CLOSED_TRADES))
     if df is None or df.empty:
         return pd.DataFrame()
     df = df.copy()

@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 
 import analytics
 import database
+from api import trade_groups
 from api.main import app
 
 client = TestClient(app)
@@ -51,7 +52,8 @@ def test_daily_and_account_trace_to_canonical():
     if "account_summary" in d["sections_degraded"]:
         pytest.skip("analytics source degraded in this environment")
 
-    df = database.get_closed_trades()
+    # One row per POSITION (partial closes folded, api/trade_groups.py), matching the router.
+    df = trade_groups.folded_dataframe(database.get_closed_trades())
     for col in ("entry_time", "exit_time"):
         df[col] = pd.to_datetime(df[col], format="mixed", utc=True).dt.tz_localize(None)
     all_m = analytics.calculate_performance_metrics(df.sort_values("exit_time"), 10000.0)

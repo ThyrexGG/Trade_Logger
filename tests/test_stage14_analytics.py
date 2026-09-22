@@ -14,14 +14,17 @@ from fastapi.testclient import TestClient
 
 import analytics
 import database
+from api import trade_groups
 from api.main import app
 
 client = TestClient(app)
 
 
 def _canonical_metrics(account=None, symbols=None, start=None, end=None, initial_balance=10000.0):
-    """Reproduce the exact filtered population + canonical metrics the Streamlit page uses."""
-    df = database.get_closed_trades()
+    """Reproduce the exact filtered population + canonical metrics the Streamlit page uses.
+
+    One row per POSITION (partial closes folded, api/trade_groups.py), matching the router."""
+    df = trade_groups.folded_dataframe(database.get_closed_trades())
     if df.empty:
         return analytics.calculate_performance_metrics(pd.DataFrame(), initial_balance), 0
     for col in ("entry_time", "exit_time"):
