@@ -13,7 +13,7 @@ $ErrorActionPreference = "Stop"
 
 $repo = $PSScriptRoot
 $python = (Get-Command python).Source
-$script = Join-Path $repo "phase98_forward_daemon.py"
+$script = Join-Path $repo "legacy\phase98_forward_daemon.py"
 $taskName = "TradeLogger Phase98 Forward Evidence"
 
 if (-not (Test-Path $script)) { throw "phase98_forward_daemon.py not found in $repo" }

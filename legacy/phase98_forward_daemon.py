@@ -36,7 +36,14 @@ import time
 from datetime import datetime, timezone
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_LOG = os.path.join(_HERE, "phase98_daemon_log.txt")
+# This file lives in legacy/ (moved there 2026-09-16 as test-only), but the harness module it shells out
+# to (phase98_carry_forward_evidence.py) lives at the repo ROOT and was correctly left there. Everything
+# below must run from and log to the root, not from legacy/ -- the same class of sibling-path bug the
+# move commit fixed for three other modules, missed here because the subprocess call is mocked in tests
+# and never actually exercises `cwd`. Getting this wrong silently broke the daily scheduled task (it ran,
+# but every invocation failed with "module not found") for six days before anyone noticed.
+_REPO_ROOT = os.path.dirname(_HERE)
+_LOG = os.path.join(_REPO_ROOT, "phase98_daemon_log.txt")
 _DUE_AFTER_DAYS = 7
 _LOOP_CHECK_HOURS = 6
 
@@ -85,7 +92,7 @@ def run_harness() -> int:
     cmd = [sys.executable, "-m", "phase98_carry_forward_evidence", "--refresh"]
     _log(f"running: {' '.join(cmd)}")
     try:
-        p = subprocess.run(cmd, cwd=_HERE, capture_output=True, text=True, timeout=1800)
+        p = subprocess.run(cmd, cwd=_REPO_ROOT, capture_output=True, text=True, timeout=1800)
     except subprocess.TimeoutExpired:
         _log("harness TIMED OUT after 1800s")
         return 124

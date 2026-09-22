@@ -9,11 +9,23 @@ no strategy/execution logic and shells out to the harness with --refresh.
 The harness subprocess is stubbed.
 """
 import inspect
+import os
 import re
 import sys
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 import legacy.phase98_forward_daemon as d
+
+
+@pytest.fixture(autouse=True)
+def _isolated_log(tmp_path, monkeypatch):
+    """Every path through this daemon logs (`_log()` unconditionally appends to `d._LOG`), and only
+    `subprocess.run` is mocked below -- without this, every test run silently appended real lines (in
+    one case, the literal fixture text "OVERALL: X\\nartifact: y") to the real phase98_daemon_log.txt at
+    the repo root. That's what the garbled entries throughout that file's real history actually were."""
+    monkeypatch.setattr(d, "_LOG", str(tmp_path / "test_daemon_log.txt"))
 
 
 def _hist(days_ago):
@@ -82,6 +94,7 @@ def test_run_harness_shells_out_with_refresh(monkeypatch):
 
     def fake_run(cmd, **kw):
         captured["cmd"] = cmd
+        captured["kw"] = kw
         return _P()
 
     monkeypatch.setattr(d.subprocess, "run", fake_run)
@@ -89,6 +102,18 @@ def test_run_harness_shells_out_with_refresh(monkeypatch):
     assert captured["cmd"][:2] == [sys.executable, "-m"]
     assert captured["cmd"][2] == "phase98_carry_forward_evidence"
     assert "--refresh" in captured["cmd"]
+    # This file lives in legacy/, but the harness module it shells out to lives at the repo root -- the
+    # subprocess must run from there (and `python -m phase98_carry_forward_evidence` must be able to find
+    # it), or every invocation fails with "module not found" while the daemon itself still exits 0.
+    # A previous version passed legacy/ here and the daily scheduled task silently failed for 6 days.
+    assert os.path.isfile(os.path.join(captured["kw"]["cwd"], "phase98_carry_forward_evidence.py"))
+
+
+def test_log_file_is_at_the_repo_root_not_in_legacy():
+    # _LOG itself is monkeypatched away by the autouse fixture above (so tests never touch the real log);
+    # _REPO_ROOT is what it's built from, and that must still point one level up from legacy/.
+    assert d._REPO_ROOT == os.path.dirname(os.path.dirname(os.path.abspath(d.__file__)))
+    assert os.path.isfile(os.path.join(d._REPO_ROOT, "phase98_carry_forward_evidence.py"))
 
 
 def test_status_mode(monkeypatch, capsys):
