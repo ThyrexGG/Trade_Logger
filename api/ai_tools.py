@@ -24,6 +24,7 @@ import pandas as pd
 
 import analytics
 import database
+from api import trade_groups
 
 # --- session windows (UTC hour ranges; deliberately coarse) -------------
 # FX sessions overlap and are fuzzy — these are pragmatic buckets on the
@@ -58,7 +59,9 @@ def _s(v: Any) -> Optional[str]:
 
 
 def _closed_trades() -> pd.DataFrame:
-    df = database.get_closed_trades(ttl_sec=database.CACHE_TTL_CLOSED_TRADES)
+    """One row per POSITION — see api/trade_groups.py — so the assistant's trade counts and win rate
+    agree with the Journal instead of counting each Capital.com partial close as its own trade."""
+    df = trade_groups.folded_dataframe(database.get_closed_trades(ttl_sec=database.CACHE_TTL_CLOSED_TRADES))
     if not isinstance(df, pd.DataFrame) or df.empty:
         return pd.DataFrame()
     df = df.copy()

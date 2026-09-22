@@ -212,6 +212,7 @@ if it hangs: `npm start -- --tunnel`).
 - [ ] 📱 Phone (after build 4): the Journal row shows the "4 exits" pill and the trade screen has an Exits card
 - [ ] Setups → "Tag the rest" no longer lists the partials separately (each partial used to need its own tag)
 - [x] Analytics, the Command Center and the weekly summary now count the scaled-out position once too, not once per partial *(checked against the owner's real account: trade count 115 → 105, win rate 33.0% → 28.6%, net P&L unchanged at -$94.51 — the inflated win rate from partials is gone, nothing else moved)*
+- [x] The AI Assistant's trade queries (win rate, symbol/tag stats, period summaries) count the same way now — asking it "what's my win rate" no longer double-counts partials *(checked against the owner's real account via `tool_query_trades`)*
 
 ---
 

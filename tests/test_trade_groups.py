@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 import database
 import tenant
+from api import ai_tools
 from api import trade_groups as tg
 from api import weekly_summary as ws
 from api.main import app
@@ -206,3 +207,13 @@ def test_weekly_summary_counts_one_trade_for_the_scaled_out_position(db):
         _save_position()
         s = ws.summarize(date(2026, 9, 21) - timedelta(days=date(2026, 9, 21).weekday()))
         assert s["trades"] == 1 and s["net"] == 6.26 and s["best_trade"] == {"symbol": "USDJPY", "net": 6.26}
+
+
+def test_ai_assistant_counts_one_trade_for_the_scaled_out_position(db):
+    _save_position()
+    out = ai_tools.tool_query_trades(symbol="USDJPY")
+    assert out["n"] == 1 and out["wins"] == 1 and out["win_rate_pct"] == 100.0 and out["net_pnl_usd"] == 6.26
+    tags = ai_tools.tool_tag_record()["tags"]
+    assert tags == [{"tag": "London", "n": 1, "wins": 1, "win_rate_pct": 100.0, "net_total_usd": 6.26, "expectancy_usd": 6.26}]
+    period = ai_tools.tool_analytics_period("all")
+    assert period["n"] == 1 and period["net_pnl_usd"] == 6.26
