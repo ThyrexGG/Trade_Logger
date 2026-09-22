@@ -9,6 +9,7 @@ import { PageContainer } from '../components/shell/PageContainer'
 import { downloadCsv, tradesToCsv } from '../lib/csvExport'
 import { JournalSummary, JournalView } from '../components/operations/JournalView'
 import { JournalFeed } from '../components/journal/JournalFeed'
+import { JournalDayPicker, localDayIso } from '../components/journal/JournalDayPicker'
 import { FreeEntries } from '../components/journal/FreeEntries'
 import type { JournalResponse } from '../types/operations'
 import {
@@ -86,14 +87,18 @@ function dateFilterCutoff(filter: DateFilter): number {
   return 0
 }
 
-/** Filters a journal snapshot down to one account and/or a rolling date
- * window, recomputing the summary totals to match — the raw fetch always
- * carries everything so the dropdowns themselves have something to list. */
-function filterJournal(data: JournalResponse, account: string, dateFilter: DateFilter): JournalResponse {
-  const cutoff = dateFilterCutoff(dateFilter)
+/** Filters a journal snapshot down to one account and/or a date window, recomputing the summary totals
+ * to match — the raw fetch always carries everything so the dropdowns themselves have something to list.
+ * A specific `selectedDay` (from the calendar) wins over the rolling `dateFilter` preset when both are set. */
+function filterJournal(data: JournalResponse, account: string, dateFilter: DateFilter, selectedDay: string | null): JournalResponse {
   let entries = data.entries
   if (account !== 'ALL') entries = entries.filter((e) => e.account_id === account)
-  if (cutoff > 0) entries = entries.filter((e) => parseTime(e.exit_time) >= cutoff)
+  if (selectedDay) {
+    entries = entries.filter((e) => localDayIso(parseTime(e.exit_time)) === selectedDay)
+  } else {
+    const cutoff = dateFilterCutoff(dateFilter)
+    if (cutoff > 0) entries = entries.filter((e) => parseTime(e.exit_time) >= cutoff)
+  }
   if (entries === data.entries) return data
   const wins = entries.filter((e) => e.net_profit > 0).length
   const losses = entries.filter((e) => e.net_profit < 0).length
@@ -121,6 +126,9 @@ export function JournalPage() {
   // A deep-linked trade might be older than "this week" — land on "All time"
   // instead of the default so the link still resolves instead of hiding it.
   const [dateFilter, setDateFilter] = useState<DateFilter>(() => (focusTradeId ? 'all' : loadDateFilter()))
+  // A specific day picked from the calendar; overrides `dateFilter` above while set. Not persisted —
+  // like the Analytics calendar, a picked day is a one-off look, not a standing preference.
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
 
   function changeView(v: ViewMode) {
     setView(v)
@@ -142,6 +150,7 @@ export function JournalPage() {
 
   function changeDateFilter(f: DateFilter) {
     setDateFilter(f)
+    setSelectedDay(null) // a preset window and a picked day are mutually exclusive
     try {
       localStorage.setItem(DATE_KEY, f)
     } catch {
@@ -157,9 +166,15 @@ export function JournalPage() {
   }
 
   const filtered = useMemo(
-    () => (data ? filterJournal(data, account, dateFilter) : null),
-    [data, account, dateFilter],
+    () => (data ? filterJournal(data, account, dateFilter, selectedDay) : null),
+    [data, account, dateFilter, selectedDay],
   )
+  // Account-scoped but NOT date-scoped — the calendar needs every day to navigate through, not just the
+  // window the preset buttons currently show.
+  const accountEntries = useMemo(() => {
+    if (!data) return []
+    return account === 'ALL' ? data.entries : data.entries.filter((e) => e.account_id === account)
+  }, [data, account])
   const openPositionsForAccount = useMemo(() => {
     const all = openPositions.data?.positions ?? []
     return account === 'ALL' ? all : all.filter((p) => p.account_id === account)
@@ -191,13 +206,14 @@ export function JournalPage() {
                 type="button"
                 onClick={() => changeDateFilter(f)}
                 className={`px-2.5 py-1 first:border-l-0 border-l border-border ${
-                  dateFilter === f ? 'bg-accent/10 text-accent' : 'text-secondary hover:bg-surface-hover'
+                  !selectedDay && dateFilter === f ? 'bg-accent/10 text-accent' : 'text-secondary hover:bg-surface-hover'
                 }`}
               >
                 {DATE_FILTER_LABEL[f]}
               </button>
             ))}
           </div>
+          <JournalDayPicker entries={accountEntries} selected={selectedDay} onSelect={setSelectedDay} />
           <div className="flex overflow-hidden rounded border border-border text-xs">
             <button
               type="button"
@@ -266,7 +282,13 @@ export function JournalPage() {
               </label>
             ) : null}
             <JournalSummary data={viewData} />
-            {view === 'feed' ? (
+            {viewData.entries.length === 0 && data.entries.length > 0 ? (
+              <div className="rounded-lg border border-border bg-surface p-4 text-center text-xs text-muted">
+                {selectedDay
+                  ? `No trades closed on ${new Date(`${selectedDay}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}.`
+                  : 'No trades match the current filter.'}
+              </div>
+            ) : view === 'feed' ? (
               <JournalFeed data={viewData} onEntryUpdated={applyEntry} onEntryDeleted={removeEntry} />
             ) : (
               <JournalView data={viewData} onEntryUpdated={applyEntry} onEntryDeleted={removeEntry} focusTradeId={focusTradeId} />

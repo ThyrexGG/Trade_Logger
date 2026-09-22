@@ -214,6 +214,13 @@ if it hangs: `npm start -- --tunnel`).
 - [x] Analytics, the Command Center and the weekly summary now count the scaled-out position once too, not once per partial *(checked against the owner's real account: trade count 115 → 105, win rate 33.0% → 28.6%, net P&L unchanged at -$94.51 — the inflated win rate from partials is gone, nothing else moved)*
 - [x] The AI Assistant's trade queries (win rate, symbol/tag stats, period summaries) count the same way now — asking it "what's my win rate" no longer double-counts partials *(checked against the owner's real account via `tool_query_trades`)*
 
+**A25 · Journal calendar day-picker** ⚠️ — Journal on the website (live), phone not built
+- [x] A "Calendar" button sits next to Today / This week / This month / All time; opening it shows a month grid like Analytics', shaded green/red by that day's net P&L, opened on the month of your most recent trade
+- [x] A day with trades is clickable; picking one filters the Journal (both Feed and Table) to just that day, and none of the preset buttons look active while it's picked
+- [x] The button then shows the picked date with a × to clear it back to the preset filters
+- [x] A day with no trades is greyed out and can't be clicked; Escape closes the popover
+- [ ] 🌐 On the real site: pick a day you remember trading and confirm it shows exactly those trades
+
 ---
 
 ## B. Installed Android app + trade alerts (needs your setup first)
