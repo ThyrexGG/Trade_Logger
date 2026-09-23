@@ -13,10 +13,16 @@ import { describeAccount } from '../../lib/accountLabel'
  */
 export function AnalyticsControls({
   available,
+  availableAccount,
   query,
   onChange,
 }: {
   available: AnalyticsAvailable
+  /** Which account `available` actually reflects (the last response's echoed
+   * filter) — while a new account's fetch is in flight, `available` still
+   * holds the PREVIOUS account's numbers, so this must be checked before
+   * trusting `available.saved_initial_balance` for `query.account`. */
+  availableAccount: string | undefined
   query: AnalyticsQuery
   onChange: (next: AnalyticsQuery) => void
 }) {
@@ -43,6 +49,12 @@ export function AnalyticsControls({
       return
     }
     if (appliedFor.current === acct) return
+    // `available` lags one fetch behind while switching accounts — it still
+    // reflects the PREVIOUS account until the new response lands. Applying it
+    // here would prefill the new account with the old one's saved balance and
+    // then mark it "applied", permanently skipping the real value once it
+    // arrives (the bug: every account showing Capital.com's $350).
+    if (availableAccount !== acct) return
     if (available.saved_initial_balance != null) {
       appliedFor.current = acct
       setAutoFilled(false)
@@ -53,7 +65,7 @@ export function AnalyticsControls({
       onChange({ ...query, initial_balance: available.suggested_initial_balance })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query.account, available.saved_initial_balance, available.suggested_initial_balance])
+  }, [query.account, availableAccount, available.saved_initial_balance, available.suggested_initial_balance])
 
   // When the user has exactly one account, "All accounts" is the same data but
   // can't hold a saved starting balance — so start on that account. Runs once,

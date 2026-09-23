@@ -116,7 +116,12 @@ export function AnalyticsPage() {
                   : `Showing last good analytics — refresh failed: ${error}`}
               </p>
             ) : null}
-            <AnalyticsControls available={available} query={query} onChange={handleQueryChange} />
+            <AnalyticsControls
+              available={available}
+              availableAccount={data.filters_applied.account}
+              query={query}
+              onChange={handleQueryChange}
+            />
             <ChallengeTracker account={query.account} />
             <AnalyticsView data={data} />
           </div>
