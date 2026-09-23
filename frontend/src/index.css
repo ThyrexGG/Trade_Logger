@@ -108,6 +108,18 @@ textarea,
   animation: tl-fade-in 220ms ease-out;
 }
 
+/* A deliberately snappy "pop" for small floating panels that appear on
+   hover (e.g. the Journal calendar's day preview) — noticeably springier
+   than tl-fade-in/tl-toast, which are meant to be quiet. */
+@keyframes tl-pop-in {
+  from { opacity: 0; transform: scale(0.88) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.tl-pop-in {
+  animation: tl-pop-in 240ms cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: top center;
+}
+
 /* A quiet hover lift for clickable cards / nav rows — a couple of pixels,
    not a bounce. */
 .tl-hover-lift {

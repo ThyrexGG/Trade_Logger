@@ -70,54 +70,63 @@ function DayHoverCard({
   left = Math.max(8, Math.min(left, window.innerWidth - HOVER_CARD_W - 8))
   const top = placement === 'bottom' ? anchor.bottom + 6 : anchor.top - 6
 
+  // The placement flip (translateY(-100%) to grow upward from the anchor) and the pop-in entrance
+  // animation both drive `transform` — putting them on the same element means the animation's own
+  // keyframes momentarily blow away the flip and the card jumps into place when it ends. An outer div
+  // owns fixed positioning + the flip; an inner one owns the animation, so neither steps on the other.
   return createPortal(
     <div
-      role="dialog"
       style={{
         position: 'fixed',
         top,
         left,
         width: HOVER_CARD_W,
+        zIndex: 100,
         transform: placement === 'top' ? 'translateY(-100%)' : undefined,
       }}
-      className={`tl-toast z-[100] max-h-72 overflow-y-auto rounded-lg border p-2.5 shadow-xl ${
-        net >= 0 ? 'border-positive/40 bg-positive/[0.07]' : 'border-negative/40 bg-negative/[0.07]'
-      } bg-surface-elevated`}
     >
-      <button
-        type="button"
-        onClick={onOpen}
-        className="mb-1.5 flex w-full items-center justify-between gap-2 rounded px-0.5 py-0.5 text-left hover:opacity-80"
-        title="Show just this day's trades"
+      <div
+        role="dialog"
+        className={`tl-pop-in max-h-72 overflow-y-auto rounded-lg border p-2.5 shadow-xl ${
+          net >= 0 ? 'border-positive/40 bg-positive/[0.07]' : 'border-negative/40 bg-negative/[0.07]'
+        } bg-surface-elevated`}
+        style={{ transformOrigin: placement === 'top' ? 'bottom center' : 'top center' }}
       >
-        <span className="text-xs font-semibold text-primary">
-          {new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-        </span>
-        <span className={`font-mono text-xs font-semibold tabular-nums ${net >= 0 ? 'text-positive' : 'text-negative'}`}>
-          {signedUsd(net)} {net >= 0 ? '▲' : '▼'}
-        </span>
-      </button>
-      <div className="space-y-1">
-        {trades.map((t) => {
-          const win = t.net_profit >= 0
-          const long = t.direction.includes('BUY') || t.direction.includes('LONG')
-          return (
-            <div key={t.trade_id} className="flex items-center gap-1.5 rounded bg-background/40 px-1.5 py-1 text-[11px]">
-              <span className={win ? 'text-positive' : 'text-negative'}>{win ? '↑' : '↓'}</span>
-              <span className={`font-mono tabular-nums ${win ? 'text-positive' : 'text-negative'}`}>
-                {signedUsd(t.net_profit)}
-              </span>
-              <span className="truncate font-mono text-muted">{t.symbol}</span>
-              <span
-                className={`ml-auto rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase ${
-                  long ? 'bg-positive/20 text-positive' : 'bg-negative/20 text-negative'
-                }`}
-              >
-                {long ? 'Buy' : 'Sell'}
-              </span>
-            </div>
-          )
-        })}
+        <button
+          type="button"
+          onClick={onOpen}
+          className="mb-1.5 flex w-full items-center justify-between gap-2 rounded px-0.5 py-0.5 text-left hover:opacity-80"
+          title="Show just this day's trades"
+        >
+          <span className="text-xs font-semibold text-primary">
+            {new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+          </span>
+          <span className={`font-mono text-xs font-semibold tabular-nums ${net >= 0 ? 'text-positive' : 'text-negative'}`}>
+            {signedUsd(net)} {net >= 0 ? '▲' : '▼'}
+          </span>
+        </button>
+        <div className="space-y-1">
+          {trades.map((t) => {
+            const win = t.net_profit >= 0
+            const long = t.direction.includes('BUY') || t.direction.includes('LONG')
+            return (
+              <div key={t.trade_id} className="flex items-center gap-1.5 rounded bg-background/40 px-1.5 py-1 text-[11px]">
+                <span className={win ? 'text-positive' : 'text-negative'}>{win ? '↑' : '↓'}</span>
+                <span className={`font-mono tabular-nums ${win ? 'text-positive' : 'text-negative'}`}>
+                  {signedUsd(t.net_profit)}
+                </span>
+                <span className="truncate font-mono text-muted">{t.symbol}</span>
+                <span
+                  className={`ml-auto rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase ${
+                    long ? 'bg-positive/20 text-positive' : 'bg-negative/20 text-negative'
+                  }`}
+                >
+                  {long ? 'Buy' : 'Sell'}
+                </span>
+              </div>
+            )
+          })}
+        </div>
       </div>
     </div>,
     document.body,
