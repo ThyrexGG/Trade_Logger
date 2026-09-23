@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import type { DayTrade, DailyPnl } from '../../types/analytics'
 import type { JournalUpdateRequest } from '../../types/operations'
@@ -149,6 +150,121 @@ function InlineTradeJournal({
         <span className="text-[10px] text-muted">Screenshots save on upload. Execution facts are immutable.</span>
       </div>
     </div>
+  )
+}
+
+const HOVER_CARD_W = 224
+const HOVER_SHOW_DELAY_MS = 150
+
+/** Rich hover preview for a calendar day: fetches and lists its individual trades
+ * (not just the aggregate the cell itself shows) so you can scan a day before
+ * clicking into the full inline detail below the grid. Portal-rendered with
+ * `position: fixed`, placed relative to the hovered cell with a top/bottom flip
+ * depending on available space — same approach as the Journal calendar's
+ * equivalent (components/journal/JournalDayPicker.tsx) and the shared Tooltip. */
+function DayHoverPreview({
+  date,
+  net,
+  account,
+  symbols,
+  anchor,
+  onOpen,
+}: {
+  date: string
+  net: number
+  account: string
+  symbols: string[]
+  anchor: DOMRect
+  onOpen: () => void
+}) {
+  const [trades, setTrades] = useState<DayTrade[] | null>(null)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    const c = new AbortController()
+    setTrades(null)
+    setError(false)
+    getDayTrades(date, { account, symbols }, c.signal)
+      .then((r) => setTrades(r.trades))
+      .catch((e: unknown) => {
+        if (c.signal.aborted) return
+        setError(true)
+        void e
+      })
+    return () => c.abort()
+  }, [date, account, symbols])
+
+  const spaceBelow = window.innerHeight - anchor.bottom
+  const placement: 'top' | 'bottom' = spaceBelow < 220 && anchor.top > 220 ? 'top' : 'bottom'
+  let left = anchor.left + anchor.width / 2 - HOVER_CARD_W / 2
+  left = Math.max(8, Math.min(left, window.innerWidth - HOVER_CARD_W - 8))
+  const top = placement === 'bottom' ? anchor.bottom + 6 : anchor.top - 6
+
+  // The placement flip (translateY(-100%) to grow upward when there's no room below) and the pop-in
+  // entrance animation both drive `transform` — an outer div owns fixed positioning + the flip, an inner
+  // one owns the animation, so neither's transform steps on the other's.
+  return createPortal(
+    <div
+      style={{
+        position: 'fixed',
+        top,
+        left,
+        width: HOVER_CARD_W,
+        zIndex: 100,
+        transform: placement === 'top' ? 'translateY(-100%)' : undefined,
+      }}
+    >
+      <div
+        role="dialog"
+        className={`tl-pop-in max-h-72 overflow-y-auto rounded-lg border p-2.5 shadow-xl ${
+          net >= 0 ? 'border-positive/40 bg-positive/[0.07]' : 'border-negative/40 bg-negative/[0.07]'
+        } bg-surface-elevated`}
+        style={{ transformOrigin: placement === 'top' ? 'bottom center' : 'top center' }}
+      >
+        <button
+          type="button"
+          onClick={onOpen}
+          className="mb-1.5 flex w-full items-center justify-between gap-2 rounded px-0.5 py-0.5 text-left hover:opacity-80"
+          title="Show just this day's trades"
+        >
+          <span className="text-xs font-semibold text-primary">
+            {new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+          </span>
+          <span className={`font-mono text-xs font-semibold tabular-nums ${net >= 0 ? 'text-positive' : 'text-negative'}`}>
+            {signedUsd(net)} {net >= 0 ? '▲' : '▼'}
+          </span>
+        </button>
+        {error ? (
+          <p className="text-[11px] text-negative">Couldn't load</p>
+        ) : !trades ? (
+          <p className="text-[11px] text-muted">Loading…</p>
+        ) : (
+          <div className="space-y-1">
+            {trades.map((t) => {
+              const win = t.net_profit >= 0
+              const long = t.direction === 'LONG'
+              return (
+                <div key={t.trade_id} className="flex items-center gap-1.5 rounded bg-background/40 px-1.5 py-1 text-[11px]">
+                  <span className={win ? 'text-positive' : 'text-negative'}>{win ? '↑' : '↓'}</span>
+                  <span className={`font-mono tabular-nums ${win ? 'text-positive' : 'text-negative'}`}>
+                    {signedUsd(t.net_profit)}
+                  </span>
+                  <span className="truncate font-mono text-muted">{t.symbol}</span>
+                  <span
+                    className={`ml-auto rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase ${
+                      long ? 'bg-positive/20 text-positive' : 'bg-negative/20 text-negative'
+                    }`}
+                  >
+                    {long ? 'Long' : 'Short'}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -310,6 +426,24 @@ export function MonthlyCalendar({
     [],
   )
 
+  const [hover, setHover] = useState<{ iso: string; anchor: DOMRect } | null>(null)
+  const hoverShowTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const hoverHideTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const showHover = useCallback((iso: string, el: HTMLElement) => {
+    clearTimeout(hoverHideTimer.current)
+    clearTimeout(hoverShowTimer.current)
+    hoverShowTimer.current = setTimeout(() => setHover({ iso, anchor: el.getBoundingClientRect() }), HOVER_SHOW_DELAY_MS)
+  }, [])
+  const hideHover = useCallback(() => {
+    clearTimeout(hoverShowTimer.current)
+    clearTimeout(hoverHideTimer.current)
+    hoverHideTimer.current = setTimeout(() => setHover(null), 80)
+  }, [])
+  useEffect(() => () => {
+    clearTimeout(hoverShowTimer.current)
+    clearTimeout(hoverHideTimer.current)
+  }, [])
+
   const byIso = useMemo(() => {
     const map = new Map<string, DailyPnl>()
     for (const d of daily) map.set(d.date, d)
@@ -470,9 +604,12 @@ export function MonthlyCalendar({
                 key={c.iso}
                 type="button"
                 onClick={() => selectDay(c.iso)}
+                onMouseEnter={(e) => showHover(c.iso, e.currentTarget)}
+                onMouseLeave={hideHover}
+                onFocus={(e) => showHover(c.iso, e.currentTarget)}
+                onBlur={hideHover}
                 className={`${cls} text-left transition-shadow hover:ring-2 hover:ring-inset hover:ring-accent/40`}
                 style={bg ? { backgroundColor: bg } : undefined}
-                title={`${c.iso} · ${signedUsd(d.net_profit)} · ${d.trades} trade${d.trades === 1 ? '' : 's'} · ${d.wins} win${d.wins === 1 ? '' : 's'} — click for trades`}
               >
                 {inner}
               </button>
@@ -485,6 +622,19 @@ export function MonthlyCalendar({
           )
         })}
       </div>
+
+      {hover && byIso.get(hover.iso) ? (
+        <div onMouseEnter={() => clearTimeout(hoverHideTimer.current)} onMouseLeave={hideHover}>
+          <DayHoverPreview
+            date={hover.iso}
+            net={(byIso.get(hover.iso) as DailyPnl).net_profit}
+            account={account}
+            symbols={symbols}
+            anchor={hover.anchor}
+            onOpen={() => { selectDay(hover.iso); setHover(null) }}
+          />
+        </div>
+      ) : null}
 
       {selected ? (
         <DayDetail
