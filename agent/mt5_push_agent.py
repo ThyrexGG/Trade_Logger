@@ -14,7 +14,9 @@ TradeLogger over HTTPS.
     want to track.
 
 Normal use: double-click the .exe once, type your TradeLogger email +
-password. It installs a background task and keeps syncing every 15 minutes.
+password. It installs a background task that syncs every 15 minutes WHILE
+MetaTrader 5 is open — closing MT5 (no more trades to catch) just makes it
+skip that run instead of reopening the terminal for you.
 
 Run it with --daemon instead (e.g. while you're actively trading) and it
 syncs every 30 seconds by default, and the moment it sees a trade close --
@@ -293,9 +295,12 @@ def _watch_and_minimize_new_terminal(before_pids: set, stop: threading.Event) ->
 def mt5_connect(cfg: Dict[str, Any]) -> None:
     _require_mt5()
     # If nothing is running yet, mt5.initialize() below will launch a fresh
-    # terminal itself -- that's fine, it's how a sync recovers on its own
-    # after MetaTrader was closed. What it shouldn't do is plant that window
-    # in front of whatever the user is doing. A background thread watches
+    # terminal itself. The automatic sync paths (--once / --daemon) never
+    # reach this with MT5 closed -- sync_once()'s require_already_running
+    # guard skips the sync before calling here -- so this only fires for an
+    # explicit manual action (--check, the wizard's own first sync), where
+    # launching it makes sense. What it shouldn't do either way is plant that
+    # window in front of whatever the user is doing. A background thread watches
     # for the new process for as long as initialize() is busy connecting to
     # it and minimizes it the moment it appears; a terminal that was already
     # open (before_pids non-empty) is never touched.
@@ -569,8 +574,18 @@ def _notify_closing_events(cfg: Dict[str, Any], events: List[Dict[str, Any]]) ->
         pass  # the toast still told them; a browser window is a nicety
 
 
-def sync_once(cfg: Dict[str, Any], auth: "Auth") -> None:
+def sync_once(cfg: Dict[str, Any], auth: "Auth", require_already_running: bool = False) -> None:
+    """`require_already_running=True` is what the automatic paths (the 15-min
+    scheduled task and `--daemon`) pass: if MetaTrader isn't open, this skips
+    the sync instead of `mt5_connect()`'s normal behaviour of launching a
+    fresh terminal. The point of the schedule is "sync while I'm trading" —
+    closing MT5 (no more trades to catch) shouldn't make it pop back up every
+    15 minutes. A manual `--check` or the wizard's own first sync still want
+    the old launch-it-for-me behaviour, so they leave this False."""
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
+    if require_already_running and not _mt5_pids():
+        print(f"[{stamp}] MetaTrader 5 isn't open — skipping this sync (nothing to catch).")
+        return
     print(f"[{stamp}] connecting to MetaTrader 5 ...")
     mt5_connect(cfg)
     try:
@@ -871,7 +886,7 @@ def _dispatch(args: argparse.Namespace) -> None:
         print(f"daemon: syncing every {interval}s. Ctrl+C to stop.")
         while True:
             try:
-                sync_once(cfg, auth)
+                sync_once(cfg, auth, require_already_running=True)
             except SystemExit as exc:
                 print(f"  sync aborted: {exc}")
             except Exception as exc:  # noqa: BLE001 - keep the loop alive
@@ -885,7 +900,7 @@ def _dispatch(args: argparse.Namespace) -> None:
         print("another sync is already running — skipping.")
         return
     try:
-        sync_once(cfg, auth)
+        sync_once(cfg, auth, require_already_running=True)
     except SystemExit as exc:
         print(f"sync did not finish: {exc}")
         raise SystemExit(1) from None

@@ -83,3 +83,37 @@ def test_runner_command_targets_once(agent):
     cmd = agent._runner_command()
     assert cmd.endswith("--once")
     assert cmd.count('"') >= 2      # the executable path is quoted
+
+
+def test_sync_once_skips_without_launching_when_mt5_closed(agent, monkeypatch):
+    """The automatic paths (--once / --daemon) pass require_already_running=True
+    so a closed MT5 terminal means "no more trades to catch", not "launch it
+    for me" — mt5_connect() (which would call mt5.initialize() and start a
+    fresh terminal) must never be reached in that case."""
+    monkeypatch.setattr(agent, "_mt5_pids", lambda: set())
+
+    def _boom(*_a, **_k):
+        raise AssertionError("mt5_connect() should not be called when MT5 isn't running")
+
+    monkeypatch.setattr(agent, "mt5_connect", _boom)
+    agent.sync_once({}, auth=None, require_already_running=True)  # must return quietly, not raise
+
+
+def test_sync_once_still_connects_when_not_required(agent, monkeypatch):
+    """A manual/explicit sync (require_already_running=False, the default —
+    what the wizard's own first sync uses) keeps the old behaviour of letting
+    mt5_connect() launch MT5 if it isn't open."""
+    monkeypatch.setattr(agent, "_mt5_pids", lambda: set())
+    called = []
+    monkeypatch.setattr(agent, "mt5_connect", lambda cfg: called.append(cfg))
+
+    class _Boom(Exception):
+        pass
+
+    monkeypatch.setattr(agent, "mt5", type("_M", (), {
+        "account_info": staticmethod(lambda: (_ for _ in ()).throw(_Boom())),
+        "shutdown": staticmethod(lambda: None),
+    }))
+    with pytest.raises(_Boom):
+        agent.sync_once({}, auth=None, require_already_running=False)
+    assert called == [{}]  # mt5_connect *was* reached this time
