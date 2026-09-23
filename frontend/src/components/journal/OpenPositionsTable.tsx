@@ -8,6 +8,7 @@ import { ScreenshotStrip, type ScreenshotStripHandle } from './ScreenshotStrip'
 import { StarRating } from './StarRating'
 import { invalidateTagRecord } from './TagRecord'
 import { AccountBadge } from '../common/AccountBadge'
+import { groupByAccount } from '../../lib/accountLabel'
 
 function Stars({ n }: { n: number | null | undefined }) {
   if (!n || n <= 0) return <span className="text-muted">—</span>
@@ -152,105 +153,140 @@ function OpenPositionEditor({
   )
 }
 
+/** One account's slice of the table — no per-row Account column since the
+ * group heading above it already says which account this is. */
+function PositionsTableGroup({
+  positions,
+  editing,
+  setEditing,
+}: {
+  positions: PositionItem[]
+  editing: string | null
+  setEditing: (id: string | null) => void
+}) {
+  return (
+    <div className="overflow-x-auto rounded-lg border border-accent/30">
+      <table className="w-full border-collapse text-[11px]">
+        <thead className="border-b border-border text-muted">
+          <tr>
+            <th className="px-2 py-1.5 text-left font-medium">Status</th>
+            <th className="px-2 py-1.5 text-left font-medium">Symbol</th>
+            <th className="px-2 py-1.5 text-left font-medium">Dir</th>
+            <th className="px-2 py-1.5 text-right font-medium">Vol</th>
+            <th className="px-2 py-1.5 text-right font-medium">Entry</th>
+            <th className="px-2 py-1.5 text-right font-medium">Current</th>
+            <th className="px-2 py-1.5 text-right font-medium">Floating P&L</th>
+            <th className="px-2 py-1.5 text-left font-medium">Setup / note</th>
+            <th className="px-2 py-1.5 text-left font-medium">Rating</th>
+            <th className="px-2 py-1.5 text-right font-medium">Edit</th>
+          </tr>
+        </thead>
+        <tbody>
+          {positions.map((p) => {
+            const isEditing = editing === p.position_id
+            return (
+              <Fragment key={p.position_id}>
+                <tr className={isEditing ? '' : 'border-b border-border-subtle/60'}>
+                  <td className="whitespace-nowrap px-2 py-1.5">
+                    <span className="inline-flex items-center gap-1.5 font-mono text-accent">
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
+                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent" />
+                      </span>
+                      OPEN
+                    </span>
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <Link to={`/workspace/market?symbol=${encodeURIComponent(p.symbol)}`} className="font-mono font-semibold text-primary hover:text-accent">
+                      {p.symbol}
+                    </Link>
+                  </td>
+                  <td className={`px-2 py-1.5 font-mono ${p.direction.includes('BUY') || p.direction.includes('LONG') ? 'text-positive' : 'text-negative'}`}>
+                    {p.direction}
+                  </td>
+                  <td className="px-2 py-1.5 text-right font-mono tabular-nums text-secondary">{p.volume}</td>
+                  <td className="px-2 py-1.5 text-right font-mono tabular-nums text-primary">{p.entry_price}</td>
+                  <td className="px-2 py-1.5 text-right font-mono tabular-nums text-primary">{p.current_price}</td>
+                  <td className={`px-2 py-1.5 text-right font-mono tabular-nums ${p.floating_pnl > 0 ? 'text-positive' : p.floating_pnl < 0 ? 'text-negative' : 'text-secondary'}`}>
+                    {formatSignedAmount(p.floating_pnl)}
+                  </td>
+                  <td className="max-w-[16rem] px-2 py-1.5 text-secondary">
+                    {p.setup_tag ? <span className="mr-1 rounded bg-surface-elevated px-1 text-[10px] text-muted">{p.setup_tag}</span> : null}
+                    {p.notes ?? (p.setup_tag ? '' : <span className="text-muted">—</span>)}
+                    {p.screenshot_count ? <span className="ml-1 text-[10px] text-muted">📷 {p.screenshot_count}</span> : null}
+                    {p.chart_snapshot_url ? (
+                      <span className="ml-1 inline-block align-middle">
+                        <ChartSnapshot url={p.chart_snapshot_url} compact />
+                      </span>
+                    ) : null}
+                  </td>
+                  <td className="px-2 py-1.5"><Stars n={p.rating} /></td>
+                  <td className="px-2 py-1.5 text-right">
+                    <button
+                      type="button"
+                      onClick={() => setEditing(isEditing ? null : p.position_id)}
+                      className="rounded border border-border px-1.5 py-0.5 text-[10px] text-secondary hover:border-accent/40 hover:text-accent"
+                    >
+                      {isEditing ? 'Close' : 'Edit'}
+                    </button>
+                  </td>
+                </tr>
+                {isEditing ? (
+                  <tr className="border-b border-border-subtle/60 bg-surface-elevated/20">
+                    <td colSpan={10} className="p-0">
+                      <div className="sticky left-0 w-[calc(100vw-2rem)] p-3 sm:w-auto sm:max-w-3xl">
+                        <OpenPositionEditor position={p} onCancel={() => setEditing(null)} />
+                      </div>
+                    </td>
+                  </tr>
+                ) : null}
+              </Fragment>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 /**
  * Compact, foldable table of currently-open trades — the Table-view
  * counterpart to OpenTradesStrip's big feed cards. Same columns as the
  * closed-trades table (JournalView) so the two sit together without a jarring
  * size mismatch; rows expand into the same kind of annotation editor.
+ *
+ * When more than one account is open at once (viewing "All accounts"), the
+ * trades are split into one table per account instead of interleaved with an
+ * Account column — easier to scan than picking the right badge out of a
+ * shared list.
  */
 export function OpenPositionsTable({ positions }: { positions: PositionItem[] }) {
   const [editing, setEditing] = useState<string | null>(null)
   if (positions.length === 0) return null
-  // A column of identical account tags is noise when there's only one account — same rule the closed-
-  // trades table already uses.
   const multiAccount = new Set(positions.map((p) => p.account_id)).size > 1
 
-  return (
-    <div className="space-y-2">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Open now ({positions.length})</h3>
-      <div className="overflow-x-auto rounded-lg border border-accent/30">
-        <table className="w-full border-collapse text-[11px]">
-          <thead className="border-b border-border text-muted">
-            <tr>
-              <th className="px-2 py-1.5 text-left font-medium">Status</th>
-              <th className="px-2 py-1.5 text-left font-medium">Symbol</th>
-              <th className="px-2 py-1.5 text-left font-medium">Dir</th>
-              <th className="px-2 py-1.5 text-right font-medium">Vol</th>
-              <th className="px-2 py-1.5 text-right font-medium">Entry</th>
-              <th className="px-2 py-1.5 text-right font-medium">Current</th>
-              <th className="px-2 py-1.5 text-right font-medium">Floating P&L</th>
-              <th className="px-2 py-1.5 text-left font-medium">Setup / note</th>
-              <th className="px-2 py-1.5 text-left font-medium">Rating</th>
-              {multiAccount ? <th className="px-2 py-1.5 text-left font-medium">Account</th> : null}
-              <th className="px-2 py-1.5 text-right font-medium">Edit</th>
-            </tr>
-          </thead>
-          <tbody>
-            {positions.map((p) => {
-              const isEditing = editing === p.position_id
-              return (
-                <Fragment key={p.position_id}>
-                  <tr className={isEditing ? '' : 'border-b border-border-subtle/60'}>
-                    <td className="whitespace-nowrap px-2 py-1.5">
-                      <span className="inline-flex items-center gap-1.5 font-mono text-accent">
-                        <span className="relative flex h-1.5 w-1.5">
-                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
-                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent" />
-                        </span>
-                        OPEN
-                      </span>
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <Link to={`/workspace/market?symbol=${encodeURIComponent(p.symbol)}`} className="font-mono font-semibold text-primary hover:text-accent">
-                        {p.symbol}
-                      </Link>
-                    </td>
-                    <td className={`px-2 py-1.5 font-mono ${p.direction.includes('BUY') || p.direction.includes('LONG') ? 'text-positive' : 'text-negative'}`}>
-                      {p.direction}
-                    </td>
-                    <td className="px-2 py-1.5 text-right font-mono tabular-nums text-secondary">{p.volume}</td>
-                    <td className="px-2 py-1.5 text-right font-mono tabular-nums text-primary">{p.entry_price}</td>
-                    <td className="px-2 py-1.5 text-right font-mono tabular-nums text-primary">{p.current_price}</td>
-                    <td className={`px-2 py-1.5 text-right font-mono tabular-nums ${p.floating_pnl > 0 ? 'text-positive' : p.floating_pnl < 0 ? 'text-negative' : 'text-secondary'}`}>
-                      {formatSignedAmount(p.floating_pnl)}
-                    </td>
-                    <td className="max-w-[16rem] px-2 py-1.5 text-secondary">
-                      {p.setup_tag ? <span className="mr-1 rounded bg-surface-elevated px-1 text-[10px] text-muted">{p.setup_tag}</span> : null}
-                      {p.notes ?? (p.setup_tag ? '' : <span className="text-muted">—</span>)}
-                      {p.screenshot_count ? <span className="ml-1 text-[10px] text-muted">📷 {p.screenshot_count}</span> : null}
-                      {p.chart_snapshot_url ? (
-                        <span className="ml-1 inline-block align-middle">
-                          <ChartSnapshot url={p.chart_snapshot_url} compact />
-                        </span>
-                      ) : null}
-                    </td>
-                    <td className="px-2 py-1.5"><Stars n={p.rating} /></td>
-                    {multiAccount ? <td className="px-2 py-1.5"><AccountBadge accountId={p.account_id} /></td> : null}
-                    <td className="px-2 py-1.5 text-right">
-                      <button
-                        type="button"
-                        onClick={() => setEditing(isEditing ? null : p.position_id)}
-                        className="rounded border border-border px-1.5 py-0.5 text-[10px] text-secondary hover:border-accent/40 hover:text-accent"
-                      >
-                        {isEditing ? 'Close' : 'Edit'}
-                      </button>
-                    </td>
-                  </tr>
-                  {isEditing ? (
-                    <tr className="border-b border-border-subtle/60 bg-surface-elevated/20">
-                      <td colSpan={multiAccount ? 11 : 10} className="p-0">
-                        <div className="sticky left-0 w-[calc(100vw-2rem)] p-3 sm:w-auto sm:max-w-3xl">
-                          <OpenPositionEditor position={p} onCancel={() => setEditing(null)} />
-                        </div>
-                      </td>
-                    </tr>
-                  ) : null}
-                </Fragment>
-              )
-            })}
-          </tbody>
-        </table>
+  if (!multiAccount) {
+    return (
+      <div className="space-y-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Open now ({positions.length})</h3>
+        <PositionsTableGroup positions={positions} editing={editing} setEditing={setEditing} />
       </div>
+    )
+  }
+
+  const groups = groupByAccount(positions)
+  return (
+    <div className="space-y-4">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Open now ({positions.length})</h3>
+      {groups.map((g) => (
+        <div key={g.account} className="space-y-2">
+          <h4 className="flex items-center gap-2 text-[11px] font-semibold text-secondary">
+            <AccountBadge accountId={g.account} />
+            <span className="font-normal text-muted">({g.items.length})</span>
+          </h4>
+          <PositionsTableGroup positions={g.items} editing={editing} setEditing={setEditing} />
+        </div>
+      ))}
     </div>
   )
 }

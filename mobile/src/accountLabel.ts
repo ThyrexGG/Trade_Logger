@@ -25,3 +25,26 @@ export function describeAccount(accountId: string | null | undefined): AccountIn
   if (CAPITAL_ID.test(id)) return { platform: 'Capital.com', label: `Capital.com ••${id.slice(-4)}` }
   return { platform: null, label: id || 'Unknown account' }
 }
+
+/** Stable account ordering: Capital.com, then MT5, then anything else
+ * alphabetically by label. Mirrors frontend/src/lib/accountLabel.ts. */
+function accountSortKey(accountId: string): string {
+  const { platform, label } = describeAccount(accountId)
+  const rank = platform === 'Capital.com' ? 0 : platform === 'MT5' ? 1 : 2
+  return `${rank}:${label}`
+}
+
+/** Splits a list of account-tagged items into one group per account, in the
+ * stable order above — for showing a mixed "all accounts" list as separate
+ * per-account sections instead of one interleaved list. */
+export function groupByAccount<T extends { account_id: string }>(items: T[]): { account: string; items: T[] }[] {
+  const byAccount = new Map<string, T[]>()
+  for (const item of items) {
+    const list = byAccount.get(item.account_id)
+    if (list) list.push(item)
+    else byAccount.set(item.account_id, [item])
+  }
+  return [...byAccount.entries()]
+    .map(([account, groupItems]) => ({ account, items: groupItems }))
+    .sort((a, b) => accountSortKey(a.account).localeCompare(accountSortKey(b.account)))
+}

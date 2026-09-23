@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { ConnectionBanner } from '../components/ConnectionBanner'
 import { ExitsPill } from '../components/TradeLegs'
 import { AccountTag } from '../components/AccountTag'
-import { describeAccount } from '../accountLabel'
+import { describeAccount, groupByAccount } from '../accountLabel'
 import { formatMoney, formatUpdated, isBuy } from '../format'
 import { useJournal } from '../journal/JournalContext'
 import { DATE_FILTERS, filterEntries, summarize, type DateFilter } from '../journal/filters'
@@ -162,9 +162,21 @@ export function JournalScreen() {
       {openPositions.length > 0 ? (
         <View style={styles.openBlock}>
           <Text style={styles.sectionTitle}>Open now ({openPositions.length})</Text>
-          {openPositions.map((p) => (
-            <OpenRow key={p.position_id} p={p} onPress={() => navigation.navigate('PositionDetail', { positionId: p.position_id })} />
-          ))}
+          {new Set(openPositions.map((p) => p.account_id)).size > 1
+            ? groupByAccount(openPositions).map((g) => (
+                <View key={g.account} style={styles.accountGroup}>
+                  <View style={styles.accountGroupHeader}>
+                    <AccountTag accountId={g.account} />
+                    <Text style={styles.accountGroupCount}>({g.items.length})</Text>
+                  </View>
+                  {g.items.map((p) => (
+                    <OpenRow key={p.position_id} p={p} onPress={() => navigation.navigate('PositionDetail', { positionId: p.position_id })} />
+                  ))}
+                </View>
+              ))
+            : openPositions.map((p) => (
+                <OpenRow key={p.position_id} p={p} onPress={() => navigation.navigate('PositionDetail', { positionId: p.position_id })} />
+              ))}
         </View>
       ) : null}
 
@@ -322,6 +334,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   openBlock: { gap: spacing.sm },
+  accountGroup: { gap: spacing.sm },
+  accountGroupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+  },
+  accountGroupCount: {
+    color: colors.textMuted,
+    fontSize: 11,
+  },
   openRow: {
     flexDirection: 'row',
     alignItems: 'center',

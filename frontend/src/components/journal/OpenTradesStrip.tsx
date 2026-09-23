@@ -8,6 +8,7 @@ import { ScreenshotStrip, type ScreenshotStripHandle } from './ScreenshotStrip'
 import { StarRating } from './StarRating'
 import { invalidateTagRecord } from './TagRecord'
 import { AccountBadge } from '../common/AccountBadge'
+import { groupByAccount } from '../../lib/accountLabel'
 
 const SAVE_DEBOUNCE_MS = 900
 
@@ -177,13 +178,37 @@ export function OpenTradesStrip({ positions }: { positions: PositionItem[] }) {
   if (positions.length === 0) return null
   const multiAccount = new Set(positions.map((p) => p.account_id)).size > 1
 
+  if (!multiAccount) {
+    return (
+      <div className="space-y-3">
+        <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
+          Open now ({positions.length})
+        </h3>
+        {positions.map((p) => (
+          <OpenTradeCard key={p.position_id} position={p} showAccount={false} />
+        ))}
+      </div>
+    )
+  }
+
+  // More than one account showing at once ("all accounts") — split into a
+  // section per account instead of interleaving cards from different brokers.
+  const groups = groupByAccount(positions)
   return (
-    <div className="space-y-3">
+    <div className="space-y-5">
       <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
         Open now ({positions.length})
       </h3>
-      {positions.map((p) => (
-        <OpenTradeCard key={p.position_id} position={p} showAccount={multiAccount} />
+      {groups.map((g) => (
+        <div key={g.account} className="space-y-3">
+          <h4 className="flex items-center gap-2 text-[11px] font-semibold text-secondary">
+            <AccountBadge accountId={g.account} />
+            <span className="font-normal text-muted">({g.items.length})</span>
+          </h4>
+          {g.items.map((p) => (
+            <OpenTradeCard key={p.position_id} position={p} showAccount={false} />
+          ))}
+        </div>
       ))}
     </div>
   )
