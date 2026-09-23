@@ -7,6 +7,7 @@ import { ChartSnapshot } from './ChartSnapshot'
 import { ScreenshotStrip, type ScreenshotStripHandle } from './ScreenshotStrip'
 import { StarRating } from './StarRating'
 import { invalidateTagRecord } from './TagRecord'
+import { AccountBadge } from '../common/AccountBadge'
 
 const SAVE_DEBOUNCE_MS = 900
 
@@ -19,7 +20,7 @@ type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
  * annotations over to the resulting closed_trades entry the moment the
  * position actually closes, so nothing needs to be re-entered.
  */
-function OpenTradeCard({ position }: { position: PositionItem }) {
+function OpenTradeCard({ position, showAccount }: { position: PositionItem; showAccount: boolean }) {
   const [notes, setNotes] = useState(position.notes ?? '')
   const [setupTag, setSetupTag] = useState(position.setup_tag ?? '')
   const [chartUrl, setChartUrl] = useState(position.chart_snapshot_url ?? '')
@@ -102,6 +103,7 @@ function OpenTradeCard({ position }: { position: PositionItem }) {
           <span className="text-[11px] text-muted">
             {position.volume} @ {position.entry_price} → {position.current_price}
           </span>
+          {showAccount ? <AccountBadge accountId={position.account_id} /> : null}
         </div>
         <span className={`font-mono text-lg font-semibold ${win ? 'text-positive' : loss ? 'text-negative' : 'text-secondary'}`}>
           Floating: {formatSignedAmount(position.floating_pnl)}
@@ -173,6 +175,7 @@ function OpenTradeCard({ position }: { position: PositionItem }) {
  */
 export function OpenTradesStrip({ positions }: { positions: PositionItem[] }) {
   if (positions.length === 0) return null
+  const multiAccount = new Set(positions.map((p) => p.account_id)).size > 1
 
   return (
     <div className="space-y-3">
@@ -180,7 +183,7 @@ export function OpenTradesStrip({ positions }: { positions: PositionItem[] }) {
         Open now ({positions.length})
       </h3>
       {positions.map((p) => (
-        <OpenTradeCard key={p.position_id} position={p} />
+        <OpenTradeCard key={p.position_id} position={p} showAccount={multiAccount} />
       ))}
     </div>
   )

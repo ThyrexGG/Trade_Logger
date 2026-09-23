@@ -5,6 +5,8 @@ import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, Sty
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { ConnectionBanner } from '../components/ConnectionBanner'
 import { ExitsPill } from '../components/TradeLegs'
+import { AccountTag } from '../components/AccountTag'
+import { describeAccount } from '../accountLabel'
 import { formatMoney, formatUpdated, isBuy } from '../format'
 import { useJournal } from '../journal/JournalContext'
 import { DATE_FILTERS, filterEntries, summarize, type DateFilter } from '../journal/filters'
@@ -49,7 +51,7 @@ function OpenRow({ p, onPress }: { p: PositionItem; onPress: () => void }) {
   )
 }
 
-function TradeRow({ t, onPress }: { t: JournalTradeItem; onPress: () => void }) {
+function TradeRow({ t, onPress, showAccount }: { t: JournalTradeItem; onPress: () => void; showAccount: boolean }) {
   const dirColor = isBuy(t.direction) ? colors.positive : colors.negative
   return (
     <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [styles.tradeRow, pressed && { opacity: 0.7 }]}>
@@ -59,6 +61,7 @@ function TradeRow({ t, onPress }: { t: JournalTradeItem; onPress: () => void }) 
           <Text style={[styles.dir, { color: dirColor }]}>{t.direction.toUpperCase()}</Text>
           <Text style={styles.vol}>{t.volume}</Text>
           <ExitsPill t={t} />
+          {showAccount ? <AccountTag accountId={t.account_id} /> : null}
         </View>
         <Text style={[styles.net, { color: pnlColor(t.net_profit) }]}>{formatMoney(t.net_profit)}</Text>
       </View>
@@ -136,7 +139,7 @@ export function JournalScreen() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
           <Chip label="All accounts" active={effectiveAccount === 'ALL'} onPress={() => pickAccount('ALL')} />
           {accounts.map((a) => (
-            <Chip key={a} label={a} active={effectiveAccount === a} onPress={() => pickAccount(a)} />
+            <Chip key={a} label={describeAccount(a).label} active={effectiveAccount === a} onPress={() => pickAccount(a)} />
           ))}
         </ScrollView>
       ) : null}
@@ -201,7 +204,7 @@ export function JournalScreen() {
           data={entries}
           keyExtractor={(t) => t.trade_id}
           renderItem={({ item }) => (
-            <TradeRow t={item} onPress={() => navigation.navigate('TradeDetail', { tradeId: item.trade_id })} />
+            <TradeRow t={item} onPress={() => navigation.navigate('TradeDetail', { tradeId: item.trade_id })} showAccount={accounts.length > 1} />
           )}
           ListHeaderComponent={header}
           contentContainerStyle={styles.list}

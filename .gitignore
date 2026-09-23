@@ -32,6 +32,9 @@ agent/*_config.json
 # PyInstaller build output for the agent .exe
 agent/build/
 agent/dist/
+# Written to the agent's own folder the first time setup runs on a machine — per-install, not source.
+agent/mt5_sync_hidden.vbs
+agent/Uninstall TradeLogger Sync.bat
 agent/*.spec
 agent/mt5_sync_hidden.vbs
 agent/.sync.lock

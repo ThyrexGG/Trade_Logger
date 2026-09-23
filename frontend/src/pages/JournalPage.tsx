@@ -10,6 +10,7 @@ import { downloadCsv, tradesToCsv } from '../lib/csvExport'
 import { JournalSummary, JournalView } from '../components/operations/JournalView'
 import { JournalFeed } from '../components/journal/JournalFeed'
 import { JournalDayPicker, localDayIso } from '../components/journal/JournalDayPicker'
+import { describeAccount } from '../lib/accountLabel'
 import { FreeEntries } from '../components/journal/FreeEntries'
 import type { JournalResponse } from '../types/operations'
 import {
@@ -276,7 +277,7 @@ export function JournalPage() {
                 >
                   <option value="ALL">All accounts ({data.total_trades})</option>
                   {data.accounts.map((a) => (
-                    <option key={a} value={a}>{a}</option>
+                    <option key={a} value={a}>{describeAccount(a).label}</option>
                   ))}
                 </select>
               </label>

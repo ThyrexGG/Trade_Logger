@@ -1,12 +1,24 @@
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useOpenPositions } from '../lib/useOpenPositions'
 import { useSyncControl } from '../lib/useSyncControl'
+import { describeAccount } from '../lib/accountLabel'
 import { PageContainer } from '../components/shell/PageContainer'
 import { PositionsSummary, PositionsView } from '../components/operations/PositionsView'
 import {
   SectionError,
   SkeletonRows,
 } from '../components/operations/primitives'
+
+const ACCOUNT_KEY = 'tl.positions.account'
+
+function loadAccount(): string {
+  try {
+    return localStorage.getItem(ACCOUNT_KEY) ?? 'ALL'
+  } catch {
+    return 'ALL'
+  }
+}
 
 /**
  * Full read-only positions terminal (`/workspace/positions`). Reuses the
@@ -18,6 +30,33 @@ import {
 export function PositionsPage() {
   const { state, data, error, refetch } = useOpenPositions()
   const sync = useSyncControl(refetch)
+  const [account, setAccount] = useState<string>(loadAccount)
+
+  function changeAccount(a: string) {
+    setAccount(a)
+    try {
+      localStorage.setItem(ACCOUNT_KEY, a)
+    } catch {
+      /* private browsing / storage blocked — the choice just won't stick */
+    }
+  }
+
+  const accounts = useMemo(
+    () => Array.from(new Set((data?.positions ?? []).map((p) => p.account_id))).sort(),
+    [data],
+  )
+  // account_id isn't returned server-side once filtered out, so this recomputes the two totals locally —
+  // same approach the Journal page uses for its own account filter.
+  const viewData = useMemo(() => {
+    if (!data || account === 'ALL') return data
+    const positions = data.positions.filter((p) => p.account_id === account)
+    return {
+      ...data,
+      positions,
+      total_open: positions.length,
+      total_floating_pnl: Math.round(positions.reduce((sum, p) => sum + p.floating_pnl, 0) * 100) / 100,
+    }
+  }, [data, account])
 
   const lastRun = sync.status?.last_run
   const lastRunLabel = lastRun
@@ -102,15 +141,30 @@ export function PositionsPage() {
               onRetry={refetch}
             />
           </div>
-        ) : data ? (
+        ) : data && viewData ? (
           <>
             {state === 'error' && error ? (
               <p className="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[11px] text-warning">
                 Showing last good positions — refresh failed: {error}
               </p>
             ) : null}
-            <PositionsSummary data={data} />
-            <PositionsView data={data} />
+            {accounts.length > 1 ? (
+              <label className="block w-fit text-[11px] text-muted">
+                Account
+                <select
+                  value={account}
+                  onChange={(e) => changeAccount(e.target.value)}
+                  className="mt-1 block w-full min-w-[10rem] rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+                >
+                  <option value="ALL">All accounts ({data.positions.length})</option>
+                  {accounts.map((a) => (
+                    <option key={a} value={a}>{describeAccount(a).label}</option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            <PositionsSummary data={viewData} />
+            <PositionsView data={viewData} />
           </>
         ) : null}
 

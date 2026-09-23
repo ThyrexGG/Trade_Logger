@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { getDayTrades } from '../api/analytics'
+import { describeAccount } from '../accountLabel'
 import { formatMoney, formatUpdated, isBuy } from '../format'
 import type { RootStackParamList } from '../navigation/RootStack'
 import { colors, radius, spacing } from '../theme'
@@ -69,7 +70,7 @@ export function DayTradesScreen() {
                     </Text>
                   </View>
                   <Text style={styles.meta}>
-                    {t.account_id} · closed {formatUpdated(t.exit_time)}
+                    {describeAccount(t.account_id).label} · closed {formatUpdated(t.exit_time)}
                     {t.setup_tag ? ` · ${t.setup_tag}` : ''}
                   </Text>
                 </Pressable>

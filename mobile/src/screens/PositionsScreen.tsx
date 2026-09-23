@@ -8,12 +8,13 @@ import { colors, radius, spacing } from '../theme'
 import type { PositionItem } from '../types/positions'
 import type { RootStackParamList } from '../navigation/RootStack'
 import { usePositionsContext } from '../positions/PositionsContext'
+import { AccountTag } from '../components/AccountTag'
 
 function pnlColor(v: number): string {
   return v > 0 ? colors.positive : v < 0 ? colors.negative : colors.textSecondary
 }
 
-function PositionCard({ p, onPress }: { p: PositionItem; onPress: () => void }) {
+function PositionCard({ p, onPress, showAccount }: { p: PositionItem; onPress: () => void; showAccount: boolean }) {
   const buy = isBuy(p.direction)
   const dirColor = buy ? colors.positive : colors.negative
   return (
@@ -25,6 +26,7 @@ function PositionCard({ p, onPress }: { p: PositionItem; onPress: () => void }) 
           <View style={[styles.dirPill, { borderColor: dirColor }]}>
             <Text style={[styles.dirText, { color: dirColor }]}>{p.direction.toUpperCase()}</Text>
           </View>
+          {showAccount ? <AccountTag accountId={p.account_id} /> : null}
         </View>
         <Text style={[styles.pnl, { color: pnlColor(p.floating_pnl) }]}>{formatMoney(p.floating_pnl)}</Text>
       </View>
@@ -67,6 +69,7 @@ export function PositionsScreen() {
   const { data, loading, refreshing, error, refresh, syncing, syncError, syncNow } = usePositionsContext()
   const positions = data?.positions ?? []
   const total = data?.total_floating_pnl ?? 0
+  const multiAccount = new Set(positions.map((p) => p.account_id)).size > 1
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -111,7 +114,7 @@ export function PositionsScreen() {
           data={positions}
           keyExtractor={(p) => p.position_id}
           renderItem={({ item }) => (
-            <PositionCard p={item} onPress={() => navigation.navigate('PositionDetail', { positionId: item.position_id })} />
+            <PositionCard p={item} showAccount={multiAccount} onPress={() => navigation.navigate('PositionDetail', { positionId: item.position_id })} />
           )}
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.accent} colors={[colors.accent]} />}

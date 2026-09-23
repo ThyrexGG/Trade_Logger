@@ -8,6 +8,7 @@ import { deleteManualTrade, patchJournalEntry } from '../api/journal'
 import { AnnotationEditor } from '../components/AnnotationEditor'
 import { ScreenshotGallery } from '../components/ScreenshotGallery'
 import { ExitsPill, TradeLegsCard } from '../components/TradeLegs'
+import { describeAccount } from '../accountLabel'
 import { formatMoney, formatPrice, formatUpdated, isBuy } from '../format'
 import { useJournal } from '../journal/JournalContext'
 import { formatDuration } from '../journal/filters'
@@ -92,7 +93,7 @@ export function TradeDetailScreen() {
             </View>
             <Text style={[styles.net, { color: netColor }]}>{formatMoney(trade.net_profit)}</Text>
             <Text style={styles.sub}>
-              {trade.account_id} · closed {formatUpdated(trade.exit_time)}
+              {describeAccount(trade.account_id).label} · closed {formatUpdated(trade.exit_time)}
             </Text>
           </View>
 

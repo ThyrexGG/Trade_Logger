@@ -10,6 +10,8 @@ import { HandLoggedControls } from '../journal/HandLoggedControls'
 import { ScreenshotStrip, type ScreenshotStripHandle } from '../journal/ScreenshotStrip'
 import { StarRating } from '../journal/StarRating'
 import { ExitsBadge, TradeLegs, exitCount } from '../journal/TradeLegs'
+import { AccountBadge } from '../common/AccountBadge'
+import { describeAccount } from '../../lib/accountLabel'
 import { TagRecord, invalidateTagRecord } from '../journal/TagRecord'
 import { useToast } from '../../lib/toast'
 
@@ -299,7 +301,7 @@ export function JournalView({
             aria-label="Filter by account"
           >
             <option value="all">All accounts</option>
-            {data.accounts.map((a) => <option key={a} value={a}>{a}</option>)}
+            {data.accounts.map((a) => <option key={a} value={a}>{describeAccount(a).label}</option>)}
           </select>
         ) : null}
         {(['all', 'win', 'loss'] as Outcome[]).map((o) => (
@@ -390,8 +392,8 @@ export function JournalView({
                     </td>
                     <td className="px-2 py-1.5"><Stars n={e.rating} /></td>
                     {multiAccount ? (
-                      <td className="px-2 py-1.5 font-mono text-muted" title={e.account_id}>
-                        …{e.account_id.slice(-6)}
+                      <td className="px-2 py-1.5">
+                        <AccountBadge accountId={e.account_id} />
                       </td>
                     ) : null}
                     <td className="px-2 py-1.5 text-right">

@@ -3,6 +3,7 @@ import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/d
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useEffect, useMemo, useState } from 'react'
+import { describeAccount } from '../accountLabel'
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -216,7 +217,7 @@ export function ManualTradeScreen() {
             <View style={styles.chips}>
               {knownAccounts.map((a) => (
                 <Pressable key={a} onPress={() => setAccount(a)} style={[styles.chip, account === a && styles.chipOn]} accessibilityRole="button">
-                  <Text style={[styles.chipText, account === a && styles.chipTextOn]}>{a}</Text>
+                  <Text style={[styles.chipText, account === a && styles.chipTextOn]}>{describeAccount(a).label}</Text>
                 </Pressable>
               ))}
             </View>

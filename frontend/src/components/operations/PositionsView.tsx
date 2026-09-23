@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import type { PositionItem, PositionsResponse } from '../../types/positions'
 import { OpsMetric, OpsStatusTag, OpsUnavailable, SectionCard } from './primitives'
 import { formatLots, formatPrice, formatUsd, timeAgo } from '../../lib/format'
+import { AccountBadge } from '../common/AccountBadge'
 
 function rTone(r: string): 'positive' | 'negative' | 'neutral' {
   if (r === 'N/A' || !r) return 'neutral'
@@ -38,7 +39,7 @@ function Card({ p }: { p: PositionItem }) {
         <div><span className="text-muted">Current</span><br /><span className="font-mono text-primary">{formatPrice(p.current_price)}</span></div>
         <div><span className="text-muted">P&L</span><br /><PnlCell value={p.floating_pnl} /></div>
         <div><span className="text-muted">R</span><br /><span className={`font-mono ${rTone(p.unrealized_r) === 'negative' ? 'text-negative' : rTone(p.unrealized_r) === 'positive' ? 'text-positive' : 'text-secondary'}`}>{p.unrealized_r}</span></div>
-        <div><span className="text-muted">Account</span><br /><span className="font-mono text-secondary">{p.account_id}</span></div>
+        <div><span className="text-muted">Account</span><br /><AccountBadge accountId={p.account_id} /></div>
         <div><span className="text-muted">MAE</span><br /><span className="font-mono text-secondary">{p.mae}</span></div>
         <div><span className="text-muted">MFE</span><br /><span className="font-mono text-secondary">{p.mfe}</span></div>
         <div><span className="text-muted">SL / TP</span><br /><span className="font-mono text-secondary">{formatPrice(p.sl)} / {formatPrice(p.tp)}</span></div>
@@ -128,7 +129,7 @@ export function PositionsView({ data }: { data: PositionsResponse }) {
                 </td>
                 <td className="px-2 py-1.5 text-right font-mono tabular-nums text-muted">{p.mae}</td>
                 <td className="px-2 py-1.5 text-right font-mono tabular-nums text-muted">{p.mfe}</td>
-                <td className="px-2 py-1.5 font-mono text-secondary">{p.account_id}</td>
+                <td className="px-2 py-1.5"><AccountBadge accountId={p.account_id} /></td>
                 <td className="px-2 py-1.5 whitespace-nowrap text-right">
                   <Link to={`/workspace/market?symbol=${encodeURIComponent(p.symbol)}`} className="text-[11px] text-secondary hover:text-primary">Market</Link>
                   <span className="text-muted"> · </span>

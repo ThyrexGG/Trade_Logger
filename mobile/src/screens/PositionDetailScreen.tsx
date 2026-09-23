@@ -3,6 +3,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { patchPosition } from '../api/positions'
+import { describeAccount } from '../accountLabel'
 import { AnnotationEditor } from '../components/AnnotationEditor'
 import { ScreenshotGallery } from '../components/ScreenshotGallery'
 import { formatMoney, formatPrice, isBuy } from '../format'
@@ -50,7 +51,7 @@ export function PositionDetailScreen() {
               </View>
             </View>
             <Text style={[styles.pnl, { color: pnlColor }]}>{formatMoney(position.floating_pnl)}</Text>
-            <Text style={styles.sub}>{position.account_id} · floating P&L, still open</Text>
+            <Text style={styles.sub}>{describeAccount(position.account_id).label} · floating P&L, still open</Text>
           </View>
 
           <View style={styles.card}>

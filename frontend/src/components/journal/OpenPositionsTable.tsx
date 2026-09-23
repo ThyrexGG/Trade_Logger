@@ -7,6 +7,7 @@ import { ChartSnapshot } from './ChartSnapshot'
 import { ScreenshotStrip, type ScreenshotStripHandle } from './ScreenshotStrip'
 import { StarRating } from './StarRating'
 import { invalidateTagRecord } from './TagRecord'
+import { AccountBadge } from '../common/AccountBadge'
 
 function Stars({ n }: { n: number | null | undefined }) {
   if (!n || n <= 0) return <span className="text-muted">—</span>
@@ -160,6 +161,9 @@ function OpenPositionEditor({
 export function OpenPositionsTable({ positions }: { positions: PositionItem[] }) {
   const [editing, setEditing] = useState<string | null>(null)
   if (positions.length === 0) return null
+  // A column of identical account tags is noise when there's only one account — same rule the closed-
+  // trades table already uses.
+  const multiAccount = new Set(positions.map((p) => p.account_id)).size > 1
 
   return (
     <div className="space-y-2">
@@ -177,6 +181,7 @@ export function OpenPositionsTable({ positions }: { positions: PositionItem[] })
               <th className="px-2 py-1.5 text-right font-medium">Floating P&L</th>
               <th className="px-2 py-1.5 text-left font-medium">Setup / note</th>
               <th className="px-2 py-1.5 text-left font-medium">Rating</th>
+              {multiAccount ? <th className="px-2 py-1.5 text-left font-medium">Account</th> : null}
               <th className="px-2 py-1.5 text-right font-medium">Edit</th>
             </tr>
           </thead>
@@ -220,6 +225,7 @@ export function OpenPositionsTable({ positions }: { positions: PositionItem[] })
                       ) : null}
                     </td>
                     <td className="px-2 py-1.5"><Stars n={p.rating} /></td>
+                    {multiAccount ? <td className="px-2 py-1.5"><AccountBadge accountId={p.account_id} /></td> : null}
                     <td className="px-2 py-1.5 text-right">
                       <button
                         type="button"
@@ -232,7 +238,7 @@ export function OpenPositionsTable({ positions }: { positions: PositionItem[] })
                   </tr>
                   {isEditing ? (
                     <tr className="border-b border-border-subtle/60 bg-surface-elevated/20">
-                      <td colSpan={10} className="p-0">
+                      <td colSpan={multiAccount ? 11 : 10} className="p-0">
                         <div className="sticky left-0 w-[calc(100vw-2rem)] p-3 sm:w-auto sm:max-w-3xl">
                           <OpenPositionEditor position={p} onCancel={() => setEditing(null)} />
                         </div>

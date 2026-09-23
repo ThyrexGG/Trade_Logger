@@ -221,6 +221,12 @@ if it hangs: `npm start -- --tunnel`).
 - [x] A day with no trades is greyed out and can't be clicked; Escape closes the popover
 - [ ] 🌐 On the real site: pick a day you remember trading and confirm it shows exactly those trades
 
+**A26 · Multi-account labeling** ⚠️ — now that Capital.com + MT5 are both linked. Website live, phone not built.
+- [x] Journal (Feed, Table, and the account filter dropdown), the "Open now" strip, and the standalone Positions page all show a clean tag per account — "MT5 14271408" / "Capital.com ••6500" — instead of the raw account id *(browser-tested against a seeded account shaped exactly like yours: both accounts labelled correctly everywhere, all 9 checks pass)*
+- [x] The Positions page got a new Account filter (it had none before) — picking one account updates the open-positions count and total correctly
+- [x] A single-account view (only one linked) shows no account tag at all — unchanged from before, no new clutter
+- [ ] 🌐 On the real site: open Journal and Positions and confirm your two real accounts (Capital.com + MT5_14271408) show these clean labels, and that filtering Positions to just MT5 hides your Capital.com position
+
 ---
 
 ## B. Installed Android app + trade alerts (needs your setup first)

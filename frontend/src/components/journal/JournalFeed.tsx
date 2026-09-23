@@ -8,6 +8,7 @@ import { HandLoggedControls } from './HandLoggedControls'
 import { ScreenshotStrip, type ScreenshotStripHandle } from './ScreenshotStrip'
 import { StarRating } from './StarRating'
 import { ExitsBadge, TradeLegs } from './TradeLegs'
+import { AccountBadge } from '../common/AccountBadge'
 import { invalidateTagRecord } from './TagRecord'
 import { OpsUnavailable } from '../operations/primitives'
 
@@ -116,6 +117,7 @@ function FeedCard({
           </span>
           <span className="text-[11px] text-muted">{entry.exit_time.slice(0, 16).replace('T', ' ')}</span>
           <ExitsBadge entry={entry} />
+          {knownAccounts.length > 1 ? <AccountBadge accountId={entry.account_id} /> : null}
         </div>
         <span className={`font-mono text-lg font-semibold ${win ? 'text-positive' : loss ? 'text-negative' : 'text-secondary'}`}>
           {win ? 'Won: ' : loss ? 'Lost: ' : 'Net: '}

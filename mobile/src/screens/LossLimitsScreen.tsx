@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { clearLossLimits, getLossLimits, saveLossLimits } from '../api/lossLimits'
 import { Bar, Button, Card, Field, Pill, parseNum } from '../components/ui'
 import { formatMoney } from '../format'
+import { describeAccount } from '../accountLabel'
 import { colors, spacing } from '../theme'
 import type { LossLimitStatus } from '../types/lossLimits'
 
@@ -64,7 +65,7 @@ function AccountCard({ s, warnPct, onChanged }: { s: LossLimitStatus; warnPct: n
   const ddState = stateOf(s.drawdown_ratio, warnPct)
 
   return (
-    <Card title={s.account_id}>
+    <Card title={describeAccount(s.account_id).label}>
       {s.daily_loss_limit != null ? (
         <View style={styles.block}>
           <View style={styles.blockHead}>
