@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useJournal } from '../lib/useOperations'
 import { useSyncControl } from '../lib/useSyncControl'
@@ -39,11 +39,14 @@ function loadView(): ViewMode {
   }
 }
 
-function loadAccount(): string {
+/** `null` means "never explicitly chosen" — distinct from an explicit past
+ * choice of "ALL" — so a first-ever visit can default to Capital.com instead
+ * of dumping every account together, same as the Analytics page. */
+function loadStoredAccount(): string | null {
   try {
-    return localStorage.getItem(ACCOUNT_KEY) ?? 'ALL'
+    return localStorage.getItem(ACCOUNT_KEY)
   } catch {
-    return 'ALL'
+    return null
   }
 }
 
@@ -123,7 +126,7 @@ export function JournalPage() {
   // scroll-to behaviour the table view has — honour that regardless of the
   // remembered preference; a plain visit to the page uses it as normal.
   const [view, setView] = useState<ViewMode>(() => (focusTradeId ? 'table' : loadView()))
-  const [account, setAccount] = useState<string>(loadAccount)
+  const [account, setAccount] = useState<string>(() => loadStoredAccount() ?? 'ALL')
   // A deep-linked trade might be older than "this week" — land on "All time"
   // instead of the default so the link still resolves instead of hiding it.
   const [dateFilter, setDateFilter] = useState<DateFilter>(() => (focusTradeId ? 'all' : loadDateFilter()))
@@ -148,6 +151,19 @@ export function JournalPage() {
       /* private browsing / storage blocked — the choice just won't stick */
     }
   }
+
+  // First-ever visit (nothing stored yet, including a fresh browser/profile) defaults to Capital.com
+  // over dumping every account together — same rule the Analytics page uses. Once anything has been
+  // explicitly picked here before (including "All accounts" again), that choice sticks instead.
+  const appliedDefault = useRef(false)
+  useEffect(() => {
+    if (appliedDefault.current || !data || data.accounts.length === 0) return
+    appliedDefault.current = true
+    if (loadStoredAccount() != null) return
+    const capital = data.accounts.find((a) => describeAccount(a).platform === 'Capital.com')
+    if (capital) changeAccount(capital)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data])
 
   function changeDateFilter(f: DateFilter) {
     setDateFilter(f)
@@ -275,7 +291,7 @@ export function JournalPage() {
                   onChange={(e) => changeAccount(e.target.value)}
                   className="mt-1 block w-full min-w-[10rem] rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
                 >
-                  <option value="ALL">All accounts ({data.total_trades})</option>
+                  <option value="ALL">All accounts — {data.total_trades} trades</option>
                   {data.accounts.map((a) => (
                     <option key={a} value={a}>{describeAccount(a).label}</option>
                   ))}
