@@ -4,6 +4,7 @@ import { SectionCard } from '../intelligence/primitives'
 import { Tooltip } from '../common/Tooltip'
 import { parseNumberInput } from '../../lib/format'
 import { saveInitialBalance } from '../../api/analytics'
+import { describeAccount } from '../../lib/accountLabel'
 
 /**
  * Filter bar for the analytics population: account, symbols, date range,
@@ -111,7 +112,7 @@ export function AnalyticsControls({
           >
             <option value="ALL">All accounts</option>
             {available.accounts.map((a) => (
-              <option key={a} value={a}>{a}</option>
+              <option key={a} value={a}>{describeAccount(a).label}</option>
             ))}
           </select>
         </label>
@@ -182,7 +183,7 @@ export function AnalyticsControls({
             ) : saveState === 'saving' ? (
               <span className="text-muted">Saving…</span>
             ) : saveState === 'saved' ? (
-              <span className="text-positive">✓ Saved for {query.account}</span>
+              <span className="text-positive">✓ Saved for {describeAccount(query.account).label}</span>
             ) : saveState === 'error' ? (
               <span className="text-warning">Couldn’t save — check your connection and retype it.</span>
             ) : null}

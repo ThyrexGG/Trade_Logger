@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAnalytics } from '../lib/useAnalytics'
 import { useSyncControl } from '../lib/useSyncControl'
+import { describeAccount } from '../lib/accountLabel'
 import type { AnalyticsQuery } from '../types/analytics'
 import { PageContainer } from '../components/shell/PageContainer'
 import { AnalyticsControls } from '../components/analytics/AnalyticsControls'
@@ -11,6 +12,24 @@ import {
   SectionError,
   SkeletonRows,
 } from '../components/operations/primitives'
+
+const ACCOUNT_KEY = 'tl.analytics.account'
+
+function loadStoredAccount(): string | null {
+  try {
+    return localStorage.getItem(ACCOUNT_KEY)
+  } catch {
+    return null
+  }
+}
+
+function storeAccount(account: string | undefined) {
+  try {
+    localStorage.setItem(ACCOUNT_KEY, account ?? 'ALL')
+  } catch {
+    /* private browsing / storage blocked — the choice just won't stick */
+  }
+}
 
 /**
  * Analytics (`/workspace/analytics`). Migrated from the Streamlit
@@ -28,6 +47,30 @@ export function AnalyticsPage() {
     () => data?.available ?? { accounts: [], symbols: [], date_min: null, date_max: null, suggested_initial_balance: null, saved_initial_balance: null },
     [data],
   )
+
+  // Remembers the account you last picked here — same "sticks across visits" behaviour the Journal page's
+  // account filter already has. The very first time this has never been chosen (no stored value at all),
+  // default to Capital.com over "All accounts" rather than dumping everything together; once you've
+  // explicitly picked anything (including "All accounts" again later), that choice is respected forever.
+  const appliedDefault = useRef(false)
+  useEffect(() => {
+    if (appliedDefault.current || available.accounts.length === 0) return
+    appliedDefault.current = true
+    const stored = loadStoredAccount()
+    if (stored != null) {
+      if (stored !== 'ALL' && available.accounts.includes(stored)) {
+        setQuery((q) => ({ ...q, account: stored, symbols: undefined, start: undefined, end: undefined }))
+      }
+      return
+    }
+    const capital = available.accounts.find((a) => describeAccount(a).platform === 'Capital.com')
+    if (capital) setQuery((q) => ({ ...q, account: capital, symbols: undefined, start: undefined, end: undefined }))
+  }, [available.accounts])
+
+  const handleQueryChange = useCallback((next: AnalyticsQuery) => {
+    setQuery(next)
+    storeAccount(next.account)
+  }, [])
 
   return (
     <PageContainer
@@ -73,7 +116,7 @@ export function AnalyticsPage() {
                   : `Showing last good analytics — refresh failed: ${error}`}
               </p>
             ) : null}
-            <AnalyticsControls available={available} query={query} onChange={setQuery} />
+            <AnalyticsControls available={available} query={query} onChange={handleQueryChange} />
             <ChallengeTracker account={query.account} />
             <AnalyticsView data={data} />
           </div>

@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFocusEffect, useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
@@ -5,6 +6,7 @@ import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, T
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { saveInitialBalance } from '../api/analytics'
 import { useAnalytics } from '../analytics/useAnalytics'
+import { describeAccount } from '../accountLabel'
 import { EquityChart } from '../components/analytics/EquityChart'
 import { MonthCalendar } from '../components/analytics/MonthCalendar'
 import { PnlBars } from '../components/analytics/PnlBars'
@@ -13,6 +15,8 @@ import { formatMoney } from '../format'
 import type { RootStackParamList } from '../navigation/RootStack'
 import { colors, radius, spacing } from '../theme'
 import type { AnalyticsQuery } from '../types/analytics'
+
+const ACCOUNT_KEY = 'tl.analytics.account'
 
 type RangeKey = '7d' | '30d' | 'month' | '90d' | 'all'
 const RANGES: { key: RangeKey; label: string }[] = [
@@ -109,13 +113,33 @@ export function AnalyticsScreen() {
   const accounts = data?.available.accounts ?? []
   const noAccount = !account || account === 'ALL'
 
-  // One account: start on it, so the starting balance can be saved (a saved balance is per account).
-  const autoPicked = useRef(false)
+  // Remembers the account you last picked here — same "sticks across visits" behaviour the web app's
+  // Analytics page has. The very first time (nothing stored yet), prefer Capital.com over "All accounts";
+  // failing that, a single linked account (so the starting balance can be saved, which is per account).
+  // Once you've explicitly picked anything (including "All accounts" again later), that sticks instead.
+  const appliedDefault = useRef(false)
   useEffect(() => {
-    if (autoPicked.current || !data) return
-    autoPicked.current = true
-    if (noAccount && data.available.accounts.length === 1) setAccount(data.available.accounts[0])
-  }, [data, noAccount])
+    if (appliedDefault.current || !data || data.available.accounts.length === 0) return
+    appliedDefault.current = true
+    AsyncStorage.getItem(ACCOUNT_KEY)
+      .then((stored) => {
+        if (stored != null) {
+          if (stored !== 'ALL' && data.available.accounts.includes(stored)) setAccount(stored)
+          return
+        }
+        const capital = data.available.accounts.find((a) => describeAccount(a).platform === 'Capital.com')
+        if (capital) setAccount(capital)
+        else if (data.available.accounts.length === 1) setAccount(data.available.accounts[0])
+      })
+      .catch(() => {})
+  }, [data])
+
+  function pickAccount(a: string | undefined) {
+    setAccount(a)
+    AsyncStorage.setItem(ACCOUNT_KEY, a ?? 'ALL').catch(() => {
+      /* the choice just won't stick */
+    })
+  }
 
   // Picking an account prefills its starting balance once: the user's saved value wins over the server's guess.
   const appliedFor = useRef<string | null>(null)
@@ -178,9 +202,9 @@ export function AnalyticsScreen() {
 
         {accounts.length > 1 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-            <Chip label="All accounts" on={noAccount} onPress={() => setAccount(undefined)} />
+            <Chip label="All accounts" on={noAccount} onPress={() => pickAccount(undefined)} />
             {accounts.map((a) => (
-              <Chip key={a} label={a} on={account === a} onPress={() => setAccount(a)} />
+              <Chip key={a} label={describeAccount(a).label} on={account === a} onPress={() => pickAccount(a)} />
             ))}
           </ScrollView>
         ) : null}
@@ -211,7 +235,7 @@ export function AnalyticsScreen() {
             : saveState === 'saving'
               ? 'Saving…'
               : saveState === 'saved'
-                ? `✓ Saved for ${account}`
+                ? `✓ Saved for ${describeAccount(account).label}`
                 : saveState === 'error'
                   ? 'Couldn’t save — check your connection and retype it.'
                   : ' '}

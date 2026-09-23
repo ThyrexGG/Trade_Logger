@@ -8,9 +8,32 @@ import {
 } from '../../api/challenge'
 import { SectionCard } from '../intelligence/primitives'
 import type { ChallengeConfig, ChallengeConfigInput, ChallengeStatus } from '../../types/challenge'
+import { describeAccount } from '../../lib/accountLabel'
 
 const money = (n: number | null) =>
   n === null ? '—' : n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+
+// Not every linked account is a prop-firm challenge (a personal Capital.com account, say) — this hides the
+// "set up a challenge" invitation for one specific account without a server round-trip. Purely a display
+// preference (like the account filter itself), so it lives in localStorage, per account.
+function hideKey(acc: string): string {
+  return `tl.analytics.challengeHidden.${acc}`
+}
+function loadHidden(acc: string): boolean {
+  try {
+    return localStorage.getItem(hideKey(acc)) === '1'
+  } catch {
+    return false
+  }
+}
+function saveHidden(acc: string, hidden: boolean): void {
+  try {
+    if (hidden) localStorage.setItem(hideKey(acc), '1')
+    else localStorage.removeItem(hideKey(acc))
+  } catch {
+    /* private browsing / storage blocked — the choice just won't stick */
+  }
+}
 
 /** 0 (safe) -> positive, mid -> warning, high -> negative. For budgets being *used up* (drawdown, daily loss). */
 function usedTone(ratio: number): string {
@@ -168,8 +191,13 @@ export function ChallengeTracker({ account }: { account?: string }) {
   const [editing, setEditing] = useState(false)
   const [busyAction, setBusyAction] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [hidden, setHidden] = useState(false)
 
   const acc = account && account.toUpperCase() !== 'ALL' ? account : undefined
+
+  useEffect(() => {
+    setHidden(acc ? loadHidden(acc) : false)
+  }, [acc])
 
   useEffect(() => {
     if (!acc) {
@@ -217,7 +245,7 @@ export function ChallengeTracker({ account }: { account?: string }) {
   }
 
   async function doReset() {
-    if (!acc || !confirm(`Restart the ${acc} challenge from Phase 1 at the configured account size?`)) return
+    if (!acc || !confirm(`Restart the ${describeAccount(acc).label} challenge from Phase 1 at the configured account size?`)) return
     setBusyAction(true)
     setActionError(null)
     try {
@@ -230,7 +258,7 @@ export function ChallengeTracker({ account }: { account?: string }) {
   }
 
   async function doRemove() {
-    if (!acc || !confirm(`Stop tracking a challenge for ${acc}? This only removes the tracker, not any trades.`)) return
+    if (!acc || !confirm(`Stop tracking a challenge for ${describeAccount(acc).label}? This only removes the tracker, not any trades.`)) return
     setBusyAction(true)
     setActionError(null)
     try {
@@ -243,13 +271,47 @@ export function ChallengeTracker({ account }: { account?: string }) {
     }
   }
 
+  if (!status?.configured && hidden && !editing) {
+    return (
+      <div className="flex items-center justify-between rounded-xl border border-border-subtle bg-surface/50 p-3 text-[11px] text-muted">
+        <span>Not tracking a prop-firm challenge on {describeAccount(acc).label}.</span>
+        <button
+          type="button"
+          onClick={() => {
+            setHidden(false)
+            saveHidden(acc, false)
+          }}
+          className="text-accent hover:underline"
+        >
+          Track one instead?
+        </button>
+      </div>
+    )
+  }
+
   if (!status?.configured || editing) {
     return (
-      <SectionCard title={status?.configured ? 'Edit challenge rules' : 'Set up challenge tracking'}>
+      <SectionCard
+        title={status?.configured ? 'Edit challenge rules' : 'Set up challenge tracking'}
+        action={
+          !status?.configured && !editing ? (
+            <button
+              type="button"
+              onClick={() => {
+                setHidden(true)
+                saveHidden(acc, true)
+              }}
+              className="text-[11px] text-muted hover:text-secondary hover:underline"
+            >
+              Not applicable for this account — hide
+            </button>
+          ) : undefined
+        }
+      >
         <p className="text-[11px] text-muted">
           {status?.configured
             ? "Editing keeps your current phase and progress — this only changes the rules."
-            : `Track ${acc} against a prop-firm evaluation's phase target, drawdown budget, daily-loss budget and minimum profit days.`}
+            : `Track ${describeAccount(acc).label} against a prop-firm evaluation's phase target, drawdown budget, daily-loss budget and minimum profit days.`}
         </p>
         <div className="mt-3">
           <SetupForm

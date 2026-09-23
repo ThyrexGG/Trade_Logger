@@ -227,6 +227,13 @@ if it hangs: `npm start -- --tunnel`).
 - [x] A single-account view (only one linked) shows no account tag at all — unchanged from before, no new clutter
 - [ ] 🌐 On the real site: open Journal and Positions and confirm your two real accounts (Capital.com + MT5_14271408) show these clean labels, and that filtering Positions to just MT5 hides your Capital.com position
 
+**A27 · Analytics: account default + per-account challenge dismiss** ⚠️ — website live, phone source-only
+- [x] The Analytics account dropdown now remembers your last pick across visits (it didn't before); the very first time ever (nothing remembered yet) it defaults to Capital.com instead of "All accounts" *(browser-tested: fresh visit → Capital.com selected; pick MT5 → reload → still MT5; explicitly pick "All accounts" → reload → still All, doesn't snap back)*
+- [x] The dropdown options, the "✓ Saved for …" balance confirmation, and the Challenge Tracker's own text/confirm dialogs all show the clean "MT5 14271408" / "Capital.com ••6500" label now too (previously only Journal/Positions did — this page was missed in A26)
+- [x] Your two starting balances are set: Capital.com = $350, MT5 (funded) = $6,000 — saved server-side, applies automatically the moment that account is selected, no "AUTO" guess shown for either
+- [x] Challenge Tracker: a "Not applicable for this account — hide" link on the "Set up challenge tracking" card collapses it to one quiet line for that account only; "Track one instead?" brings it back; hidden state persists across reloads and is independent per account *(browser-tested: hide on Capital.com → reload → still hidden; switch to MT5 → still shows the full setup card; switch back to Capital.com → still hidden; un-hide → card returns — 7/7 checks pass)*
+- [ ] 🌐 On the real site: confirm Analytics opens on Capital.com by default, both balances show correctly, and hide the challenge card on Capital.com (keep it visible on MT5, the funded account, since that's the one that actually has a challenge to track)
+
 ---
 
 ## B. Installed Android app + trade alerts (needs your setup first)

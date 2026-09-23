@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { advanceChallenge, deleteChallengeConfig, getChallengeStatus, resetChallenge, saveChallengeConfig } from '../api/challenge'
+import { describeAccount } from '../accountLabel'
 import { Bar, Button, Card, Field, parseNum } from '../components/ui'
 import { useJournal } from '../journal/JournalContext'
 import { colors, radius, spacing } from '../theme'
@@ -173,7 +174,7 @@ export function ChallengeScreen() {
             <View style={styles.chips}>
               {accounts.map((a) => (
                 <Pressable key={a} onPress={() => { if (a !== account) { setStatus(null); setEditing(false); setAccount(a) } }} style={[styles.chip, account === a && styles.chipOn]} accessibilityRole="button">
-                  <Text style={[styles.chipText, account === a && styles.chipTextOn]}>{a}</Text>
+                  <Text style={[styles.chipText, account === a && styles.chipTextOn]}>{describeAccount(a).label}</Text>
                 </Pressable>
               ))}
             </View>
@@ -264,7 +265,7 @@ export function ChallengeScreen() {
           ) : null}
 
           {status && editing ? (
-            <Card title={status.configured ? 'Edit the rules' : `Start tracking ${account}`}>
+            <Card title={status.configured ? 'Edit the rules' : `Start tracking ${describeAccount(account).label}`}>
               <Text style={styles.muted}>Defaults match a 5ers $5K High Stakes challenge. Change any number to fit your firm.</Text>
               <View style={styles.row}>
                 <Field half label="Account size ($)" value={form.size} onChangeText={set('size')} keyboardType="decimal-pad" />
