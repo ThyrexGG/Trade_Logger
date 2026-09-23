@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { formatUsd } from '../../lib/format'
 import type { JournalTradeItem } from '../../types/operations'
 
@@ -41,6 +42,88 @@ interface DayCell {
   trades: number
 }
 
+const HOVER_CARD_W = 224
+const HOVER_SHOW_DELAY_MS = 150
+
+/** Rich hover preview for a calendar day: its individual trades, not just the
+ * aggregate net P&L the cell itself shows — lets you scan a day before
+ * committing to the click that filters the whole journal down to it.
+ * Portal-rendered with `position: fixed` so the tiny popover's own
+ * `overflow` never clips it, and placed relative to the hovered cell with a
+ * top/bottom flip depending on available space, same approach as Tooltip. */
+function DayHoverCard({
+  iso,
+  net,
+  trades,
+  anchor,
+  onOpen,
+}: {
+  iso: string
+  net: number
+  trades: JournalTradeItem[]
+  anchor: DOMRect
+  onOpen: () => void
+}) {
+  const spaceBelow = window.innerHeight - anchor.bottom
+  const placement: 'top' | 'bottom' = spaceBelow < 220 && anchor.top > 220 ? 'top' : 'bottom'
+  let left = anchor.left + anchor.width / 2 - HOVER_CARD_W / 2
+  left = Math.max(8, Math.min(left, window.innerWidth - HOVER_CARD_W - 8))
+  const top = placement === 'bottom' ? anchor.bottom + 6 : anchor.top - 6
+
+  return createPortal(
+    <div
+      role="dialog"
+      style={{
+        position: 'fixed',
+        top,
+        left,
+        width: HOVER_CARD_W,
+        transform: placement === 'top' ? 'translateY(-100%)' : undefined,
+      }}
+      className={`tl-toast z-[100] max-h-72 overflow-y-auto rounded-lg border p-2.5 shadow-xl ${
+        net >= 0 ? 'border-positive/40 bg-positive/[0.07]' : 'border-negative/40 bg-negative/[0.07]'
+      } bg-surface-elevated`}
+    >
+      <button
+        type="button"
+        onClick={onOpen}
+        className="mb-1.5 flex w-full items-center justify-between gap-2 rounded px-0.5 py-0.5 text-left hover:opacity-80"
+        title="Show just this day's trades"
+      >
+        <span className="text-xs font-semibold text-primary">
+          {new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+        </span>
+        <span className={`font-mono text-xs font-semibold tabular-nums ${net >= 0 ? 'text-positive' : 'text-negative'}`}>
+          {signedUsd(net)} {net >= 0 ? '▲' : '▼'}
+        </span>
+      </button>
+      <div className="space-y-1">
+        {trades.map((t) => {
+          const win = t.net_profit >= 0
+          const long = t.direction.includes('BUY') || t.direction.includes('LONG')
+          return (
+            <div key={t.trade_id} className="flex items-center gap-1.5 rounded bg-background/40 px-1.5 py-1 text-[11px]">
+              <span className={win ? 'text-positive' : 'text-negative'}>{win ? '↑' : '↓'}</span>
+              <span className={`font-mono tabular-nums ${win ? 'text-positive' : 'text-negative'}`}>
+                {signedUsd(t.net_profit)}
+              </span>
+              <span className="truncate font-mono text-muted">{t.symbol}</span>
+              <span
+                className={`ml-auto rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase ${
+                  long ? 'bg-positive/20 text-positive' : 'bg-negative/20 text-negative'
+                }`}
+              >
+                {long ? 'Buy' : 'Sell'}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 function CalendarIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -68,17 +151,48 @@ export function JournalDayPicker({
   const [open, setOpen] = useState(false)
   const boxRef = useRef<HTMLDivElement>(null)
 
-  const byDay = useMemo(() => {
-    const map = new Map<string, { net: number; trades: number }>()
+  const byDayTrades = useMemo(() => {
+    const map = new Map<string, JournalTradeItem[]>()
     for (const e of entries) {
       const iso = localDayIso(parseTime(e.exit_time))
-      const cur = map.get(iso) ?? { net: 0, trades: 0 }
-      cur.net += e.net_profit
-      cur.trades += 1
-      map.set(iso, cur)
+      const list = map.get(iso)
+      if (list) list.push(e)
+      else map.set(iso, [e])
     }
+    for (const list of map.values()) list.sort((a, b) => parseTime(b.exit_time) - parseTime(a.exit_time))
     return map
   }, [entries])
+
+  const byDay = useMemo(() => {
+    const map = new Map<string, { net: number; trades: number }>()
+    for (const [iso, list] of byDayTrades) {
+      map.set(iso, { net: list.reduce((s, t) => s + t.net_profit, 0), trades: list.length })
+    }
+    return map
+  }, [byDayTrades])
+
+  const [hover, setHover] = useState<{ iso: string; anchor: DOMRect } | null>(null)
+  const hoverShowTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const hoverHideTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const showHover = useCallback((iso: string, el: HTMLElement) => {
+    clearTimeout(hoverHideTimer.current)
+    clearTimeout(hoverShowTimer.current)
+    hoverShowTimer.current = setTimeout(() => setHover({ iso, anchor: el.getBoundingClientRect() }), HOVER_SHOW_DELAY_MS)
+  }, [])
+  const hideHover = useCallback(() => {
+    clearTimeout(hoverShowTimer.current)
+    clearTimeout(hoverHideTimer.current)
+    hoverHideTimer.current = setTimeout(() => setHover(null), 80)
+  }, [])
+  useEffect(() => () => {
+    clearTimeout(hoverShowTimer.current)
+    clearTimeout(hoverHideTimer.current)
+  }, [])
+  // Closing the popover (click-away, Escape, picking a month, picking a day) always dismisses any lingering
+  // hover preview too — it's anchored to a cell that may no longer even be rendered.
+  useEffect(() => {
+    if (!open) setHover(null)
+  }, [open])
 
   const latestIso = useMemo(
     () => entries.reduce<string | null>((max, e) => {
@@ -205,7 +319,11 @@ export function JournalDayPicker({
                   type="button"
                   disabled={!hasTrades}
                   onClick={() => { onSelect(isSelected ? null : c.iso); setOpen(false) }}
-                  title={hasTrades ? `${c.iso} · ${signedUsd(c.net)} · ${c.trades} trade${c.trades === 1 ? '' : 's'}` : c.iso}
+                  onMouseEnter={hasTrades ? (e) => showHover(c.iso, e.currentTarget) : undefined}
+                  onMouseLeave={hasTrades ? hideHover : undefined}
+                  onFocus={hasTrades ? (e) => showHover(c.iso, e.currentTarget) : undefined}
+                  onBlur={hasTrades ? hideHover : undefined}
+                  title={hasTrades ? undefined : c.iso}
                   style={bg ? { backgroundColor: bg } : undefined}
                   className={`flex aspect-square flex-col items-center justify-center rounded text-[10px] tabular-nums ${
                     hasTrades ? 'cursor-pointer' : 'cursor-default text-muted/40'
@@ -216,7 +334,19 @@ export function JournalDayPicker({
               )
             })}
           </div>
-          <p className="mt-2 text-[10px] text-muted">Shaded days closed a trade — green net winners, red net losers.</p>
+          <p className="mt-2 text-[10px] text-muted">Shaded days closed a trade — green net winners, red net losers. Hover one for its trades.</p>
+        </div>
+      ) : null}
+
+      {hover && byDayTrades.get(hover.iso) ? (
+        <div onMouseEnter={() => clearTimeout(hoverHideTimer.current)} onMouseLeave={hideHover}>
+          <DayHoverCard
+            iso={hover.iso}
+            net={byDay.get(hover.iso)?.net ?? 0}
+            trades={byDayTrades.get(hover.iso) ?? []}
+            anchor={hover.anchor}
+            onOpen={() => { onSelect(hover.iso); setOpen(false); setHover(null) }}
+          />
         </div>
       ) : null}
     </div>
