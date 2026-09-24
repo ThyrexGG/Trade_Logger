@@ -61,6 +61,12 @@ try:
 except ImportError:
     mt5 = None  # type: ignore
 
+# Every helper process this agent shells out to (tasklist, schtasks, taskkill, powershell) is invoked
+# from pythonw.exe, which has no console of its own -- without this flag Windows allocates a brand new
+# console window for each one, which flashes on screen (and can steal focus from whatever's fullscreen)
+# for the instant it takes the command to run. getattr() because the constant only exists on Windows.
+_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
 AGENT_VERSION = "1.3.0"
 TASK_NAME = "TradeLogger MT5 Sync"
 HISTORY_FALLBACK_START = datetime(2020, 1, 1, tzinfo=timezone.utc)
@@ -229,6 +235,7 @@ def _mt5_pids() -> Optional[set]:
     try:
         out = subprocess.run(
             ["tasklist", "/FO", "CSV", "/NH"], capture_output=True, text=True, timeout=10,
+            creationflags=_NO_WINDOW,
         ).stdout
     except Exception:
         return None
@@ -545,6 +552,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
         subprocess.run(
             ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
             capture_output=True, timeout=10,
+            creationflags=_NO_WINDOW,
         )
     except Exception:
         pass  # notification is a nicety, not the job
@@ -667,6 +675,7 @@ def install_task(poll_minutes: int = 15) -> bool:
          "/SC", "MINUTE", "/MO", str(max(5, int(poll_minutes))),
          "/TR", f'wscript.exe "{vbs}"'],
         capture_output=True, text=True,
+        creationflags=_NO_WINDOW,
     )
     if res.returncode == 0:
         write_uninstall_shortcut()
@@ -686,7 +695,7 @@ def uninstall_task() -> None:
 
     # 1. delete the scheduled task — and actually check it worked
     res = subprocess.run(["schtasks", "/Delete", "/F", "/TN", TASK_NAME],
-                         capture_output=True, text=True)
+                         capture_output=True, text=True, creationflags=_NO_WINDOW)
     out = (res.stderr or res.stdout or "").strip()
     if res.returncode == 0:
         print(f"  removed the scheduled task '{TASK_NAME}'.")
@@ -703,6 +712,7 @@ def uninstall_task() -> None:
             ["taskkill", "/F", "/IM", Path(sys.executable).name,
              "/FI", f"PID ne {os.getpid()}"],
             capture_output=True, text=True,
+            creationflags=_NO_WINDOW,
         )
 
     # 3. remove the hidden launcher, the uninstall shortcut, and stale lock
@@ -714,7 +724,7 @@ def uninstall_task() -> None:
 
     # 4. confirm
     check = subprocess.run(["schtasks", "/Query", "/TN", TASK_NAME],
-                           capture_output=True, text=True)
+                           capture_output=True, text=True, creationflags=_NO_WINDOW)
     if check.returncode != 0:
         print("  confirmed: the task is gone. MetaTrader 5 will not be reopened anymore.")
         print("  (your trades already in TradeLogger stay. you can delete this folder.)")
