@@ -161,14 +161,16 @@ export function JournalDayPicker({
   const boxRef = useRef<HTMLDivElement>(null)
 
   const byDayTrades = useMemo(() => {
+    // A trade belongs to the day it was OPENED, not the day it happened to close -- a trade opened late
+    // one day and closed after midnight shouldn't jump to the next day's cell.
     const map = new Map<string, JournalTradeItem[]>()
     for (const e of entries) {
-      const iso = localDayIso(parseTime(e.exit_time))
+      const iso = localDayIso(parseTime(e.entry_time))
       const list = map.get(iso)
       if (list) list.push(e)
       else map.set(iso, [e])
     }
-    for (const list of map.values()) list.sort((a, b) => parseTime(b.exit_time) - parseTime(a.exit_time))
+    for (const list of map.values()) list.sort((a, b) => parseTime(b.entry_time) - parseTime(a.entry_time))
     return map
   }, [entries])
 
@@ -205,7 +207,7 @@ export function JournalDayPicker({
 
   const latestIso = useMemo(
     () => entries.reduce<string | null>((max, e) => {
-      const iso = localDayIso(parseTime(e.exit_time))
+      const iso = localDayIso(parseTime(e.entry_time))
       return !max || iso > max ? iso : max
     }, null),
     [entries],

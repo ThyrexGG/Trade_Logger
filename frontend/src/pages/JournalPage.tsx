@@ -98,7 +98,9 @@ function filterJournal(data: JournalResponse, account: string, dateFilter: DateF
   let entries = data.entries
   if (account !== 'ALL') entries = entries.filter((e) => e.account_id === account)
   if (selectedDay) {
-    entries = entries.filter((e) => localDayIso(parseTime(e.exit_time)) === selectedDay)
+    // The calendar's day belongs to when a trade was OPENED, not closed -- a trade opened late one day
+    // and closed into the next shouldn't land on the day it happened to close (see JournalDayPicker).
+    entries = entries.filter((e) => localDayIso(parseTime(e.entry_time)) === selectedDay)
   } else {
     const cutoff = dateFilterCutoff(dateFilter)
     if (cutoff > 0) entries = entries.filter((e) => parseTime(e.exit_time) >= cutoff)
