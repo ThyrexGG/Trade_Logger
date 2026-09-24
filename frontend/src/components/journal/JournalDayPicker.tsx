@@ -188,7 +188,12 @@ export function JournalDayPicker({
   const showHover = useCallback((iso: string, el: HTMLElement) => {
     clearTimeout(hoverHideTimer.current)
     clearTimeout(hoverShowTimer.current)
-    hoverShowTimer.current = setTimeout(() => setHover({ iso, anchor: el.getBoundingClientRect() }), HOVER_SHOW_DELAY_MS)
+    hoverShowTimer.current = setTimeout(() => {
+      // A click on the same cell closes the popover (unmounting it) before this delay elapses — a detached
+      // element's getBoundingClientRect() is all zeros, which used to pin the card to the top-left corner.
+      if (!el.isConnected) return
+      setHover({ iso, anchor: el.getBoundingClientRect() })
+    }, HOVER_SHOW_DELAY_MS)
   }, [])
   const hideHover = useCallback(() => {
     clearTimeout(hoverShowTimer.current)
