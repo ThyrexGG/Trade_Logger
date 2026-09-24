@@ -130,6 +130,20 @@ textarea,
   transform: translateY(-1px);
 }
 
+/* Calendar day cells (MonthlyCalendar): a raised "card" bevel for days with
+   trades — a soft drop shadow plus a hairline top highlight — and a pressed-in
+   look for empty weekend cells, so weekends read as recessed/inactive at a
+   glance instead of just a flat tint. */
+.tl-cal-cell {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 4px 10px -4px rgba(0, 0, 0, 0.45);
+}
+.tl-cal-cell-weekend {
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
 /* Respect reduced-motion preferences for the few transitions we use. */
 @media (prefers-reduced-motion: reduce) {
   *,

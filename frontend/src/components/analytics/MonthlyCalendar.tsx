@@ -534,24 +534,23 @@ export function MonthlyCalendar({
         </div>
       </div>
 
-      <div className="grid grid-cols-7 border-b border-border-subtle text-[10px] font-medium uppercase tracking-wider text-muted">
+      <div className="grid grid-cols-7 text-[10px] font-medium uppercase tracking-wider text-muted">
         {WEEKDAYS.map((w) => (
           <div key={w} className="px-2 pb-1.5">
             {w}
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7">
+      <div className="grid grid-cols-7 gap-2">
         {cells.map((c, i) => {
           const col = i % 7
           const weekend = col >= 5
-          const edges = `border-b border-border-subtle/50 ${col === 6 ? '' : 'border-r'}`
 
           if (!c.inMonth) {
             return (
               <div
                 key={c.iso}
-                className={`min-h-[92px] ${edges} ${weekend ? 'bg-surface-elevated/[0.04]' : ''}`}
+                className={`min-h-[92px] rounded-xl ${weekend ? 'bg-surface-elevated/[0.04]' : ''}`}
               />
             )
           }
@@ -559,19 +558,25 @@ export function MonthlyCalendar({
           const d = c.data
           const isToday = c.iso === TODAY_ISO
           const isSelected = c.iso === selected
-          const intensity = d ? Math.min(0.16, 0.05 + (Math.abs(d.net_profit) / dayMax) * 0.11) : 0
+          const intensity = d ? Math.min(0.18, 0.06 + (Math.abs(d.net_profit) / dayMax) * 0.12) : 0
           const bg = d
             ? d.net_profit >= 0
               ? `rgba(34,197,94,${intensity})`
               : `rgba(239,68,68,${intensity})`
             : undefined
           const dayPct = d && initialBalance > 0 ? (d.net_profit / initialBalance) * 100 : null
+          const isRestDay = weekend && !d
 
           const inner = (
             <>
+              {d ? (
+                <span
+                  className={`absolute inset-x-0 top-0 h-[3px] ${d.net_profit >= 0 ? 'bg-positive' : 'bg-negative'}`}
+                />
+              ) : null}
               <span
                 className={`text-[11px] tabular-nums ${
-                  isToday ? 'font-semibold text-accent' : d ? 'text-secondary' : 'text-muted/60'
+                  isToday ? 'font-semibold text-accent' : d ? 'text-secondary' : isRestDay ? 'text-muted/35' : 'text-muted/60'
                 }`}
               >
                 {c.day}
@@ -590,12 +595,14 @@ export function MonthlyCalendar({
                     <span>{d.trades}t</span>
                   </div>
                 </div>
+              ) : isRestDay ? (
+                <span className="mt-auto text-[9px] uppercase tracking-wide text-muted/40">Weekend</span>
               ) : null}
             </>
           )
 
-          const cls = `relative flex min-h-[92px] flex-col p-2 ${edges} ${
-            !d && weekend ? 'bg-surface-elevated/[0.04]' : ''
+          const cls = `relative flex min-h-[92px] flex-col overflow-hidden rounded-xl p-2.5 ${
+            isRestDay ? 'tl-cal-cell-weekend bg-surface-elevated/20' : 'tl-cal-cell bg-surface-elevated/60'
           } ${isSelected ? 'ring-2 ring-inset ring-accent' : isToday ? 'ring-1 ring-inset ring-accent/50' : ''}`
 
           if (d) {
