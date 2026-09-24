@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import type { PositionItem, PositionsResponse } from '../../types/positions'
 import { OpsMetric, OpsStatusTag, OpsUnavailable, SectionCard } from './primitives'
-import { formatLots, formatPrice, formatUsd, timeAgo } from '../../lib/format'
+import { formatLots, formatPrice, formatUsd, timeAgo, formatDateTime } from '../../lib/format'
 import { AccountBadge } from '../common/AccountBadge'
 
 function rTone(r: string): 'positive' | 'negative' | 'neutral' {
@@ -34,6 +34,7 @@ function Card({ p }: { p: PositionItem }) {
         />
       </div>
       <div className="mt-2 grid grid-cols-3 gap-x-3 gap-y-1.5 text-[11px]">
+        <div><span className="text-muted">Opened</span><br /><span className="font-mono text-primary">{formatDateTime(p.open_time) ?? '—'}</span></div>
         <div><span className="text-muted">Size</span><br /><span className="font-mono text-primary">{formatLots(p.volume)}</span></div>
         <div><span className="text-muted">Entry</span><br /><span className="font-mono text-primary">{formatPrice(p.entry_price)}</span></div>
         <div><span className="text-muted">Current</span><br /><span className="font-mono text-primary">{formatPrice(p.current_price)}</span></div>
@@ -94,6 +95,7 @@ export function PositionsView({ data }: { data: PositionsResponse }) {
         <table className="w-full border-collapse text-xs">
           <thead className="border-b border-border text-muted">
             <tr>
+              <th className="px-2 py-1.5 text-left font-medium">Opened</th>
               <th className="px-2 py-1.5 text-left font-medium">Symbol</th>
               <th className="px-2 py-1.5 text-left font-medium">Side</th>
               <th className="px-2 py-1.5 text-right font-medium">Size</th>
@@ -111,6 +113,7 @@ export function PositionsView({ data }: { data: PositionsResponse }) {
           <tbody>
             {data.positions.map((p) => (
               <tr key={p.position_id} className="border-b border-border-subtle/60">
+                <td className="whitespace-nowrap px-2 py-1.5 font-mono text-muted">{formatDateTime(p.open_time) ?? '—'}</td>
                 <td className="px-2 py-1.5 font-mono font-semibold text-primary">{p.symbol}</td>
                 <td className="px-2 py-1.5">
                   <span className={`font-mono ${p.direction.includes('BUY') || p.direction.includes('LONG') ? 'text-positive' : 'text-negative'}`}>

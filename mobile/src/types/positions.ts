@@ -13,6 +13,8 @@ export interface PositionItem {
   mae: string
   mfe: string
   account_id: string
+  /** When the position was opened (the broker's own timestamp). No explicit timezone means UTC. */
+  open_time: string | null
   /** Journal annotations, writable while the trade is open (M5). */
   setup_tag: string | null
   notes: string | null

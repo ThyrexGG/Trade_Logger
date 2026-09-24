@@ -47,6 +47,23 @@ export function ageSeconds(iso: string | undefined, now: number = Date.now()): n
   return Math.max(0, (now - then) / 1000)
 }
 
+/** Treats a timestamp with no explicit timezone as UTC — matching how the backend stores every
+ * trade/position timestamp (entry_time, exit_time, open_time). `Date.parse`/`new Date(iso)` on a
+ * bare "2026-09-22T14:03:00" string reads it as browser-local time instead, which is wrong here. */
+export function parseUtcMs(iso: string | null | undefined): number | null {
+  if (!iso) return null
+  const hasZone = /[zZ]|[+-]\d\d:\d\d$/.test(iso)
+  const t = new Date(hasZone ? iso : `${iso}Z`).getTime()
+  return Number.isNaN(t) ? null : t
+}
+
+/** "Sep 22, 14:03" — a position/trade's open or close moment, in the viewer's local time. */
+export function formatDateTime(iso: string | null | undefined): string | null {
+  const ms = parseUtcMs(iso)
+  if (ms === null) return null
+  return new Date(ms).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
 /** USD amount with sign and 2dp, e.g. "$1,005.67" / "-$42.00". */
 export function formatUsd(value: number): string {
   if (!Number.isFinite(value)) return '—'

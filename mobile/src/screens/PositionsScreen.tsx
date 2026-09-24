@@ -32,6 +32,7 @@ function PositionCard({ p, onPress, showAccount }: { p: PositionItem; onPress: (
       </View>
 
       <View style={styles.grid}>
+        {p.open_time ? <Stat label="Opened" value={formatUpdated(p.open_time)} /> : null}
         <Stat label="Volume" value={String(p.volume)} />
         <Stat label="Entry" value={formatPrice(p.entry_price)} />
         <Stat label="Current" value={formatPrice(p.current_price)} />

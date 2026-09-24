@@ -17,6 +17,9 @@ export interface PositionItem {
   mae: string
   mfe: string
   account_id: string
+  /** When the position was opened (the broker's own timestamp) — null only for a row synced
+   * before this field existed. No explicit timezone in the string means UTC, same as exit_time. */
+  open_time: string | null
   /** Subjective journal annotations, writable while the trade is still open
    * via PATCH /api/positions/{position_id} — carried over to the closed
    * trade's journal entry automatically once the position closes. */

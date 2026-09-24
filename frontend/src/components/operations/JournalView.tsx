@@ -266,7 +266,7 @@ export function JournalView({
   // With a single broker account, a column of identical 19-digit ids is pure
   // noise — only surface the account filter + column when there's more than one.
   const multiAccount = data.accounts.length > 1
-  const colCount = multiAccount ? 11 : 10
+  const colCount = multiAccount ? 12 : 11
 
   if (data.entries.length === 0) {
     return (
@@ -326,6 +326,7 @@ export function JournalView({
           <table className="w-full border-collapse text-[11px]">
             <thead className="border-b border-border text-muted">
               <tr>
+                <th className="px-2 py-1.5 text-left font-medium">Opened</th>
                 <th className="px-2 py-1.5 text-left font-medium">Closed</th>
                 <th className="px-2 py-1.5 text-left font-medium">Symbol</th>
                 <th className="px-2 py-1.5 text-left font-medium">Dir</th>
@@ -352,6 +353,7 @@ export function JournalView({
                       isFocus ? 'bg-accent/5' : ''
                     }`}
                   >
+                    <td className="whitespace-nowrap px-2 py-1.5 font-mono text-muted">{e.entry_time.slice(0, 16).replace('T', ' ')}</td>
                     <td className="whitespace-nowrap px-2 py-1.5 font-mono text-secondary">{e.exit_time.slice(0, 16).replace('T', ' ')}</td>
                     <td className="px-2 py-1.5">
                       <Link to={`/workspace/market?symbol=${encodeURIComponent(e.symbol)}`} className="font-mono font-semibold text-primary hover:text-accent">

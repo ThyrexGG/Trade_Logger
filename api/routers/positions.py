@@ -76,6 +76,7 @@ def _position_item(pos: Dict[str, Any], sc_count: int = 0) -> PositionItem:
         mae=mae_str,
         mfe=mfe_str,
         account_id=acc,
+        open_time=_text("open_time"),
         setup_tag=_text("setup_tag"),
         notes=_text("notes"),
         chart_snapshot_url=_text("chart_snapshot_url"),

@@ -244,6 +244,9 @@ class PositionItem(BaseModel):
     mae: str
     mfe: str
     account_id: str
+    # When the position was opened — the broker's own timestamp (open_positions.open_time),
+    # not "when TradeLogger first saw it". None only for a row from before this column existed.
+    open_time: Optional[str] = None
     # Subjective journal annotations — writable while the trade is still
     # open via PATCH /api/positions/{position_id}; carried over to the
     # closed_trades row once the position closes (see save_open_positions).

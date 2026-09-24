@@ -6,7 +6,7 @@ import { patchPosition } from '../api/positions'
 import { describeAccount } from '../accountLabel'
 import { AnnotationEditor } from '../components/AnnotationEditor'
 import { ScreenshotGallery } from '../components/ScreenshotGallery'
-import { formatMoney, formatPrice, isBuy } from '../format'
+import { formatMoney, formatPrice, formatUpdated, isBuy } from '../format'
 import { useTagSuggestions } from '../journal/useTagSuggestions'
 import type { RootStackParamList } from '../navigation/RootStack'
 import { usePositionsContext } from '../positions/PositionsContext'
@@ -85,6 +85,7 @@ export function PositionDetailScreen() {
 
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Position</Text>
+            {position.open_time ? <Fact label="Opened" value={formatUpdated(position.open_time)} /> : null}
             <Fact label="Volume" value={String(position.volume)} />
             <Fact label="Entry" value={formatPrice(position.entry_price)} />
             <Fact label="Current" value={formatPrice(position.current_price)} />

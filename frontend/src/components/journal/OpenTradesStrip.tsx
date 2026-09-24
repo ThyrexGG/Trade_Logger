@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { PositionItem, PositionUpdateRequest } from '../../types/positions'
-import { formatSignedAmount } from '../../lib/format'
+import { formatSignedAmount, formatDateTime } from '../../lib/format'
 import { patchPosition } from '../../api/positions'
 import { ChartSnapshot } from './ChartSnapshot'
 import { ScreenshotStrip, type ScreenshotStripHandle } from './ScreenshotStrip'
@@ -104,6 +104,9 @@ function OpenTradeCard({ position, showAccount }: { position: PositionItem; show
           <span className="text-[11px] text-muted">
             {position.volume} @ {position.entry_price} → {position.current_price}
           </span>
+          {formatDateTime(position.open_time) ? (
+            <span className="text-[11px] text-muted">· opened {formatDateTime(position.open_time)}</span>
+          ) : null}
           {showAccount ? <AccountBadge accountId={position.account_id} /> : null}
         </div>
         <span className={`font-mono text-lg font-semibold ${win ? 'text-positive' : loss ? 'text-negative' : 'text-secondary'}`}>

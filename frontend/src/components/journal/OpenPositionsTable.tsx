@@ -1,7 +1,7 @@
 import { Fragment, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { PositionItem, PositionUpdateRequest } from '../../types/positions'
-import { formatSignedAmount } from '../../lib/format'
+import { formatSignedAmount, formatDateTime } from '../../lib/format'
 import { patchPosition } from '../../api/positions'
 import { ChartSnapshot } from './ChartSnapshot'
 import { ScreenshotStrip, type ScreenshotStripHandle } from './ScreenshotStrip'
@@ -170,6 +170,7 @@ function PositionsTableGroup({
         <thead className="border-b border-border text-muted">
           <tr>
             <th className="px-2 py-1.5 text-left font-medium">Status</th>
+            <th className="px-2 py-1.5 text-left font-medium">Opened</th>
             <th className="px-2 py-1.5 text-left font-medium">Symbol</th>
             <th className="px-2 py-1.5 text-left font-medium">Dir</th>
             <th className="px-2 py-1.5 text-right font-medium">Vol</th>
@@ -195,6 +196,9 @@ function PositionsTableGroup({
                       </span>
                       OPEN
                     </span>
+                  </td>
+                  <td className="whitespace-nowrap px-2 py-1.5 font-mono text-muted">
+                    {formatDateTime(p.open_time) ?? '—'}
                   </td>
                   <td className="px-2 py-1.5">
                     <Link to={`/workspace/market?symbol=${encodeURIComponent(p.symbol)}`} className="font-mono font-semibold text-primary hover:text-accent">
@@ -233,7 +237,7 @@ function PositionsTableGroup({
                 </tr>
                 {isEditing ? (
                   <tr className="border-b border-border-subtle/60 bg-surface-elevated/20">
-                    <td colSpan={10} className="p-0">
+                    <td colSpan={11} className="p-0">
                       <div className="sticky left-0 w-[calc(100vw-2rem)] p-3 sm:w-auto sm:max-w-3xl">
                         <OpenPositionEditor position={p} onCancel={() => setEditing(null)} />
                       </div>

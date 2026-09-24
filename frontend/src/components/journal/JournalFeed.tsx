@@ -115,7 +115,9 @@ function FeedCard({
           <span className={`font-mono text-xs ${entry.direction.includes('LONG') || entry.direction.includes('BUY') ? 'text-positive' : 'text-negative'}`}>
             {entry.direction}
           </span>
-          <span className="text-[11px] text-muted">{entry.exit_time.slice(0, 16).replace('T', ' ')}</span>
+          <span className="text-[11px] text-muted">
+            opened {entry.entry_time.slice(0, 16).replace('T', ' ')} · closed {entry.exit_time.slice(0, 16).replace('T', ' ')}
+          </span>
           <ExitsBadge entry={entry} />
           {knownAccounts.length > 1 ? <AccountBadge accountId={entry.account_id} /> : null}
         </div>
