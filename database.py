@@ -955,16 +955,21 @@ def save_raw_deals(deals):
             cursor,
             "INSERT INTO raw_deals "
             "(deal_id, account_id, symbol, type, volume, price, commission, swap, profit, timestamp, position_id, user_id) "
-            "VALUES %s ON CONFLICT (deal_id) DO NOTHING",
+            "VALUES %s ON CONFLICT (deal_id) DO UPDATE SET "
+            "timestamp = EXCLUDED.timestamp, price = EXCLUDED.price, commission = EXCLUDED.commission, "
+            "swap = EXCLUDED.swap, profit = EXCLUDED.profit, volume = EXCLUDED.volume",
             rows,
             page_size=1000,
         )
     else:
         cursor.executemany("""
-            INSERT OR IGNORE INTO raw_deals
+            INSERT INTO raw_deals
             (deal_id, account_id, symbol, type, volume, price, commission, swap, profit, timestamp, position_id, user_id)
             VALUES
             (:deal_id, :account_id, :symbol, :type, :volume, :price, :commission, :swap, :profit, :timestamp, :position_id, :user_id)
+            ON CONFLICT(deal_id) DO UPDATE SET
+                timestamp = excluded.timestamp, price = excluded.price, commission = excluded.commission,
+                swap = excluded.swap, profit = excluded.profit, volume = excluded.volume
         """, deals)
 
     conn.commit()

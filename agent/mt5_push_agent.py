@@ -33,6 +33,8 @@ Command line:
     tradelogger-mt5-sync --daemon     # sync now, then loop fast, with notifications
     tradelogger-mt5-sync --check      # verify login + MT5 connection only
     tradelogger-mt5-sync --uninstall  # remove the background task
+    tradelogger-mt5-sync --full-resync  # one-time: re-pull ALL history (after an agent update
+                                         # that changes how a stored timestamp is computed)
 
 Running from source instead of the .exe:  pip install MetaTrader5 requests
 """
@@ -67,9 +69,40 @@ except ImportError:
 # for the instant it takes the command to run. getattr() because the constant only exists on Windows.
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
-AGENT_VERSION = "1.3.0"
+AGENT_VERSION = "1.3.1"
 TASK_NAME = "TradeLogger MT5 Sync"
 HISTORY_FALLBACK_START = datetime(2020, 1, 1, tzinfo=timezone.utc)
+
+# MT5's position/deal ``.time`` is the BROKER SERVER's wall clock, epoch-encoded as if it
+# were UTC -- it is NOT a real UTC instant (a well-known MT5 quirk; mt5_provider.py in the
+# main app has to solve the same problem for candle data). A broker on e.g. UTC+2 makes a
+# 17:11 close read back as "17:11 UTC" here, which is 2 hours off the true instant -- close
+# enough to shift a trade near midnight onto the wrong calendar day once the frontend
+# converts it to the viewer's own timezone. Detected once by comparing a live tick's
+# .time to this machine's real wall clock (time.time() is always genuine UTC, independent
+# of the OS's display timezone), rounded to the nearest hour since brokers sit on whole-hour
+# (or half-hour) offsets. Cached for 30 minutes; a slow first read (offset still 0) just
+# means the very first push of a session may store a slightly-off timestamp for anything
+# closed before the first successful read.
+_server_offset_sec = 0
+_server_offset_checked_at = 0.0
+
+
+def server_utc_offset_sec() -> int:
+    global _server_offset_sec, _server_offset_checked_at
+    now = time.time()
+    if _server_offset_checked_at and now - _server_offset_checked_at < 1800:
+        return _server_offset_sec
+    try:
+        mt5.symbol_select("EURUSD", True)
+        tick = mt5.symbol_info_tick("EURUSD")
+        if tick and tick.time:
+            raw = tick.time - now
+            _server_offset_sec = int(round(raw / 3600.0) * 3600)
+            _server_offset_checked_at = now
+    except Exception:
+        pass
+    return _server_offset_sec
 
 # Public, non-secret default baked into the build so a friend only has to
 # type their own email + password. A mt5_agent_config.json next to the
@@ -348,11 +381,12 @@ def mt5_connect(cfg: Dict[str, Any]) -> None:
         _minimize_windows_for_pids(after_pids - before_pids)
 
 
-def read_snapshot(server_cursor_ts: int) -> Dict[str, Any]:
+def read_snapshot(server_cursor_ts: int, full_resync: bool = False) -> Dict[str, Any]:
     acc = mt5.account_info()
     if acc is None:
         sys.exit(f"MT5 account_info() failed (error {mt5.last_error()}).")
     account_id = f"MT5_{acc.login}"
+    off = server_utc_offset_sec()
 
     balance = {
         "balance": float(acc.balance),
@@ -375,13 +409,23 @@ def read_snapshot(server_cursor_ts: int) -> Dict[str, Any]:
             "tp": float(p.tp or 0.0),
             "floating_pnl": float(p.profit),
             "swap": float(p.swap or 0.0),
-            "open_time": datetime.fromtimestamp(p.time, tz=timezone.utc).isoformat(),
+            "open_time": datetime.fromtimestamp(p.time - off, tz=timezone.utc).isoformat(),
         })
 
+    # server_cursor_ts is the last deal timestamp already stored -- in true-UTC terms once this
+    # offset fix is live. history_deals_get() itself still wants broker-clock-shaped datetimes
+    # (the same space .time naturally produces), so the boundary needs the offset added back.
+    # The extra day of slack (on top of the historical -10s dedup cushion) absorbs both normal
+    # DST/offset drift and the one-time cutover where an old cursor stored before this fix was
+    # still in broker-clock space -- re-scanning an extra day of deals is cheap, and re-sending
+    # ones already stored just re-saves them (dedup + correction keys on the MT5 ticket, never
+    # on timestamp). --full-resync forces the widest possible window, to correct historical
+    # entry_time/exit_time that were stored under the old (uncorrected) math.
+    CURSOR_SLACK_SEC = 24 * 3600
     start = (
-        datetime.fromtimestamp(server_cursor_ts - 10, tz=timezone.utc)
-        if server_cursor_ts > 0
-        else HISTORY_FALLBACK_START
+        HISTORY_FALLBACK_START
+        if full_resync or server_cursor_ts <= 0
+        else datetime.fromtimestamp(server_cursor_ts - CURSOR_SLACK_SEC + off, tz=timezone.utc)
     )
     end = datetime.now(timezone.utc) + timedelta(days=2)
 
@@ -398,7 +442,7 @@ def read_snapshot(server_cursor_ts: int) -> Dict[str, Any]:
             "commission": float(d.commission),
             "swap": float(d.swap),
             "profit": float(d.profit),
-            "timestamp": int(d.time),
+            "timestamp": int(d.time) - off,
             "position_id": str(d.position_id),
         })
 
@@ -582,14 +626,21 @@ def _notify_closing_events(cfg: Dict[str, Any], events: List[Dict[str, Any]]) ->
         pass  # the toast still told them; a browser window is a nicety
 
 
-def sync_once(cfg: Dict[str, Any], auth: "Auth", require_already_running: bool = False) -> None:
+def sync_once(
+    cfg: Dict[str, Any], auth: "Auth", require_already_running: bool = False, full_resync: bool = False,
+) -> None:
     """`require_already_running=True` is what the automatic paths (the 15-min
     scheduled task and `--daemon`) pass: if MetaTrader isn't open, this skips
     the sync instead of `mt5_connect()`'s normal behaviour of launching a
     fresh terminal. The point of the schedule is "sync while I'm trading" —
     closing MT5 (no more trades to catch) shouldn't make it pop back up every
     15 minutes. A manual `--check` or the wizard's own first sync still want
-    the old launch-it-for-me behaviour, so they leave this False."""
+    the old launch-it-for-me behaviour, so they leave this False.
+
+    `full_resync=True` (``--full-resync``) ignores the server's cursor and
+    re-pulls every deal MT5 still has in its history, so a correction to how
+    a timestamp is computed (like the broker-clock-offset fix) reaches
+    trades that were already synced under the old math."""
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
     if require_already_running and not _mt5_pids():
         print(f"[{stamp}] MetaTrader 5 isn't open — skipping this sync (nothing to catch).")
@@ -600,8 +651,8 @@ def sync_once(cfg: Dict[str, Any], auth: "Auth", require_already_running: bool =
         acc = mt5.account_info()
         account_id = f"MT5_{acc.login}"
         print(f"  account {acc.login} ({getattr(acc, 'company', '')})")
-        cursor = get_cursor(cfg, auth, account_id)
-        snap = read_snapshot(cursor)
+        cursor = 0 if full_resync else get_cursor(cfg, auth, account_id)
+        snap = read_snapshot(cursor, full_resync=full_resync)
         print(f"  read {len(snap['deals'])} new deal legs, {len(snap['positions'])} open positions")
         closing_events = snap.get("_closing_events") or []
         push(cfg, auth, snap)
@@ -868,7 +919,7 @@ def _dispatch(args: argparse.Namespace) -> None:
     complete, _mode = config_status(cfg)
 
     # A bare double-click: run the wizard if not set up yet, else sync once.
-    if args.setup or (not any((args.once, args.daemon, args.check)) and not complete):
+    if args.setup or (not any((args.once, args.daemon, args.check, args.full_resync)) and not complete):
         run_setup()
         return
 
@@ -889,6 +940,21 @@ def _dispatch(args: argparse.Namespace) -> None:
         acc = mt5.account_info()
         print(f"MT5   : OK — account {acc.login} ({getattr(acc, 'company', '')})")
         mt5.shutdown()
+        return
+
+    if args.full_resync:
+        print("full resync: re-pulling your entire MT5 history (this can take a minute) ...")
+        lock = _acquire_run_lock()
+        if lock is None:
+            print("another sync is already running — try again once it finishes.")
+            return
+        try:
+            sync_once(cfg, auth, require_already_running=False, full_resync=True)
+        except SystemExit as exc:
+            print(f"resync did not finish: {exc}")
+            raise SystemExit(1) from None
+        finally:
+            _release_run_lock(lock)
         return
 
     if args.daemon:
@@ -927,6 +993,11 @@ def main() -> None:
     g.add_argument("--daemon", action="store_true", help="sync now, then loop fast (with close notifications)")
     g.add_argument("--check", action="store_true", help="verify login + MT5 connection only")
     g.add_argument("--uninstall", action="store_true", help="remove the background task")
+    g.add_argument(
+        "--full-resync", action="store_true",
+        help="re-pull your ENTIRE MT5 history once, ignoring what's already synced -- "
+             "run this one time after an agent update that changes how a timestamp is computed",
+    )
     args = ap.parse_args()
 
     # Whatever happens — success, a handled error, or an unexpected crash — a
