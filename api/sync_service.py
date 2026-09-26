@@ -25,6 +25,21 @@ toggle (``user_settings["sync_auto_enabled"]``) are per-user.
 Data ingestion only. This module places / modifies / cancels no order,
 enables no automation, and imports no execution / broker-adapter / risk
 module. It only reads broker state and writes rows to the local journal DB.
+
+**Why INTERVAL_SEC matters more than it looks.** The DB is Neon serverless,
+which auto-suspends its compute after a few minutes of zero queries and
+bills only while it's awake. ``_loop`` starts the moment ANY user has
+auto-sync on, OR merely has a price alert / loss limit / registered phone
+(``_alert_user_ids`` — true for nearly every real user of this app), and
+then runs forever for the life of the process. At the old 120s default that
+query lands well inside Neon's suspend window every single cycle, so the
+compute never gets a chance to suspend at all — it's "always on" for as
+long as the API process is up, which burns a serverless free-tier's whole
+monthly compute-hour allowance in days, not weeks (this is exactly what
+happened in production 2026-09). The interval only has to clear Neon's
+suspend window (commonly ~5 min) for the DB to idle back down between
+cycles; 15 minutes is a deliberately comfortable margin above that, not a
+freshness target — "Sync now" still gives instant results on demand.
 """
 from __future__ import annotations
 
@@ -40,9 +55,9 @@ import tenant
 from api import identity as _identity
 
 try:
-    INTERVAL_SEC = max(15, int(os.getenv("TL_SYNC_INTERVAL_SEC", "120")))
+    INTERVAL_SEC = max(60, int(os.getenv("TL_SYNC_INTERVAL_SEC", "900")))
 except (TypeError, ValueError):
-    INTERVAL_SEC = 120
+    INTERVAL_SEC = 900
 
 _AUTO_SETTING_KEY = "sync_auto_enabled"
 _HEARTBEAT_KEY = "inprocess_sync_heartbeat"
