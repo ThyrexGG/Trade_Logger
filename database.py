@@ -241,8 +241,7 @@ def _checkout_pooled():
             cur.close()
             conn.rollback()
             return _PooledConnection(conn, pg_pool)
-        except Exception as exc:
-            last_err = exc
+        except Exception:
             _POOL_STATS["ping_failures"] += 1
             try:
                 pg_pool.putconn(conn, close=True)
@@ -252,8 +251,6 @@ def _checkout_pooled():
     # Could not get a healthy pooled connection — never fail the caller: hand
     # back a plain direct connection (it will simply be closed on `.close()`).
     _POOL_STATS["overflow_direct"] += 1
-    if last_err is not None:
-        pass
     return _raw_pg_connect()
 
 
