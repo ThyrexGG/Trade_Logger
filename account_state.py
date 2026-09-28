@@ -59,6 +59,13 @@ def get_account_state(account_type="MT5"):
                 state["message"] = "MT5 not available on this platform"
                 return state
 
+            if not mt5_gate.mt5_terminal_running():
+                # A background/dashboard read must never be the reason MT5 pops
+                # open -- mt5.initialize() launches a brand-new terminal window
+                # if none is running. Only a deliberate sync should do that.
+                state["message"] = "MT5 terminal is not currently running"
+                return state
+
             import MetaTrader5 as mt5
             if not mt5.initialize():
                 state["message"] = f"MT5 init failed: {mt5.last_error()}"

@@ -54,26 +54,29 @@ def sync_mt5():
     except Exception:
         pass
 
+    # A sync is a deliberate connect (unlike market_data's passive polling), so
+    # it's allowed to cold-launch the terminal if needed -- but the new window
+    # must be minimized instantly instead of popping up in the user's face.
     connected = False
     if login_str and password and server:
         try:
             login = int(login_str)
             # Try connecting with credentials
-            if mt5.initialize(login=login, password=password, server=server, timeout=10000):
+            if mt5_gate.guarded_initialize(mt5, login=login, password=password, server=server, timeout=10000):
                 connected = True
             else:
                 # Fallback to default initialize
-                if mt5.initialize(timeout=10000):
+                if mt5_gate.guarded_initialize(mt5, timeout=10000):
                     connected = True
                 else:
                     print(f"MT5 initialize failed. Error code: {mt5.last_error()}")
         except Exception as e:
             print(f"MT5 initialization error: {e}")
-            if mt5.initialize():
+            if mt5_gate.guarded_initialize(mt5):
                 connected = True
     else:
         # Connect to already open terminal on system
-        if mt5.initialize():
+        if mt5_gate.guarded_initialize(mt5):
             connected = True
         else:
             print("Could not connect to active MT5 terminal. Please make sure the MT5 terminal is open.")

@@ -81,7 +81,7 @@ def get_realtime_candles(symbol="XAUUSD", timeframe="15m", count=250, ttl_sec=4)
     #    so a poll never auto-launches the terminal)
     try:
         import mt5_sync
-        if is_live_market_data_enabled() and mt5_sync.MT5_AVAILABLE:
+        if is_live_market_data_enabled() and mt5_sync.MT5_AVAILABLE and mt5_gate.mt5_terminal_running():
             import MetaTrader5 as mt5
             if mt5.initialize():
                 tf_map = {
@@ -392,7 +392,7 @@ def get_latest_tick(symbol: str = "EURUSD", ttl_sec: float = 8.0) -> Optional[Di
 
     try:
         import mt5_sync
-        if is_live_market_data_enabled() and mt5_sync.MT5_AVAILABLE:
+        if is_live_market_data_enabled() and mt5_sync.MT5_AVAILABLE and mt5_gate.mt5_terminal_running():
             import MetaTrader5 as mt5
             if mt5.initialize():
                 tick = mt5.symbol_info_tick(sym)
@@ -987,6 +987,34 @@ def detect_active_killzone():
         return "NY PM Killzone"
         
     return "No Active Killzone (Dead Zone)"
+
+
+# Killzone start times, EST hour-floats, in clock order — the same boundaries
+# `detect_active_killzone()` checks above, kept as one list so "next" can't
+# silently drift from "current" the way the frontend's own copy of these
+# windows once did (KillzoneChart.tsx had NY AM starting an hour late).
+_KILLZONE_STARTS = [
+    (2.0, "London Killzone (Manipulation/Expansion)"),
+    (8.5, "NY AM Killzone (Reversal/Continuation)"),
+    (13.5, "NY PM Killzone"),
+    (20.0, "Asian Range (Consolidation)"),
+]
+
+
+def next_killzone():
+    """{"name", "starts_in_minutes"} for the next killzone window to OPEN on
+    the same EST clock `detect_active_killzone()` reads — while one is
+    currently active, this is the one that follows it, not the current one."""
+    est, _ = _get_tz_eastern_and_utc()
+    now_est = datetime.now(timezone.utc).astimezone(est)
+    time_float = now_est.hour + now_est.minute / 60.0 + now_est.second / 3600.0
+    for start, name in _KILLZONE_STARTS:
+        if start > time_float:
+            return {"name": name, "starts_in_minutes": round((start - time_float) * 60)}
+    # Past 20:00 -- next start is London at 02:00 tomorrow.
+    first_start, first_name = _KILLZONE_STARTS[0]
+    return {"name": first_name, "starts_in_minutes": round((24.0 - time_float + first_start) * 60)}
+
 
 def calculate_asian_range(df):
     """
