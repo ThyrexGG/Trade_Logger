@@ -105,6 +105,13 @@ def main() -> None:
 
     dist = ROOT / "frontend" / "dist"
     if dist.is_dir():
+        # api/main.py already registers an exact GET / (a plain API-status JSON) --
+        # Starlette matches routes in registration order, so that one would win over
+        # any catch-all added after it, and "/" would never reach the SPA below.
+        # Drop it here (in-process only, api/main.py itself is untouched) so index.html
+        # is what actually loads at the site root, same as every other client route.
+        app.router.routes = [r for r in app.router.routes if getattr(r, "path", None) != "/"]
+
         app.mount("/assets", StaticFiles(directory=str(dist / "assets")), name="fallback-assets")
 
         @app.get("/{full_path:path}")
