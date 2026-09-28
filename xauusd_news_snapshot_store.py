@@ -56,7 +56,10 @@ def init_news_snapshot_table(conn=None):
         conn.close()
 
 
-init_news_snapshot_table()
+try:
+    init_news_snapshot_table()
+except Exception:
+    pass  # a transient DB outage at import time must never crash the whole process
 
 
 def compute_events_fingerprint(target_date_str: str, provider_name: str, events: List[Dict[str, Any]]) -> str:

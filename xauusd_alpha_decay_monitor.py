@@ -68,7 +68,10 @@ def init_phase44_alpha_tables(conn=None):
         conn.close()
 
 
-init_phase44_alpha_tables()
+try:
+    init_phase44_alpha_tables()
+except Exception:
+    pass  # a transient DB outage at import time must never crash the whole process
 
 
 class DataQualityGate:

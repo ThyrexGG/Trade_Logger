@@ -110,7 +110,10 @@ def init_phase50_database(conn=None):
         conn.close()
 
 
-init_phase50_database()
+try:
+    init_phase50_database()
+except Exception:
+    pass  # a transient DB outage at import time must never crash the whole process
 
 
 class Phase50SafetyBarrier:

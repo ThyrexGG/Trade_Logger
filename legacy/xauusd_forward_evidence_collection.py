@@ -84,7 +84,10 @@ def init_phase47_database(conn=None):
         conn.close()
 
 
-init_phase47_database()
+try:
+    init_phase47_database()
+except Exception:
+    pass  # a transient DB outage at import time must never crash the whole process
 
 
 class ForwardEvidenceEligibilityGate:

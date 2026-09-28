@@ -93,7 +93,10 @@ def init_phase39_database(conn=None):
         conn.close()
 
 
-init_phase39_database()
+try:
+    init_phase39_database()
+except Exception:
+    pass  # a transient DB outage at import time must never crash the whole process
 
 
 class ForwardObservationQualityEngine:
