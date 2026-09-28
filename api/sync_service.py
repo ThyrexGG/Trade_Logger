@@ -26,7 +26,7 @@ Data ingestion only. This module places / modifies / cancels no order,
 enables no automation, and imports no execution / broker-adapter / risk
 module. It only reads broker state and writes rows to the local journal DB.
 
-**Why INTERVAL_SEC matters more than it looks.** The DB is Neon serverless,
+**Why the interval matters more than it looks.** The DB is Neon serverless,
 which auto-suspends its compute after a few minutes of zero queries and
 bills only while it's awake. ``_loop`` starts the moment ANY user has
 auto-sync on, OR merely has a price alert / loss limit / registered phone
@@ -36,10 +36,23 @@ query lands well inside Neon's suspend window every single cycle, so the
 compute never gets a chance to suspend at all — it's "always on" for as
 long as the API process is up, which burns a serverless free-tier's whole
 monthly compute-hour allowance in days, not weeks (this is exactly what
-happened in production 2026-09). The interval only has to clear Neon's
-suspend window (commonly ~5 min) for the DB to idle back down between
-cycles; 15 minutes is a deliberately comfortable margin above that, not a
-freshness target — "Sync now" still gives instant results on demand.
+happened in production 2026-09).
+
+Raising the interval to clear Neon's suspend window (commonly ~5 min) is
+necessary but not sufficient: Neon doesn't suspend the instant a query
+finishes, it waits out that idle window first, so EVERY wake-up still costs
+roughly ``suspend_window`` of active compute regardless of how short the
+actual query was. At a 15-minute interval that's still a ~33% duty cycle —
+about 240 compute-hours/month, comfortably over a free tier's 100-hour
+allowance, just spread out instead of blown through in days. There is no
+interval that makes an unconditional perpetual loop cheap; the only real
+fix is to not run it unconditionally. So: a user who explicitly turned
+auto-sync on gets ``INTERVAL_SEC`` (fresh, they chose the tradeoff); a user
+who merely *has* an alert/loss-limit/phone but never asked for polling gets
+the much longer ``ALERTS_ONLY_INTERVAL_SEC`` — alerts checked hourly is a
+non-issue for a personal trading journal, and keeps this path's compute
+cost (~8% duty cycle, ~60 hrs/month) safely inside the free tier even
+combined with normal manual usage.
 """
 from __future__ import annotations
 
@@ -58,6 +71,11 @@ try:
     INTERVAL_SEC = max(60, int(os.getenv("TL_SYNC_INTERVAL_SEC", "900")))
 except (TypeError, ValueError):
     INTERVAL_SEC = 900
+
+try:
+    ALERTS_ONLY_INTERVAL_SEC = max(INTERVAL_SEC, int(os.getenv("TL_ALERTS_ONLY_INTERVAL_SEC", "3600")))
+except (TypeError, ValueError):
+    ALERTS_ONLY_INTERVAL_SEC = 3600
 
 _AUTO_SETTING_KEY = "sync_auto_enabled"
 _HEARTBEAT_KEY = "inprocess_sync_heartbeat"
@@ -284,10 +302,12 @@ def run_if_stale(max_age_sec: int = 900, user_id: Optional[str] = None) -> Dict[
 
 def _loop() -> None:
     while not _stop.is_set():
+        have_auto_sync_users = False
         try:
             uids = set(_auto_enabled_user_ids())
             if is_auto_enabled(tenant.LOCAL_USER_ID):
                 uids.add(tenant.LOCAL_USER_ID)
+            have_auto_sync_users = bool(uids)
             synced = set()
             for uid in sorted(uids):
                 if _stop.is_set():
@@ -301,7 +321,12 @@ def _loop() -> None:
             _check_alerts_for(set(_alert_user_ids()) - synced)
         except Exception:
             pass
-        _stop.wait(INTERVAL_SEC)
+        # Nobody explicitly asked for polling this cycle (no auto-sync toggle on
+        # anywhere) -- this run only happened because someone merely *has* an
+        # alert/loss-limit/phone. Use the much longer interval for that case (see
+        # the module docstring) so an incidental trigger doesn't cost the same as
+        # a deliberate one.
+        _stop.wait(INTERVAL_SEC if have_auto_sync_users else ALERTS_ONLY_INTERVAL_SEC)
 
 
 def _ensure_thread() -> None:
@@ -342,6 +367,7 @@ def status(user_id: Optional[str] = None) -> Dict[str, Any]:
             "loop_running": thread_alive,
             "cycle_in_progress": _running,
             "interval_seconds": INTERVAL_SEC,
+            "alerts_only_interval_seconds": ALERTS_ONLY_INTERVAL_SEC,
             "last_run": _last_run,
             "generated_at": _now_iso(),
         }

@@ -7,6 +7,7 @@
 const { app, BrowserWindow, Tray, Menu, Notification, dialog, shell, ipcMain, globalShortcut, nativeImage } = require('electron')
 const path = require('node:path')
 const fs = require('node:fs')
+const { spawn } = require('node:child_process')
 
 const SITE_URL = 'https://tradelogger.site'
 // The Singapore API the site itself talks to (Render "Starter" service). Keep
@@ -22,6 +23,24 @@ const HEALTH_CHECK_TIMEOUT_MS = 10_000
 const ICON_PATH = path.join(__dirname, 'build', 'icon.ico')
 const OVERLAY_BADGE_PATH = path.join(__dirname, 'build', 'overlay-badge.png')
 const SHOW_WINDOW_SHORTCUT = 'CommandOrControl+Shift+L'
+
+// --- local fallback (run_local_fallback.py) -------------------------------
+// Only meaningful on the owner's own dev machine, where the actual project
+// checkout + Python + MT5 live -- a packaged copy on anyone else's PC simply
+// won't find this path and silently stays on the normal retry screen (see
+// the existsSync guard in startLocalFallback). Two straight failed health
+// checks (~2 min) before switching, not one -- a single blip shouldn't spin
+// up a whole local server + re-sync.
+const REPO_ROOT = 'C:\\Users\\Asus\\Desktop\\Trade_Logger'
+const FALLBACK_SCRIPT = path.join(REPO_ROOT, 'run_local_fallback.py')
+const FALLBACK_PORT = 8010
+const FALLBACK_URL = `http://127.0.0.1:${FALLBACK_PORT}/`
+const FALLBACK_HEALTH_URL = `http://127.0.0.1:${FALLBACK_PORT}/api/health`
+const FALLBACK_FAILURE_THRESHOLD = 2
+const FALLBACK_START_TIMEOUT_MS = 90_000 // --sync-now can take a while (MT5 + Capital.com history)
+let localFallbackProcess = null
+let usingLocalFallback = false
+let consecutiveCloudFailures = 0
 
 let mainWindow = null
 let tray = null
@@ -121,7 +140,11 @@ function createTray() {
 }
 
 function rebuildTrayMenu() {
-  const statusLabel = backendIsDown ? 'Backend: DOWN' : 'Backend: healthy'
+  const statusLabel = usingLocalFallback
+    ? 'Backend: local fallback (cloud down)'
+    : backendIsDown
+      ? 'Backend: DOWN'
+      : 'Backend: healthy'
   const alertsLabel =
     lastTriggeredAlertCount > 0
       ? `${lastTriggeredAlertCount} new triggered alert${lastTriggeredAlertCount === 1 ? '' : 's'}`
@@ -238,41 +261,142 @@ function sendTestNotification() {
   n.show()
 }
 
-async function checkBackendHealth() {
+async function pingUrl(url, timeoutMs) {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT_MS)
-  let healthy = false
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    const res = await fetch(HEALTH_URL, { signal: controller.signal })
-    healthy = res.ok
+    const res = await fetch(url, { signal: controller.signal })
+    return res.ok
   } catch {
-    healthy = false
+    return false
   } finally {
     clearTimeout(timer)
   }
+}
+
+async function waitForFallbackHealthy(deadline) {
+  while (Date.now() < deadline) {
+    if (await pingUrl(FALLBACK_HEALTH_URL, 3_000)) return true
+    await new Promise((resolve) => setTimeout(resolve, 2_000))
+  }
+  return false
+}
+
+// After a failed attempt (script missing on this machine, python not found, sync/startup
+// timed out), don't hammer a retry every single 60s poll -- back off for a while.
+let nextFallbackAttemptAt = 0
+
+function stopLocalFallback() {
+  if (localFallbackProcess) {
+    try {
+      localFallbackProcess.kill()
+    } catch {
+      /* already gone */
+    }
+    localFallbackProcess = null
+  }
+}
+
+async function startLocalFallback() {
+  if (usingLocalFallback || localFallbackProcess) return
+  if (!fs.existsSync(FALLBACK_SCRIPT)) {
+    // Not the owner's dev machine (or the checkout moved) -- never going to work here,
+    // stop bothering to check for the rest of this run.
+    nextFallbackAttemptAt = Infinity
+    return
+  }
+
+  try {
+    localFallbackProcess = spawn('python', [FALLBACK_SCRIPT, '--sync-now', '--port', String(FALLBACK_PORT)], {
+      cwd: REPO_ROOT,
+      windowsHide: true,
+    })
+  } catch {
+    localFallbackProcess = null
+    nextFallbackAttemptAt = Date.now() + 5 * 60_000
+    return
+  }
+  localFallbackProcess.on('exit', () => {
+    localFallbackProcess = null
+  })
+  localFallbackProcess.on('error', () => {
+    localFallbackProcess = null
+  })
+
+  const ok = await waitForFallbackHealthy(Date.now() + FALLBACK_START_TIMEOUT_MS)
+  if (!ok) {
+    stopLocalFallback()
+    nextFallbackAttemptAt = Date.now() + 5 * 60_000
+    return
+  }
+
+  usingLocalFallback = true
+  if (mainWindow) mainWindow.loadURL(FALLBACK_URL)
+  if (tray) tray.setToolTip('TradeLogger — local fallback (cloud down)')
+  if (Notification.isSupported()) {
+    new Notification({
+      title: 'Switched to local mode',
+      body: "The cloud backend is down, so TradeLogger is showing this PC's own copy of your data until it's back.",
+      icon: ICON_PATH,
+    }).show()
+  }
+  rebuildTrayMenu()
+}
+
+function returnToCloud() {
+  stopLocalFallback()
+  usingLocalFallback = false
+  if (mainWindow) mainWindow.loadURL(SITE_URL)
+  if (Notification.isSupported()) {
+    new Notification({
+      title: 'TradeLogger is back online',
+      body: 'The cloud backend is responding again — switched back from local fallback mode.',
+      icon: ICON_PATH,
+    }).show()
+  }
+}
+
+async function checkBackendHealth() {
+  const healthy = await pingUrl(HEALTH_URL, HEALTH_CHECK_TIMEOUT_MS)
+  consecutiveCloudFailures = healthy ? 0 : consecutiveCloudFailures + 1
 
   if (!healthy && !backendIsDown) {
     backendIsDown = true
-    tray.setToolTip('TradeLogger — backend DOWN')
-    if (Notification.isSupported()) {
-      new Notification({
-        title: 'TradeLogger backend is down',
-        body: 'The API stopped responding to health checks. It usually recovers on its own within a minute or two.',
-        icon: ICON_PATH,
-      }).show()
+    if (!usingLocalFallback) {
+      tray.setToolTip('TradeLogger — backend DOWN')
+      if (Notification.isSupported()) {
+        new Notification({
+          title: 'TradeLogger backend is down',
+          body: 'The API stopped responding to health checks. It usually recovers on its own within a minute or two.',
+          icon: ICON_PATH,
+        }).show()
+      }
     }
   } else if (healthy && backendIsDown) {
     backendIsDown = false
-    tray.setToolTip('TradeLogger — healthy')
-    if (Notification.isSupported()) {
-      new Notification({
-        title: 'TradeLogger is back up',
-        body: 'The backend is responding normally again.',
-        icon: ICON_PATH,
-      }).show()
+    if (usingLocalFallback) {
+      returnToCloud()
+    } else {
+      tray.setToolTip('TradeLogger — healthy')
+      if (Notification.isSupported()) {
+        new Notification({
+          title: 'TradeLogger is back up',
+          body: 'The backend is responding normally again.',
+          icon: ICON_PATH,
+        }).show()
+      }
     }
   } else if (healthy) {
-    tray.setToolTip('TradeLogger — healthy')
+    tray.setToolTip(usingLocalFallback ? 'TradeLogger — local fallback (cloud down)' : 'TradeLogger — healthy')
+  }
+
+  if (
+    !healthy &&
+    !usingLocalFallback &&
+    consecutiveCloudFailures >= FALLBACK_FAILURE_THRESHOLD &&
+    Date.now() >= nextFallbackAttemptAt
+  ) {
+    void startLocalFallback()
   }
   rebuildTrayMenu()
 }
@@ -325,6 +449,7 @@ if (!gotSingleInstanceLock) {
 
   app.on('will-quit', () => {
     globalShortcut.unregisterAll()
+    stopLocalFallback() // never leave the local Python server running after the app exits
   })
 
   app.on('window-all-closed', () => {

@@ -19,11 +19,11 @@ Usage:
                  directly to the broker / MetaTrader -- neither goes through
                  Neon, so both work fine while the cloud DB is down).
 
-Then, in another terminal:
-    cd frontend && npx vite
-
-and open the URL it prints — the dev server proxies /api to this backend
-automatically (see vite.config.ts's default proxy target, 127.0.0.1:8010).
+This one process serves BOTH the API and the built frontend (frontend/dist)
+on the same port -- open http://127.0.0.1:8010 directly, no separate
+`npx vite` needed. Run `npm run build` in frontend/ first (and again any
+time you change the frontend and want the fallback to reflect it) --
+frontend/dist is not rebuilt automatically.
 
 Your MT5 sync agent (the scheduled task / --daemon) keeps talking to the
 CLOUD server and is untouched by this — it'll just keep failing quietly
@@ -98,11 +98,27 @@ def main() -> None:
               f"capital_ok={result.get('capital_ok')}, mt5_ok={result.get('mt5_ok')}")
 
     import uvicorn
+    from fastapi.responses import FileResponse, JSONResponse
+    from fastapi.staticfiles import StaticFiles
+
     from api.main import app
 
-    print(f"\nServing on http://127.0.0.1:{args.port} -- now start the frontend:")
-    print("  cd frontend && npx vite")
-    print("and open the URL it prints. Ctrl+C here to stop.\n")
+    dist = ROOT / "frontend" / "dist"
+    if dist.is_dir():
+        app.mount("/assets", StaticFiles(directory=str(dist / "assets")), name="fallback-assets")
+
+        @app.get("/{full_path:path}")
+        async def _spa_fallback(full_path: str):  # noqa: ANN001
+            # Reached only for paths no API route or /assets file matched. A genuine
+            # unknown /api/* path stays a 404 instead of silently serving the SPA shell.
+            if full_path == "api" or full_path.startswith("api/"):
+                return JSONResponse({"detail": "Not Found"}, status_code=404)
+            return FileResponse(str(dist / "index.html"))
+    else:
+        print(f"NOTE: {dist} not found -- run `npm run build` in frontend/ to serve the UI from here too.")
+
+    print(f"\nServing on http://127.0.0.1:{args.port} -- open that directly in a browser.")
+    print("Ctrl+C here to stop.\n")
     uvicorn.run(app, host="127.0.0.1", port=args.port)
 
 
