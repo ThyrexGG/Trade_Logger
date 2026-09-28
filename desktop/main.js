@@ -290,6 +290,14 @@ async function waitForFallbackHealthy(deadline) {
 // timed out), don't hammer a retry every single 60s poll -- back off for a while.
 let nextFallbackAttemptAt = 0
 
+function fallbackLog(msg) {
+  try {
+    fs.appendFileSync(path.join(app.getPath('userData'), 'fallback.log'), `[${new Date().toISOString()}] ${msg}\n`)
+  } catch {
+    /* best effort -- this is debugging aid, never the reason a switch fails */
+  }
+}
+
 function stopLocalFallback() {
   if (localFallbackProcess) {
     try {
@@ -306,28 +314,38 @@ async function startLocalFallback() {
   if (!fs.existsSync(FALLBACK_SCRIPT)) {
     // Not the owner's dev machine (or the checkout moved) -- never going to work here,
     // stop bothering to check for the rest of this run.
+    fallbackLog(`SKIP: ${FALLBACK_SCRIPT} does not exist on this machine`)
     nextFallbackAttemptAt = Infinity
     return
   }
 
+  fallbackLog('spawning local fallback server ...')
   try {
+    // shell: true -- goes through cmd.exe's own PATH resolution rather than Node's,
+    // which is what actually finds `python` reliably regardless of how/where this
+    // app itself got launched from (Explorer, Start Menu, a scheduled task, ...).
     localFallbackProcess = spawn('python', [FALLBACK_SCRIPT, '--sync-now', '--port', String(FALLBACK_PORT)], {
       cwd: REPO_ROOT,
       windowsHide: true,
+      shell: true,
     })
-  } catch {
+  } catch (err) {
+    fallbackLog(`spawn threw: ${err}`)
     localFallbackProcess = null
     nextFallbackAttemptAt = Date.now() + 5 * 60_000
     return
   }
-  localFallbackProcess.on('exit', () => {
+  localFallbackProcess.on('exit', (code) => {
+    fallbackLog(`local fallback process exited (code ${code})`)
     localFallbackProcess = null
   })
-  localFallbackProcess.on('error', () => {
+  localFallbackProcess.on('error', (err) => {
+    fallbackLog(`local fallback process error: ${err}`)
     localFallbackProcess = null
   })
 
   const ok = await waitForFallbackHealthy(Date.now() + FALLBACK_START_TIMEOUT_MS)
+  fallbackLog(`waitForFallbackHealthy -> ${ok}`)
   if (!ok) {
     stopLocalFallback()
     nextFallbackAttemptAt = Date.now() + 5 * 60_000
@@ -394,6 +412,7 @@ async function checkBackendHealth() {
     tray.setToolTip(usingLocalFallback ? 'TradeLogger — local fallback (cloud down)' : 'TradeLogger — healthy')
   }
 
+  fallbackLog(`health check: healthy=${healthy} consecutiveFailures=${consecutiveCloudFailures}`)
   if (
     !healthy &&
     !usingLocalFallback &&
