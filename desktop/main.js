@@ -13,7 +13,11 @@ const SITE_URL = 'https://tradelogger.site'
 // The Singapore API the site itself talks to (Render "Starter" service). Keep
 // in sync with API_BASE in preload.js.
 const API_BASE = 'https://tradelogger-api-sg.onrender.com'
-const HEALTH_URL = `${API_BASE}/api/health`
+// /api/health only proves the process is alive and deliberately never touches the
+// database, so it stays green even when Neon itself is unreachable (e.g. a
+// compute-hour quota) -- exactly the case this app most needs to detect. /api/health/db
+// does a real SELECT 1, so it's what actually reflects "can this app do anything".
+const HEALTH_URL = `${API_BASE}/api/health/db`
 const JOURNAL_URL = `${SITE_URL}/workspace/journal`
 // More new trade events than this at once (e.g. the PC was off overnight) are
 // collapsed into a single summary notification instead of a burst.

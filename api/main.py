@@ -218,7 +218,7 @@ async def _security_headers(request, call_next):
 #    Authorization header, whose email must be invited (TL_SIGNUP_ALLOWLIST).
 #    The resolved user is stashed on request.state for the per-user data layer.
 _AUTH_EXEMPT = {
-    "/", "/api/health",
+    "/", "/api/health", "/api/health/db",
     "/api/auth/login", "/api/auth/logout", "/api/auth/status", "/api/auth/me",
     "/api/auth/signup",
     "/docs", "/redoc", "/openapi.json", "/favicon.ico",
