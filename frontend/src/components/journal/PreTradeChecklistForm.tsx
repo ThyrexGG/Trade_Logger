@@ -69,6 +69,10 @@ export interface ChecklistPrefill {
   stopLoss?: number
   takeProfit?: number
   note?: string
+  /** Pre-selects the setup tag (e.g. "KILLZONE SCANNER") so a plan seeded from
+   *  a source and the eventual closed-trade journal entry can share one tag —
+   *  that's what makes TagRecord's real win-rate/expectancy apply to it. */
+  setupTag?: string
   /** Read-only context carried over from the Killzone Scanner — shown as
    * reference underneath the plan fields, not mirrored into any editable
    * form state (there's nothing to edit; it's what the scan actually saw). */
@@ -146,6 +150,7 @@ export function PreTradeChecklistForm({ prefill }: { prefill?: ChecklistPrefill 
     if (prefill.stopLoss !== undefined) setStopLoss(String(prefill.stopLoss))
     if (prefill.takeProfit !== undefined) setTakeProfit(String(prefill.takeProfit))
     if (prefill.note) setThesis((t) => (t ? t : prefill.note!))
+    if (prefill.setupTag) setSetupTag(prefill.setupTag)
     setSnapshot(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefill?.version])

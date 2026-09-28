@@ -40,6 +40,9 @@ _PUSH_TIMEOUT_SEC = 8
 OPENED_MAX_AGE = timedelta(minutes=30)
 # …and a closed trade only notifies if it closed this recently (history backfills stay silent).
 CLOSED_MAX_AGE = timedelta(hours=6)
+# …and a killzone-scanner candidate only notifies if it "just happened" — matches
+# api/killzone_alerts.py's own CANDIDATE_STALE_AFTER_SEC.
+KILLZONE_CANDIDATE_MAX_AGE = timedelta(hours=2)
 
 
 def push_enabled() -> bool:
@@ -163,6 +166,35 @@ def record_price_alert(symbol: Any, price: Any, target: Any, condition: Any, ale
         return _record(f"alert:{aid}", "alert", title, body, sym, "", None, now_price, None, aid)
     except Exception:  # noqa: BLE001
         log.exception("record_price_alert failed")
+        return None
+
+
+def record_killzone_candidate(symbol: Any, candidate: Dict[str, Any]) -> Optional[int]:
+    """A Killzone Scanner candidate (liquidity sweep + structure shift) that met
+    the user's own saved confluence threshold on a symbol they're watching
+    (see api/killzone_alerts.py). Assistive pattern-flagging only, exactly
+    like the scanner itself — never a signal, never sized, never executed.
+    Returns the event id, or None if skipped/duplicate/too old."""
+    try:
+        shift_time = candidate.get("shift_time")
+        if shift_time is None:
+            return None
+        shift_iso = datetime.fromtimestamp(float(shift_time), tz=timezone.utc).isoformat()
+        if not _is_recent(shift_iso, KILLZONE_CANDIDATE_MAX_AGE):
+            return None
+        sym = str(symbol or "").upper()
+        direction = str(candidate.get("direction") or "").upper()
+        score = candidate.get("confluence_score", 0)
+        key = f"killzone:{sym}:{direction}:{int(shift_time)}"
+        title = f"{sym} {direction} sweep+shift — {score}/5"
+        parts = [str(candidate.get("killzone") or ""), f"entry {candidate.get('potential_entry')}"]
+        if candidate.get("potential_target") is not None:
+            parts.append(f"target {candidate['potential_target']} (R:R {candidate.get('risk_reward')})")
+        body = " · ".join(p for p in parts if p)
+        return _record(key, "killzone", title, body, sym, direction, None,
+                        _num(candidate.get("potential_entry")), None, key)
+    except Exception:  # noqa: BLE001
+        log.exception("record_killzone_candidate failed")
         return None
 
 

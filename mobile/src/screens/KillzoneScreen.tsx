@@ -13,7 +13,7 @@ import { colors, radius, spacing } from '../theme'
 import type { KillzoneCandidate, KillzoneScanResponse } from '../types/scanner'
 
 const LTF_OPTIONS = ['1m', '5m', '15m', '1h']
-const SYMBOL_CHIPS = ['USDJPY', 'EURUSD', 'GBPUSD', 'XAUUSD', 'GBPJPY', 'EURJPY', 'AUDUSD', 'USDCAD', 'XAGUSD']
+const SYMBOL_CHIPS = ['USDJPY', 'EURUSD', 'GBPUSD', 'XAUUSD', 'GBPJPY', 'EURJPY', 'AUDUSD', 'USDCAD', 'XAGUSD', 'NAS100', 'SPX500']
 const REFRESH_MS = 5 * 60 * 1000
 const SYMBOL_KEY = 'tl.scanner.symbol'
 const LTF_KEY = 'tl.scanner.ltf'

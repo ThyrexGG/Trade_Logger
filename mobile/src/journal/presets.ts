@@ -1,4 +1,4 @@
-/** Starter setup tags, the same ten the website offers. They fill the one-tap chips until you have used enough of your own. */
+/** Starter setup tags, the same ones the website offers. They fill the one-tap chips until you have used enough of your own. */
 export const SETUP_PRESETS = [
   'BREAKOUT',
   'SUPPORT / RESISTANCE BOUNCE',
@@ -10,4 +10,5 @@ export const SETUP_PRESETS = [
   'SUPPLY & DEMAND',
   'CHART PATTERN',
   'CUSTOM SETUP',
+  'KILLZONE SCANNER',
 ] as const

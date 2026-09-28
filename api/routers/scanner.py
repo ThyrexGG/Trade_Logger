@@ -12,7 +12,8 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Query
 
 import killzone_scanner
-from api.schemas import KillzoneScanResponse
+from api import killzone_alerts
+from api.schemas import KillzoneBoardResponse, KillzoneScanResponse, KillzoneWatchConfig
 
 router = APIRouter(prefix="/api/scanner", tags=["Scanner"])
 
@@ -37,3 +38,50 @@ def killzone_scan(
             timestamp=datetime.now(timezone.utc).isoformat(),
         )
     return KillzoneScanResponse(**result)
+
+
+@router.get("/killzone/board", response_model=KillzoneBoardResponse)
+def killzone_board(
+    symbols: str = Query(..., min_length=1, description="Comma-separated symbols, e.g. EURUSD,GBPUSD,NAS100"),
+    ltf: str = Query(default="15m"),
+    htf: str = Query(default="1h"),
+) -> KillzoneBoardResponse:
+    """`scan()` across several symbols at once (the watchlist "board" view) —
+    same rules and same disclaimer as the single-symbol endpoint, just batched
+    so the page doesn't need one request per symbol."""
+    now_iso = datetime.now(timezone.utc).isoformat()
+    syms = [s.strip().upper() for s in symbols.split(",") if s.strip()][:20]
+    if not syms:
+        return KillzoneBoardResponse(ok=False, results=[], timestamp=now_iso)
+    try:
+        raw = killzone_scanner.scan_many(syms, ltf=ltf, htf=htf)
+    except Exception as exc:
+        return KillzoneBoardResponse(ok=False, results=[], timestamp=now_iso)
+    results = []
+    for r in raw:
+        try:
+            results.append(KillzoneScanResponse(**r))
+        except Exception as exc:
+            results.append(KillzoneScanResponse(
+                ok=False, symbol=str(r.get("symbol", "")).upper(),
+                error=f"{type(exc).__name__}: {exc}", timestamp=now_iso,
+            ))
+    return KillzoneBoardResponse(ok=True, results=results, timestamp=now_iso)
+
+
+@router.get("/killzone/watch-config", response_model=KillzoneWatchConfig)
+def get_killzone_watch_config() -> KillzoneWatchConfig:
+    """The current tenant's saved Killzone Scanner push-alert config (empty
+    and disabled until they've saved one)."""
+    return KillzoneWatchConfig(**killzone_alerts.get_config())
+
+
+@router.post("/killzone/watch-config", response_model=KillzoneWatchConfig)
+def set_killzone_watch_config(body: KillzoneWatchConfig) -> KillzoneWatchConfig:
+    """Save which symbols to watch and the confluence bar a candidate must
+    clear before it pushes a notification. See api/killzone_alerts.py —
+    checked from the same background loop that already evaluates price
+    alerts / loss limits / the weekly summary, so this adds no new
+    always-on cost."""
+    saved = killzone_alerts.set_config(body.symbols, body.min_confluence, body.enabled)
+    return KillzoneWatchConfig(**saved)

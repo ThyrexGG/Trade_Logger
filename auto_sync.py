@@ -193,6 +193,14 @@ def run_sync_cycle(known_trade_ids: set, logfn=log, creds: dict | None = None) -
         result["errors"].append(f"weekly_summary: {summary_err}")
         logfn(f"Weekly summary check error: {summary_err}")
 
+    # 7. Killzone Scanner push alerts (opt-in; a no-op unless the user saved a watch config)
+    try:
+        from api import killzone_alerts
+        killzone_alerts.check(logfn)
+    except Exception as kz_err:  # noqa: BLE001
+        result["errors"].append(f"killzone_alerts: {kz_err}")
+        logfn(f"Killzone alert check error: {kz_err}")
+
     return result
 
 

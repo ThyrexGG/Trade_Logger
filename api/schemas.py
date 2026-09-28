@@ -1529,6 +1529,13 @@ class KillzoneCandidate(BaseModel):
     confluence_factors: List[ConfluenceFactor] = []
 
 
+class KillzoneNextWindow(BaseModel):
+    """The next killzone window to OPEN — while one is currently active, this
+    is the one that follows it, not the current one."""
+    name: str
+    starts_in_minutes: int
+
+
 class KillzoneScanResponse(BaseModel):
     ok: bool
     symbol: str
@@ -1545,6 +1552,7 @@ class KillzoneScanResponse(BaseModel):
     bias_ladder: List[BiasRung] = []
     bias_alignment: Optional[BiasAlignment] = None
     current_killzone: Optional[str] = None
+    next_killzone: Optional[KillzoneNextWindow] = None
 
     candidates: List[KillzoneCandidate] = []
     recent_unmitigated_fvgs: List[Dict[str, Any]] = []
@@ -1553,6 +1561,24 @@ class KillzoneScanResponse(BaseModel):
     read_only: bool = True
     live_broker_transmission: str = "BLOCKED"
     timestamp: str
+
+
+class KillzoneBoardResponse(BaseModel):
+    """Several symbols' `scan()` results in one response — the watchlist
+    "board" view. Each entry is exactly the shape a single `/killzone` call
+    returns, run concurrently (see `killzone_scanner.scan_many`)."""
+    ok: bool = True
+    results: List[KillzoneScanResponse] = []
+    timestamp: str
+
+
+class KillzoneWatchConfig(BaseModel):
+    """Opt-in push-alert config for the Killzone Scanner (see
+    api/killzone_alerts.py) — off (`enabled=False`, empty `symbols`) until
+    the user explicitly saves one."""
+    symbols: List[str] = []
+    min_confluence: int = 4
+    enabled: bool = False
 
 
 # -------------------------------------------------------------------------

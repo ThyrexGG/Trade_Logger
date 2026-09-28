@@ -154,6 +154,11 @@ def _check_alerts_for(uids) -> None:
                     weekly_summary.check(lambda _m: None)
                 except Exception:
                     pass
+                try:
+                    from api import killzone_alerts
+                    killzone_alerts.check(lambda _m: None)
+                except Exception:
+                    pass
         except Exception:
             pass
 

@@ -74,6 +74,13 @@ export interface BiasAlignment {
   total: number
 }
 
+/** The next killzone window to OPEN — while one is currently active, this is
+ *  the one that follows it, not the current one. */
+export interface KillzoneNextWindow {
+  name: string
+  starts_in_minutes: number
+}
+
 export interface KillzoneScanResponse {
   ok: boolean
   symbol: string
@@ -96,6 +103,7 @@ export interface KillzoneScanResponse {
   bias_ladder: BiasRung[]
   bias_alignment: BiasAlignment | null
   current_killzone: string | null
+  next_killzone: KillzoneNextWindow | null
 
   candidates: KillzoneCandidate[]
   recent_unmitigated_fvgs: FairValueGap[]
@@ -104,4 +112,19 @@ export interface KillzoneScanResponse {
   read_only: boolean
   live_broker_transmission: string
   timestamp: string
+}
+
+/** Several symbols' scans in one response — the watchlist "board" view. */
+export interface KillzoneBoardResponse {
+  ok: boolean
+  results: KillzoneScanResponse[]
+  timestamp: string
+}
+
+/** Opt-in push-alert config: which symbols to watch and the confluence bar a
+ *  candidate must clear before it notifies. Off until explicitly saved. */
+export interface KillzoneWatchConfig {
+  symbols: string[]
+  min_confluence: number
+  enabled: boolean
 }

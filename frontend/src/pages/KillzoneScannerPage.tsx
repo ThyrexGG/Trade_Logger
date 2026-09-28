@@ -3,8 +3,15 @@ import { PageContainer } from '../components/shell/PageContainer'
 import { SectionCard } from '../components/intelligence/primitives'
 import { PreTradeChecklistForm, type ChecklistPrefill } from '../components/journal/PreTradeChecklistForm'
 import { InfoTip } from '../components/common/InfoTip'
-import { scanKillzone } from '../api/scanner'
-import type { KillzoneCandidate, KillzoneScanResponse } from '../types/scanner'
+import { getKillzoneWatchConfig, scanKillzone, scanKillzoneBoard, setKillzoneWatchConfig } from '../api/scanner'
+import type { KillzoneBoardResponse, KillzoneCandidate, KillzoneScanResponse, KillzoneWatchConfig } from '../types/scanner'
+import { TagRecord } from '../components/journal/TagRecord'
+
+/** The one setup tag every Killzone-sourced plan gets pre-selected with (see
+ *  lib/setupPresets.ts) — tagging the eventual closed trade the same way is
+ *  what makes TagRecord below show a real win-rate/expectancy on candidates
+ *  you actually took, not just this pattern's raw (unproven) backtest. */
+const KILLZONE_SETUP_TAG = 'KILLZONE SCANNER'
 
 const LTF_OPTIONS = ['1m', '5m', '15m', '1h']
 
@@ -18,17 +25,31 @@ const SYMBOL_GROUPS: { label: string; symbols: string[] }[] = [
   { label: 'Yen crosses', symbols: ['EURJPY', 'GBPJPY', 'AUDJPY', 'CADJPY', 'CHFJPY', 'NZDJPY'] },
   { label: 'Other crosses', symbols: ['EURGBP', 'EURAUD', 'EURCHF', 'EURCAD', 'GBPAUD', 'GBPCAD', 'GBPCHF', 'AUDNZD', 'AUDCAD'] },
   { label: 'Metals', symbols: ['XAUUSD', 'XAGUSD'] },
+  { label: 'Indices', symbols: ['NAS100', 'SPX500', 'US30'] },
 ]
 const REFRESH_MS = 5 * 60 * 1000
 const SYMBOL_KEY = 'tl.scanner.symbol'
 const LTF_KEY = 'tl.scanner.ltf'
+const BOARD_REFRESH_MS = 5 * 60 * 1000
+/** Default board selection the first time someone opens the tab (before they've
+ *  saved their own list) — the same symbols the "Majors" + "Metals" presets cover. */
+const DEFAULT_BOARD_SYMBOLS = ['EURUSD', 'GBPUSD', 'USDJPY', 'XAUUSD']
 
-type Tab = 'scan' | 'plan'
+type Tab = 'scan' | 'board' | 'plan'
 
 function fmtTime(unixSec: number): string {
   return new Date(unixSec * 1000).toLocaleString(undefined, {
     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
   })
+}
+
+/** "3h 12m" / "48m" — for a countdown, not a clock time. */
+function fmtMinutes(totalMinutes: number): string {
+  const m = Math.max(0, Math.round(totalMinutes))
+  const h = Math.floor(m / 60)
+  const rem = m % 60
+  if (h === 0) return `${rem}m`
+  return `${h}h ${rem}m`
 }
 
 function biasTone(bias: string | null): string {
@@ -143,6 +164,15 @@ export function KillzoneScannerPage() {
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
 
+  const [watchConfig, setWatchConfig] = useState<KillzoneWatchConfig>({
+    symbols: DEFAULT_BOARD_SYMBOLS, min_confluence: 4, enabled: false,
+  })
+  const [watchConfigLoaded, setWatchConfigLoaded] = useState(false)
+  const [savingConfig, setSavingConfig] = useState(false)
+  const [boardData, setBoardData] = useState<KillzoneBoardResponse | null>(null)
+  const [boardLoading, setBoardLoading] = useState(false)
+  const [boardError, setBoardError] = useState<string | null>(null)
+
   const load = useCallback((sym: string, timeframe: string, signal?: AbortSignal) => {
     setLoading(true)
     setError(null)
@@ -172,6 +202,58 @@ export function KillzoneScannerPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol, ltf])
+
+  // Saved watch-config, once — falls back to a small starter list so the
+  // board isn't empty the very first time someone opens the tab.
+  useEffect(() => {
+    let cancelled = false
+    getKillzoneWatchConfig()
+      .then((cfg) => {
+        if (cancelled) return
+        setWatchConfig(cfg.symbols.length > 0 ? cfg : { ...cfg, symbols: DEFAULT_BOARD_SYMBOLS })
+      })
+      .finally(() => {
+        if (!cancelled) setWatchConfigLoaded(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const loadBoard = useCallback((symbols: string[], timeframe: string, signal?: AbortSignal) => {
+    if (symbols.length === 0) {
+      setBoardData(null)
+      return
+    }
+    setBoardLoading(true)
+    setBoardError(null)
+    scanKillzoneBoard(symbols, timeframe, signal)
+      .then((r) => {
+        if (signal?.aborted) return
+        setBoardData(r)
+        if (!r.ok) setBoardError('Board scan failed.')
+      })
+      .catch((e) => {
+        if (signal?.aborted) return
+        setBoardError(e instanceof Error ? e.message : 'Board scan failed.')
+      })
+      .finally(() => {
+        if (!signal?.aborted) setBoardLoading(false)
+      })
+  }, [])
+
+  const watchedSymbolsKey = watchConfig.symbols.join(',')
+  useEffect(() => {
+    if (!watchConfigLoaded || tab !== 'board') return
+    const c = new AbortController()
+    loadBoard(watchConfig.symbols, ltf, c.signal)
+    const interval = window.setInterval(() => loadBoard(watchConfig.symbols, ltf), BOARD_REFRESH_MS)
+    return () => {
+      c.abort()
+      window.clearInterval(interval)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchConfigLoaded, tab, watchedSymbolsKey, ltf])
 
   function submit() {
     const sym = inputRef.current.trim().toUpperCase() || 'USDJPY'
@@ -215,6 +297,7 @@ export function KillzoneScannerPage() {
       stopLoss: c.sweep_level,
       takeProfit: c.potential_target ?? undefined,
       note: `From Killzone Scanner: ${c.direction} sweep+shift in ${c.killzone}, ${c.agrees_with_htf_bias ? 'agreeing with' : 'conflicting with'} the 1h bias. Confluence ${c.confluence_score}/5 (${confluenceTooltip(c)}).`,
+      setupTag: KILLZONE_SETUP_TAG,
       htfBias: data?.htf_bias ?? undefined,
       htfTrend: data?.htf_structure?.recent_sequence || data?.htf_structure?.last_break || undefined,
       keyLevel: c.potential_target != null
@@ -227,6 +310,38 @@ export function KillzoneScannerPage() {
     setTab('plan')
   }
 
+  function openSymbolFromBoard(sym: string) {
+    const s = sym.trim().toUpperCase()
+    inputRef.current = s
+    setSymbol(s)
+    try {
+      localStorage.setItem(SYMBOL_KEY, s)
+    } catch {
+      /* private browsing / storage blocked */
+    }
+    load(s, ltf)
+    setTab('scan')
+  }
+
+  function toggleBoardSymbol(sym: string) {
+    setWatchConfig((cfg) => ({
+      ...cfg,
+      symbols: cfg.symbols.includes(sym) ? cfg.symbols.filter((s) => s !== sym) : [...cfg.symbols, sym],
+    }))
+  }
+
+  async function saveWatchConfig() {
+    setSavingConfig(true)
+    try {
+      const saved = await setKillzoneWatchConfig(watchConfig)
+      setWatchConfig(saved)
+    } catch {
+      /* the form keeps whatever was picked — "Save" can just be pressed again */
+    } finally {
+      setSavingConfig(false)
+    }
+  }
+
   return (
     <PageContainer
       title="Killzone Scanner"
@@ -234,7 +349,7 @@ export function KillzoneScannerPage() {
     >
       <div className="space-y-4">
         <div className="flex w-fit rounded-xl border border-border p-1 text-xs">
-          {(['scan', 'plan'] as const).map((t) => (
+          {(['scan', 'board', 'plan'] as const).map((t) => (
             <button
               key={t}
               type="button"
@@ -242,10 +357,15 @@ export function KillzoneScannerPage() {
               className={`rounded-lg px-4 py-1.5 font-medium transition-colors ${tab === t ? 'shadow' : 'text-muted'}`}
               style={tab === t ? { background: 'var(--tl-gradient-primary)', color: 'var(--tl-gradient-ink)' } : undefined}
             >
-              {t === 'scan' ? 'Scan' : 'Plan'}
+              {t === 'scan' ? 'Scan' : t === 'board' ? 'Board' : 'Plan'}
             </button>
           ))}
         </div>
+
+        <p className="text-[11px]">
+          <TagRecord tag={KILLZONE_SETUP_TAG} /> — tag a closed trade "{KILLZONE_SETUP_TAG}" in the Journal
+          when it came from a candidate here, and this fills in with your own real numbers.
+        </p>
 
         {tab === 'scan' ? (
           <>
@@ -380,6 +500,12 @@ export function KillzoneScannerPage() {
                     <p className="text-xs text-secondary">
                       Current: <span className="font-semibold text-primary">{data.current_killzone}</span>
                     </p>
+                    {data.next_killzone ? (
+                      <p className="mt-0.5 text-[11px] text-muted">
+                        Next: <span className="font-medium text-secondary">{data.next_killzone.name}</span> in{' '}
+                        <span className="font-mono text-secondary">{fmtMinutes(data.next_killzone.starts_in_minutes)}</span>
+                      </p>
+                    ) : null}
                     <div className="mt-2 grid grid-cols-2 gap-3 text-[11px]">
                       <div>
                         <span className="uppercase tracking-wider text-muted">BSL (above)</span>
@@ -509,6 +635,161 @@ export function KillzoneScannerPage() {
                 <p className="text-[10.5px] text-muted">{data.disclaimer}</p>
               </>
             ) : null}
+          </>
+        ) : tab === 'board' ? (
+          <>
+            <SectionCard
+              title="Watched symbols"
+              info="The symbols this board scans, side by side — and, if you turn alerts on, the ones a push notification can fire for. Saved to your account, so it's the same list here and on your phone."
+            >
+              <div className="flex flex-wrap gap-5">
+                {SYMBOL_GROUPS.map((group) => (
+                  <div key={group.label}>
+                    <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted">{group.label}</p>
+                    <div className="flex flex-col gap-1">
+                      {group.symbols.map((s) => (
+                        <label key={s} className="flex items-center gap-1.5 text-xs text-secondary">
+                          <input
+                            type="checkbox"
+                            checked={watchConfig.symbols.includes(s)}
+                            onChange={() => toggleBoardSymbol(s)}
+                          />
+                          {s}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-border-subtle pt-3">
+                <label className="flex items-center gap-2 text-xs text-secondary">
+                  <input
+                    type="checkbox"
+                    checked={watchConfig.enabled}
+                    onChange={(e) => setWatchConfig((cfg) => ({ ...cfg, enabled: e.target.checked }))}
+                  />
+                  Push a notification for new candidates on these symbols
+                </label>
+                <label className="flex flex-col gap-1 text-[11px] text-muted">
+                  Minimum confluence
+                  <select
+                    value={watchConfig.min_confluence}
+                    onChange={(e) => setWatchConfig((cfg) => ({ ...cfg, min_confluence: Number(e.target.value) }))}
+                    className="rounded border border-border bg-background px-2 py-1 text-sm text-primary focus:border-accent focus:outline-none"
+                  >
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <option key={n} value={n}>{n}/5</option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  onClick={saveWatchConfig}
+                  disabled={savingConfig}
+                  className="rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50"
+                  style={{ background: 'var(--tl-gradient-primary)', color: 'var(--tl-gradient-ink)' }}
+                >
+                  {savingConfig ? 'Saving…' : 'Save'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => loadBoard(watchConfig.symbols, ltf)}
+                  disabled={boardLoading || watchConfig.symbols.length === 0}
+                  className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-secondary hover:border-accent/40 hover:text-accent disabled:opacity-50"
+                >
+                  {boardLoading ? 'Scanning…' : 'Scan board now'}
+                </button>
+              </div>
+              <p className="mt-2 text-[10.5px] text-muted">
+                Alerts are checked from the same background loop as your price alerts and loss limits — roughly every
+                15–60 minutes, not instantly. A candidate has to have happened within the last 2 hours to notify;
+                older ones found the first time you turn this on are backlog, not something that "just happened", so
+                they stay silent.
+              </p>
+            </SectionCard>
+
+            {boardError ? (
+              <div className="rounded-lg border border-warning/30 bg-warning/10 p-4 text-xs text-warning">{boardError}</div>
+            ) : null}
+
+            <SectionCard
+              title="Board"
+              info="One scan per watched symbol, side by side. 'Most recent' is the latest sweep+shift event found on that symbol — sorted by time, not a ranking of which is worth taking. Click a row's Open to load it on the Scan tab."
+            >
+              {watchConfig.symbols.length === 0 ? (
+                <p className="text-xs text-muted">Pick at least one symbol above.</p>
+              ) : !boardData ? (
+                <p className="text-xs text-muted">{boardLoading ? 'Scanning…' : 'No scan yet.'}</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="text-[10px] uppercase tracking-wider text-muted">
+                        <th className="pb-1.5 pr-3">Symbol</th>
+                        <th className="pb-1.5 pr-3">HTF bias</th>
+                        <th className="pb-1.5 pr-3">Killzone</th>
+                        <th className="pb-1.5 pr-3">Candidates</th>
+                        <th className="pb-1.5 pr-3">Most recent</th>
+                        <th className="pb-1.5" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {boardData.results.map((r) => {
+                        const recent = r.candidates[0]
+                        return (
+                          <tr key={r.symbol} className="border-t border-border-subtle">
+                            <td className="py-1.5 pr-3 font-mono font-semibold text-primary">{r.symbol}</td>
+                            <td className="py-1.5 pr-3">
+                              {r.ok ? (
+                                <span className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase ${biasTone(r.htf_bias)}`}>
+                                  {r.htf_bias ?? 'unknown'}
+                                </span>
+                              ) : (
+                                <span className="text-warning">{r.error ?? 'failed'}</span>
+                              )}
+                            </td>
+                            <td className="py-1.5 pr-3 text-secondary">{r.ok ? r.current_killzone : '—'}</td>
+                            <td className="py-1.5 pr-3 font-mono text-secondary">{r.ok ? r.candidates.length : '—'}</td>
+                            <td className="py-1.5 pr-3">
+                              {recent ? (
+                                <span className="flex items-center gap-1.5">
+                                  <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
+                                    recent.direction === 'bullish' ? 'bg-positive/10 text-positive' : 'bg-negative/10 text-negative'
+                                  }`}>
+                                    {recent.direction}
+                                  </span>
+                                  <span title={confluenceTooltip(recent)} className={`font-mono tracking-tight ${starTone(recent.confluence_score)}`}>
+                                    {stars(recent.confluence_score)}
+                                  </span>
+                                  <span className="text-muted">{fmtTime(recent.shift_time)}</span>
+                                </span>
+                              ) : (
+                                <span className="text-muted">none</span>
+                              )}
+                            </td>
+                            <td className="py-1.5">
+                              <button
+                                type="button"
+                                onClick={() => openSymbolFromBoard(r.symbol)}
+                                className="rounded border border-accent/40 bg-accent/10 px-2 py-0.5 text-[10.5px] font-medium text-accent hover:bg-accent/20"
+                              >
+                                Open
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {boardData?.timestamp ? (
+                <p className="mt-2 text-[10.5px] text-muted">
+                  Updated {new Date(boardData.timestamp).toLocaleTimeString()} · auto-refreshes every 5 min while this tab is open
+                </p>
+              ) : null}
+            </SectionCard>
           </>
         ) : (
           <PreTradeChecklistForm prefill={prefill} />

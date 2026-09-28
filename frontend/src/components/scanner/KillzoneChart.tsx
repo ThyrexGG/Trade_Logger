@@ -52,7 +52,7 @@ const KZ_KEY = 'tl.scanner.showKillzones'
 const KILLZONES = [
   { name: 'ASIA', start: 20 * 60, end: 24 * 60, rgb: '59,130,246' },
   { name: 'LONDON', start: 2 * 60, end: 5 * 60, rgb: '239,68,68' },
-  { name: 'NY AM', start: 9 * 60 + 30, end: 11 * 60, rgb: '20,184,166' },
+  { name: 'NY AM', start: 8 * 60 + 30, end: 11 * 60, rgb: '20,184,166' },
   { name: 'NY PM', start: 13 * 60 + 30, end: 16 * 60, rgb: '217,70,239' },
 ]
 

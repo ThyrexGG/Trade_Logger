@@ -12,4 +12,5 @@ export const SETUP_PRESETS = [
   'SUPPLY & DEMAND',
   'CHART PATTERN',
   'CUSTOM SETUP',
+  'KILLZONE SCANNER',
 ]

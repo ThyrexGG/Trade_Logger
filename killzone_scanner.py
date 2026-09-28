@@ -29,6 +29,7 @@ of it is worth trading — the same posture as Chart Analyzer.
 """
 from __future__ import annotations
 
+import concurrent.futures
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -482,6 +483,7 @@ def scan(symbol: str = "USDJPY", ltf: str = "15m", htf: str = "1h",
         "bias_ladder": bias_ladder,
         "bias_alignment": bias_alignment,
         "current_killzone": market_data.detect_active_killzone(),
+        "next_killzone": market_data.next_killzone(),
         "candidates": candidates[:30],
         "recent_unmitigated_fvgs": market_data.detect_fvgs(ltf_df),
         "disclaimer": (
@@ -492,3 +494,29 @@ def scan(symbol: str = "USDJPY", ltf: str = "15m", htf: str = "1h",
         ),
         "timestamp": now_iso,
     }
+
+
+def scan_many(symbols: List[str], ltf: str = "15m", htf: str = "1h") -> List[Dict[str, Any]]:
+    """`scan()` across several symbols at once (the watchlist "board" view),
+    concurrently since each is an independent network-bound candle fetch —
+    scanning 8 symbols one at a time would otherwise take 8x as long for no
+    reason. Input order is preserved in the output regardless of which
+    symbol's scan finishes first."""
+    if not symbols:
+        return []
+    results: List[Optional[Dict[str, Any]]] = [None] * len(symbols)
+
+    def _one(i: int, sym: str) -> None:
+        try:
+            results[i] = scan(sym, ltf=ltf, htf=htf)
+        except Exception as exc:
+            results[i] = {
+                "ok": False, "symbol": (sym or "").strip().upper(),
+                "error": f"Scanner failed: {type(exc).__name__}: {exc}",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(symbols))) as ex:
+        futures = [ex.submit(_one, i, s) for i, s in enumerate(symbols)]
+        concurrent.futures.wait(futures)
+    return [r for r in results if r is not None]
