@@ -16,6 +16,10 @@ except ImportError:
 # Load environment variables
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
+# How far before the last-seen deal's (corrected) timestamp the incremental fetch window
+# opens -- matches agent/mt5_push_agent.py's CURSOR_SLACK_SEC precedent.
+CURSOR_SLACK_SEC = 24 * 3600
+
 
 def sync_mt5():
     # Reload .env freshly
@@ -97,6 +101,12 @@ def sync_mt5():
     account_id = f"MT5_{acc_info.login}"
     print(f"Successfully connected to MT5 Account: {acc_info.login} ({acc_info.company})")
 
+    # MT5's tick/position/deal .time fields are the BROKER SERVER's wall clock,
+    # epoch-encoded as if it were UTC -- not real UTC (see mt5_gate.server_utc_offset_sec's
+    # docstring). Every timestamp read below is corrected before it's stored, or a trade
+    # that actually closed late one day can get bucketed under the next.
+    off = mt5_gate.server_utc_offset_sec(mt5)
+
     # --- Read the terminal (the Windows-only half) -------------------------
     balance_payload = {
         "balance": float(acc_info.balance),
@@ -118,15 +128,18 @@ def sync_mt5():
                 "tp": float(pos.tp) if pos.tp else 0.0,
                 "floating_pnl": float(pos.profit),
                 "swap": float(pos.swap) if pos.swap else 0.0,
-                "open_time": datetime.fromtimestamp(pos.time, tz=timezone.utc).isoformat(),
+                "open_time": datetime.fromtimestamp(pos.time - off, tz=timezone.utc).isoformat(),
             })
     except Exception as pos_err:
         print(f"Error reading open positions: {pos_err}")
 
-    # Determine start timestamp for incremental sync
+    # Determine start timestamp for incremental sync. A generous slack (not just the
+    # old +-10s) covers history_deals_get's own from/to bounds being read against the
+    # broker's server clock while last_ts is stored as corrected true UTC -- re-fetching
+    # a day of already-seen deals is harmless (save_raw_deals upserts), missing one isn't.
     last_ts = database.get_last_deal_timestamp(account_id)
     if last_ts > 0:
-        start_date = datetime.fromtimestamp(last_ts - 10, tz=timezone.utc)
+        start_date = datetime.fromtimestamp(last_ts - CURSOR_SLACK_SEC, tz=timezone.utc)
     else:
         start_date = datetime(2020, 1, 1, tzinfo=timezone.utc)
     end_date = datetime.now(timezone.utc) + timedelta(days=2)
@@ -152,7 +165,7 @@ def sync_mt5():
             "commission": float(deal.commission),
             "swap": float(deal.swap),
             "profit": float(deal.profit),
-            "timestamp": int(deal.time),
+            "timestamp": int(deal.time) - off,
             "position_id": str(deal.position_id),
         })
 

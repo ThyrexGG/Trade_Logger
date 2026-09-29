@@ -139,6 +139,40 @@ def _watch_and_minimize_new_terminal(before_pids: set, stop: threading.Event) ->
         stop.wait(0.3)
 
 
+_server_utc_offset_sec = 0
+_server_utc_offset_checked_at = 0.0
+
+
+def server_utc_offset_sec(mt5_module: Any) -> int:
+    """``broker_server_time - real_UTC``, seconds, rounded to the nearest hour
+    and cached 30 min.
+
+    MT5's ``.time`` fields on a tick / position / deal are the BROKER
+    SERVER's wall clock, epoch-encoded as if it were UTC — not real UTC.
+    Every module that reads a raw MT5 timestamp and stores or displays it
+    must subtract this offset first (``real_utc = mt5_time - offset``), or a
+    trade that actually closed late one day can get bucketed under the next
+    (see 5c22ba9, which fixed this for the standalone push-agent; mt5_sync.py
+    had the identical bug via a second, separate MT5 read path that fix never
+    touched). ``agent/mt5_push_agent.py`` keeps its own copy of this same
+    logic — it's a separately distributed script that can't import this
+    module — so a change here must be mirrored there by hand."""
+    global _server_utc_offset_sec, _server_utc_offset_checked_at
+    now = time.time()
+    if _server_utc_offset_checked_at and now - _server_utc_offset_checked_at < 1800:
+        return _server_utc_offset_sec
+    try:
+        mt5_module.symbol_select("EURUSD", True)
+        tick = mt5_module.symbol_info_tick("EURUSD") or mt5_module.symbol_info_tick("XAUUSD")
+        if tick and tick.time:
+            raw = tick.time - now
+            _server_utc_offset_sec = int(round(raw / 3600.0) * 3600)
+            _server_utc_offset_checked_at = now
+    except Exception:
+        pass
+    return _server_utc_offset_sec
+
+
 def guarded_initialize(mt5_module: Any, **initialize_kwargs: Any) -> bool:
     """``mt5_module.initialize(**initialize_kwargs)``, but if that has to
     cold-launch a fresh terminal (none was already running), minimize the new
