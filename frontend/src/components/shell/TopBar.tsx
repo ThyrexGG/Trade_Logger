@@ -1,4 +1,5 @@
 import { useAuth } from '../../lib/auth'
+import { isLocalFallbackBuild } from '../../lib/appMode'
 import { useHealth } from '../../lib/health'
 import { useSyncOnOpen } from '../../lib/syncOnOpen'
 import { useTheme } from '../../lib/theme'
@@ -50,6 +51,15 @@ export function TopBar({ onOpenSidebar, onOpenCommandPalette }: TopBarProps) {
       <div className="min-w-0 flex-1 truncate">
         <Breadcrumbs />
       </div>
+
+      {isLocalFallbackBuild() ? (
+        <Tooltip label="Showing this PC's own local copy of your data while the cloud backend is down — nothing here syncs to your other devices yet, and it switches back to the cloud automatically once it's reachable again.">
+          <span className="flex shrink-0 items-center gap-1.5 rounded border border-warning/40 bg-warning/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-warning">
+            <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-warning" aria-hidden="true" />
+            Local mode
+          </span>
+        </Tooltip>
+      ) : null}
 
       <div className="hidden items-center gap-4 md:flex">
         <span className="flex items-center gap-1.5">
