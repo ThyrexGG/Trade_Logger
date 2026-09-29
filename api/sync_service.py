@@ -218,7 +218,13 @@ def _run_cycle(user_id: str, creds: Optional[Dict[str, Any]], source: str) -> Di
                 pass
         try:
             with tenant.use(user_id):
-                cycle = auto_sync.run_sync_cycle(known, logfn=lambda _m: None, creds=creds)
+                # Only a real "Sync now" click (source="manual") may launch a closed MT5
+                # terminal -- "auto" (the recurring loop) and "open" (fires every time the
+                # app opens, not a deliberate sync) must never be the reason it pops open.
+                cycle = auto_sync.run_sync_cycle(
+                    known, logfn=lambda _m: None, creds=creds,
+                    require_mt5_already_running=(source != "manual"),
+                )
             ok = not cycle["errors"]
         except Exception as e:  # noqa: BLE001
             cycle = {"errors": [str(e)], "mt5_ok": False, "capital_ok": False, "new_closed_trades": 0}

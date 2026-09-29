@@ -54,7 +54,7 @@ def test_auto_toggle_is_per_user(enc):
 def test_heartbeat_is_per_user(enc, monkeypatch):
     seen = []
 
-    def fake_cycle(known, logfn=None, creds=None):
+    def fake_cycle(known, logfn=None, creds=None, require_mt5_already_running=False):
         seen.append((tenant.current_user_id(), creds))
         return {"errors": [], "mt5_ok": False, "capital_ok": True, "new_closed_trades": 0}
 
@@ -81,7 +81,7 @@ def test_run_for_user_without_connection_skips_non_local(enc, monkeypatch):
 def test_local_owner_falls_back_to_env(enc, monkeypatch):
     calls = {"creds": "unset"}
 
-    def fake_cycle(known, logfn=None, creds=None):
+    def fake_cycle(known, logfn=None, creds=None, require_mt5_already_running=False):
         calls["creds"] = creds
         return {"errors": [], "mt5_ok": False, "capital_ok": True, "new_closed_trades": 0}
 
@@ -116,7 +116,7 @@ def test_real_owner_also_falls_back_to_env(enc, monkeypatch):
     seen = []
     monkeypatch.setattr(
         sync_service.auto_sync, "run_sync_cycle",
-        lambda known, logfn=None, creds=None: seen.append(creds)
+        lambda known, logfn=None, creds=None, require_mt5_already_running=False: seen.append(creds)
         or {"errors": [], "mt5_ok": False, "capital_ok": True, "new_closed_trades": 0},
     )
 

@@ -111,14 +111,18 @@ def check_price_alerts(logfn=log) -> int:
     return fired
 
 
-def run_sync_cycle(known_trade_ids: set, logfn=log, creds: dict | None = None) -> dict:
+def run_sync_cycle(known_trade_ids: set, logfn=log, creds: dict | None = None,
+                    require_mt5_already_running: bool = False) -> dict:
     """One sync iteration — Capital.com trade/position sync, closed-trade push
     alerts, and price-alert checks (plus MT5 only if MT5_ENABLED). Shared by
     this standalone daemon and the API server's in-process sync service.
     `known_trade_ids` is mutated in place with any newly seen closed trades.
     `creds` (W8.6): a specific user's Capital.com credentials; None uses the
     CAPITAL_* environment (single-user / owner). MT5 always uses the local
-    terminal and is unaffected."""
+    terminal and is unaffected. `require_mt5_already_running` should be True
+    for anything that calls this on its own recurring schedule (never a
+    reason to pop MT5 open) and False for a genuine one-off manual sync —
+    see mt5_sync.sync_mt5()'s docstring."""
     result = {"mt5_ok": False, "mt5_skipped": False, "capital_ok": False,
               "new_closed_trades": 0, "errors": []}
 
@@ -133,7 +137,7 @@ def run_sync_cycle(known_trade_ids: set, logfn=log, creds: dict | None = None) -
         result["mt5_skipped"] = True
     else:
         try:
-            result["mt5_ok"] = bool(mt5_sync.sync_mt5())
+            result["mt5_ok"] = bool(mt5_sync.sync_mt5(require_already_running=require_mt5_already_running))
             logfn("MT5 Sync: SUCCESS" if result["mt5_ok"]
                   else "MT5 Sync: Completed (no new trades or terminal busy)")
         except Exception as e:  # noqa: BLE001
@@ -222,7 +226,7 @@ def run_auto_sync():
             log("In-process sync service is active — standing down this cycle.")
         else:
             log("Starting sync cycle...")
-            run_sync_cycle(known_trade_ids)
+            run_sync_cycle(known_trade_ids, require_mt5_already_running=True)
 
         log(f"Sleeping for {SYNC_INTERVAL_SECONDS}s...")
         time.sleep(SYNC_INTERVAL_SECONDS)

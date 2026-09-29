@@ -21,7 +21,15 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 CURSOR_SLACK_SEC = 24 * 3600
 
 
-def sync_mt5():
+def sync_mt5(require_already_running: bool = False):
+    """`require_already_running=True` is for anything that runs on its own, on
+    a recurring schedule (the auto-sync loop, the standalone daemon) -- it
+    must NEVER be the reason MT5 pops open, so it skips entirely rather than
+    launching a closed terminal. A real one-off action (the "Sync now"
+    button, `run_local_fallback.py --sync-now`) leaves this False and may
+    still launch it (minimized, via mt5_gate.guarded_initialize) -- the same
+    manual-vs-automatic distinction agent/mt5_push_agent.py's mt5_connect()
+    already draws for the standalone push-agent."""
     # Reload .env freshly
     load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
 
@@ -38,6 +46,10 @@ def sync_mt5():
             print("Live MT5 data is switched off (app_settings) -- skipping MT5 sync.")
             return False
     except Exception:
+        return False
+
+    if require_already_running and not mt5_gate.mt5_terminal_running():
+        print("MT5 terminal is not running -- skipping this automatic sync instead of launching it.")
         return False
 
     # Initialize MT5 connection

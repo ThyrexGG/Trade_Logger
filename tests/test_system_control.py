@@ -98,7 +98,7 @@ def test_sync_run_invokes_one_cycle(monkeypatch):
     from api import sync_service
     calls = {"n": 0}
 
-    def _fake_cycle(known, logfn=None, creds=None):
+    def _fake_cycle(known, logfn=None, creds=None, require_mt5_already_running=False):
         calls["n"] += 1
         return {"errors": [], "mt5_ok": False, "capital_ok": True, "new_closed_trades": 0}
 
@@ -116,7 +116,7 @@ def test_sync_run_if_stale_skips_when_fresh(monkeypatch):
 
     calls = {"n": 0}
 
-    def _fake_cycle(known, logfn=None, creds=None):
+    def _fake_cycle(known, logfn=None, creds=None, require_mt5_already_running=False):
         calls["n"] += 1
         return {"errors": [], "mt5_ok": False, "capital_ok": True, "new_closed_trades": 0}
 
@@ -135,7 +135,7 @@ def test_sync_run_if_stale_runs_when_stale(monkeypatch):
 
     calls = {"n": 0}
 
-    def _fake_cycle(known, logfn=None, creds=None):
+    def _fake_cycle(known, logfn=None, creds=None, require_mt5_already_running=False):
         calls["n"] += 1
         return {"errors": [], "mt5_ok": False, "capital_ok": True, "new_closed_trades": 0}
 
