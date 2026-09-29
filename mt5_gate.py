@@ -29,6 +29,16 @@ from typing import Any, Optional
 _ENV_KEY = "MT5_ENABLED"
 _NO_WINDOW = 0x08000000 if platform.system() == "Windows" else 0
 
+# The MetaTrader5 python package wraps ONE connection per process -- calling
+# initialize()/shutdown() from two threads at once (e.g. mt5_sync.py's sync
+# loop and market_data.py's chart/tick polling, both running in the same API
+# process) can silently break whichever call loses the race. Every module
+# that touches the `mt5` module directly must hold this for its whole session
+# (from initialize through shutdown), not just around the initialize call.
+# Reentrant so a caller that already holds it (mt5_sync.py wrapping its own
+# session) can still call guarded_initialize() without deadlocking itself.
+LOCK = threading.RLock()
+
 # Deliberate in-process override (tests, or a runtime opt-in). None -> read env.
 _override: Optional[bool] = None
 
@@ -180,21 +190,29 @@ def guarded_initialize(mt5_module: Any, **initialize_kwargs: Any) -> bool:
     whatever the user is doing for however long the cold start takes. A
     terminal the user already had open is never touched. Use this for any
     deliberate connect (a manual sync, the setup wizard) -- for a passive
-    background read, prefer ``mt5_terminal_running()`` and skip entirely."""
-    before_pids = _mt5_pids()
-    stop = threading.Event()
-    watcher = threading.Thread(
-        target=_watch_and_minimize_new_terminal, args=(before_pids, stop), daemon=True,
-    )
-    if platform.system() == "Windows":
-        watcher.start()
-    try:
-        ok = bool(mt5_module.initialize(**initialize_kwargs))
-    finally:
-        stop.set()
+    background read, prefer ``mt5_terminal_running()`` and skip entirely.
+
+    Acquires ``LOCK`` for the duration of the call (reentrant, so a caller
+    that already holds it -- e.g. mt5_sync.py wrapping its whole session --
+    can call this without deadlocking). A caller that does anything with
+    ``mt5_module`` AFTER this returns (read account info, shut down, ...)
+    must hold ``LOCK`` itself across that too -- this function can't do that
+    for you once it has returned."""
+    with LOCK:
+        before_pids = _mt5_pids()
+        stop = threading.Event()
+        watcher = threading.Thread(
+            target=_watch_and_minimize_new_terminal, args=(before_pids, stop), daemon=True,
+        )
         if platform.system() == "Windows":
-            watcher.join(timeout=2)
-    after_pids = _mt5_pids()
-    if after_pids:
-        _minimize_windows_for_pids(after_pids - before_pids)
-    return ok
+            watcher.start()
+        try:
+            ok = bool(mt5_module.initialize(**initialize_kwargs))
+        finally:
+            stop.set()
+            if platform.system() == "Windows":
+                watcher.join(timeout=2)
+        after_pids = _mt5_pids()
+        if after_pids:
+            _minimize_windows_for_pids(after_pids - before_pids)
+        return ok

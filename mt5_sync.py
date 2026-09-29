@@ -38,7 +38,7 @@ def sync_mt5():
             print("Live MT5 data is switched off (app_settings) -- skipping MT5 sync.")
             return False
     except Exception:
-        pass
+        return False
 
     # Initialize MT5 connection
     login_str = os.getenv("MT5_LOGIN", "")
@@ -52,124 +52,129 @@ def sync_mt5():
     # Initialize the database just in case
     database.init_db()
 
-    print("Connecting to MetaTrader 5 terminal...")
-    try:
-        mt5.shutdown()
-    except Exception:
-        pass
-
-    # A sync is a deliberate connect (unlike market_data's passive polling), so
-    # it's allowed to cold-launch the terminal if needed -- but the new window
-    # must be minimized instantly instead of popping up in the user's face.
-    connected = False
-    if login_str and password and server:
-        try:
-            login = int(login_str)
-            # Try connecting with credentials
-            if mt5_gate.guarded_initialize(mt5, login=login, password=password, server=server, timeout=10000):
-                connected = True
-            else:
-                # Fallback to default initialize
-                if mt5_gate.guarded_initialize(mt5, timeout=10000):
-                    connected = True
-                else:
-                    print(f"MT5 initialize failed. Error code: {mt5.last_error()}")
-        except Exception as e:
-            print(f"MT5 initialization error: {e}")
-            if mt5_gate.guarded_initialize(mt5):
-                connected = True
-    else:
-        # Connect to already open terminal on system
-        if mt5_gate.guarded_initialize(mt5):
-            connected = True
-        else:
-            print("Could not connect to active MT5 terminal. Please make sure the MT5 terminal is open.")
-
-    if not connected:
-        return False
-
-    # Get active account info to use as the unique account ID
-    acc_info = mt5.account_info()
-    if not acc_info:
-        print("Failed to get account info from MT5.")
+    # The MT5 python module has ONE global connection per process, shared with
+    # market_data.py's chart/tick polling and account_state.py's reads -- this whole
+    # session (connect through shutdown) is held under one lock so none of those can
+    # call initialize()/shutdown() on top of it mid-sync (see mt5_gate.LOCK's docstring).
+    with mt5_gate.LOCK:
+        print("Connecting to MetaTrader 5 terminal...")
         try:
             mt5.shutdown()
         except Exception:
             pass
-        return False
 
-    account_id = f"MT5_{acc_info.login}"
-    print(f"Successfully connected to MT5 Account: {acc_info.login} ({acc_info.company})")
+        # A sync is a deliberate connect (unlike market_data's passive polling), so
+        # it's allowed to cold-launch the terminal if needed -- but the new window
+        # must be minimized instantly instead of popping up in the user's face.
+        connected = False
+        if login_str and password and server:
+            try:
+                login = int(login_str)
+                # Try connecting with credentials
+                if mt5_gate.guarded_initialize(mt5, login=login, password=password, server=server, timeout=10000):
+                    connected = True
+                else:
+                    # Fallback to default initialize
+                    if mt5_gate.guarded_initialize(mt5, timeout=10000):
+                        connected = True
+                    else:
+                        print(f"MT5 initialize failed. Error code: {mt5.last_error()}")
+            except Exception as e:
+                print(f"MT5 initialization error: {e}")
+                if mt5_gate.guarded_initialize(mt5):
+                    connected = True
+        else:
+            # Connect to already open terminal on system
+            if mt5_gate.guarded_initialize(mt5):
+                connected = True
+            else:
+                print("Could not connect to active MT5 terminal. Please make sure the MT5 terminal is open.")
 
-    # MT5's tick/position/deal .time fields are the BROKER SERVER's wall clock,
-    # epoch-encoded as if it were UTC -- not real UTC (see mt5_gate.server_utc_offset_sec's
-    # docstring). Every timestamp read below is corrected before it's stored, or a trade
-    # that actually closed late one day can get bucketed under the next.
-    off = mt5_gate.server_utc_offset_sec(mt5)
+        if not connected:
+            return False
 
-    # --- Read the terminal (the Windows-only half) -------------------------
-    balance_payload = {
-        "balance": float(acc_info.balance),
-        "equity": float(acc_info.equity),
-        "currency": getattr(acc_info, "currency", "USD") or "USD",
-    }
+        # Get active account info to use as the unique account ID
+        acc_info = mt5.account_info()
+        if not acc_info:
+            print("Failed to get account info from MT5.")
+            try:
+                mt5.shutdown()
+            except Exception:
+                pass
+            return False
 
-    positions_payload = []
-    try:
-        for pos in (mt5.positions_get() or []):
-            positions_payload.append({
-                "position_id": f"MT5_{pos.ticket}",
-                "symbol": pos.symbol,
-                "direction": "BUY" if pos.type == 0 else "SELL",
-                "volume": float(pos.volume),
-                "entry_price": float(pos.price_open),
-                "current_price": float(pos.price_current),
-                "sl": float(pos.sl) if pos.sl else 0.0,
-                "tp": float(pos.tp) if pos.tp else 0.0,
-                "floating_pnl": float(pos.profit),
-                "swap": float(pos.swap) if pos.swap else 0.0,
-                "open_time": datetime.fromtimestamp(pos.time - off, tz=timezone.utc).isoformat(),
+        account_id = f"MT5_{acc_info.login}"
+        print(f"Successfully connected to MT5 Account: {acc_info.login} ({acc_info.company})")
+
+        # MT5's tick/position/deal .time fields are the BROKER SERVER's wall clock,
+        # epoch-encoded as if it were UTC -- not real UTC (see mt5_gate.server_utc_offset_sec's
+        # docstring). Every timestamp read below is corrected before it's stored, or a trade
+        # that actually closed late one day can get bucketed under the next.
+        off = mt5_gate.server_utc_offset_sec(mt5)
+
+        # --- Read the terminal (the Windows-only half) -------------------------
+        balance_payload = {
+            "balance": float(acc_info.balance),
+            "equity": float(acc_info.equity),
+            "currency": getattr(acc_info, "currency", "USD") or "USD",
+        }
+
+        positions_payload = []
+        try:
+            for pos in (mt5.positions_get() or []):
+                positions_payload.append({
+                    "position_id": f"MT5_{pos.ticket}",
+                    "symbol": pos.symbol,
+                    "direction": "BUY" if pos.type == 0 else "SELL",
+                    "volume": float(pos.volume),
+                    "entry_price": float(pos.price_open),
+                    "current_price": float(pos.price_current),
+                    "sl": float(pos.sl) if pos.sl else 0.0,
+                    "tp": float(pos.tp) if pos.tp else 0.0,
+                    "floating_pnl": float(pos.profit),
+                    "swap": float(pos.swap) if pos.swap else 0.0,
+                    "open_time": datetime.fromtimestamp(pos.time - off, tz=timezone.utc).isoformat(),
+                })
+        except Exception as pos_err:
+            print(f"Error reading open positions: {pos_err}")
+
+        # Determine start timestamp for incremental sync. A generous slack (not just the
+        # old +-10s) covers history_deals_get's own from/to bounds being read against the
+        # broker's server clock while last_ts is stored as corrected true UTC -- re-fetching
+        # a day of already-seen deals is harmless (save_raw_deals upserts), missing one isn't.
+        last_ts = database.get_last_deal_timestamp(account_id)
+        if last_ts > 0:
+            start_date = datetime.fromtimestamp(last_ts - CURSOR_SLACK_SEC, tz=timezone.utc)
+        else:
+            start_date = datetime(2020, 1, 1, tzinfo=timezone.utc)
+        end_date = datetime.now(timezone.utc) + timedelta(days=2)
+
+        print(f"Fetching deals from {start_date} to {end_date}...")
+        deals = mt5.history_deals_get(start_date, end_date)
+        if deals is None:
+            print(f"No deals found or failed to fetch. Error: {mt5.last_error()}")
+            mt5.shutdown()
+            return False
+
+        deals_payload = []
+        for deal in deals:
+            # MT5 deal types: 0 = Buy, 1 = Sell; skip balance/deposit transactions.
+            if deal.type not in (0, 1):
+                continue
+            deals_payload.append({
+                "deal_id": str(deal.ticket),
+                "symbol": deal.symbol,
+                "type": "BUY" if deal.type == 0 else "SELL",
+                "volume": float(deal.volume),
+                "price": float(deal.price),
+                "commission": float(deal.commission),
+                "swap": float(deal.swap),
+                "profit": float(deal.profit),
+                "timestamp": int(deal.time) - off,
+                "position_id": str(deal.position_id),
             })
-    except Exception as pos_err:
-        print(f"Error reading open positions: {pos_err}")
 
-    # Determine start timestamp for incremental sync. A generous slack (not just the
-    # old +-10s) covers history_deals_get's own from/to bounds being read against the
-    # broker's server clock while last_ts is stored as corrected true UTC -- re-fetching
-    # a day of already-seen deals is harmless (save_raw_deals upserts), missing one isn't.
-    last_ts = database.get_last_deal_timestamp(account_id)
-    if last_ts > 0:
-        start_date = datetime.fromtimestamp(last_ts - CURSOR_SLACK_SEC, tz=timezone.utc)
-    else:
-        start_date = datetime(2020, 1, 1, tzinfo=timezone.utc)
-    end_date = datetime.now(timezone.utc) + timedelta(days=2)
-
-    print(f"Fetching deals from {start_date} to {end_date}...")
-    deals = mt5.history_deals_get(start_date, end_date)
-    if deals is None:
-        print(f"No deals found or failed to fetch. Error: {mt5.last_error()}")
         mt5.shutdown()
-        return False
-
-    deals_payload = []
-    for deal in deals:
-        # MT5 deal types: 0 = Buy, 1 = Sell; skip balance/deposit transactions.
-        if deal.type not in (0, 1):
-            continue
-        deals_payload.append({
-            "deal_id": str(deal.ticket),
-            "symbol": deal.symbol,
-            "type": "BUY" if deal.type == 0 else "SELL",
-            "volume": float(deal.volume),
-            "price": float(deal.price),
-            "commission": float(deal.commission),
-            "swap": float(deal.swap),
-            "profit": float(deal.profit),
-            "timestamp": int(deal.time) - off,
-            "position_id": str(deal.position_id),
-        })
-
-    mt5.shutdown()
 
     # --- Transform + write (shared with the push-agent ingest path) -------
     summary = ingest_mt5_payload(

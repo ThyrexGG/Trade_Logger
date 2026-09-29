@@ -83,27 +83,33 @@ def get_realtime_candles(symbol="XAUUSD", timeframe="15m", count=250, ttl_sec=4)
         import mt5_sync
         if is_live_market_data_enabled() and mt5_sync.MT5_AVAILABLE and mt5_gate.mt5_terminal_running():
             import MetaTrader5 as mt5
-            if mt5.initialize():
-                tf_map = {
-                    "1m": mt5.TIMEFRAME_M1,
-                    "5m": mt5.TIMEFRAME_M5,
-                    "15m": mt5.TIMEFRAME_M15,
-                    "1h": mt5.TIMEFRAME_H1,
-                    "4h": mt5.TIMEFRAME_H4,
-                    "D": mt5.TIMEFRAME_D1,
-                    "1d": mt5.TIMEFRAME_D1
-                }
-                mt5_tf = tf_map.get(timeframe.lower(), mt5.TIMEFRAME_M15)
-                
-                # Check for standard broker symbol variations (e.g. XAUUSD.m, XAUUSD.raw, GOLD)
-                possible_syms = [sym, f"{sym}.m", f"{sym}.raw", f"{sym}m", f"{sym}+", "GOLD" if "XAU" in sym else sym]
+            # The MT5 python module has ONE global connection per process, shared with
+            # mt5_sync.py's sync loop and account_state.py's reads -- without this lock,
+            # a sync's mt5.shutdown() racing this poll's mt5.initialize() (or vice versa)
+            # can silently break either one mid-call.
+            with mt5_gate.LOCK:
+                initialized = mt5.initialize()
                 rates = None
-                for s in possible_syms:
-                    rates = mt5.copy_rates_from_pos(s, mt5_tf, 0, count)
-                    if rates is not None and len(rates) > 0:
-                        break
-                mt5.shutdown()
-                
+                if initialized:
+                    tf_map = {
+                        "1m": mt5.TIMEFRAME_M1,
+                        "5m": mt5.TIMEFRAME_M5,
+                        "15m": mt5.TIMEFRAME_M15,
+                        "1h": mt5.TIMEFRAME_H1,
+                        "4h": mt5.TIMEFRAME_H4,
+                        "D": mt5.TIMEFRAME_D1,
+                        "1d": mt5.TIMEFRAME_D1
+                    }
+                    mt5_tf = tf_map.get(timeframe.lower(), mt5.TIMEFRAME_M15)
+
+                    # Check for standard broker symbol variations (e.g. XAUUSD.m, XAUUSD.raw, GOLD)
+                    possible_syms = [sym, f"{sym}.m", f"{sym}.raw", f"{sym}m", f"{sym}+", "GOLD" if "XAU" in sym else sym]
+                    for s in possible_syms:
+                        rates = mt5.copy_rates_from_pos(s, mt5_tf, 0, count)
+                        if rates is not None and len(rates) > 0:
+                            break
+                    mt5.shutdown()
+
                 if rates is not None and len(rates) > 0:
                     candles = []
                     for r in rates:
@@ -394,9 +400,11 @@ def get_latest_tick(symbol: str = "EURUSD", ttl_sec: float = 8.0) -> Optional[Di
         import mt5_sync
         if is_live_market_data_enabled() and mt5_sync.MT5_AVAILABLE and mt5_gate.mt5_terminal_running():
             import MetaTrader5 as mt5
-            if mt5.initialize():
-                tick = mt5.symbol_info_tick(sym)
-                mt5.shutdown()
+            with mt5_gate.LOCK:  # see the candle fetch above for why this lock exists
+                tick = None
+                if mt5.initialize():
+                    tick = mt5.symbol_info_tick(sym)
+                    mt5.shutdown()
                 if tick:
                     return _save_tick_and_return({
                         "symbol": sym,

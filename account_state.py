@@ -67,56 +67,60 @@ def get_account_state(account_type="MT5"):
                 return state
 
             import MetaTrader5 as mt5
-            if not mt5.initialize():
-                state["message"] = f"MT5 init failed: {mt5.last_error()}"
-                return state
-                
-            acc_info = mt5.account_info()
-            if not acc_info:
-                state["message"] = "Could not get MT5 account info"
-                return state
-                
-            state["balance"] = float(acc_info.balance)
-            state["equity"] = float(acc_info.equity)
-            state["margin"] = float(acc_info.margin)
-            state["free_margin"] = float(acc_info.margin_free)
-            
-            positions_raw = mt5.positions_get()
-            floating_pnl = 0.0
-            open_risk = 0.0
-            
-            if positions_raw:
-                for pos in positions_raw:
-                    dir_str = "BUY" if pos.type == 0 else "SELL"
-                    floating_pnl += float(pos.profit) + float(pos.swap)
-                    
-                    # Calculate open risk based on SL
-                    risk = 0.0
-                    if pos.sl > 0:
-                        dist = abs(pos.price_open - pos.sl)
-                        contract_size = 100000.0 if ("USD" in pos.symbol or "EUR" in pos.symbol) else 100.0
-                        if "BTC" in pos.symbol or "ETH" in pos.symbol or "NAS" in pos.symbol: contract_size = 1.0
-                        risk = dist * pos.volume * contract_size
-                        
-                    state["open_positions"].append({
-                        "ticket": str(pos.ticket),
-                        "symbol": mt5_sync.clean_symbol(pos.symbol),
-                        "direction": dir_str,
-                        "volume": float(pos.volume),
-                        "entry": float(pos.price_open),
-                        "current_price": float(pos.price_current),
-                        "sl": float(pos.sl),
-                        "tp": float(pos.tp),
-                        "profit": float(pos.profit),
-                        "risk": risk
-                    })
-                    open_risk += risk
-                    
-            state["floating_pnl"] = floating_pnl
-            state["total_open_risk"] = open_risk
-            state["status"] = "success"
-            state["message"] = "MT5 state fetched successfully"
-            
+            # See mt5_gate.LOCK's docstring: the MT5 module has one global
+            # connection per process, shared with mt5_sync.py's sync loop and
+            # market_data.py's polling -- this read must not race either.
+            with mt5_gate.LOCK:
+                if not mt5.initialize():
+                    state["message"] = f"MT5 init failed: {mt5.last_error()}"
+                    return state
+
+                acc_info = mt5.account_info()
+                if not acc_info:
+                    state["message"] = "Could not get MT5 account info"
+                    return state
+
+                state["balance"] = float(acc_info.balance)
+                state["equity"] = float(acc_info.equity)
+                state["margin"] = float(acc_info.margin)
+                state["free_margin"] = float(acc_info.margin_free)
+
+                positions_raw = mt5.positions_get()
+                floating_pnl = 0.0
+                open_risk = 0.0
+
+                if positions_raw:
+                    for pos in positions_raw:
+                        dir_str = "BUY" if pos.type == 0 else "SELL"
+                        floating_pnl += float(pos.profit) + float(pos.swap)
+
+                        # Calculate open risk based on SL
+                        risk = 0.0
+                        if pos.sl > 0:
+                            dist = abs(pos.price_open - pos.sl)
+                            contract_size = 100000.0 if ("USD" in pos.symbol or "EUR" in pos.symbol) else 100.0
+                            if "BTC" in pos.symbol or "ETH" in pos.symbol or "NAS" in pos.symbol: contract_size = 1.0
+                            risk = dist * pos.volume * contract_size
+
+                        state["open_positions"].append({
+                            "ticket": str(pos.ticket),
+                            "symbol": mt5_sync.clean_symbol(pos.symbol),
+                            "direction": dir_str,
+                            "volume": float(pos.volume),
+                            "entry": float(pos.price_open),
+                            "current_price": float(pos.price_current),
+                            "sl": float(pos.sl),
+                            "tp": float(pos.tp),
+                            "profit": float(pos.profit),
+                            "risk": risk
+                        })
+                        open_risk += risk
+
+                state["floating_pnl"] = floating_pnl
+                state["total_open_risk"] = open_risk
+                state["status"] = "success"
+                state["message"] = "MT5 state fetched successfully"
+
         except Exception as e:
             state["message"] = f"Error fetching MT5 state: {e}"
             

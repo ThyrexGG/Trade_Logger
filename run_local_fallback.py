@@ -19,6 +19,11 @@ Usage:
                  directly to the broker / MetaTrader -- neither goes through
                  Neon, so both work fine while the cloud DB is down).
 
+Once serving, positions/closed trades keep refreshing on their own every
+TL_SYNC_INTERVAL_SEC (default 60s here) via the same background sync loop
+the cloud app uses -- so "live" positions/floating P&L stay live, not just a
+one-time snapshot from --sync-now.
+
 This one process serves BOTH the API and the built frontend (frontend/dist)
 on the same port -- open http://127.0.0.1:8010 directly, no separate
 `npx vite` needed. Run `npm run build` in frontend/ first (and again any
@@ -65,6 +70,10 @@ os.environ.pop("TL_AUTH_PASSWORD_HASH", None)
 os.environ.pop("TL_AUTH_DISABLED", None)
 os.environ["TL_PUSH_ENABLED"] = "0"  # no Firebase locally; desktop push isn't needed for this
 os.environ["MT5_ENABLED"] = "1"      # safe here: this script only ever runs on a machine that may have MT5
+# api/sync_service.py's default interval (900s / 15min) is tuned for Neon's compute-hour
+# billing in the cloud -- this DB is local sqlite, so that cost doesn't exist here. A
+# shorter interval keeps positions/closed trades genuinely live while this stands in.
+os.environ.setdefault("TL_SYNC_INTERVAL_SEC", "60")
 
 
 def _local_connect():
@@ -96,6 +105,13 @@ def main() -> None:
         result = auto_sync.run_sync_cycle(set(), logfn=print)
         print(f"  done: {result.get('new_closed_trades', 0)} new closed trades, "
               f"capital_ok={result.get('capital_ok')}, mt5_ok={result.get('mt5_ok')}")
+
+    # Keep positions/closed trades live for as long as this stands in for the cloud --
+    # without this, sync only ever happened once (at --sync-now) and open positions /
+    # floating P&L would silently go stale the whole time the cloud stayed down.
+    import api.sync_service as sync_service
+    sync_service.set_auto(True)
+    print(f"Auto-sync: on, every {sync_service.INTERVAL_SEC}s")
 
     import uvicorn
     from fastapi.responses import FileResponse, JSONResponse
