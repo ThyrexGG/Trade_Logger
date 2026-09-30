@@ -19,12 +19,13 @@ the frozen safety layer regardless of this flag.
 """
 from __future__ import annotations
 
+import contextlib
 import os
 import platform
 import subprocess
 import threading
 import time
-from typing import Any, Optional
+from typing import Any, Iterator, Optional
 
 _ENV_KEY = "MT5_ENABLED"
 _NO_WINDOW = 0x08000000 if platform.system() == "Windows" else 0
@@ -37,7 +38,32 @@ _NO_WINDOW = 0x08000000 if platform.system() == "Windows" else 0
 # (from initialize through shutdown), not just around the initialize call.
 # Reentrant so a caller that already holds it (mt5_sync.py wrapping its own
 # session) can still call guarded_initialize() without deadlocking itself.
+#
+# Observed live (2026-09-30): a single MT5 call inside a held session can hang
+# indefinitely (the terminal's IPC got stuck) -- with a plain `with LOCK:`,
+# every other module needing MT5 then blocks forever waiting for it too, their
+# threadpool workers pile up unreleased, and the whole server stops answering
+# ANY request, MT5-related or not, once the pool is exhausted. Every call site
+# must acquire via `acquire()` below with a bounded timeout instead of holding
+# `LOCK` directly, so a stuck session degrades to "MT5 unavailable this
+# cycle" (or a fallback data source) rather than a total freeze.
 LOCK = threading.RLock()
+
+
+@contextlib.contextmanager
+def acquire(timeout: float) -> Iterator[bool]:
+    """``with mt5_gate.acquire(timeout=5) as got:`` -- yields True if LOCK was
+    acquired within `timeout` seconds (and releases it on exit), False if it
+    timed out (nothing held, nothing to release). Every module touching `mt5`
+    directly must go through this, never `with LOCK:` -- see LOCK's docstring
+    for why a bare, unbounded acquire is what turned one stuck MT5 call into
+    a full server outage."""
+    got = LOCK.acquire(timeout=timeout)
+    try:
+        yield got
+    finally:
+        if got:
+            LOCK.release()
 
 # Deliberate in-process override (tests, or a runtime opt-in). None -> read env.
 _override: Optional[bool] = None
@@ -183,7 +209,7 @@ def server_utc_offset_sec(mt5_module: Any) -> int:
     return _server_utc_offset_sec
 
 
-def guarded_initialize(mt5_module: Any, **initialize_kwargs: Any) -> bool:
+def guarded_initialize(mt5_module: Any, lock_timeout: float = 20.0, **initialize_kwargs: Any) -> bool:
     """``mt5_module.initialize(**initialize_kwargs)``, but if that has to
     cold-launch a fresh terminal (none was already running), minimize the new
     window the instant it appears instead of leaving it to flash in front of
@@ -192,13 +218,18 @@ def guarded_initialize(mt5_module: Any, **initialize_kwargs: Any) -> bool:
     deliberate connect (a manual sync, the setup wizard) -- for a passive
     background read, prefer ``mt5_terminal_running()`` and skip entirely.
 
-    Acquires ``LOCK`` for the duration of the call (reentrant, so a caller
-    that already holds it -- e.g. mt5_sync.py wrapping its whole session --
-    can call this without deadlocking). A caller that does anything with
-    ``mt5_module`` AFTER this returns (read account info, shut down, ...)
-    must hold ``LOCK`` itself across that too -- this function can't do that
-    for you once it has returned."""
-    with LOCK:
+    Acquires the lock via ``acquire()`` (bounded by `lock_timeout`) rather
+    than holding ``LOCK`` unconditionally -- see ``LOCK``'s docstring for why.
+    Reentrant: a caller that already holds it (mt5_sync.py wrapping its whole
+    session) re-enters immediately regardless of `lock_timeout`. Returns
+    False without touching `mt5_module` at all if the lock couldn't be
+    acquired in time. A caller that does anything with ``mt5_module`` AFTER
+    this returns (read account info, shut down, ...) must hold the lock
+    itself across that too -- this function can't do that for you once it
+    has returned."""
+    with acquire(lock_timeout) as got:
+        if not got:
+            return False
         before_pids = _mt5_pids()
         stop = threading.Event()
         watcher = threading.Thread(

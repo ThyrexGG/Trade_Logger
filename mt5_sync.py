@@ -68,7 +68,13 @@ def sync_mt5(require_already_running: bool = False):
     # market_data.py's chart/tick polling and account_state.py's reads -- this whole
     # session (connect through shutdown) is held under one lock so none of those can
     # call initialize()/shutdown() on top of it mid-sync (see mt5_gate.LOCK's docstring).
-    with mt5_gate.LOCK:
+    # Bounded, not `with mt5_gate.LOCK:` -- a session already in progress elsewhere
+    # gets a real chance to finish, but this one gives up and tries again next cycle
+    # rather than queuing forever behind it.
+    with mt5_gate.acquire(30) as got:
+        if not got:
+            print("MT5 is busy with another sync/read right now -- skipping this cycle.")
+            return False
         print("Connecting to MetaTrader 5 terminal...")
         try:
             mt5.shutdown()

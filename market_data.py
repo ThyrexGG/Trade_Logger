@@ -86,10 +86,12 @@ def get_realtime_candles(symbol="XAUUSD", timeframe="15m", count=250, ttl_sec=4)
             # The MT5 python module has ONE global connection per process, shared with
             # mt5_sync.py's sync loop and account_state.py's reads -- without this lock,
             # a sync's mt5.shutdown() racing this poll's mt5.initialize() (or vice versa)
-            # can silently break either one mid-call.
-            with mt5_gate.LOCK:
-                initialized = mt5.initialize()
-                rates = None
+            # can silently break either one mid-call. Short, bounded timeout: this is a
+            # passive poll with other data sources to fall through to, so if a sync has
+            # the lock (or, worse, is stuck holding it) this must give up fast, not queue.
+            rates = None
+            with mt5_gate.acquire(3) as got:
+                initialized = got and mt5.initialize()
                 if initialized:
                     tf_map = {
                         "1m": mt5.TIMEFRAME_M1,
@@ -400,9 +402,9 @@ def get_latest_tick(symbol: str = "EURUSD", ttl_sec: float = 8.0) -> Optional[Di
         import mt5_sync
         if is_live_market_data_enabled() and mt5_sync.MT5_AVAILABLE and mt5_gate.mt5_terminal_running():
             import MetaTrader5 as mt5
-            with mt5_gate.LOCK:  # see the candle fetch above for why this lock exists
+            with mt5_gate.acquire(3) as got:  # see the candle fetch above for why this lock + short timeout
                 tick = None
-                if mt5.initialize():
+                if got and mt5.initialize():
                     tick = mt5.symbol_info_tick(sym)
                     mt5.shutdown()
                 if tick:

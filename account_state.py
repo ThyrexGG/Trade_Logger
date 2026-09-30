@@ -69,8 +69,13 @@ def get_account_state(account_type="MT5"):
             import MetaTrader5 as mt5
             # See mt5_gate.LOCK's docstring: the MT5 module has one global
             # connection per process, shared with mt5_sync.py's sync loop and
-            # market_data.py's polling -- this read must not race either.
-            with mt5_gate.LOCK:
+            # market_data.py's polling -- this read must not race either. Short,
+            # bounded timeout -- a dashboard read gives up fast rather than
+            # queuing behind (or hanging behind a stuck) sync.
+            with mt5_gate.acquire(3) as got:
+                if not got:
+                    state["message"] = "MT5 is busy with another sync/read right now"
+                    return state
                 if not mt5.initialize():
                     state["message"] = f"MT5 init failed: {mt5.last_error()}"
                     return state
