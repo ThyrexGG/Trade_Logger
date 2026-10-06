@@ -49,15 +49,39 @@ export function useSyncControl(onSynced?: () => void): UseSyncControlResult {
   const syncNow = useCallback(async () => {
     setSyncing(true)
     setError(null)
+    const errors: string[] = []
     try {
-      const r = await runSyncNow()
-      setStatus(r)
-      const runs = Array.isArray(r.ran) ? r.ran : r.ran ? [r.ran] : []
-      if (runs.some((x) => x.ok)) onSyncedRef.current?.()
-      const failed = runs.find((x) => !x.ok)
-      if (failed) setError(failed.errors[0] ?? 'Sync completed with errors')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sync failed')
+      // The cloud API call covers Capital.com (and MT5 wherever the backend
+      // actually has MT5 access). The desktop bridge covers the other case:
+      // this page is talking to the cloud backend on Render, which can never
+      // reach this PC's MT5 terminal (Windows-only library) -- without this,
+      // "Sync now" would silently do nothing for MT5 and only the 15-minute
+      // scheduled task would catch new trades. Outside the desktop app, or on
+      // any machine but the owner's, the bridge is absent/skipped and this is
+      // just the cloud sync alone, same as before.
+      const [cloudResult, mt5Result] = await Promise.allSettled([
+        runSyncNow(),
+        window.tradelogger?.triggerMT5SyncNow?.() ?? Promise.resolve(null),
+      ])
+
+      if (cloudResult.status === 'fulfilled') {
+        const r = cloudResult.value
+        setStatus(r)
+        const runs = Array.isArray(r.ran) ? r.ran : r.ran ? [r.ran] : []
+        if (runs.some((x) => x.ok)) onSyncedRef.current?.()
+        const failed = runs.find((x) => !x.ok)
+        if (failed) errors.push(failed.errors[0] ?? 'Sync completed with errors')
+      } else {
+        errors.push(cloudResult.reason instanceof Error ? cloudResult.reason.message : 'Sync failed')
+      }
+
+      const mt5 = mt5Result.status === 'fulfilled' ? mt5Result.value : null
+      if (mt5 && !mt5.skipped) {
+        if (mt5.ok) onSyncedRef.current?.()
+        else errors.push(`MT5: ${mt5.error || 'sync failed'}`)
+      }
+
+      if (errors.length) setError(errors.join(' · '))
     } finally {
       setSyncing(false)
     }

@@ -42,6 +42,16 @@ const FALLBACK_URL = `http://127.0.0.1:${FALLBACK_PORT}/`
 const FALLBACK_HEALTH_URL = `http://127.0.0.1:${FALLBACK_PORT}/api/health`
 const FALLBACK_FAILURE_THRESHOLD = 2
 const FALLBACK_START_TIMEOUT_MS = 90_000 // --sync-now can take a while (MT5 + Capital.com history)
+
+// --- on-demand local MT5 push (agent/mt5_push_agent.py --once) -----------
+// The cloud backend (Render, Linux) can never reach this PC's MT5 terminal --
+// MetaTrader5 is Windows-only -- so clicking "Sync now" while on the cloud
+// normally only syncs Capital.com, and MT5 data otherwise waits for this same
+// agent's 15-minute scheduled task. Same REPO_ROOT existsSync guard as the
+// local fallback above: a no-op on any PC other than the owner's own dev
+// checkout (a friend's install uses their own separately-scheduled agent).
+const MT5_PUSH_AGENT = path.join(REPO_ROOT, 'agent', 'mt5_push_agent.py')
+const MT5_SYNC_TIMEOUT_MS = 60_000
 let localFallbackProcess = null
 let usingLocalFallback = false
 let consecutiveCloudFailures = 0
@@ -365,6 +375,56 @@ async function startLocalFallback() {
   rebuildTrayMenu()
 }
 
+function runMT5PushAgentOnce() {
+  return new Promise((resolve) => {
+    if (!fs.existsSync(MT5_PUSH_AGENT)) {
+      resolve({ ok: false, skipped: true, reason: 'not_this_machine' })
+      return
+    }
+    let settled = false
+    const finish = (result) => {
+      if (settled) return
+      settled = true
+      resolve(result)
+    }
+
+    let child
+    try {
+      // shell: true for the same PATH-resolution reason as startLocalFallback.
+      child = spawn('python', [MT5_PUSH_AGENT, '--once'], {
+        cwd: REPO_ROOT,
+        windowsHide: true,
+        shell: true,
+      })
+    } catch (err) {
+      finish({ ok: false, error: String(err) })
+      return
+    }
+
+    const timer = setTimeout(() => {
+      try {
+        child.kill()
+      } catch {
+        /* already gone */
+      }
+      finish({ ok: false, error: 'timed out' })
+    }, MT5_SYNC_TIMEOUT_MS)
+
+    let stderr = ''
+    child.stderr?.on('data', (d) => {
+      stderr += String(d)
+    })
+    child.on('exit', (code) => {
+      clearTimeout(timer)
+      finish({ ok: code === 0, error: code === 0 ? null : stderr.trim().slice(-500) || `exit code ${code}` })
+    })
+    child.on('error', (err) => {
+      clearTimeout(timer)
+      finish({ ok: false, error: String(err) })
+    })
+  })
+}
+
 function returnToCloud() {
   stopLocalFallback()
   usingLocalFallback = false
@@ -452,6 +512,10 @@ if (!gotSingleInstanceLock) {
   ipcMain.on('tradelogger:triggered-alerts', (_event, stamps) => {
     setTriggeredAlertBadge(Array.isArray(stamps) ? stamps.map(Number).filter(Number.isFinite) : [])
   })
+
+  // "Sync now" in the page calls this (see useSyncControl.ts) alongside its
+  // normal cloud API call, so MT5 doesn't have to wait for the scheduled task.
+  ipcMain.handle('tradelogger:mt5-sync-now', () => runMT5PushAgentOnce())
 
   // Last trade-event id already shown, remembered per TradeLogger account so a
   // restart never replays history and switching accounts can't skip events.

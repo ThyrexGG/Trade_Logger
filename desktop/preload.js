@@ -8,7 +8,16 @@
 // It does two jobs:
 //   1. newly triggered price alerts  -> taskbar badge (clears when you open the window)
 //   2. trade opened / closed   -> native Windows notification
-const { ipcRenderer } = require('electron')
+const { contextBridge, ipcRenderer } = require('electron')
+
+// Exposed to the page so the "Sync now" button can also run the local MT5
+// push agent on demand (see main.js's runMT5PushAgentOnce) instead of
+// waiting for its 15-minute scheduled task. Only meaningful on the owner's
+// own dev machine -- main.js resolves {skipped: true} everywhere else, which
+// the frontend treats as "not available here", not a failure.
+contextBridge.exposeInMainWorld('tradelogger', {
+  triggerMT5SyncNow: () => ipcRenderer.invoke('tradelogger:mt5-sync-now'),
+})
 
 // The Singapore API the site itself talks to. Keep in sync with main.js.
 const API_BASE = 'https://tradelogger-api-sg.onrender.com'
