@@ -30,12 +30,13 @@ import hashlib
 import hmac
 import json
 import os
+import secrets
 import threading
 import time
 import urllib.request
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional, Tuple
 
 import database
 from api import auth as _auth
@@ -78,6 +79,10 @@ class EmailTaken(Exception):
 
 class BadCredentials(Exception):
     """Wrong email / password at native sign-in."""
+
+
+class InvalidResetToken(Exception):
+    """A password-reset token that is missing, unknown, expired, or used up."""
 
 
 # --- env ------------------------------------------------------------------
@@ -674,6 +679,184 @@ def _forget(user_id: str) -> None:
     with _provision_cache_lock:
         _provision_cache.pop(user_id, None)
         _deny_cache.pop(user_id, None)
+
+
+# --- password reset (native email + password, W16) ---------------------
+#
+# Same pattern as the sessions table in api/auth.py: a random token is handed
+# to the caller once, only its SHA-256 lives in the DB, and it is single-use
+# + short-lived. Separate table (not sessions) because a reset token proves
+# "this mailbox", not "this is a live login" — different lifetime, different
+# consume-once semantics, and it must survive being requested while the
+# account has no valid session at all.
+
+_resets_ready = False
+_resets_lock = threading.Lock()
+
+_reset_ips: Dict[str, list] = {}
+_reset_ips_lock = threading.Lock()
+
+
+def _ensure_password_resets_table() -> None:
+    global _resets_ready
+    if _resets_ready:
+        return
+    with _resets_lock:
+        if _resets_ready:
+            return
+        conn = database.get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS password_resets (
+                    token_hash TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    expires_at TEXT NOT NULL,
+                    used_at TEXT
+                )
+                """
+            )
+            conn.commit()
+            _resets_ready = True
+        finally:
+            conn.close()
+
+
+def _reset_ttl_minutes() -> int:
+    try:
+        return int(_env("TL_PASSWORD_RESET_MINUTES", "30"))
+    except ValueError:
+        return 30
+
+
+def _reset_max_per_ip() -> int:
+    try:
+        return int(_env("TL_PASSWORD_RESET_MAX_PER_IP", "5"))
+    except ValueError:
+        return 5
+
+
+def reset_rate_limited_for(ip: str) -> Optional[int]:
+    """Seconds this IP must wait before another reset *request*, or ``None``.
+    Deliberately separate from the login limiter (that one counts failures;
+    this counts requests regardless of outcome, since every outcome looks the
+    same to the caller — see ``request_password_reset``)."""
+    if not ip:
+        return None
+    win = 3600
+    now = time.time()
+    with _reset_ips_lock:
+        hits = [t for t in _reset_ips.get(ip, []) if now - t < win]
+        _reset_ips[ip] = hits
+        if len(hits) >= _reset_max_per_ip():
+            return int(win - (now - hits[0])) + 1
+    return None
+
+
+def record_reset_request(ip: str) -> None:
+    if not ip:
+        return
+    with _reset_ips_lock:
+        _reset_ips.setdefault(ip, []).append(time.time())
+
+
+def request_password_reset(email: str) -> Optional[Tuple[str, Dict[str, Any]]]:
+    """If ``email`` belongs to an active account, mint a one-time reset token
+    and return ``(raw_token, user)``. Returns ``None`` for an unknown email or
+    a disabled account — callers MUST respond identically in both cases (no
+    account-enumeration via response shape)."""
+    email = _norm_email(email)
+    if not email:
+        return None
+    ensure_users_table()
+    conn = database.get_connection()
+    try:
+        cur = conn.cursor()
+        ph = _ph(conn)
+        cur.execute(f"SELECT {_USER_COLS} FROM users WHERE lower(email) = {ph}", (email,))
+        row = cur.fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return None
+    user = _row_to_user(row)
+    if user["status"] == "disabled":
+        return None
+
+    _ensure_password_resets_table()
+    token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    now = datetime.now(timezone.utc)
+    expires = now + timedelta(minutes=_reset_ttl_minutes())
+    conn = database.get_connection()
+    try:
+        cur = conn.cursor()
+        ph = _ph(conn)
+        cur.execute(
+            f"INSERT INTO password_resets (token_hash, user_id, created_at, expires_at) "
+            f"VALUES ({ph}, {ph}, {ph}, {ph})",
+            (token_hash, user["id"], now.isoformat(), expires.isoformat()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return token, user
+
+
+def reset_password(token: str, new_password: str) -> Dict[str, Any]:
+    """Consume a reset token and set a new password.
+
+    Raises :class:`InvalidResetToken` (unknown / expired / already-used) or
+    ``ValueError`` (weak password). Revokes every existing session for the
+    account, same as a "change password" should everywhere.
+    """
+    if not token:
+        raise InvalidResetToken("missing token")
+    if len(new_password or "") < 8:
+        raise ValueError("password must be at least 8 characters")
+
+    _ensure_password_resets_table()
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    conn = database.get_connection()
+    try:
+        cur = conn.cursor()
+        ph = _ph(conn)
+        cur.execute(
+            f"SELECT user_id, expires_at, used_at FROM password_resets WHERE token_hash = {ph}",
+            (token_hash,),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise InvalidResetToken("This reset link is invalid. Request a new one.")
+        user_id, expires_at, used_at = row
+        if used_at:
+            raise InvalidResetToken("This reset link has already been used. Request a new one.")
+        try:
+            expires = datetime.fromisoformat(str(expires_at))
+        except ValueError:
+            raise InvalidResetToken("This reset link is invalid. Request a new one.")
+        if expires <= datetime.now(timezone.utc):
+            raise InvalidResetToken("This reset link has expired. Request a new one.")
+
+        now = _now_iso()
+        pw_hash = _auth.hash_password(new_password)
+        cur.execute(f"UPDATE users SET password_hash = {ph} WHERE id = {ph}", (pw_hash, user_id))
+        cur.execute(
+            f"UPDATE password_resets SET used_at = {ph} WHERE token_hash = {ph}", (now, token_hash)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    user_id = str(user_id)
+    _forget(user_id)
+    _auth.revoke_user_sessions(user_id)
+    user = get_user(user_id)
+    if user is None:
+        raise InvalidResetToken("That account no longer exists.")
+    return user
 
 
 def current_user_id(request) -> str:

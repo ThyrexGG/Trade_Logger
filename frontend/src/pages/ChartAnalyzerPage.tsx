@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { PageContainer } from '../components/shell/PageContainer'
+import { DisclaimerNote } from '../components/shared/DisclaimerNote'
 import { getAIStatus } from '../api/ai'
 import { analyzeChartFile, analyzeChartUrl } from '../api/chartAnalysis'
 import { SaveToJournal } from '../components/journal/SaveToJournal'
@@ -148,6 +149,7 @@ export function ChartAnalyzerPage() {
       title="Chart Analyzer"
       description="Upload a chart screenshot or paste a TradingView share link — Gemini vision reads the visible entry, stop, target and R:R, and gives an opinionated setup rating. Nothing is saved; it never touches orders, positions or account data."
     >
+      <DisclaimerNote />
       {disabled ? (
         <div className="mb-4 rounded-lg border border-warning/30 bg-warning/10 p-4 text-xs text-warning">
           The AI assistant isn't configured on this server — an operator needs to set{' '}

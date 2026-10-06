@@ -15,6 +15,40 @@ import database
 import tenant as _tenant
 from api import auth as _auth
 from api import identity as _identity
+
+# --- error monitoring (optional) ----------------------------------------
+# Off unless SENTRY_DSN is set -- local dev and the test suite are unaffected.
+# Scrub anything that could carry a credential before it ever leaves the
+# process: request bodies hit /api/auth/* and /api/connections/* (passwords,
+# broker secrets) and query strings can carry the one-time password-reset
+# token, so both are stripped rather than trusting Sentry's default scrubber
+# to catch a field name it doesn't know about.
+_SENTRY_DSN = os.getenv("SENTRY_DSN", "").strip()
+if _SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    from sentry_sdk.integrations.starlette import StarletteIntegration
+
+    def _scrub_event(event, hint):  # noqa: ARG001 - sentry_sdk's before_send signature
+        req = event.get("request")
+        if req:
+            # Request bodies can carry a password or broker secret (login,
+            # signup, reset-password, connections) -- never worth the risk,
+            # so every body is dropped rather than allowlisting routes.
+            req.pop("data", None)
+            qs = str(req.get("query_string", ""))
+            if "token" in qs.lower() or "password" in qs.lower():
+                req["query_string"] = "[scrubbed]"
+        return event
+
+    sentry_sdk.init(
+        dsn=_SENTRY_DSN,
+        integrations=[StarletteIntegration(), FastApiIntegration()],
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0") or "0"),
+        send_default_pii=False,
+        before_send=_scrub_event,
+        environment=os.getenv("SENTRY_ENVIRONMENT", "production"),
+    )
 from api.routers import (
     health,
     auth as auth_router,
@@ -220,7 +254,7 @@ async def _security_headers(request, call_next):
 _AUTH_EXEMPT = {
     "/", "/api/health", "/api/health/db",
     "/api/auth/login", "/api/auth/logout", "/api/auth/status", "/api/auth/me",
-    "/api/auth/signup",
+    "/api/auth/signup", "/api/auth/forgot-password", "/api/auth/reset-password",
     "/docs", "/redoc", "/openapi.json", "/favicon.ico",
 }
 

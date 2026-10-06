@@ -1,4 +1,7 @@
 import { useState, type FormEvent } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { forgotPassword, resetPassword } from '../../api/auth'
+import { ApiError } from '../../api/client'
 import { useAuth } from '../../lib/auth'
 
 /**
@@ -9,6 +12,8 @@ import { useAuth } from '../../lib/auth'
  */
 export function LoginScreen() {
   const { mode } = useAuth()
+  const [searchParams] = useSearchParams()
+  const resetToken = searchParams.get('reset_token')
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--color-background)] px-4">
       {/* Same glow-blob backdrop as the app shell (AppShell.tsx) — this
@@ -36,8 +41,26 @@ export function LoginScreen() {
           boxShadow: '0 20px 50px var(--tl-glass-shadow), inset 0 1px 0 var(--tl-glass-highlight)',
         }}
       >
-        {mode === 'multiuser' ? <MultiUserForm /> : <PassphraseForm />}
+        {mode === 'multiuser' && resetToken ? (
+          <ResetPasswordForm token={resetToken} />
+        ) : mode === 'multiuser' ? (
+          <MultiUserForm />
+        ) : (
+          <PassphraseForm />
+        )}
       </div>
+
+      <p className="relative z-10 mt-4 text-center text-[11px] text-muted">
+        By continuing you agree to the{' '}
+        <Link to="/legal/terms" className="underline hover:text-primary">
+          Terms
+        </Link>{' '}
+        and{' '}
+        <Link to="/legal/privacy" className="underline hover:text-primary">
+          Privacy Policy
+        </Link>
+        . TradeLogger is a personal journal, not financial advice.
+      </p>
     </div>
   )
 }
@@ -104,7 +127,7 @@ function PassphraseForm() {
 function MultiUserForm() {
   const { state, accessMessage, signIn, signUp, recheck, logout, signupOpen } = useAuth()
 
-  const [tab, setTab] = useState<'signin' | 'signup'>('signin')
+  const [tab, setTab] = useState<'signin' | 'signup' | 'forgot'>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -144,6 +167,25 @@ function MultiUserForm() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
+    if (tab === 'forgot') {
+      if (busy || !email) return
+      setBusy(true)
+      setError(null)
+      setNotice(null)
+      try {
+        await forgotPassword(email)
+      } catch {
+        // forgotPassword always resolves {ok:true} from the server; a throw
+        // here means the request itself failed (network/server down), not
+        // that the email was invalid — show the same notice either way so
+        // nothing about the email's validity leaks from this form either.
+      } finally {
+        setBusy(false)
+        setNotice("If that email has an account, we've sent a reset link.")
+      }
+      return
+    }
+
     if (busy || !email || !password) return
     setBusy(true)
     setError(null)
@@ -164,6 +206,56 @@ function MultiUserForm() {
     } finally {
       setBusy(false)
     }
+  }
+
+  if (tab === 'forgot') {
+    return (
+      <form onSubmit={onSubmit}>
+        <h1 className="text-base font-semibold text-primary">Reset your password</h1>
+        <p className="mt-1 text-xs text-muted">
+          Enter your account email — we'll send a link to set a new password.
+        </p>
+
+        <label htmlFor="tl-forgot-email" className="mt-4 block text-xs font-medium text-secondary">
+          Email
+        </label>
+        <input
+          id="tl-forgot-email"
+          type="email"
+          autoFocus
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="mt-1 w-full rounded-xl border border-border bg-surface-elevated/60 px-3.5 py-2.5 text-sm text-primary outline-none focus:border-accent"
+        />
+
+        {notice ? (
+          <p className="mt-2 text-xs text-positive" role="status">
+            {notice}
+          </p>
+        ) : null}
+
+        <button
+          type="submit"
+          disabled={busy || !email}
+          className="mt-4 w-full rounded-xl px-3 py-2.5 text-sm font-semibold shadow-lg disabled:opacity-50"
+          style={{ background: 'var(--tl-gradient-primary)', color: 'var(--tl-gradient-ink)' }}
+        >
+          {busy ? 'Sending…' : 'Send reset link'}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setTab('signin')
+            setNotice(null)
+          }}
+          className="mt-3 w-full text-center text-xs text-muted underline hover:text-primary"
+        >
+          Back to sign in
+        </button>
+      </form>
+    )
   }
 
   return (
@@ -210,9 +302,24 @@ function MultiUserForm() {
         className="mt-1 w-full rounded-xl border border-border bg-surface-elevated/60 px-3.5 py-2.5 text-sm text-primary outline-none focus:border-accent"
       />
 
-      <label htmlFor="tl-pw" className="mt-3 block text-xs font-medium text-secondary">
-        Password
-      </label>
+      <div className="mt-3 flex items-baseline justify-between">
+        <label htmlFor="tl-pw" className="block text-xs font-medium text-secondary">
+          Password
+        </label>
+        {tab === 'signin' ? (
+          <button
+            type="button"
+            onClick={() => {
+              setTab('forgot')
+              setError(null)
+              setNotice(null)
+            }}
+            className="text-xs text-muted underline hover:text-primary"
+          >
+            Forgot password?
+          </button>
+        ) : null}
+      </div>
       <input
         id="tl-pw"
         type="password"
@@ -246,6 +353,97 @@ function MultiUserForm() {
           : tab === 'signup'
             ? 'Create account'
             : 'Sign in'}
+      </button>
+    </form>
+  )
+}
+
+function ResetPasswordForm({ token }: { token: string }) {
+  const { recheck } = useAuth()
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [done, setDone] = useState(false)
+
+  const onSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (busy || !password) return
+    if (password !== confirm) {
+      setError("Passwords don't match.")
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      await resetPassword(token, password)
+      setDone(true)
+      // Drop the token from the URL so a refresh/back-nav can't replay it,
+      // then let the auth provider re-check — the reset call already set
+      // the session cookie, so this should land the user straight in.
+      window.history.replaceState(null, '', window.location.pathname)
+      recheck()
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Could not reset your password.',
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (done) {
+    return (
+      <div>
+        <h1 className="text-base font-semibold text-primary">Password updated</h1>
+        <p className="mt-2 text-xs text-muted">You're signed in. Loading TradeLogger…</p>
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={onSubmit}>
+      <h1 className="text-base font-semibold text-primary">Set a new password</h1>
+      <p className="mt-1 text-xs text-muted">Choose a new password for your account.</p>
+
+      <label htmlFor="tl-reset-pw" className="mt-4 block text-xs font-medium text-secondary">
+        New password
+      </label>
+      <input
+        id="tl-reset-pw"
+        type="password"
+        autoFocus
+        autoComplete="new-password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        className="mt-1 w-full rounded-xl border border-border bg-surface-elevated/60 px-3.5 py-2.5 text-sm text-primary outline-none focus:border-accent"
+      />
+
+      <label htmlFor="tl-reset-pw2" className="mt-3 block text-xs font-medium text-secondary">
+        Confirm new password
+      </label>
+      <input
+        id="tl-reset-pw2"
+        type="password"
+        autoComplete="new-password"
+        value={confirm}
+        onChange={(e) => setConfirm(e.target.value)}
+        className="mt-1 w-full rounded-xl border border-border bg-surface-elevated/60 px-3.5 py-2.5 text-sm text-primary outline-none focus:border-accent"
+      />
+
+      {error ? (
+        <p className="mt-2 text-xs text-negative" role="alert">
+          {error}
+        </p>
+      ) : null}
+
+      <button
+        type="submit"
+        disabled={busy || !password || !confirm}
+        className="mt-4 w-full rounded-xl px-3 py-2.5 text-sm font-semibold shadow-lg disabled:opacity-50"
+        style={{ background: 'var(--tl-gradient-primary)', color: 'var(--tl-gradient-ink)' }}
+      >
+        {busy ? 'Saving…' : 'Set new password'}
       </button>
     </form>
   )

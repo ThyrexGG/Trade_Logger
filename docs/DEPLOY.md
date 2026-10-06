@@ -202,6 +202,7 @@ alembic upgrade head     # applies it to Neon
 - [ ] `alembic current` (run locally) → `0001_baseline (head)`
 - [ ] Open the app after ~20 min idle → it wakes (~30-60 s) and the "Syncing…" pill appears, then data is current
 - [ ] Optional: a free uptime pinger (UptimeRobot, healthchecks.io) hitting `/api/health` every ~10 min keeps the backend warmer — it does not touch the DB, so it won't burn Neon compute hours
+- [ ] If this deploy is going public (not just you/friends), do §13 first.
 
 ---
 
@@ -312,3 +313,39 @@ single ~€3.79/mo Hetzner VM (PayPal, no capacity lottery): `uvicorn` behind
 Caddy for HTTPS, `frontend/dist` served as static files by the same Caddy, and
 you can turn the **auto-sync toggle** on so sync is continuous again. Ask and
 this guide gets a VPS section — the app doesn't change.
+
+---
+
+## 13. Going properly public (strangers, not just friends)
+
+Everything above gets you to "a handful of invited people." Opening
+`TL_SIGNUP_OPEN=1` to the actual public (tradelogger.site, no allowlist) needs
+a few more things first — each is built, but inert until you configure it:
+
+1. **Password reset email.** Without `TL_SMTP_HOST` set, "forgot password"
+   silently does nothing — deliberately no error, so the response never
+   reveals whether an email has an account — but it also means there's no
+   email to send. A stranger who forgets their password has no recovery
+   path. Set up SMTP (a Gmail App Password is the fastest free option) —
+   see `.env.example` for the full `TL_SMTP_*` block. Test it:
+   ```bash
+   curl -X POST https://…onrender.com/api/auth/forgot-password \
+     -H 'content-type: application/json' -d '{"email":"you@example.com"}'
+   ```
+   then check the inbox for a link to `.../?reset_token=...`.
+2. **Error monitoring.** Set `SENTRY_DSN` on Render (backend) and
+   `VITE_SENTRY_DSN` on Cloudflare Pages (frontend) — [sentry.io](https://sentry.io)'s
+   free tier is enough. Without this, a production bug is invisible until a
+   user reports it.
+3. **Legal pages.** `/legal/terms` and `/legal/privacy` ship with the app and
+   are linked from the login screen. Read them (`frontend/src/pages/legal/`)
+   and replace `legal@tradelogger.site` / `privacy@tradelogger.site` with an
+   inbox you actually monitor before anyone signs up.
+4. **Decide your real ceiling.** Neon free tier is ~192 compute-hrs/mo and
+   0.5 GB storage; Render free is 512 MB RAM. Fine for a handful of people,
+   not for an advertised public launch — watch both dashboards once traffic
+   isn't just you.
+5. **`/code-review ultra`** on the branch before flipping `TL_SIGNUP_OPEN=1`.
+
+None of this is required for the invite-only friends deploy in §10 — only
+for actually opening the door.

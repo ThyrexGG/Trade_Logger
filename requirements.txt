@@ -1,18 +1,24 @@
-pandas>=2.0.0
-requests>=2.31.0
-python-dotenv>=1.0.0
-numpy>=1.26.0
-scipy>=1.11.0
-psycopg2-binary>=2.9.9
-alembic>=1.13.0
-google-genai>=1.0.0
-scikit-learn>=1.3.0
-ollama>=0.1.0
-pytz>=2023.3
-yfinance>=0.2.36
-pydantic>=2.0.0
-fastapi>=0.100.0
-uvicorn>=0.22.0
-python-multipart>=0.0.9   # FastAPI form/upload parsing (journal screenshot endpoint)
-websockets>=12.0
-cryptography>=42.0        # Fernet encryption for per-user broker credentials (W8.5)
+# Pinned to exact versions (not >=) so a fresh `pip install` on Render or a
+# new machine reproduces the environment the test suite actually runs
+# against, instead of silently picking up a future major version. Bump
+# deliberately — `pip install -U <pkg>==<new_version>`, rerun the suite, then
+# update the pin here — rather than letting installs drift.
+pandas==3.0.5
+requests==2.34.2
+python-dotenv==1.2.3
+numpy==2.5.2
+scipy==1.18.1
+psycopg2-binary==2.9.12
+alembic==1.19.2
+google-genai==2.22.0
+scikit-learn==1.9.0
+ollama==0.6.2
+pytz==2026.3.post1
+yfinance==1.7.0
+pydantic==2.13.5
+fastapi==0.141.1
+uvicorn==0.52.4
+python-multipart==0.0.32   # FastAPI form/upload parsing (journal screenshot endpoint)
+websockets==16.1.1
+cryptography==50.0.1        # Fernet encryption for per-user broker credentials (W8.5)
+sentry-sdk==2.71.0          # error monitoring (api/main.py) -- no-op until SENTRY_DSN is set

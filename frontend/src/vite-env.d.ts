@@ -11,6 +11,8 @@ interface ImportMetaEnv {
   readonly VITE_APP_TIER?: string
   /** 'local-fallback' marks a build made specifically for run_local_fallback.py (see .env.production.local and lib/appMode.ts) — shows the "Local mode" indicator in the TopBar. The real Cloudflare build never sets this. */
   readonly VITE_APP_MODE?: string
+  /** Sentry DSN for browser error monitoring. Unset = no-op (local dev). */
+  readonly VITE_SENTRY_DSN?: string
 }
 
 interface ImportMeta {

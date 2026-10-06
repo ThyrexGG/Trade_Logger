@@ -26,6 +26,7 @@ from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel, Field
 
 from api import auth
+from api import email_sender
 from api import identity
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
@@ -59,6 +60,22 @@ class AuthStatusResponse(BaseModel):
     mode: str  # "passphrase" | "multiuser" | "supabase"
     signup_open: bool = False
     timestamp: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+    email: str = Field(min_length=3, max_length=254)
+
+
+class ForgotPasswordResponse(BaseModel):
+    ok: bool
+    timestamp: str
+
+
+class ResetPasswordRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+    token: str = Field(min_length=10, max_length=512)
+    password: str = Field(min_length=1, max_length=512)
 
 
 class MeResponse(BaseModel):
@@ -237,6 +254,52 @@ async def login(body: LoginRequest, request: Request, response: Response) -> Log
     token, expires_at = auth.create_session(label=f"login {ip}")
     _set_session_cookie(response, token)
     return LoginResponse(ok=True, expires_at=expires_at, token=token, timestamp=_now())
+
+
+@router.post("/forgot-password", response_model=ForgotPasswordResponse)
+async def forgot_password(
+    body: ForgotPasswordRequest, request: Request, response: Response
+) -> ForgotPasswordResponse:
+    """Multiuser only. Always answers ``{ok: true}`` — whether the email has
+    an account, is disabled, or this IP is rate-limited all look identical
+    from the outside, so none of that is ever learnable by probing this
+    endpoint."""
+    if identity.auth_mode() != "multiuser":
+        response.status_code = 404
+        return ForgotPasswordResponse(ok=False, timestamp=_now())
+
+    ip = _client_ip(request)
+    if identity.reset_rate_limited_for(ip) is None:
+        identity.record_reset_request(ip)
+        result = identity.request_password_reset(body.email)
+        if result is not None:
+            token, user = result
+            email_sender.send_password_reset(user["email"], token)
+    return ForgotPasswordResponse(ok=True, timestamp=_now())
+
+
+@router.post("/reset-password", response_model=LoginResponse)
+async def reset_password(
+    body: ResetPasswordRequest, request: Request, response: Response
+) -> LoginResponse:
+    if identity.auth_mode() != "multiuser":
+        response.status_code = 404
+        return LoginResponse(ok=False, error="Not available on this server.", timestamp=_now())
+
+    try:
+        user = identity.reset_password(body.token, body.password)
+    except identity.InvalidResetToken as exc:
+        response.status_code = 400
+        return LoginResponse(ok=False, error=str(exc), timestamp=_now())
+    except ValueError as exc:
+        response.status_code = 422
+        return LoginResponse(ok=False, error=str(exc), timestamp=_now())
+
+    ip = _client_ip(request)
+    token, expires_at = auth.create_session(label=f"reset {ip}", user_id=user["id"])
+    _set_session_cookie(response, token)
+    return LoginResponse(ok=True, expires_at=expires_at, token=token,
+                         user=_public_user(user), timestamp=_now())
 
 
 @router.post("/logout", response_model=LoginResponse)

@@ -7,6 +7,7 @@ import {
   saveChallengeConfig,
 } from '../../api/challenge'
 import { SectionCard } from '../intelligence/primitives'
+import { DisclaimerNote } from '../shared/DisclaimerNote'
 import type { ChallengeConfig, ChallengeConfigInput, ChallengeStatus } from '../../types/challenge'
 import { describeAccount } from '../../lib/accountLabel'
 
@@ -361,6 +362,7 @@ export function ChallengeTracker({ account }: { account?: string }) {
 
   return (
     <SectionCard title={`${s.config?.firm} challenge`} action={headerAction}>
+      <DisclaimerNote />
       {actionError ? <p className="mb-2 text-xs text-negative">{actionError}</p> : null}
 
       <div className="grid gap-4 sm:grid-cols-2">

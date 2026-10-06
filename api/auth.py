@@ -321,6 +321,24 @@ def revoke_all_sessions() -> int:
         conn.close()
 
 
+def revoke_user_sessions(user_id: str) -> int:
+    """Delete every session belonging to one account — used after a password
+    reset so a session minted before the change can't outlive it."""
+    if not user_id:
+        return 0
+    _ensure_sessions_table()
+    conn = database.get_connection()
+    try:
+        cur = conn.cursor()
+        ph = _ph(conn)
+        cur.execute(f"DELETE FROM sessions WHERE user_id = {ph}", (user_id,))
+        n = cur.rowcount or 0
+        conn.commit()
+        return n
+    finally:
+        conn.close()
+
+
 def purge_expired() -> int:
     _ensure_sessions_table()
     conn = database.get_connection()

@@ -78,3 +78,19 @@ export function signup(
 export function logout(): Promise<LoginResult> {
   return apiPost<LoginResult>('/api/auth/logout', {})
 }
+
+/**
+ * POST /api/auth/forgot-password — multiuser mode. Always resolves `{ok:
+ * true}` regardless of whether the email has an account; the server never
+ * reveals which, so the UI must show the same "check your email" message
+ * either way.
+ */
+export function forgotPassword(email: string): Promise<{ ok: boolean; timestamp: string }> {
+  return apiPost('/api/auth/forgot-password', { email })
+}
+
+/** POST /api/auth/reset-password — consumes a one-time token from the email
+ * link and signs the account in with the new password. */
+export function resetPassword(token: string, password: string): Promise<LoginResult> {
+  return apiPost<LoginResult>('/api/auth/reset-password', { token, password })
+}

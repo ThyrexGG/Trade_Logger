@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { PageContainer } from '../components/shell/PageContainer'
 import { SectionCard } from '../components/intelligence/primitives'
+import { DisclaimerNote } from '../components/shared/DisclaimerNote'
 import { PreTradeChecklistForm, type ChecklistPrefill } from '../components/journal/PreTradeChecklistForm'
 import { InfoTip } from '../components/common/InfoTip'
 import { getKillzoneWatchConfig, scanKillzone, scanKillzoneBoard, setKillzoneWatchConfig } from '../api/scanner'
@@ -348,6 +349,7 @@ export function KillzoneScannerPage() {
       description="Scan for candidate liquidity-sweep + structure-shift events, then log the plan before you enter. Pattern-flagging only — it replaces staring at charts, not your own judgment on whether a flagged event is actually worth trading."
     >
       <div className="space-y-4">
+        <DisclaimerNote />
         <div className="flex w-fit rounded-xl border border-border p-1 text-xs">
           {(['scan', 'board', 'plan'] as const).map((t) => (
             <button
