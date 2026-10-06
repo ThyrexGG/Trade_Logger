@@ -738,28 +738,48 @@ def _reset_max_per_ip() -> int:
         return 5
 
 
-def reset_rate_limited_for(ip: str) -> Optional[int]:
-    """Seconds this IP must wait before another reset *request*, or ``None``.
+def _reset_max_per_email() -> int:
+    try:
+        return int(_env("TL_PASSWORD_RESET_MAX_PER_EMAIL", "3"))
+    except ValueError:
+        return 3
+
+
+def _reset_keys(ip: str, email: str) -> List[Tuple[str, int]]:
+    """Per-IP caps one caller; per-email stops a caller rotating IPs from
+    flooding one victim's inbox."""
+    keys = []
+    if ip:
+        keys.append((f"ip:{ip}", _reset_max_per_ip()))
+    em = _norm_email(email)
+    if em:
+        keys.append((f"email:{em}", _reset_max_per_email()))
+    return keys
+
+
+def reset_rate_limited_for(ip: str, email: str = "") -> Optional[int]:
+    """Seconds before another reset *request* is allowed, or ``None``.
     Deliberately separate from the login limiter (that one counts failures;
     this counts requests regardless of outcome, since every outcome looks the
     same to the caller — see ``request_password_reset``)."""
-    if not ip:
-        return None
     win = 3600
     now = time.time()
+    wait = None
     with _reset_ips_lock:
-        hits = [t for t in _reset_ips.get(ip, []) if now - t < win]
-        _reset_ips[ip] = hits
-        if len(hits) >= _reset_max_per_ip():
-            return int(win - (now - hits[0])) + 1
-    return None
+        for key, cap in _reset_keys(ip, email):
+            hits = [t for t in _reset_ips.get(key, []) if now - t < win]
+            _reset_ips[key] = hits
+            if len(hits) >= cap:
+                w = int(win - (now - hits[0])) + 1
+                wait = w if wait is None else max(wait, w)
+    return wait
 
 
-def record_reset_request(ip: str) -> None:
-    if not ip:
-        return
+def record_reset_request(ip: str, email: str = "") -> None:
+    now = time.time()
     with _reset_ips_lock:
-        _reset_ips.setdefault(ip, []).append(time.time())
+        for key, _cap in _reset_keys(ip, email):
+            _reset_ips.setdefault(key, []).append(now)
 
 
 def request_password_reset(email: str) -> Optional[Tuple[str, Dict[str, Any]]]:
@@ -839,12 +859,20 @@ def reset_password(token: str, new_password: str) -> Dict[str, Any]:
             raise InvalidResetToken("This reset link is invalid. Request a new one.")
         if expires <= datetime.now(timezone.utc):
             raise InvalidResetToken("This reset link has expired. Request a new one.")
+        cur.execute(f"SELECT status FROM users WHERE id = {ph}", (user_id,))
+        status_row = cur.fetchone()
+        if not status_row or status_row[0] == "disabled":
+            raise InvalidResetToken("This reset link is invalid. Request a new one.")
 
         now = _now_iso()
         pw_hash = _auth.hash_password(new_password)
         cur.execute(f"UPDATE users SET password_hash = {ph} WHERE id = {ph}", (pw_hash, user_id))
+        # Burn every outstanding link for this account, not just this one --
+        # otherwise the other links in a "requested it three times" inbox
+        # stay live for the rest of their 30 minutes.
         cur.execute(
-            f"UPDATE password_resets SET used_at = {ph} WHERE token_hash = {ph}", (now, token_hash)
+            f"UPDATE password_resets SET used_at = {ph} WHERE user_id = {ph} AND used_at IS NULL",
+            (now, user_id),
         )
         conn.commit()
     finally:

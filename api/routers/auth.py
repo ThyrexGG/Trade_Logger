@@ -20,9 +20,10 @@ Routes:
 
 The blanket gate on every other ``/api/*`` route lives in ``api/main.py``.
 """
+import os
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Request, Response
 from pydantic import BaseModel, Field
 
 from api import auth
@@ -91,10 +92,24 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _trusted_proxy_hops() -> int:
+    try:
+        return max(0, int(os.getenv("TL_TRUSTED_PROXY_HOPS", "1")))
+    except ValueError:
+        return 1
+
+
 def _client_ip(request: Request) -> str:
-    xff = request.headers.get("x-forwarded-for", "")
-    if xff:
-        return xff.split(",")[0].strip()
+    """The caller's real IP for rate limiting. X-Forwarded-For is appended to
+    by each proxy, so only the rightmost N entries (N = trusted proxies in
+    front of us -- Render's load balancer, 1) are trustworthy; everything to
+    their left is whatever the client chose to send. Reading the leftmost
+    entry let anyone reset every per-IP limit (login lockout, signup cap,
+    reset cap) by sending a fresh fake header each request."""
+    hops = _trusted_proxy_hops()
+    xff = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
+    if hops and xff:
+        return xff[-min(hops, len(xff))]
     return request.client.host if request.client else "unknown"
 
 
@@ -256,25 +271,31 @@ async def login(body: LoginRequest, request: Request, response: Response) -> Log
     return LoginResponse(ok=True, expires_at=expires_at, token=token, timestamp=_now())
 
 
+def _issue_reset(email: str) -> None:
+    result = identity.request_password_reset(email)
+    if result is not None:
+        token, user = result
+        email_sender.send_password_reset(user["email"], token)
+
+
 @router.post("/forgot-password", response_model=ForgotPasswordResponse)
 async def forgot_password(
-    body: ForgotPasswordRequest, request: Request, response: Response
+    body: ForgotPasswordRequest, request: Request, response: Response, background: BackgroundTasks
 ) -> ForgotPasswordResponse:
     """Multiuser only. Always answers ``{ok: true}`` — whether the email has
-    an account, is disabled, or this IP is rate-limited all look identical
-    from the outside, so none of that is ever learnable by probing this
-    endpoint."""
+    an account, is disabled, or this IP / email is rate-limited all look
+    identical from the outside. The lookup + SMTP send run as a background
+    task AFTER the response, so response *timing* doesn't reveal it either
+    (a known email used to wait on the SMTP round-trip, an unknown one
+    didn't) and a slow mail server can't stall the event loop."""
     if identity.auth_mode() != "multiuser":
         response.status_code = 404
         return ForgotPasswordResponse(ok=False, timestamp=_now())
 
     ip = _client_ip(request)
-    if identity.reset_rate_limited_for(ip) is None:
-        identity.record_reset_request(ip)
-        result = identity.request_password_reset(body.email)
-        if result is not None:
-            token, user = result
-            email_sender.send_password_reset(user["email"], token)
+    if identity.reset_rate_limited_for(ip, body.email) is None:
+        identity.record_reset_request(ip, body.email)
+        background.add_task(_issue_reset, body.email)
     return ForgotPasswordResponse(ok=True, timestamp=_now())
 
 

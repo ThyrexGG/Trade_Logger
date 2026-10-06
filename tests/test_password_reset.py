@@ -148,6 +148,85 @@ def test_reset_request_rate_limited_per_ip(mu, monkeypatch):
     assert identity.reset_rate_limited_for("9.9.9.9") is not None
 
 
+def test_reset_request_rate_limited_per_email_across_ips(mu, monkeypatch):
+    monkeypatch.setenv("TL_PASSWORD_RESET_MAX_PER_EMAIL", "2")
+    identity.record_reset_request("1.1.1.1", MEMBER)
+    identity.record_reset_request("2.2.2.2", MEMBER)
+    # a brand-new IP is still blocked for this victim's address...
+    assert identity.reset_rate_limited_for("3.3.3.3", MEMBER) is not None
+    # ...but not for a different address
+    assert identity.reset_rate_limited_for("3.3.3.3", STRANGER) is None
+
+
+def test_using_one_link_burns_the_others(mu):
+    first, _ = identity.request_password_reset(MEMBER)
+    second, _ = identity.request_password_reset(MEMBER)
+    identity.reset_password(second, NEW_PW)
+    with pytest.raises(identity.InvalidResetToken):
+        identity.reset_password(first, "yet-another-password")
+
+
+def test_disabled_account_cannot_use_an_earlier_link(mu):
+    token, user = identity.request_password_reset(MEMBER)
+    identity.set_user_status(user["id"], "disabled")
+    with pytest.raises(identity.InvalidResetToken):
+        identity.reset_password(token, NEW_PW)
+
+
+# --- client IP: X-Forwarded-For spoofing -----------------------------
+
+def _fake_request(xff, peer="10.0.0.1"):
+    from types import SimpleNamespace
+    return SimpleNamespace(headers={"x-forwarded-for": xff} if xff else {},
+                           client=SimpleNamespace(host=peer))
+
+
+def test_client_ip_ignores_client_supplied_forwarded_for(monkeypatch):
+    from api.routers import auth as auth_router
+    monkeypatch.delenv("TL_TRUSTED_PROXY_HOPS", raising=False)
+    # attacker sends "6.6.6.6"; Render appends the real address
+    assert auth_router._client_ip(_fake_request("6.6.6.6, 203.0.113.9")) == "203.0.113.9"
+    assert auth_router._client_ip(_fake_request("203.0.113.9")) == "203.0.113.9"
+    assert auth_router._client_ip(_fake_request("")) == "10.0.0.1"
+
+
+def test_client_ip_no_trusted_proxy_uses_socket_peer(monkeypatch):
+    from api.routers import auth as auth_router
+    monkeypatch.setenv("TL_TRUSTED_PROXY_HOPS", "0")
+    assert auth_router._client_ip(_fake_request("6.6.6.6")) == "10.0.0.1"
+
+
+def test_spoofed_forwarded_for_cannot_dodge_login_lockout(mu, monkeypatch):
+    monkeypatch.setenv("TL_AUTH_MAX_ATTEMPTS", "3")
+    with api_auth._attempts_lock:
+        api_auth._attempts.clear()
+    with TestClient(app) as c:
+        for i in range(3):
+            c.post("/api/auth/login", json={"email": MEMBER, "password": "wrong"},
+                   headers={"x-forwarded-for": f"9.9.9.{i}, 198.51.100.7"})
+        r = c.post("/api/auth/login", json={"email": MEMBER, "password": OLD_PW},
+                   headers={"x-forwarded-for": "9.9.9.200, 198.51.100.7"})
+        assert r.status_code == 429
+    with api_auth._attempts_lock:
+        api_auth._attempts.clear()
+
+
+def test_forgot_password_mints_token_in_background(mu):
+    conn = database.get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM password_resets")
+    before = cur.fetchone()[0]
+    conn.close()
+    with TestClient(app) as c:
+        assert c.post("/api/auth/forgot-password", json={"email": MEMBER}).status_code == 200
+    conn = database.get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM password_resets")
+    after = cur.fetchone()[0]
+    conn.close()
+    assert after == before + 1
+
+
 # --- HTTP layer: no account-enumeration ------------------------------
 
 def test_forgot_password_always_ok_known_email(mu):
