@@ -86,11 +86,54 @@ def _local_connect():
     return conn
 
 
+def _pid_alive(pid: int) -> bool:
+    if os.name != "nt":
+        try:
+            os.kill(pid, 0)
+            return True
+        except OSError:
+            return False
+    import ctypes
+
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    handle = k32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+    if not handle:
+        return ctypes.get_last_error() == 5  # access denied => exists
+    try:
+        code = ctypes.c_ulong()
+        return bool(k32.GetExitCodeProcess(handle, ctypes.byref(code))) and code.value == 259  # STILL_ACTIVE
+    finally:
+        k32.CloseHandle(handle)
+
+
+def _exit_when_parent_dies(pid: int) -> None:
+    """The desktop app spawns this through a shell, and a force-closed or
+    crashed app never runs its own cleanup -- either way this server used to
+    outlive it as an orphan, holding port 8010 and polling MT5 indefinitely
+    (one ran for 11+ hours, 2026-10-06). Watch the app's own PID instead of
+    relying on being killed."""
+    import threading
+    import time
+
+    def _watch() -> None:
+        while _pid_alive(pid):
+            time.sleep(5)
+        print(f"Desktop app (pid {pid}) is gone -- shutting down the local fallback.", flush=True)
+        os._exit(0)
+
+    threading.Thread(target=_watch, name="parent-watch", daemon=True).start()
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port", type=int, default=8010)
     ap.add_argument("--sync-now", action="store_true", help="pull real Capital.com + MT5 history in before serving")
+    ap.add_argument("--parent-pid", type=int, default=None,
+                    help="exit as soon as this process (the desktop app) is gone")
     args = ap.parse_args()
+
+    if args.parent_pid:
+        _exit_when_parent_dies(args.parent_pid)
 
     import database
     database.get_db_url = lambda: None
@@ -102,7 +145,10 @@ def main() -> None:
     if args.sync_now:
         print("Syncing Capital.com + MT5 history into the local DB ...")
         import auto_sync
-        result = auto_sync.run_sync_cycle(set(), logfn=print)
+        # This runs unattended -- the desktop app starts it automatically when
+        # the cloud fails two health checks -- so it must never be what opens a
+        # MetaTrader you closed. A terminal that's already open still syncs.
+        result = auto_sync.run_sync_cycle(set(), logfn=print, require_mt5_already_running=True)
         print(f"  done: {result.get('new_closed_trades', 0)} new closed trades, "
               f"capital_ok={result.get('capital_ok')}, mt5_ok={result.get('mt5_ok')}")
 

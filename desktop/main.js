@@ -308,13 +308,26 @@ function fallbackLog(msg) {
   }
 }
 
+// Every python child here is spawned with shell: true, so `child` is cmd.exe --
+// child.kill() ends only that wrapper and leaves python running, orphaned
+// (that's how a fallback server kept polling MT5 for 11+ hours). /T takes the
+// whole tree down.
+function killTree(child) {
+  if (!child) return
+  if (process.platform === 'win32' && child.pid) {
+    spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }).on('error', () => {})
+    return
+  }
+  try {
+    child.kill()
+  } catch {
+    /* already gone */
+  }
+}
+
 function stopLocalFallback() {
   if (localFallbackProcess) {
-    try {
-      localFallbackProcess.kill()
-    } catch {
-      /* already gone */
-    }
+    killTree(localFallbackProcess)
     localFallbackProcess = null
   }
 }
@@ -334,7 +347,9 @@ async function startLocalFallback() {
     // shell: true -- goes through cmd.exe's own PATH resolution rather than Node's,
     // which is what actually finds `python` reliably regardless of how/where this
     // app itself got launched from (Explorer, Start Menu, a scheduled task, ...).
-    localFallbackProcess = spawn('python', [FALLBACK_SCRIPT, '--sync-now', '--port', String(FALLBACK_PORT)], {
+    // --parent-pid: the server exits on its own if this app dies without
+    // cleaning up (crash, force-close) -- will-quit never runs in that case.
+    localFallbackProcess = spawn('python', [FALLBACK_SCRIPT, '--sync-now', '--port', String(FALLBACK_PORT), '--parent-pid', String(process.pid)], {
       cwd: REPO_ROOT,
       windowsHide: true,
       shell: true,
@@ -402,11 +417,7 @@ function runMT5PushAgentOnce() {
     }
 
     const timer = setTimeout(() => {
-      try {
-        child.kill()
-      } catch {
-        /* already gone */
-      }
+      killTree(child)
       finish({ ok: false, error: 'timed out' })
     }, MT5_SYNC_TIMEOUT_MS)
 
@@ -487,7 +498,13 @@ async function checkBackendHealth() {
 // Only one copy of the app should run at once -- a second launch just
 // focuses the existing window instead of opening a duplicate.
 // Same id as build.appId, so Windows attributes toasts to "TradeLogger".
-if (process.platform === 'win32') app.setAppUserModelId('site.tradelogger.desktop')
+// Dev runs (`electron .`) get their own id: Electron auto-creates a Start Menu
+// "Electron.lnk" -> node_modules\electron.exe stamped with whatever id is set
+// here, and Windows then resolved the INSTALLED app's taskbar/toast icon to
+// that shortcut -- the Electron atom instead of ours.
+if (process.platform === 'win32') {
+  app.setAppUserModelId(app.isPackaged ? 'site.tradelogger.desktop' : 'site.tradelogger.desktop.dev')
+}
 const gotSingleInstanceLock = app.requestSingleInstanceLock()
 if (!gotSingleInstanceLock) {
   app.quit()
