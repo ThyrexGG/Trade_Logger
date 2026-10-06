@@ -32,14 +32,15 @@ export function PrivacyPage() {
 
       <h2 className="pt-2 text-base font-semibold text-primary">2. What we don't collect</h2>
       <p>
-        No payment or card details — TradeLogger doesn't process payments. No tracking cookies,
-        ad identifiers, or third-party analytics/advertising scripts.
+        No payment or card details — TradeLogger doesn't process payments. No advertising,
+        tracking cookies, ad identifiers, or usage analytics.
       </p>
 
       <h2 className="pt-2 text-base font-semibold text-primary">3. Who your data goes to</h2>
       <ul className="list-disc space-y-1 pl-5">
         <li><strong>Google Gemini</strong> — only the specific text/chart image you submit to the AI Assistant or Chart Analyzer, to generate that one response. Not your trade history or account details.</li>
         <li><strong>Your own broker (Capital.com) or MetaTrader terminal</strong> — your encrypted credentials are used solely to authenticate as you and read your own account history.</li>
+        <li><strong>Sentry</strong> — only when something breaks: a technical error report (the error, the page or API route it happened on, your browser type) so the bug can be fixed. Passwords, form contents, and reset links are stripped before anything is sent.</li>
         <li><strong>Neon, Render, Cloudflare</strong> — the database, application, and frontend hosting providers that run TradeLogger. They store/transmit data on our behalf under their own security practices; none independently use it.</li>
       </ul>
       <p>

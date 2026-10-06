@@ -15,7 +15,7 @@ export function LoginScreen() {
   const [searchParams] = useSearchParams()
   const resetToken = searchParams.get('reset_token')
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--color-background)] px-4">
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[var(--color-background)] px-4 py-8">
       {/* Same glow-blob backdrop as the app shell (AppShell.tsx) — this
          screen renders before the shell, so it needs its own copy for the
          glass card below to have something to actually blur. Subtle on
@@ -50,7 +50,7 @@ export function LoginScreen() {
         )}
       </div>
 
-      <p className="relative z-10 mt-4 text-center text-[11px] text-muted">
+      <p className="relative z-10 mt-4 w-full max-w-sm text-center text-[11px] leading-relaxed text-muted">
         By continuing you agree to the{' '}
         <Link to="/legal/terms" className="underline hover:text-primary">
           Terms
@@ -360,6 +360,17 @@ function MultiUserForm() {
 
 function ResetPasswordForm({ token }: { token: string }) {
   const { recheck } = useAuth()
+  const [, setSearchParams] = useSearchParams()
+  // Through the router, not history.replaceState — otherwise the router's own
+  // location keeps the token and the form reappears after a later logout.
+  const dropToken = () =>
+    setSearchParams(
+      (prev) => {
+        prev.delete('reset_token')
+        return prev
+      },
+      { replace: true },
+    )
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [busy, setBusy] = useState(false)
@@ -378,10 +389,9 @@ function ResetPasswordForm({ token }: { token: string }) {
     try {
       await resetPassword(token, password)
       setDone(true)
-      // Drop the token from the URL so a refresh/back-nav can't replay it,
-      // then let the auth provider re-check — the reset call already set
-      // the session cookie, so this should land the user straight in.
-      window.history.replaceState(null, '', window.location.pathname)
+      // The reset call already set the session cookie, so re-checking auth
+      // lands the user straight in.
+      dropToken()
       recheck()
     } catch (err) {
       setError(
@@ -444,6 +454,14 @@ function ResetPasswordForm({ token }: { token: string }) {
         style={{ background: 'var(--tl-gradient-primary)', color: 'var(--tl-gradient-ink)' }}
       >
         {busy ? 'Saving…' : 'Set new password'}
+      </button>
+
+      <button
+        type="button"
+        onClick={dropToken}
+        className="mt-3 w-full text-center text-xs text-muted underline hover:text-primary"
+      >
+        Back to sign in
       </button>
     </form>
   )
