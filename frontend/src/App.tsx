@@ -92,7 +92,18 @@ export default function App() {
         >
           <Route
             path="workspace"
-            element={zoneIds.has('workspace') ? <MarketWorkspacePage /> : <Navigate to={DEFAULT_LANDING} replace />}
+            element={
+              // The logo, the "Workspace" breadcrumb and the phone's Workspace
+              // tab all land here — send them Home like a fresh launch does.
+              // Market stays at /workspace/market.
+              HOME_PATH ? (
+                <Navigate to={HOME_PATH} replace />
+              ) : zoneIds.has('workspace') ? (
+                <MarketWorkspacePage />
+              ) : (
+                <Navigate to={DEFAULT_LANDING} replace />
+              )
+            }
           />
           <Route
             path="research"

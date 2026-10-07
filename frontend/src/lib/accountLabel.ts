@@ -37,6 +37,11 @@ function accountSortKey(accountId: string): string {
   return `${rank}:${label}`
 }
 
+/** Account ids in the same stable order (Capital.com, then MT5, then the rest). */
+export function sortAccounts(ids: string[]): string[] {
+  return [...ids].sort((a, b) => accountSortKey(a).localeCompare(accountSortKey(b)))
+}
+
 /** Splits a list of account-tagged items into one group per account, in the
  * stable order above — used wherever a mixed "all accounts" list needs to be
  * shown as separate per-account sections instead of one interleaved list. */

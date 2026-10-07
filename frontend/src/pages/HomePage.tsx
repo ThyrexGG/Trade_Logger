@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { useAnalytics } from '../lib/useAnalytics'
 import { useAuth } from '../lib/auth'
-import { describeAccount } from '../lib/accountLabel'
+import { describeAccount, sortAccounts } from '../lib/accountLabel'
 import { formatSignedAmount } from '../lib/format'
 import { ALL_NAV_ITEMS } from '../lib/navigation'
 import type { IconComponent } from '../lib/icons'
@@ -16,11 +16,13 @@ const WEEKS_WIDE = 26
 const WEEKS_NARROW = 13
 const ACCOUNT_KEY = 'tl.home.account'
 
-function loadAccount(): string {
+/** Home always shows ONE account — never every account mixed together. */
+function loadAccount(): string | null {
   try {
-    return localStorage.getItem(ACCOUNT_KEY) || 'ALL'
+    const v = localStorage.getItem(ACCOUNT_KEY)
+    return v && v !== 'ALL' ? v : null
   } catch {
-    return 'ALL'
+    return null
   }
 }
 
@@ -74,11 +76,23 @@ function firstName(display: string | null | undefined, email: string | undefined
 export function HomePage() {
   const { user } = useAuth()
   const narrow = useNarrow()
-  const [account, setAccount] = useState(loadAccount)
+  const [account, setAccount] = useState<string | null>(loadAccount)
   const [hovered, setHovered] = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
   const start = useMemo(() => isoDay(windowStartMs(WEEKS_WIDE)), [])
-  const { state, data, error, refetch } = useAnalytics({ account, start })
+  const { state, data, error, refetch } = useAnalytics({ account: account ?? 'ALL', start })
+  const accounts = useMemo(() => sortAccounts(data?.available.accounts ?? []), [data])
+
+  // First visit (or the remembered account is gone): pick the first account in
+  // the app's usual order — Capital.com, then MT5 — instead of mixing them.
+  useEffect(() => {
+    if (accounts.length && (!account || !accounts.includes(account))) setAccount(accounts[0])
+  }, [accounts, account])
+
+  // Only ever render figures that belong to the selected account. While a
+  // switch is loading this is null and the skeleton shows, so one account's
+  // numbers never sit under another account's name.
+  const view = data && (accounts.length === 0 || (account && data.filters_applied.account === account)) ? data : null
 
   function pickAccount(a: string) {
     setAccount(a)
@@ -90,27 +104,52 @@ export function HomePage() {
     }
   }
 
-  const daily = data?.daily_pnl ?? []
+  const daily = view?.daily_pnl ?? []
   const grid = useMemo(() => buildGrid(daily, narrow ? WEEKS_NARROW : WEEKS_WIDE), [daily, narrow])
   const month = useMemo(() => monthSummary(daily), [daily])
   const streak = useMemo(() => currentStreak(daily), [daily])
   const { best, worst } = useMemo(() => bestAndWorst(daily), [daily])
   const topSymbol = useMemo(
-    () => [...(data?.symbol_breakdown ?? [])].sort((a, b) => b.net_profit - a.net_profit)[0] ?? null,
-    [data],
+    () => [...(view?.symbol_breakdown ?? [])].sort((a, b) => b.net_profit - a.net_profit)[0] ?? null,
+    [view],
   )
   const monthPnl = useCountUp(month.pnl, 1300, 250)
-  const winRate = useCountUp(data?.metrics.win_rate ?? 0, 1100, 450)
+  const winRate = useCountUp(view?.metrics.win_rate ?? 0, 1100, 450)
   const now = new Date()
   const name = firstName(user?.display_name, user?.email)
-  const accounts = data?.available.accounts ?? []
-  const pf = data?.metrics.profit_factor ?? 0
+  const pf = view?.metrics.profit_factor ?? 0
   const shortcuts = ['workspace.journal', 'workspace.killzone-scanner', 'workspace.chart-analyzer', 'workspace.analytics']
     .map((id) => ALL_NAV_ITEMS.find((n) => n.id === id))
     .filter((n): n is NonNullable<typeof n> => Boolean(n))
 
   return (
     <div className="mx-auto w-full max-w-[1240px] px-4 py-6 sm:px-6 sm:py-8">
+      {/* Which account this whole page is about — one at a time, never mixed */}
+      {accounts.length ? (
+        <div className="mb-5 flex flex-wrap items-center gap-2" role="radiogroup" aria-label="Account">
+          <span className="mr-1 text-[11px] font-medium uppercase tracking-[0.14em] text-muted">Account</span>
+          {accounts.map((a) => {
+            const info = describeAccount(a)
+            const on = account === a
+            return (
+              <button
+                key={a}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => pickAccount(a)}
+                className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition-colors ${
+                  on ? 'border-accent bg-accent/10 font-semibold text-accent' : 'border-border text-secondary hover:bg-surface-hover hover:text-primary'
+                }`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${on ? 'bg-accent' : 'bg-border'}`} aria-hidden="true" />
+                {info.label}
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
+
       {/* Greeting + this month */}
       <header className="tl-home-hero">
         <div className="min-w-0">
@@ -122,7 +161,7 @@ export function HomePage() {
             {name ? `, ${name}` : ''}.
           </h1>
           <p className="mt-2 max-w-xl text-sm text-secondary">
-            {state === 'loading' && !data
+            {!view
               ? 'Pulling up your trades…'
               : month.tradingDays
                 ? `${month.tradingDays} trading day${month.tradingDays === 1 ? '' : 's'} this month, ${month.greenDays} of them green.`
@@ -131,7 +170,9 @@ export function HomePage() {
         </div>
 
         <div className="tl-home-month">
-          <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">This month</div>
+          <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+            This month{account ? ` · ${describeAccount(account).label}` : ''}
+          </div>
           <div className={`font-mono text-4xl font-semibold tabular-nums sm:text-5xl ${month.pnl > 0 ? 'text-positive' : month.pnl < 0 ? 'text-negative' : 'text-primary'}`}>
             {formatSignedAmount(monthPnl)}
           </div>
@@ -143,11 +184,11 @@ export function HomePage() {
       <dl className="tl-home-stats">
         <div>
           <dt>Win rate</dt>
-          <dd>{data ? `${winRate.toFixed(1)}%` : '—'}</dd>
+          <dd>{view ? `${winRate.toFixed(1)}%` : '—'}</dd>
         </div>
         <div>
           <dt>Profit factor</dt>
-          <dd>{data ? (Number.isFinite(pf) ? pf.toFixed(2) : '∞') : '—'}</dd>
+          <dd>{view ? (Number.isFinite(pf) ? pf.toFixed(2) : '∞') : '—'}</dd>
         </div>
         <div>
           <dt>Day streak</dt>
@@ -157,7 +198,7 @@ export function HomePage() {
         </div>
         <div>
           <dt>Trades · 6 mo</dt>
-          <dd>{data ? data.metrics.total_trades : '—'}</dd>
+          <dd>{view ? view.metrics.total_trades : '—'}</dd>
         </div>
       </dl>
 
@@ -168,29 +209,11 @@ export function HomePage() {
             <h2 className="text-sm font-semibold text-primary">Your last {narrow ? 'three' : 'six'} months, day by day</h2>
             <p className="text-xs text-muted">Hover a square or the line to see that day. Click a square to see its trades.</p>
           </div>
-          {accounts.length > 1 ? (
-            <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Account">
-              {['ALL', ...accounts].map((a) => (
-                <button
-                  key={a}
-                  type="button"
-                  role="radio"
-                  aria-checked={account === a}
-                  onClick={() => pickAccount(a)}
-                  className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
-                    account === a ? 'border-accent bg-accent/10 text-accent' : 'border-border text-secondary hover:bg-surface-hover'
-                  }`}
-                >
-                  {a === 'ALL' ? 'All accounts' : describeAccount(a).label}
-                </button>
-              ))}
-            </div>
-          ) : null}
         </div>
 
         {state === 'error' && !data ? (
           <SectionError message={error ?? 'Your trades could not be loaded.'} onRetry={refetch} />
-        ) : !data ? (
+        ) : !view ? (
           <div className="tl-heat-skeleton" aria-busy="true" aria-label="Loading">
             {Array.from({ length: 7 }, (_, i) => (
               <div key={i} />
@@ -219,7 +242,7 @@ export function HomePage() {
           <span>Profit</span>
         </div>
 
-        {selected ? <DayTradesPanel iso={selected} account={account} onClose={() => setSelected(null)} /> : null}
+        {selected && account ? <DayTradesPanel iso={selected} account={account} onClose={() => setSelected(null)} /> : null}
       </section>
 
       {/* Highlights */}
