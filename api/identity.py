@@ -147,6 +147,17 @@ def signup_open() -> bool:
     return _env("TL_SIGNUP_OPEN", "0").lower() in ("1", "true", "yes")
 
 
+def max_users() -> int:
+    """Capacity ceiling for open registration -- ``TL_MAX_USERS`` active
+    accounts in total. 0 / unset / junk means no ceiling. Only open sign-up is
+    capped: the owner and anyone on the invite list can always get in, so a
+    full server never locks out the people it was opened for first."""
+    try:
+        return max(0, int(_env("TL_MAX_USERS", "0")))
+    except ValueError:
+        return 0
+
+
 # --- per-IP signup cap (in-process, open-registration only) -------------
 #
 # auth.rate_limited_for() (shared with login) is the wrong tool for this: it
@@ -537,7 +548,8 @@ def create_account(email: str, password: str, display_name: str = "", ip: str = 
     bypassed for anyone — ``ip`` (the caller's address, for the per-IP cap
     below) matters only in that mode; pass it whenever the route has one.
 
-    Raises :class:`NotAllowed` (not invited, or open-mode rate limit),
+    Raises :class:`NotAllowed` (not invited, open-mode rate limit, or the
+    ``TL_MAX_USERS`` ceiling reached),
     :class:`EmailTaken`, or ``ValueError`` (weak input).
     """
     email = _norm_email(email)
@@ -574,6 +586,11 @@ def create_account(email: str, password: str, display_name: str = "", ip: str = 
         cur.execute(f"SELECT id FROM users WHERE lower(email) = {ph}", (email,))
         if cur.fetchone():
             raise EmailTaken(email)
+        cap = max_users()
+        if open_signup and cap and email not in signup_allowlist():
+            cur.execute("SELECT COUNT(*) FROM users WHERE status = 'active'")
+            if int(cur.fetchone()[0]) >= cap:
+                raise NotAllowed("TradeLogger is full right now — new sign-ups are paused. Please check back soon.")
         cur.execute(
             f"INSERT INTO users (id, email, display_name, role, status, created_at, last_seen_at, password_hash) "
             f"VALUES ({ph}, {ph}, {ph}, {ph}, 'active', {ph}, {ph}, {ph})",

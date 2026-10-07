@@ -114,6 +114,49 @@ def test_cap_does_not_apply_when_signup_is_closed(mu, monkeypatch):
     assert u1["status"] == "active" and u2["status"] == "active"
 
 
+def _active_users() -> int:
+    conn = database.get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM users WHERE status = 'active'")
+        return int(cur.fetchone()[0])
+    finally:
+        conn.close()
+
+
+def test_max_users_defaults_to_no_ceiling(mu, monkeypatch):
+    monkeypatch.delenv("TL_MAX_USERS", raising=False)
+    assert identity.max_users() == 0
+    monkeypatch.setenv("TL_MAX_USERS", "junk")
+    assert identity.max_users() == 0
+
+
+def test_max_users_blocks_open_signup_once_full(mu, monkeypatch):
+    monkeypatch.setenv("TL_SIGNUP_OPEN", "1")
+    monkeypatch.setenv("TL_MAX_USERS", str(_active_users() + 1))
+    identity.create_account("a@example.com", PW, ip="4.4.4.1")
+    with pytest.raises(identity.NotAllowed, match="full"):
+        identity.create_account("b@example.com", PW, ip="4.4.4.2")
+
+
+def test_max_users_never_locks_out_owner_or_invited(mu, monkeypatch):
+    monkeypatch.setenv("TL_SIGNUP_OPEN", "1")
+    monkeypatch.setenv("TL_MAX_USERS", str(_active_users() + 1))
+    identity.create_account("a@example.com", PW, ip="5.5.5.1")  # now full
+    with pytest.raises(identity.NotAllowed, match="full"):
+        identity.create_account(STRANGER, PW, ip="5.5.5.2")
+    assert identity.create_account(OWNER, PW, ip="5.5.5.3")["role"] == "owner"
+    assert identity.create_account(INVITED, PW, ip="5.5.5.4")["status"] == "active"
+
+
+def test_signup_route_says_full(mu, monkeypatch):
+    monkeypatch.setenv("TL_SIGNUP_OPEN", "1")
+    identity.create_account("a@example.com", PW, ip="6.6.6.1")
+    monkeypatch.setenv("TL_MAX_USERS", str(_active_users()))  # 0 would mean "no ceiling"
+    r = _signup(TestClient(app), STRANGER)
+    assert r.status_code == 403 and "full" in r.json()["error"]
+
+
 # --- router layer -------------------------------------------------------
 
 def test_signup_route_rejects_stranger_when_closed(mu):

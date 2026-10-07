@@ -344,7 +344,10 @@ a few more things first — each is built, but inert until you configure it:
 4. **Decide your real ceiling.** Neon free tier is ~192 compute-hrs/mo and
    0.5 GB storage; Render free is 512 MB RAM. Fine for a handful of people,
    not for an advertised public launch — watch both dashboards once traffic
-   isn't just you.
+   isn't just you. Then set `TL_MAX_USERS` on Render to that number: once
+   that many active accounts exist, open sign-up shows "TradeLogger is full
+   right now" instead of creating more (you and invited emails still get in).
+   Unset means no limit, so set it before flipping the switch.
 5. **`/code-review ultra`** on the branch before flipping `TL_SIGNUP_OPEN=1`.
 
 None of this is required for the invite-only friends deploy in §10 — only
