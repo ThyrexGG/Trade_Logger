@@ -489,3 +489,56 @@ textarea,
     transform: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Beginner helpers: the per-page guide and the "show details" disclosure.
+   --------------------------------------------------------------------------- */
+.tl-guide {
+  border-radius: 0.9rem;
+  padding: 0.85rem 1rem;
+  background: color-mix(in oklab, var(--tl-accent) 7%, var(--tl-surface));
+  border: 1px solid color-mix(in oklab, var(--tl-accent) 28%, transparent);
+}
+.tl-guide-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--tl-gradient-ink);
+  background: var(--tl-gradient-primary);
+}
+.tl-more {
+  border-radius: 0.9rem;
+  border: 1px solid var(--tl-border);
+  background: var(--tl-surface);
+  padding: 0.75rem 1rem;
+}
+.tl-more > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.6rem;
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.875rem;
+}
+.tl-more > summary::-webkit-details-marker {
+  display: none;
+}
+.tl-more > summary:focus-visible {
+  outline: 2px solid var(--tl-focus);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+.tl-more-chevron {
+  display: inline-block;
+  color: var(--tl-accent);
+  transition: transform 160ms ease-out;
+}
+.tl-more[open] > summary .tl-more-chevron {
+  transform: rotate(90deg);
+}

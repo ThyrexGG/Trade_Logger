@@ -85,10 +85,19 @@ export function MetricCard({
 }
 
 /** Truthful "the backend does not expose this" state. */
+/** Server "not computed yet" reasons are written for whoever runs the research
+ * scripts ("run `python -m …`") — meaningless to anyone using the app. */
+function friendlyReason(children: ReactNode): ReactNode {
+  if (typeof children === 'string' && /python\s+-m|\brun\s+`/i.test(children)) {
+    return 'No results yet — this research hasn’t been run for this account. It fills in after the next research update.'
+  }
+  return children
+}
+
 export function ResearchUnavailable({ children }: { children: ReactNode }) {
   return (
     <p className="rounded border border-dashed border-border-subtle px-3 py-4 text-center text-xs text-muted">
-      {children}
+      {friendlyReason(children)}
     </p>
   )
 }

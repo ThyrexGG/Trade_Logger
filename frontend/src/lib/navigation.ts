@@ -70,7 +70,7 @@ const ALL_ZONES: Zone[] = [
       {
         id: 'workspace.home',
         label: 'Home',
-        description: 'Your trading at a glance — this month, six months of daily P&L, and where to jump back in.',
+        description: 'Your trading at a glance — this month, your open trades, and a calendar of good and bad days.',
         path: '/workspace/home',
         icon: HomeIcon,
         status: 'live',
@@ -79,7 +79,7 @@ const ALL_ZONES: Zone[] = [
       {
         id: 'workspace.market',
         label: 'Market',
-        description: 'Watchlist, market snapshot and multi-timeframe context.',
+        description: 'Live prices and charts for the markets you follow.',
         path: '/workspace/market',
         icon: ChartIcon,
         status: 'live',
@@ -88,7 +88,7 @@ const ALL_ZONES: Zone[] = [
       {
         id: 'workspace.positions',
         label: 'Positions',
-        description: 'Live open positions synced from your broker — entry, current price and floating P&L, updating while the trade is still running.',
+        description: 'The trades you have open right now, and how much each is up or down.',
         path: '/workspace/positions',
         icon: ReplayIcon,
         status: 'live',
@@ -97,7 +97,7 @@ const ALL_ZONES: Zone[] = [
       {
         id: 'workspace.risk',
         label: 'Risk Gateway',
-        description: 'Position sizing and risk preview (calculation only).',
+        description: 'Work out how big a trade should be so a loss stays small.',
         path: '/workspace/risk',
         icon: ShieldIcon,
         status: 'live',
@@ -106,7 +106,7 @@ const ALL_ZONES: Zone[] = [
       {
         id: 'workspace.loss-limits',
         label: 'Loss limits',
-        description: 'A daily-loss and a drawdown limit per account — you are notified when you get close and when you hit them (notification only).',
+        description: 'Set a maximum loss per day and overall — get warned before you hit it.',
         path: '/workspace/loss-limits',
         icon: ScaleIcon,
         status: 'live',
@@ -115,7 +115,7 @@ const ALL_ZONES: Zone[] = [
       {
         id: 'workspace.alerts',
         label: 'Price Alerts',
-        description: 'Price-target alerts (notification only, no orders).',
+        description: 'Get a notification when a price reaches a level you choose.',
         path: '/workspace/alerts',
         icon: BellIcon,
         status: 'live',
@@ -123,7 +123,7 @@ const ALL_ZONES: Zone[] = [
       {
         id: 'workspace.analytics',
         label: 'Analytics',
-        description: 'Filtered trading performance over the closed-trade journal.',
+        description: 'How your trading is going: win rate, profit, best and worst markets.',
         path: '/workspace/analytics',
         icon: ChartIcon,
         status: 'live',
@@ -132,7 +132,7 @@ const ALL_ZONES: Zone[] = [
       {
         id: 'workspace.assistant',
         label: 'AI Assistant',
-        description: 'Read-only analytical chat over your TradeLogger data.',
+        description: 'Ask questions about your trading in plain English.',
         path: '/workspace/assistant',
         icon: BrainIcon,
         status: 'live',
@@ -140,7 +140,7 @@ const ALL_ZONES: Zone[] = [
       {
         id: 'workspace.chart-analyzer',
         label: 'Chart Analyzer',
-        description: 'Upload a chart screenshot or TradingView link — extract entry/stop/target/R:R and an AI setup rating.',
+        description: 'Upload a chart and get your entry, stop, target and a rating of the setup.',
         path: '/workspace/chart-analyzer',
         icon: SearchIcon,
         status: 'live',
@@ -148,7 +148,7 @@ const ALL_ZONES: Zone[] = [
       {
         id: 'workspace.killzone-scanner',
         label: 'Killzone Scanner',
-        description: 'Scan for candidate liquidity-sweep + structure-shift events, then log the plan before you enter — setup, R:R, thesis and a self-check — saved to the Journal.',
+        description: 'Spot a specific setup in the busiest trading hours, then write your plan before you trade.',
         path: '/workspace/killzone-scanner',
         icon: FlaskIcon,
         status: 'live',
@@ -156,7 +156,7 @@ const ALL_ZONES: Zone[] = [
       {
         id: 'workspace.journal',
         label: 'Journal',
-        description: 'Closed-trade journal with setup tags, notes and ratings — manual entries too, for money traded outside any broker sync.',
+        description: 'Your trading diary: every closed trade, with your notes, tags and screenshots.',
         path: '/workspace/journal',
         icon: BookIcon,
         status: 'live',
@@ -175,7 +175,7 @@ const ALL_ZONES: Zone[] = [
       {
         id: 'research.intelligence',
         label: 'Market Intelligence',
-        description: 'Cross-asset regime, breadth and macro intelligence.',
+        description: 'The market’s mood and which way each market is leaning, in plain words.',
         path: '/research/intelligence',
         icon: BrainIcon,
         status: 'live',
@@ -183,7 +183,7 @@ const ALL_ZONES: Zone[] = [
       {
         id: 'research.crypto-carry',
         label: 'Crypto Carry',
-        description: 'Delta-neutral crypto funding carry — the one usable edge: recommended book, sizing, and the weekly forward-evidence tracker.',
+        description: 'A low-risk crypto strategy that earns a small, steady return — and how it’s doing.',
         path: '/research/crypto-carry',
         icon: ScaleIcon,
         status: 'live',
@@ -191,7 +191,7 @@ const ALL_ZONES: Zone[] = [
       {
         id: 'research.macro',
         label: 'Macro Intelligence',
-        description: 'Economic calendar, surprise, currency strength and asset macro context.',
+        description: 'Economic news that moves prices: upcoming events and recent surprises.',
         path: '/research/macro',
         icon: BrainIcon,
         status: 'live',
@@ -209,7 +209,7 @@ const ALL_ZONES: Zone[] = [
       {
         id: 'operations.system',
         label: 'System Health',
-        description: 'Backend service health, performance and configuration.',
+        description: 'Check that everything behind the app is working.',
         path: '/operations/system',
         icon: CpuIcon,
         status: 'live',
@@ -217,7 +217,7 @@ const ALL_ZONES: Zone[] = [
       {
         id: 'operations.connections',
         label: 'Connections',
-        description: 'Your broker connection — credentials encrypted at rest.',
+        description: 'Connect your broker so trades come in automatically.',
         path: '/operations/connections',
         icon: ShieldIcon,
         status: 'live',

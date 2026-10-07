@@ -206,8 +206,7 @@ export function IntradayCopilotPanel({ asset }: { asset: string }) {
         <SkeletonRows rows={4} />
       ) : state === 'error' ? (
         <ResearchUnavailable>
-          Could not load the Phase 100 artifact ({error}). Run{' '}
-          <span className="font-mono">python -m phase100_intraday_copilot</span>.
+          Couldn&rsquo;t load these statistics right now ({error}). Try Refresh in a moment.
         </ResearchUnavailable>
       ) : data?.state !== 'AVAILABLE' ? (
         <ResearchUnavailable>

@@ -6,6 +6,26 @@ import { createPortal } from 'react-dom'
  * Keys are matched case-insensitively; `<Term>` looks a label up here.
  */
 export const GLOSSARY: Record<string, string> = {
+  // --- beginner basics ---
+  'floating p&l': 'Profit or loss on a trade that is still open. It moves with the price until you close the trade.',
+  floating: 'Profit or loss on trades that are still open — not locked in until you close them.',
+  lot: 'The size of a trade. 1.00 lot is a standard size; 0.10 is a tenth of that and 0.01 a hundredth.',
+  lots: 'The size of a trade. 1.00 lot is a standard size; 0.10 is a tenth of that and 0.01 a hundredth.',
+  'stop loss': 'A price where your trade closes automatically so a loss can’t grow past what you planned.',
+  sl: 'Stop loss — the price where the trade closes automatically to cap the loss.',
+  'take profit': 'A price where your trade closes automatically to lock in the gain.',
+  tp: 'Take profit — the price where the trade closes automatically to lock in the gain.',
+  spread: 'The small gap between the buy and sell price — a cost you pay on every trade.',
+  killzone: 'The busiest hours of the London and New York sessions, when big moves are most likely.',
+  'liquidity sweep': 'Price briefly pokes past an obvious high or low (where lots of stop losses sit), then turns back.',
+  'market structure shift': 'Price breaks the last swing high or low the other way — a hint the short-term trend may be turning.',
+  mss: 'Market structure shift — price breaks the last swing point the other way, hinting the short-term trend may turn.',
+  'fair value gap': 'A gap left behind by a very fast move. Price often comes back to fill it.',
+  fvg: 'Fair value gap — a gap left by a very fast move that price often comes back to fill.',
+  carry: 'Earning a steady payment just for holding a position (a bit like interest), instead of betting on the price.',
+  'risk-on': 'A mood where investors buy riskier things like stocks and crypto.',
+  'risk-off': 'A mood where investors hide in safe havens like gold, the yen and bonds.',
+  'safe haven': 'Something investors buy when they are scared — classically gold, the Japanese yen, the Swiss franc and government bonds.',
   // --- performance / trade stats ---
   sqn: "System Quality Number — expectancy ÷ standard deviation of trade results, ×√N. Van Tharp's scale: <1 hard to trade, 1.6–2 good, 2.5+ excellent, 3+ superb.",
   expectancy: 'Average profit (or loss) per trade, in account currency. Positive = the strategy makes money on average.',

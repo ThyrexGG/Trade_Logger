@@ -220,10 +220,7 @@ export function CryptoCarryPage() {
               ) : null}
 
               <p className="rounded border border-border-subtle bg-surface-elevated/30 px-2 py-1.5 text-[10px] text-muted">
-                Accumulate evidence: run{' '}
-                <span className="font-mono text-secondary">python -m phase98_carry_forward_evidence --refresh</span>{' '}
-                once a week (or leave the <span className="font-mono">TradeLogger Phase98</span> scheduled
-                task on). Data through {led.data_through}.
+                Updated once a week. Data through {led.data_through}.
               </p>
             </div>
           ) : (

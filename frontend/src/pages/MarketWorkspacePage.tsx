@@ -1,3 +1,5 @@
+import { guideForPath } from '../lib/pageGuides'
+import { PageGuide } from '../components/shared/PageGuide'
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useWatchlist } from '../lib/useWatchlist'
@@ -13,6 +15,7 @@ import type { ChartTimeframe } from '../lib/usePriceChart'
  * no per-row snapshot fetches.
  */
 export function MarketWorkspacePage() {
+  const guide = guideForPath('/workspace/market')
   const watchlist = useWatchlist()
   const [searchParams] = useSearchParams()
   const requestedSymbol = searchParams.get('symbol')?.toUpperCase() || null
@@ -56,6 +59,11 @@ export function MarketWorkspacePage() {
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <div className="p-3">
+          {guide ? (
+            <PageGuide id={guide.id} title={guide.guide.title} steps={guide.guide.steps}>
+              {guide.guide.body}
+            </PageGuide>
+          ) : null}
           <PriceChart symbol={selected} tf={tf} onTf={setTf} height={340} />
         </div>
         <MarketSnapshot
