@@ -9,6 +9,7 @@ import type { IconComponent } from '../lib/icons'
 import { SectionError } from '../components/operations/primitives'
 import { PnlHeatmap } from '../components/home/PnlHeatmap'
 import { DayTradesPanel } from '../components/home/DayTradesPanel'
+import { TodayStrip } from '../components/home/TodayStrip'
 import { useCountUp } from '../components/home/useCountUp'
 import { bestAndWorst, buildGrid, currentStreak, monthSummary, prettyDate, windowStartMs, isoDay } from '../components/home/homeMath'
 
@@ -116,6 +117,7 @@ export function HomePage() {
   }, [daily, narrow])
   const grid = useMemo(() => buildGrid(daily, weeks), [daily, weeks])
   const month = useMemo(() => monthSummary(daily), [daily])
+  const today = useMemo(() => daily.find((d) => d.date.slice(0, 10) === isoDay(Date.now())) ?? null, [daily])
   const streak = useMemo(() => currentStreak(daily), [daily])
   const { best, worst } = useMemo(() => bestAndWorst(daily), [daily])
   const topSymbol = useMemo(
@@ -185,7 +187,15 @@ export function HomePage() {
           <div className={`font-mono text-4xl font-semibold tabular-nums sm:text-5xl ${month.pnl > 0 ? 'text-positive' : month.pnl < 0 ? 'text-negative' : 'text-primary'}`}>
             {formatSignedAmount(monthPnl)}
           </div>
-          <div className="mt-1 text-xs text-muted">{month.trades} closed trade{month.trades === 1 ? '' : 's'}</div>
+          <div className="mt-1 text-xs text-muted">
+            {month.trades} closed trade{month.trades === 1 ? '' : 's'}
+            {today ? (
+              <>
+                {' · today '}
+                <span className={`font-mono ${today.net_profit >= 0 ? 'text-positive' : 'text-negative'}`}>{formatSignedAmount(today.net_profit)}</span>
+              </>
+            ) : null}
+          </div>
         </div>
       </header>
 
@@ -210,6 +220,8 @@ export function HomePage() {
           <dd>{view ? view.metrics.total_trades : '—'}</dd>
         </div>
       </dl>
+
+      <TodayStrip account={account} />
 
       {/* The calendar */}
       <section className="tl-home-card mt-5" aria-label="Daily P&L calendar">

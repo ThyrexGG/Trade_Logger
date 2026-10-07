@@ -33,7 +33,7 @@ const SUGGESTIONS = [
   'How did I perform today?',
   "Why is today's P&L negative?",
   'What are my strongest and weakest symbols?',
-  'What does the Command Center show right now?',
+  'What positions do I have open right now?',
   'Where is my research state weakest?',
   'Summarize my current market context.',
 ]

@@ -30,7 +30,6 @@ const MacroIntelligencePage = page(() => import('./pages/MacroIntelligencePage')
 const PriceAlertsPage = page(() => import('./pages/PriceAlertsPage'), 'PriceAlertsPage')
 const LossLimitsPage = page(() => import('./pages/LossLimitsPage'), 'LossLimitsPage')
 const AnalyticsPage = page(() => import('./pages/AnalyticsPage'), 'AnalyticsPage')
-const CommandCenterPage = page(() => import('./pages/CommandCenterPage'), 'CommandCenterPage')
 const AssistantPage = page(() => import('./pages/AssistantPage'), 'AssistantPage')
 const ChartAnalyzerPage = page(() => import('./pages/ChartAnalyzerPage'), 'ChartAnalyzerPage')
 const KillzoneScannerPage = page(() => import('./pages/KillzoneScannerPage'), 'KillzoneScannerPage')
@@ -43,7 +42,6 @@ const HomePage = page(() => import('./pages/HomePage'), 'HomePage')
 /** Item routes whose page is implemented for real (not a placeholder). */
 const LIVE_ITEM_PAGES: Record<string, ReactElement> = {
   'workspace.home': <HomePage />,
-  'workspace.command-center': <CommandCenterPage />,
   'workspace.market': <MarketWorkspacePage />,
   'workspace.positions': <PositionsPage />,
   'workspace.risk': <RiskGatewayPage />,
@@ -117,6 +115,8 @@ export default function App() {
             path="operations"
             element={zoneIds.has('operations') ? <OperationsOverviewPage /> : <Navigate to={DEFAULT_LANDING} replace />}
           />
+          {/* Command Center was folded into Home — keep old links/bookmarks working. */}
+          <Route path="workspace/command-center" element={<Navigate to={DEFAULT_LANDING} replace />} />
           {zoneIds.has('research') ? (
             <Route path="research/intelligence/asset/:symbol" element={<AssetProfilePage />} />
           ) : null}
