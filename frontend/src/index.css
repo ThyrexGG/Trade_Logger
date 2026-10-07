@@ -153,3 +153,314 @@ textarea,
     animation-duration: 0.01ms !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Home (/workspace/home) — the P&L calendar hero and its supporting pieces.
+   --------------------------------------------------------------------------- */
+.tl-home-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.25rem 2rem;
+}
+.tl-home-month {
+  animation: tl-rise 600ms cubic-bezier(0.2, 0.8, 0.2, 1) 120ms backwards;
+}
+@media (min-width: 640px) {
+  .tl-home-month {
+    text-align: right;
+  }
+}
+.tl-home-stats {
+  margin: 1.5rem 0 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem 1.5rem;
+}
+@media (min-width: 640px) {
+  .tl-home-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.tl-home-stats > div {
+  border-top: 1px solid var(--tl-border-subtle);
+  padding-top: 0.6rem;
+}
+.tl-home-stats dt {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--tl-text-muted);
+}
+.tl-home-stats dd {
+  margin: 0.15rem 0 0;
+  font-family: var(--tl-font-mono);
+  font-size: 1.25rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--tl-text-primary);
+}
+.tl-home-stats dd.text-positive { color: var(--tl-positive); }
+.tl-home-stats dd.text-negative { color: var(--tl-negative); }
+
+.tl-home-card {
+  border-radius: 1rem;
+  padding: 1.1rem 1.25rem;
+  background: var(--tl-glass-bg);
+  border: 1px solid var(--tl-glass-border);
+  box-shadow: 0 8px 24px var(--tl-glass-shadow), inset 0 1px 0 var(--tl-glass-highlight);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* Heatmap grid: a weekday-label column + one column per week. The ribbon
+   underneath reuses the same left column so its x-axis lines up with the weeks. */
+.tl-heat {
+  --tl-heat-gap: 4px;
+  --tl-heat-label: 2rem;
+}
+.tl-heat-months,
+.tl-heat-body,
+.tl-heat-ribbon-row {
+  display: grid;
+  grid-template-columns: var(--tl-heat-label) minmax(0, 1fr);
+  gap: 0 6px;
+}
+.tl-heat-months {
+  height: 16px;
+  margin-bottom: 4px;
+}
+.tl-heat-months-track {
+  position: relative;
+}
+.tl-heat-months-track span,
+.tl-heat-days span,
+.tl-heat-ribbon-label {
+  font-size: 10px;
+  color: var(--tl-text-muted);
+}
+.tl-heat-months-track span {
+  position: absolute;
+  top: 0;
+}
+.tl-heat-days {
+  display: grid;
+  grid-template-rows: repeat(7, minmax(0, 1fr));
+  gap: var(--tl-heat-gap);
+  align-items: center;
+}
+.tl-heat-cells {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--weeks), minmax(0, 1fr));
+  grid-template-rows: repeat(7, auto);
+  grid-auto-flow: column;
+  gap: var(--tl-heat-gap);
+}
+.tl-heat-cell {
+  aspect-ratio: 1.15 / 1;
+  border: 0;
+  padding: 0;
+  border-radius: 4px;
+  background: var(--tl-surface-elevated);
+  animation: tl-heat-pop 520ms cubic-bezier(0.2, 0.9, 0.25, 1.15) backwards;
+  animation-delay: var(--d, 0ms);
+  transition: transform 120ms ease-out, box-shadow 120ms ease-out;
+}
+.tl-heat-cell.is-weekend:not(.has-data) {
+  opacity: 0.45;
+}
+.tl-heat-cell.is-future {
+  background: transparent;
+  outline: 1px dashed var(--tl-border-subtle);
+  outline-offset: -1px;
+}
+.tl-heat-cell.is-today {
+  box-shadow: 0 0 0 2px var(--tl-accent);
+}
+.tl-heat-cell.has-data {
+  cursor: pointer;
+}
+.tl-heat-cell.is-hovered {
+  position: relative;
+  z-index: 1;
+  transform: scale(1.14);
+  box-shadow: 0 0 0 1.5px var(--tl-text-primary), 0 6px 18px var(--tl-glass-shadow);
+}
+.tl-heat-cell.is-selected {
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 0 0 2px var(--tl-accent), 0 0 18px color-mix(in oklab, var(--tl-accent) 55%, transparent);
+}
+.tl-heat-cell:focus-visible {
+  outline: 2px solid var(--tl-focus);
+  outline-offset: 2px;
+}
+@keyframes tl-heat-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+}
+
+.tl-heat-tip {
+  position: absolute;
+  z-index: 5;
+  min-width: 180px;
+  padding: 0.5rem 0.65rem;
+  border-radius: 0.6rem;
+  background: var(--tl-surface);
+  border: 1px solid var(--tl-glass-border);
+  box-shadow: 0 10px 30px var(--tl-glass-shadow);
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 10px));
+  white-space: nowrap;
+}
+.tl-heat-tip.is-below {
+  transform: translate(-50%, 10px);
+}
+
+.tl-heat-ribbon-row {
+  margin-top: 14px;
+}
+.tl-heat-ribbon-label {
+  padding-top: 2px;
+}
+.tl-heat-ribbon {
+  position: relative;
+  height: 116px;
+  cursor: crosshair;
+  touch-action: pan-y;
+}
+.tl-ribbon-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: tl-draw 1800ms cubic-bezier(0.45, 0, 0.2, 1) 350ms backwards;
+}
+.tl-ribbon-area {
+  animation: tl-fade-in 900ms ease-out 1500ms backwards;
+}
+.tl-ribbon-end {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: tl-pulse 2.4s ease-in-out 2.2s infinite;
+}
+@keyframes tl-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+@keyframes tl-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(1.9);
+  }
+}
+
+.tl-heat-skeleton {
+  display: grid;
+  gap: 4px;
+}
+.tl-heat-skeleton > div {
+  height: 30px;
+  border-radius: 4px;
+  background: var(--tl-surface-elevated);
+  animation: tl-skeleton 1.4s ease-in-out infinite;
+}
+@keyframes tl-skeleton {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.tl-legend-sq {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.tl-day-panel {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--tl-border-subtle);
+  animation: tl-rise 260ms ease-out;
+}
+.tl-day-row {
+  animation: tl-rise 300ms ease-out backwards;
+}
+@keyframes tl-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* Shortcut cards: a soft gold light follows the pointer across the card. */
+.tl-spotlight {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 1rem;
+  padding: 1.1rem 1.15rem;
+  background: var(--tl-glass-bg);
+  border: 1px solid var(--tl-border);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: border-color 160ms ease-out, transform 160ms ease-out;
+}
+.tl-spotlight::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(240px circle at var(--sx, 50%) var(--sy, 0%), color-mix(in oklab, var(--tl-glow-a) 18%, transparent), transparent 70%);
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+  pointer-events: none;
+}
+.tl-spotlight:hover,
+.tl-spotlight:focus-visible {
+  border-color: var(--tl-glass-border);
+  transform: translateY(-2px);
+}
+.tl-spotlight:hover::before,
+.tl-spotlight:focus-visible::before {
+  opacity: 1;
+}
+.tl-spotlight > * {
+  position: relative;
+}
+
+/* Highlights + shortcuts rise in as they scroll into view (decorative only, so
+   no fallback: browsers without scroll-driven animations just show them). */
+@media (prefers-reduced-motion: no-preference) {
+  @supports ((animation-timeline: view()) and (animation-range: entry)) {
+    .tl-reveal {
+      animation: tl-rise auto linear backwards;
+      animation-timeline: view();
+      animation-range: entry 0% entry 70%;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tl-home-month,
+  .tl-heat-cell,
+  .tl-ribbon-line,
+  .tl-ribbon-area,
+  .tl-ribbon-end,
+  .tl-day-panel,
+  .tl-day-row {
+    animation: none !important;
+  }
+  .tl-heat-cell.is-hovered,
+  .tl-spotlight:hover {
+    transform: none;
+  }
+}

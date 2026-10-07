@@ -9,6 +9,7 @@ import {
   GaugeIcon,
   FlaskIcon,
   GiftIcon,
+  HomeIcon,
   LayersIcon,
   ReplayIcon,
   ScaleIcon,
@@ -67,6 +68,15 @@ const ALL_ZONES: Zone[] = [
     tagline: 'Primary market monitoring and trading workspace.',
     icon: CandlesIcon,
     items: [
+      {
+        id: 'workspace.home',
+        label: 'Home',
+        description: 'Your trading at a glance — this month, six months of daily P&L, and where to jump back in.',
+        path: '/workspace/home',
+        icon: HomeIcon,
+        status: 'live',
+        friendsVisible: true,
+      },
       {
         id: 'workspace.command-center',
         label: 'Command Center',

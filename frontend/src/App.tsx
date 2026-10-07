@@ -38,9 +38,11 @@ const JournalPage = page(() => import('./pages/JournalPage'), 'JournalPage')
 const SystemHealthPage = page(() => import('./pages/SystemHealthPage'), 'SystemHealthPage')
 const ConnectionsPage = page(() => import('./pages/ConnectionsPage'), 'ConnectionsPage')
 const PartnersPage = page(() => import('./pages/PartnersPage'), 'PartnersPage')
+const HomePage = page(() => import('./pages/HomePage'), 'HomePage')
 
 /** Item routes whose page is implemented for real (not a placeholder). */
 const LIVE_ITEM_PAGES: Record<string, ReactElement> = {
+  'workspace.home': <HomePage />,
   'workspace.command-center': <CommandCenterPage />,
   'workspace.market': <MarketWorkspacePage />,
   'workspace.positions': <PositionsPage />,
@@ -70,7 +72,10 @@ const LIVE_ITEM_PAGES: Record<string, ReactElement> = {
  * landing) are resolved from `ZONES` itself rather than assumed to exist.
  */
 const zoneIds = new Set(ZONES.map((z) => z.id))
-const DEFAULT_LANDING = !IS_FRIENDS_TIER && zoneIds.has('workspace') ? '/workspace' : ALL_NAV_ITEMS[0]?.path ?? '/'
+// Home is the first screen after sign-in in both builds; fall back to the old
+// landing only if it's ever removed from navigation.
+const HOME_PATH = ALL_NAV_ITEMS.find((i) => i.id === 'workspace.home')?.path
+const DEFAULT_LANDING = HOME_PATH ?? (!IS_FRIENDS_TIER && zoneIds.has('workspace') ? '/workspace' : ALL_NAV_ITEMS[0]?.path ?? '/')
 
 export default function App() {
   return (

@@ -81,6 +81,16 @@ export function ReplayIcon(props: IconProps) {
   )
 }
 
+export function HomeIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <path d="M4 11l8-7 8 7" />
+      <path d="M6 9.5V20h12V9.5" />
+      <path d="M10 20v-5h4v5" />
+    </Base>
+  )
+}
+
 export function GaugeIcon(props: IconProps) {
   return (
     <Base {...props}>
