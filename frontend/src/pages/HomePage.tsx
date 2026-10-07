@@ -12,8 +12,8 @@ import { DayTradesPanel } from '../components/home/DayTradesPanel'
 import { useCountUp } from '../components/home/useCountUp'
 import { bestAndWorst, buildGrid, currentStreak, monthSummary, prettyDate, windowStartMs, isoDay } from '../components/home/homeMath'
 
-const WEEKS_WIDE = 26
-const WEEKS_NARROW = 13
+const WEEKS_MAX = 26
+const WEEKS_MIN = 13
 const ACCOUNT_KEY = 'tl.home.account'
 
 /** Home always shows ONE account — never every account mixed together. */
@@ -61,9 +61,9 @@ function sessionLabel(now: Date): string {
   return open.length > 1 ? `${open.join(' + ')} overlap` : `${open[0]} session open`
 }
 
-function firstName(display: string | null | undefined, email: string | undefined): string {
-  const raw = (display || email?.split('@')[0] || '').trim()
-  const word = raw.split(/[\s._-]+/)[0] ?? ''
+/** Only a name the person actually gave — an email's local part ("jsmith92") reads as a robot guessing. */
+function firstName(display: string | null | undefined): string {
+  const word = (display ?? '').trim().split(/\s+/)[0] ?? ''
   return word ? word[0].toUpperCase() + word.slice(1) : ''
 }
 
@@ -79,7 +79,7 @@ export function HomePage() {
   const [account, setAccount] = useState<string | null>(loadAccount)
   const [hovered, setHovered] = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
-  const start = useMemo(() => isoDay(windowStartMs(WEEKS_WIDE)), [])
+  const start = useMemo(() => isoDay(windowStartMs(WEEKS_MAX)), [])
   const { state, data, error, refetch } = useAnalytics({ account: account ?? 'ALL', start })
   const accounts = useMemo(() => sortAccounts(data?.available.accounts ?? []), [data])
 
@@ -105,7 +105,16 @@ export function HomePage() {
   }
 
   const daily = view?.daily_pnl ?? []
-  const grid = useMemo(() => buildGrid(daily, narrow ? WEEKS_NARROW : WEEKS_WIDE), [daily, narrow])
+  // Show from the account's first trade (at least a quarter, at most six months)
+  // so a new account isn't a wall of empty squares; phones always get a quarter.
+  const weeks = useMemo(() => {
+    if (narrow) return WEEKS_MIN
+    const first = daily.reduce<string | null>((m, d) => (!m || d.date < m ? d.date : m), null)
+    if (!first) return WEEKS_MIN
+    const since = Math.ceil((Date.now() - Date.parse(`${first.slice(0, 10)}T00:00:00Z`)) / (7 * 86_400_000)) + 1
+    return Math.max(WEEKS_MIN, Math.min(WEEKS_MAX, since))
+  }, [daily, narrow])
+  const grid = useMemo(() => buildGrid(daily, weeks), [daily, weeks])
   const month = useMemo(() => monthSummary(daily), [daily])
   const streak = useMemo(() => currentStreak(daily), [daily])
   const { best, worst } = useMemo(() => bestAndWorst(daily), [daily])
@@ -116,7 +125,7 @@ export function HomePage() {
   const monthPnl = useCountUp(month.pnl, 1300, 250)
   const winRate = useCountUp(view?.metrics.win_rate ?? 0, 1100, 450)
   const now = new Date()
-  const name = firstName(user?.display_name, user?.email)
+  const name = firstName(user?.display_name)
   const pf = view?.metrics.profit_factor ?? 0
   const shortcuts = ['workspace.journal', 'workspace.killzone-scanner', 'workspace.chart-analyzer', 'workspace.analytics']
     .map((id) => ALL_NAV_ITEMS.find((n) => n.id === id))
@@ -183,11 +192,11 @@ export function HomePage() {
       {/* Stat strip */}
       <dl className="tl-home-stats">
         <div>
-          <dt>Win rate</dt>
+          <dt>Win rate · 6 mo</dt>
           <dd>{view ? `${winRate.toFixed(1)}%` : '—'}</dd>
         </div>
         <div>
-          <dt>Profit factor</dt>
+          <dt>Profit factor · 6 mo</dt>
           <dd>{view ? (Number.isFinite(pf) ? pf.toFixed(2) : '∞') : '—'}</dd>
         </div>
         <div>
@@ -206,8 +215,10 @@ export function HomePage() {
       <section className="tl-home-card mt-5" aria-label="Daily P&L calendar">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-primary">Your last {narrow ? 'three' : 'six'} months, day by day</h2>
-            <p className="text-xs text-muted">Hover a square or the line to see that day. Click a square to see its trades.</p>
+            <h2 className="text-sm font-semibold text-primary">
+              {weeks === WEEKS_MAX ? 'Your last six months' : `Your last ${weeks} weeks`}, day by day
+            </h2>
+            <p className="text-xs text-muted">Hover a square or the chart to see that day. Click a square to see its trades.</p>
           </div>
         </div>
 
@@ -229,18 +240,6 @@ export function HomePage() {
             onSelect={(iso) => setSelected((cur) => (cur === iso ? null : iso))}
           />
         )}
-
-        <div className="mt-3 flex items-center justify-end gap-1.5 text-[10px] text-muted" aria-hidden="true">
-          <span>Loss</span>
-          {[1, 0.6, 0.3].map((t) => (
-            <i key={`n${t}`} className="tl-legend-sq" style={{ background: `color-mix(in oklab, var(--tl-negative) ${28 + t * 72}%, var(--tl-surface-elevated))` }} />
-          ))}
-          <i className="tl-legend-sq" style={{ background: 'var(--tl-surface-elevated)' }} />
-          {[0.3, 0.6, 1].map((t) => (
-            <i key={`p${t}`} className="tl-legend-sq" style={{ background: `color-mix(in oklab, var(--tl-positive) ${28 + t * 72}%, var(--tl-surface-elevated))` }} />
-          ))}
-          <span>Profit</span>
-        </div>
 
         {selected && account ? <DayTradesPanel iso={selected} account={account} onClose={() => setSelected(null)} /> : null}
       </section>
@@ -306,11 +305,11 @@ function Highlight({
     </>
   )
   return onClick ? (
-    <button type="button" onClick={onClick} className="tl-home-card tl-reveal text-left transition-colors hover:border-accent">
+    <button type="button" onClick={onClick} className="tl-home-card is-quiet tl-reveal text-left transition-colors hover:border-accent">
       {body}
     </button>
   ) : (
-    <div className="tl-home-card tl-reveal">{body}</div>
+    <div className="tl-home-card is-quiet tl-reveal">{body}</div>
   )
 }
 

@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { formatSignedAmount } from '../../lib/format'
 import { intensity, prettyDate, type HeatCell, type HeatGrid } from './homeMath'
 
 const WEEKDAY_LABELS = ['Mon', '', 'Wed', '', 'Fri', '', 'Sun']
-const RIBBON_H = 116
-const RIBBON_PAD = 10
+const CHART_H = 190
+const PAD = { top: 12, right: 64, bottom: 22, left: 4 }
 
 function cellColor(cell: HeatCell, scale: number): string | undefined {
   if (!cell.data) return undefined
@@ -28,11 +28,17 @@ function useWidth<T extends HTMLElement>() {
   return [ref, width] as const
 }
 
+function compactUsd(v: number): string {
+  const a = Math.abs(v)
+  const s = a >= 10_000 ? `${(a / 1000).toFixed(0)}k` : a >= 1000 ? `${(a / 1000).toFixed(1)}k` : a.toFixed(0)
+  return `${v < 0 ? '-' : v > 0 ? '+' : ''}${s}`
+}
+
 /**
- * The home screen's centrepiece: a weeks-by-weekday P&L heatmap with a
- * cumulative-P&L ribbon drawn directly underneath it. The ribbon's x-axis is
- * the heatmap's columns, so the curve sits under the weeks that made it, and
- * hovering either one lights up the same day in both.
+ * The home screen's centrepiece: a compact weeks-by-weekday P&L heatmap next
+ * to the running total since the first trade in view. Hovering a square or
+ * the chart lights up the same day in both, and the readout above the chart
+ * names it; clicking a square opens that day's trades.
  */
 export function PnlHeatmap({
   grid,
@@ -47,167 +53,174 @@ export function PnlHeatmap({
   onHover: (iso: string | null) => void
   onSelect: (iso: string) => void
 }) {
-  const cellsRef = useRef<HTMLDivElement>(null)
-  const cellEls = useRef(new Map<string, HTMLElement>())
-  const [tip, setTip] = useState<{ x: number; y: number; below: boolean } | null>(null)
-  const [ribbonRef, ribbonW] = useWidth<HTMLDivElement>()
-
-  const hoveredCell = useMemo(() => grid.cells.find((c) => c.iso === hovered) ?? null, [grid, hovered])
-
-  // Position the tooltip over whichever cell is hovered — from the grid *or* the ribbon.
-  useEffect(() => {
-    const host = cellsRef.current
-    const el = hovered ? cellEls.current.get(hovered) : null
-    if (!host || !el) {
-      setTip(null)
-      return
-    }
-    const h = host.getBoundingClientRect()
-    const r = el.getBoundingClientRect()
-    const y = r.top - h.top
-    const x = Math.min(h.width - 96, Math.max(96, r.left - h.left + r.width / 2))
-    setTip({ x, y: y < 70 ? r.bottom - h.top : y, below: y < 70 })
-  }, [hovered])
+  const [chartRef, chartW] = useWidth<HTMLDivElement>()
 
   const past = grid.cells.filter((c) => !c.future)
-  const values = past.map((c) => c.cumulative)
-  const lo = Math.min(0, ...values)
-  const hi = Math.max(0, ...values)
-  const span = hi - lo || 1
-  const xOf = (c: HeatCell) => ((c.col + (c.row + 0.5) / 7) / grid.weeks) * ribbonW
-  const yOf = (v: number) => RIBBON_PAD + (1 - (v - lo) / span) * (RIBBON_H - RIBBON_PAD * 2)
-  const anyTrades = past.some((c) => c.data)
+  const firstIdx = past.findIndex((c) => c.data)
+  // The chart starts at the first trade in view — no months of flat zero line before it.
+  const series = firstIdx >= 0 ? past.slice(firstIdx) : []
+  const values = series.map((c) => c.cumulative)
+  const rawLo = Math.min(0, ...values)
+  const rawHi = Math.max(0, ...values)
+  const pad = (rawHi - rawLo || 1) * 0.08
+  const lo = rawLo - (rawLo < 0 ? pad : 0)
+  const hi = rawHi + pad
+  const innerW = Math.max(0, chartW - PAD.left - PAD.right)
+  const innerH = CHART_H - PAD.top - PAD.bottom
+  const xAt = (i: number) => PAD.left + (series.length > 1 ? (i / (series.length - 1)) * innerW : innerW / 2)
+  const yOf = (v: number) => PAD.top + (1 - (v - lo) / (hi - lo || 1)) * innerH
+  const indexOf = new Map(series.map((c, i) => [c.iso, i]))
 
-  const line = ribbonW && past.length ? past.map((c, i) => `${i ? 'L' : 'M'}${xOf(c).toFixed(1)},${yOf(c.cumulative).toFixed(1)}`).join('') : ''
-  const area = line ? `${line}L${xOf(past[past.length - 1]).toFixed(1)},${yOf(lo)}L${xOf(past[0]).toFixed(1)},${yOf(lo)}Z` : ''
+  const line = chartW && series.length ? series.map((c, i) => `${i ? 'L' : 'M'}${xAt(i).toFixed(1)},${yOf(c.cumulative).toFixed(1)}`).join('') : ''
+  const area = line ? `${line}L${xAt(series.length - 1).toFixed(1)},${yOf(0).toFixed(1)}L${xAt(0).toFixed(1)},${yOf(0).toFixed(1)}Z` : ''
+  // Zero always gets a label; the high/low only when they won't collide with it.
+  const ticks = [0, rawHi, rawLo].filter((v, i, a) => a.indexOf(v) === i && (v === 0 || Math.abs(yOf(v) - yOf(0)) >= 16))
 
-  function ribbonPointer(e: React.PointerEvent<HTMLDivElement>) {
-    if (!ribbonW) return
-    const x = e.clientX - e.currentTarget.getBoundingClientRect().left
-    const t = Math.max(0, Math.min(0.9999, x / ribbonW)) * grid.weeks
-    const idx = Math.min(past.length - 1, Math.floor(t) * 7 + Math.floor((t % 1) * 7))
-    onHover(past[Math.max(0, idx)]?.iso ?? null)
+  const focus = (hovered && grid.cells.find((c) => c.iso === hovered && !c.future)) || series[series.length - 1] || null
+  const focusIdx = focus ? indexOf.get(focus.iso) : undefined
+
+  function chartPointer(e: React.PointerEvent<HTMLDivElement>) {
+    if (!innerW || !series.length) return
+    const x = e.clientX - e.currentTarget.getBoundingClientRect().left - PAD.left
+    const i = Math.round(Math.max(0, Math.min(1, x / innerW)) * (series.length - 1))
+    onHover(series[i]?.iso ?? null)
   }
 
   return (
-    <div className="tl-heat" style={{ '--weeks': grid.weeks } as CSSProperties}>
-      <div className="tl-heat-months" aria-hidden="true">
-        <span />
-        <div className="tl-heat-months-track">
+    <div className="tl-cal" style={{ '--weeks': grid.weeks } as CSSProperties}>
+      {/* Heatmap */}
+      <div className="tl-heat">
+        <div className="tl-heat-months" aria-hidden="true">
           {grid.monthMarks.map((m) => (
-            <span key={`${m.col}-${m.label}`} style={{ left: `${(m.col / grid.weeks) * 100}%` }}>
+            <span key={`${m.col}-${m.label}`} style={{ '--col': m.col } as CSSProperties}>
               {m.label}
             </span>
           ))}
         </div>
-      </div>
-
-      <div className="tl-heat-body">
-        <div className="tl-heat-days" aria-hidden="true">
-          {WEEKDAY_LABELS.map((d, i) => (
-            <span key={i}>{d}</span>
-          ))}
-        </div>
-
-        <div ref={cellsRef} className="tl-heat-cells" role="group" aria-label="Daily P&L heatmap" onPointerLeave={() => onHover(null)}>
-          {grid.cells.map((c) => {
-            const style = {
-              '--d': `${c.col * 26 + c.row * 10}ms`,
-              background: cellColor(c, grid.scale),
-            } as CSSProperties
-            const cls = [
-              'tl-heat-cell',
-              c.future ? 'is-future' : '',
-              c.data ? 'has-data' : '',
-              c.row >= 5 ? 'is-weekend' : '',
-              c.iso === grid.todayIso ? 'is-today' : '',
-              c.iso === hovered ? 'is-hovered' : '',
-              c.iso === selected ? 'is-selected' : '',
-            ].join(' ')
-            const register = (el: HTMLElement | null) => {
-              if (el) cellEls.current.set(c.iso, el)
-              else cellEls.current.delete(c.iso)
-            }
-            return c.data ? (
-              <button
-                key={c.iso}
-                ref={register}
-                type="button"
-                className={cls}
-                style={style}
-                aria-label={`${prettyDate(c.iso)}: ${formatSignedAmount(c.data.net_profit)} across ${c.data.trades} trade${c.data.trades === 1 ? '' : 's'}`}
-                aria-pressed={c.iso === selected}
-                onPointerEnter={() => onHover(c.iso)}
-                onFocus={() => onHover(c.iso)}
-                onBlur={() => onHover(null)}
-                onClick={() => onSelect(c.iso)}
-              />
-            ) : (
-              <div key={c.iso} ref={register} className={cls} style={style} onPointerEnter={() => onHover(c.future ? null : c.iso)} />
-            )
-          })}
-
-          {tip && hoveredCell ? (
-            <div className={`tl-heat-tip ${tip.below ? 'is-below' : ''}`} style={{ left: tip.x, top: tip.y }} role="status">
-              <div className="text-[11px] text-muted">{prettyDate(hoveredCell.iso, { weekday: 'long', day: 'numeric', month: 'long' })}</div>
-              {hoveredCell.data ? (
-                <>
-                  <div className={`font-mono text-base font-semibold ${hoveredCell.data.net_profit >= 0 ? 'text-positive' : 'text-negative'}`}>
-                    {formatSignedAmount(hoveredCell.data.net_profit)}
-                  </div>
-                  <div className="text-[11px] text-secondary">
-                    {hoveredCell.data.trades} trade{hoveredCell.data.trades === 1 ? '' : 's'} · {hoveredCell.data.wins} won · click for details
-                  </div>
-                </>
+        <div className="tl-heat-body">
+          <div className="tl-heat-days" aria-hidden="true">
+            {WEEKDAY_LABELS.map((d, i) => (
+              <span key={i}>{d}</span>
+            ))}
+          </div>
+          <div className="tl-heat-cells" role="group" aria-label="Daily P&L heatmap" onPointerLeave={() => onHover(null)}>
+            {grid.cells.map((c) => {
+              const style = { '--d': `${c.col * 30 + c.row * 12}ms`, background: cellColor(c, grid.scale) } as CSSProperties
+              const cls = [
+                'tl-heat-cell',
+                c.future ? 'is-future' : '',
+                c.data ? 'has-data' : '',
+                c.row >= 5 ? 'is-weekend' : '',
+                c.iso === grid.todayIso ? 'is-today' : '',
+                c.iso === hovered ? 'is-hovered' : '',
+                c.iso === selected ? 'is-selected' : '',
+              ].join(' ')
+              return c.data ? (
+                <button
+                  key={c.iso}
+                  type="button"
+                  className={cls}
+                  style={style}
+                  aria-label={`${prettyDate(c.iso)}: ${formatSignedAmount(c.data.net_profit)} across ${c.data.trades} trade${c.data.trades === 1 ? '' : 's'}`}
+                  aria-pressed={c.iso === selected}
+                  onPointerEnter={() => onHover(c.iso)}
+                  onFocus={() => onHover(c.iso)}
+                  onBlur={() => onHover(null)}
+                  onClick={() => onSelect(c.iso)}
+                />
               ) : (
-                <div className="text-xs text-secondary">No closed trades</div>
-              )}
-              <div className="mt-1 border-t border-border-subtle pt-1 font-mono text-[11px] text-muted">
-                running total {formatSignedAmount(hoveredCell.cumulative)}
-              </div>
-            </div>
-          ) : null}
+                <div key={c.iso} className={cls} style={style} onPointerEnter={() => onHover(c.future ? null : c.iso)} />
+              )
+            })}
+          </div>
+        </div>
+        <div className="tl-heat-legend" aria-hidden="true">
+          <span>Loss</span>
+          {[1, 0.6, 0.3].map((t) => (
+            <i key={`n${t}`} style={{ background: `color-mix(in oklab, var(--tl-negative) ${28 + t * 72}%, var(--tl-surface-elevated))` }} />
+          ))}
+          <i style={{ background: 'var(--tl-surface-elevated)' }} />
+          {[0.3, 0.6, 1].map((t) => (
+            <i key={`p${t}`} style={{ background: `color-mix(in oklab, var(--tl-positive) ${28 + t * 72}%, var(--tl-surface-elevated))` }} />
+          ))}
+          <span>Profit</span>
         </div>
       </div>
 
-      <div className="tl-heat-ribbon-row">
-        <span className="tl-heat-ribbon-label" aria-hidden="true">P&amp;L</span>
+      {/* Running total */}
+      <div className="tl-cal-chart">
+        <div className="tl-cal-readout" aria-live="polite">
+          {focus ? (
+            <>
+              <span className="text-xs text-muted">{focus === series[series.length - 1] && !hovered ? 'Today' : prettyDate(focus.iso)}</span>
+              {focus.data ? (
+                <span className={`font-mono text-sm font-semibold ${focus.data.net_profit >= 0 ? 'text-positive' : 'text-negative'}`}>
+                  {formatSignedAmount(focus.data.net_profit)}
+                  <span className="ml-1.5 font-sans text-xs font-normal text-muted">
+                    {focus.data.trades} trade{focus.data.trades === 1 ? '' : 's'} · {focus.data.wins} won
+                  </span>
+                </span>
+              ) : (
+                <span className="text-xs text-muted">no closed trades</span>
+              )}
+              <span className="ml-auto text-xs text-muted">
+                running total{' '}
+                <span className={`font-mono text-sm font-semibold ${focus.cumulative >= 0 ? 'text-primary' : 'text-negative'}`}>{formatSignedAmount(focus.cumulative)}</span>
+              </span>
+            </>
+          ) : (
+            <span className="text-xs text-muted">The running total draws itself here once a trade closes.</span>
+          )}
+        </div>
+
         <div
-          ref={ribbonRef}
-          className="tl-heat-ribbon"
-          onPointerMove={ribbonPointer}
+          ref={chartRef}
+          className="tl-cal-plot"
+          onPointerMove={chartPointer}
           onPointerLeave={() => onHover(null)}
-          aria-label="Running total of closed-trade P&L across the same weeks"
           role="img"
+          aria-label="Running total of closed-trade P&L since the first trade in view"
         >
-          {line && anyTrades ? (
-            <svg width={ribbonW} height={RIBBON_H} className="block overflow-visible">
+          {line ? (
+            <svg width={chartW} height={CHART_H} className="block">
               <defs>
-                <linearGradient id="tl-ribbon-fill" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor="var(--tl-glow-a)" stopOpacity="0.32" />
+                <linearGradient id="tl-cal-fill" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor="var(--tl-glow-a)" stopOpacity="0.22" />
                   <stop offset="100%" stopColor="var(--tl-glow-a)" stopOpacity="0" />
                 </linearGradient>
               </defs>
-              <line x1={0} x2={ribbonW} y1={yOf(0)} y2={yOf(0)} stroke="var(--tl-border)" strokeDasharray="3 4" />
-              <path d={area} fill="url(#tl-ribbon-fill)" className="tl-ribbon-area" />
+              {ticks.map((v) => (
+                <g key={v}>
+                  <line
+                    x1={PAD.left}
+                    x2={PAD.left + innerW}
+                    y1={yOf(v)}
+                    y2={yOf(v)}
+                    stroke={v === 0 ? 'var(--tl-border)' : 'var(--tl-border-subtle)'}
+                    strokeDasharray={v === 0 ? '3 4' : undefined}
+                  />
+                  <text x={PAD.left + innerW + 8} y={yOf(v) + 3.5} fontSize={10} fill="var(--tl-text-muted)" fontFamily="var(--tl-font-mono)">
+                    {v === 0 ? '0' : compactUsd(v)}
+                  </text>
+                </g>
+              ))}
+              <text x={PAD.left} y={CHART_H - 4} fontSize={10} fill="var(--tl-text-muted)">
+                {prettyDate(series[0].iso, { day: 'numeric', month: 'short' })}
+              </text>
+              <text x={PAD.left + innerW} y={CHART_H - 4} fontSize={10} fill="var(--tl-text-muted)" textAnchor="end">
+                Today
+              </text>
+              <path d={area} fill="url(#tl-cal-fill)" className="tl-ribbon-area" />
               <path d={line} fill="none" stroke="var(--tl-accent)" strokeWidth={2} strokeLinejoin="round" pathLength={1} className="tl-ribbon-line" />
-              {hoveredCell && !hoveredCell.future ? (
+              {focusIdx !== undefined && hovered ? (
                 <g>
-                  <line x1={xOf(hoveredCell)} x2={xOf(hoveredCell)} y1={0} y2={RIBBON_H} stroke="var(--tl-accent)" strokeOpacity={0.35} />
-                  <circle cx={xOf(hoveredCell)} cy={yOf(hoveredCell.cumulative)} r={4.5} fill="var(--tl-background)" stroke="var(--tl-accent)" strokeWidth={2} />
+                  <line x1={xAt(focusIdx)} x2={xAt(focusIdx)} y1={PAD.top} y2={PAD.top + innerH} stroke="var(--tl-accent)" strokeOpacity={0.35} />
+                  <circle cx={xAt(focusIdx)} cy={yOf(series[focusIdx].cumulative)} r={4.5} fill="var(--tl-background)" stroke="var(--tl-accent)" strokeWidth={2} />
                 </g>
               ) : null}
-              <circle
-                cx={xOf(past[past.length - 1])}
-                cy={yOf(past[past.length - 1].cumulative)}
-                r={3.5}
-                fill="var(--tl-accent)"
-                className="tl-ribbon-end"
-              />
+              <circle cx={xAt(series.length - 1)} cy={yOf(series[series.length - 1].cumulative)} r={3.5} fill="var(--tl-accent)" className="tl-ribbon-end" />
             </svg>
-          ) : (
-            <div className="flex h-full items-center text-xs text-muted">The running total draws itself here once trades close.</div>
-          )}
+          ) : null}
         </div>
       </div>
     </div>

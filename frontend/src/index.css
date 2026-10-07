@@ -214,58 +214,78 @@ textarea,
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
 }
-
-/* Heatmap grid: a weekday-label column + one column per week. The ribbon
-   underneath reuses the same left column so its x-axis lines up with the weeks. */
-.tl-heat {
-  --tl-heat-gap: 4px;
-  --tl-heat-label: 2rem;
+.tl-home-card.is-quiet {
+  border-color: var(--tl-border);
+  box-shadow: 0 6px 18px var(--tl-glass-shadow);
 }
-.tl-heat-months,
-.tl-heat-body,
-.tl-heat-ribbon-row {
-  display: grid;
-  grid-template-columns: var(--tl-heat-label) minmax(0, 1fr);
-  gap: 0 6px;
+
+/* Calendar card: a compact fixed-size heatmap beside the running-total chart;
+   stacked on narrow screens. */
+.tl-cal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem 2.25rem;
+  align-items: flex-start;
+}
+.tl-heat {
+  flex: none;
+}
+.tl-heat {
+  --cell: 20px;
+  --gap: 4px;
+  --label: 2rem;
+  width: max-content;
+  max-width: 100%;
+}
+@media (max-width: 639px) {
+  .tl-heat {
+    --cell: 17px;
+    --gap: 3px;
+    --label: 1.75rem;
+  }
 }
 .tl-heat-months {
-  height: 16px;
-  margin-bottom: 4px;
-}
-.tl-heat-months-track {
   position: relative;
+  height: 16px;
+  margin: 0 0 4px calc(var(--label) + 6px);
 }
-.tl-heat-months-track span,
+.tl-heat-months span {
+  position: absolute;
+  top: 0;
+  left: calc(var(--col) * (var(--cell) + var(--gap)));
+}
+.tl-heat-months span,
 .tl-heat-days span,
-.tl-heat-ribbon-label {
+.tl-heat-legend {
   font-size: 10px;
   color: var(--tl-text-muted);
 }
-.tl-heat-months-track span {
-  position: absolute;
-  top: 0;
+.tl-heat-body {
+  display: grid;
+  grid-template-columns: var(--label) auto;
+  gap: 0 6px;
 }
 .tl-heat-days {
   display: grid;
-  grid-template-rows: repeat(7, minmax(0, 1fr));
-  gap: var(--tl-heat-gap);
+  grid-template-rows: repeat(7, var(--cell));
+  gap: var(--gap);
   align-items: center;
 }
 .tl-heat-cells {
-  position: relative;
   display: grid;
-  grid-template-columns: repeat(var(--weeks), minmax(0, 1fr));
-  grid-template-rows: repeat(7, auto);
+  grid-template-columns: repeat(var(--weeks), var(--cell));
+  grid-template-rows: repeat(7, var(--cell));
   grid-auto-flow: column;
-  gap: var(--tl-heat-gap);
+  gap: var(--gap);
 }
 .tl-heat-cell {
-  aspect-ratio: 1.15 / 1;
+  width: var(--cell);
+  height: var(--cell);
   border: 0;
   padding: 0;
   border-radius: 4px;
   background: var(--tl-surface-elevated);
-  animation: tl-heat-pop 520ms cubic-bezier(0.2, 0.9, 0.25, 1.15) backwards;
+  animation: tl-heat-pop 480ms cubic-bezier(0.2, 0.9, 0.25, 1.15) backwards;
   animation-delay: var(--d, 0ms);
   transition: transform 120ms ease-out, box-shadow 120ms ease-out;
 }
@@ -286,13 +306,13 @@ textarea,
 .tl-heat-cell.is-hovered {
   position: relative;
   z-index: 1;
-  transform: scale(1.14);
-  box-shadow: 0 0 0 1.5px var(--tl-text-primary), 0 6px 18px var(--tl-glass-shadow);
+  transform: scale(1.2);
+  box-shadow: 0 0 0 1.5px var(--tl-text-primary), 0 4px 12px var(--tl-glass-shadow);
 }
 .tl-heat-cell.is-selected {
   position: relative;
   z-index: 1;
-  box-shadow: 0 0 0 2px var(--tl-accent), 0 0 18px color-mix(in oklab, var(--tl-accent) 55%, transparent);
+  box-shadow: 0 0 0 2px var(--tl-accent), 0 0 14px color-mix(in oklab, var(--tl-accent) 55%, transparent);
 }
 .tl-heat-cell:focus-visible {
   outline: 2px solid var(--tl-focus);
@@ -304,33 +324,45 @@ textarea,
     transform: scale(0.2);
   }
 }
+.tl-heat-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 10px;
+}
+.tl-heat-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+.tl-heat-legend span:first-child {
+  margin-right: 2px;
+}
+.tl-heat-legend span:last-child {
+  margin-left: 2px;
+}
 
-.tl-heat-tip {
-  position: absolute;
-  z-index: 5;
-  min-width: 180px;
-  padding: 0.5rem 0.65rem;
-  border-radius: 0.6rem;
-  background: var(--tl-surface);
-  border: 1px solid var(--tl-glass-border);
-  box-shadow: 0 10px 30px var(--tl-glass-shadow);
-  pointer-events: none;
-  transform: translate(-50%, calc(-100% - 10px));
-  white-space: nowrap;
+/* Sits beside the heatmap while it can be at least 380px wide; below that
+   it wraps underneath at full width (whatever the heatmap's week count). */
+.tl-cal-chart {
+  flex: 1 1 380px;
+  min-width: 0;
 }
-.tl-heat-tip.is-below {
-  transform: translate(-50%, 10px);
+.tl-cal-readout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  min-height: 1.5rem;
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
+  border-bottom: 1px solid var(--tl-border-subtle);
 }
-
-.tl-heat-ribbon-row {
-  margin-top: 14px;
-}
-.tl-heat-ribbon-label {
-  padding-top: 2px;
-}
-.tl-heat-ribbon {
+.tl-cal-plot {
   position: relative;
-  height: 116px;
+  height: 190px;
   cursor: crosshair;
   touch-action: pan-y;
 }
@@ -377,13 +409,6 @@ textarea,
   50% {
     opacity: 0.45;
   }
-}
-
-.tl-legend-sq {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
 }
 
 .tl-day-panel {
