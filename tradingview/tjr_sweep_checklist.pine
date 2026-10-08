@@ -31,7 +31,13 @@ NY = "America/New_York"
 
 grpS = "Session (New York time)"
 preset      = input.string("NY open 08:30-11:00", "Window", options = ["NY open 08:30-11:00", "London 02:00-05:00", "NY forex 08:00-11:00"], group = grpS)
-confirmMins = input.int(15, "Minutes allowed from sweep to reversal", minval = 1, group = grpS)
+confirmMins = input.int(15, "Minutes allowed after the sweep to trigger", minval = 1, group = grpS)
+
+grpM = "Style"
+mode     = input.string("Fade the sweep (TJR reversal)", "Mode", options = ["Fade the sweep (TJR reversal)", "Follow the sweep (breakout / continuation)"], group = grpM,
+     tooltip = "FADE: a high gets swept, then price closes back below the structure -> SHORT (stop above the sweep wick).\nFOLLOW: a high gets swept and price CLOSES above that level (it holds) -> LONG (stop below the 3 bars before the sweep). Mirror for lows.")
+biasMode = input.string("1-hour structure", "Trend filter", options = ["None", "1-hour structure", "Daily (close vs 20-day average)"], group = grpM,
+     tooltip = "Only show setups in the trend direction. 1-hour structure = the last two 1-hour swing highs AND lows both rising (up) or both falling (down); mixed = no setups.")
 
 grpL = "Levels"
 showLevels  = input.bool(true, "Draw key levels (prev day/week, Asia, London, overnight, opening range)", group = grpL)
@@ -72,6 +78,19 @@ n60     = math.max(1, int(math.round(60.0 / barMins)))
 [pdh, pdl, dATR] = request.security(syminfo.tickerid, "D", [high[1], low[1], ta.atr(14)[1]], lookahead = barmerge.lookahead_on)
 [pwh, pwl]       = request.security(syminfo.tickerid, "W", [high[1], low[1]], lookahead = barmerge.lookahead_on)
 [oHigh, oLow, oHH, oLL] = request.security(otherSym, timeframe.period, [high, low, ta.highest(high, n60)[1], ta.lowest(low, n60)[1]])
+
+h1Structure() =>
+    float sh = ta.pivothigh(high, 2, 2)
+    float sl = ta.pivotlow(low, 2, 2)
+    float h0 = ta.valuewhen(not na(sh), sh, 0)
+    float h1 = ta.valuewhen(not na(sh), sh, 1)
+    float l0 = ta.valuewhen(not na(sl), sl, 0)
+    float l1 = ta.valuewhen(not na(sl), sl, 1)
+    h0 > h1 and l0 > l1 ? 1 : h0 < h1 and l0 < l1 ? -1 : 0
+h1Bias = request.security(syminfo.tickerid, "60", h1Structure()[1], lookahead = barmerge.lookahead_on)
+dBias  = request.security(syminfo.tickerid, "D", close[1] > ta.sma(close, 20)[1] ? 1 : -1, lookahead = barmerge.lookahead_on)
+trend  = biasMode == "1-hour structure" ? h1Bias : biasMode == "Daily (close vs 20-day average)" ? dBias : 0
+follow = mode == "Follow the sweep (breakout / continuation)"
 
 // ---------------------------------------------------------------------------
 // liquidity levels
@@ -193,6 +212,7 @@ type Pending
     string kinds = ""
     bool   equal = false
     int    count = 0
+    float  lvl
     float  oRef
     bool   smtBroken = false
     bool   fvg = false
@@ -209,6 +229,8 @@ string hiKinds = ""
 string loKinds = ""
 bool   hiEq = false
 bool   loEq = false
+float  hiLvl = na
+float  loLvl = na
 int    hiCnt = 0
 int    loCnt = 0
 int nLv = array.size(levels)
@@ -222,11 +244,13 @@ if nLv > 0
                 hiKinds += lv.kind + " "
                 hiEq := hiEq or lv.equal
                 hiCnt += 1
+                hiLvl := na(hiLvl) ? lv.price : math.max(hiLvl, lv.price)
             else
                 loSwept := true
                 loKinds += lv.kind + " "
                 loEq := loEq or lv.equal
                 loCnt += 1
+                loLvl := na(loLvl) ? lv.price : math.min(loLvl, lv.price)
             if not na(lv.ln)
                 line.set_extend(lv.ln, extend.none)
                 line.set_x2(lv.ln, bar_index)
@@ -236,9 +260,9 @@ if nLv > 0
             array.remove(levels, i)
 
 if inWin and hiSwept and not pShort.active
-    pShort := Pending.new(true, time, bar_index, high, pre3Low, hiKinds, hiEq, hiCnt, oHH, false, false)
+    pShort := Pending.new(true, time, bar_index, high, pre3Low, hiKinds, hiEq, hiCnt, hiLvl, oHH, false, false)
 if inWin and loSwept and not pLong.active
-    pLong := Pending.new(true, time, bar_index, low, pre3High, loKinds, loEq, loCnt, oLL, false, false)
+    pLong := Pending.new(true, time, bar_index, low, pre3High, loKinds, loEq, loCnt, loLvl, oLL, false, false)
 
 // ---------------------------------------------------------------------------
 // setups, outcomes and the results table
@@ -272,12 +296,13 @@ nearestRoom(int dir, float entry, float risk) =>
             best := na(best) ? lv.price : math.min(best, lv.price)
     na(best) ? 99.0 : math.abs(best - entry) / risk
 
-makeSetup(int dir, Pending p) =>
+makeSetup(int dir, Pending p, float stopBase) =>
     float buf   = bufTicks * syminfo.mintick
     float entry = close
-    float stop  = dir < 0 ? p.ext + buf : p.ext - buf
+    float stop  = dir < 0 ? stopBase + buf : stopBase - buf
     float risk  = math.abs(entry - stop)
-    if risk > 0 and ((dir < 0 and stop > entry) or (dir > 0 and stop < entry))
+    bool trendOk = biasMode == "None" or trend == dir
+    if trendOk and risk > 0 and ((dir < 0 and stop > entry) or (dir > 0 and stop < entry))
         float target = entry + dir * rr * risk
         bool cEq   = p.equal
         bool cPD   = str.contains(p.kinds, "PD") or str.contains(p.kinds, "PW")
@@ -291,7 +316,8 @@ makeSetup(int dir, Pending p) =>
         bool wFirst = preset == "NY open 08:30-11:00" and sweepMin >= 570 and sweepMin < 575
         bool wAsia  = str.contains(p.kinds, "ASIA")
         bool wMany  = p.count >= 3
-        string txt = (dir < 0 ? "SHORT" : "LONG") + "  " + str.tostring(score) + "/7\n" + "swept: " + p.kinds + "\n"
+        string txt = (dir < 0 ? "SHORT" : "LONG") + "  " + str.tostring(score) + "/7   (" + (follow ? "follow" : "fade") + ")\n" + "swept: " + p.kinds + "\n"
+        txt += biasMode == "None" ? "" : "trend: " + (trend > 0 ? "up" : trend < 0 ? "down" : "mixed") + "\n"
         txt += (cEq ? "✓" : "·") + " equal highs/lows\n"
         txt += (cPD ? "✓" : "·") + " prev day/week level\n"
         txt += (cDisp ? "✓" : "·") + " strong reversal\n"
@@ -321,24 +347,36 @@ makeSetup(int dir, Pending p) =>
              str.tostring(entry, format.mintick) + "  stop " + str.tostring(stop, format.mintick) + "  target " + str.tostring(target, format.mintick),
              alert.freq_once_per_bar_close)
 
-// pending -> confirm / expire (a HIGH sweep confirms on a close below the 3-bar low before it)
+// pending -> trigger / expire
+//   FADE:   a HIGH sweep triggers a SHORT on a close below the 3-bar low before the sweep (stop above the sweep wick)
+//   FOLLOW: a HIGH sweep triggers a LONG on a close back above the swept level (stop below the 3 bars before the sweep)
+bool shortExpired = pShort.active and (time - pShort.t > confirmMins * 60000 or not inWin)
+bool longExpired  = pLong.active and (time - pLong.t > confirmMins * 60000 or not inWin)
 if pShort.active
     pShort.ext := math.max(pShort.ext, high)
     pShort.smtBroken := pShort.smtBroken or (not na(pShort.oRef) and oHigh > pShort.oRef)
-    pShort.fvg := pShort.fvg or (bar_index >= pShort.bar + 2 and low[2] > high)
-    if close < pShort.ref and time - pShort.t <= confirmMins * 60000
-        makeSetup(-1, pShort)
+    pShort.fvg := pShort.fvg or (bar_index >= pShort.bar + 2 and (follow ? high[2] < low : low[2] > high))
+    bool fire = follow ? close > pShort.lvl : close < pShort.ref
+    if fire and not shortExpired
+        if follow
+            makeSetup(1, pShort, pShort.ref)
+        else
+            makeSetup(-1, pShort, pShort.ext)
         pShort.active := false
-    else if time - pShort.t > confirmMins * 60000 or not inWin
+    else if shortExpired
         pShort.active := false
 if pLong.active
     pLong.ext := math.min(pLong.ext, low)
     pLong.smtBroken := pLong.smtBroken or (not na(pLong.oRef) and oLow < pLong.oRef)
-    pLong.fvg := pLong.fvg or (bar_index >= pLong.bar + 2 and high[2] < low)
-    if close > pLong.ref and time - pLong.t <= confirmMins * 60000
-        makeSetup(1, pLong)
+    pLong.fvg := pLong.fvg or (bar_index >= pLong.bar + 2 and (follow ? low[2] > high : high[2] < low))
+    bool fire = follow ? close < pLong.lvl : close > pLong.ref
+    if fire and not longExpired
+        if follow
+            makeSetup(-1, pLong, pLong.ref)
+        else
+            makeSetup(1, pLong, pLong.ext)
         pLong.active := false
-    else if time - pLong.t > confirmMins * 60000 or not inWin
+    else if longExpired
         pLong.active := false
 
 // open setups -> stop / target / flat at the session's flat time
@@ -388,7 +426,8 @@ if barstate.islast
 
 var table legend = table.new(position.bottom_right, 1, 6, bgcolor = color.new(color.black, 25))
 if barstate.islast and showLegend
-    table.cell(legend, 0, 0, "How to read", text_color = color.white, text_size = size.small, text_halign = text.align_left)
+    table.cell(legend, 0, 0, "How to read  ·  mode: " + (follow ? "FOLLOW the sweep" : "FADE the sweep") + "  ·  trend: " + (biasMode == "None" ? "off" : trend > 0 ? "UP" : trend < 0 ? "DOWN" : "mixed (no setups)"),
+         text_color = color.white, text_size = size.small, text_halign = text.align_left)
     table.cell(legend, 0, 1, "Blue shading = your session window", text_color = color.white, text_size = size.tiny, text_halign = text.align_left)
     table.cell(legend, 0, 2, "Dotted lines = levels price may sweep", text_color = color.white, text_size = size.tiny, text_halign = text.align_left)
     table.cell(legend, 0, 3, "LONG ▲ / SHORT ▼ 4/7 = setup + checklist score (hover it)", text_color = color.white, text_size = size.tiny, text_halign = text.align_left)
