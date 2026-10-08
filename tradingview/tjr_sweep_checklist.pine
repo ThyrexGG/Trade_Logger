@@ -307,7 +307,8 @@ makeSetup(int dir, Pending p, float stopBase) =>
         bool cEq   = p.equal
         bool cPD   = str.contains(p.kinds, "PD") or str.contains(p.kinds, "PW")
         bool cDisp = not na(dATR) and math.abs(entry - p.ext) / dATR >= dispThr
-        bool cSmt  = not p.smtBroken and not na(p.oRef)
+        // fade: SMT = the sibling did NOT also take its high/low (divergence); follow: the sibling DID (confirmation)
+        bool cSmt  = not na(p.oRef) and (follow ? p.smtBroken : not p.smtBroken)
         bool cFvg  = p.fvg
         bool cRoom = nearestRoom(dir, entry, risk) >= roomR
         bool cStop = not na(dATR) and risk / dATR >= stopThr
@@ -321,7 +322,7 @@ makeSetup(int dir, Pending p, float stopBase) =>
         txt += (cEq ? "✓" : "·") + " equal highs/lows\n"
         txt += (cPD ? "✓" : "·") + " prev day/week level\n"
         txt += (cDisp ? "✓" : "·") + " strong reversal\n"
-        txt += (cSmt ? "✓" : "·") + " SMT vs sibling\n"
+        txt += (cSmt ? "✓" : "·") + (follow ? " sibling breaks out too\n" : " SMT vs sibling\n")
         txt += (cFvg ? "✓" : "·") + " fair value gap\n"
         txt += (cRoom ? "✓" : "·") + " room to target\n"
         txt += (cStop ? "✓" : "·") + " not a tight stop"

@@ -264,6 +264,19 @@ and a results table, so you can study which setups work on the market you trade.
      USDJPY ↔ EURJPY (default `CME_MINI:ES1!`; change it when you're on ES or forex).
 4. Optional alerts: Alerts → Create → condition **TJR Sweep Checklist** → *Any alert() function call*.
 
+## Two settings to know first
+
+- **Mode:**
+  - *Fade the sweep (TJR reversal)*: a high gets taken, then price closes
+    back below the structure → **short**, stop above the wick.
+  - *Follow the sweep (breakout / continuation)*: a high gets taken and price
+    **closes above it** → **long**, stop below the 3 bars before the sweep.
+  - Lows are the mirror image in both modes.
+- **Trend filter** (default *1-hour structure*): only setups in the trend
+  direction are drawn. Up = the last two 1-hour swing highs and lows both
+  rising; down = both falling; mixed = nothing drawn. *Daily* uses yesterday's
+  close vs its 20-day average; *None* shows both directions.
+
 ## What you see
 
 - **Blue shading:** your session window (only sweeps inside it count).
