@@ -98,7 +98,7 @@ def fetch_from_mt5() -> None:  # pragma: no cover - needs the local terminal
         now = dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=1)
         for vsym in SYMBOLS.values():
             mt5.symbol_select(vsym, True)
-            for tfn, tf, days in (("M5", mt5.TIMEFRAME_M5, 60), ("M15", mt5.TIMEFRAME_M15, 200)):
+            for tfn, tf, days in (("M1", mt5.TIMEFRAME_M1, 20), ("M5", mt5.TIMEFRAME_M5, 60), ("M15", mt5.TIMEFRAME_M15, 200)):
                 frames, end = [], now
                 for _ in range(80):
                     start = end - dt.timedelta(days=days)
