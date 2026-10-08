@@ -15,12 +15,14 @@ const KINDS: { id: JournalEntryKind; label: string }[] = [
   { id: 'review', label: 'Review' },
   { id: 'observation', label: 'Observation' },
   { id: 'plan', label: 'Trade Plan' },
+  { id: 'skipped', label: 'Skipped setup' },
 ]
 const KIND_TONE: Record<JournalEntryKind, string> = {
   idea: 'bg-accent/10 text-accent',
   review: 'bg-warning/10 text-warning',
   observation: 'bg-surface-elevated text-secondary',
   plan: 'bg-positive/10 text-positive',
+  skipped: 'bg-info/10 text-info',
 }
 
 function fmtDate(iso: string): string {
@@ -255,7 +257,9 @@ export function FreeEntries() {
       }
     >
       <p className="mb-2 text-[11px] text-muted">
-        Market observations, pre-trade plans and post-mortems that aren&apos;t tied to a single closed trade.
+        Market observations, pre-trade plans and post-mortems that aren&apos;t tied to a single closed trade. Log setups
+        you <em>passed on</em> as &ldquo;Skipped setup&rdquo; (with the TradingView link) &mdash; later you can see if
+        skipping them was right.
       </p>
 
       {adding ? (

@@ -1,5 +1,5 @@
 /** Mirrors api/schemas.py JournalEntry — free-standing ideas / reviews / plans (not tied to a trade). */
-export type EntryKind = 'idea' | 'review' | 'observation' | 'plan'
+export type EntryKind = 'idea' | 'review' | 'observation' | 'plan' | 'skipped'
 
 export interface JournalEntry {
   id: string

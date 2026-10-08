@@ -818,7 +818,8 @@ class JournalScreenshotsResponse(BaseModel):
     timestamp: str
 
 
-_JOURNAL_ENTRY_KINDS = ("idea", "review", "observation", "plan")
+# "skipped": a setup you saw but chose not to take; logging them shows whether your filter adds value.
+_JOURNAL_ENTRY_KINDS = ("idea", "review", "observation", "plan", "skipped")
 
 
 class JournalEntry(BaseModel):

@@ -11,7 +11,7 @@ import { colors, radius, spacing } from '../theme'
 import type { EntryKind, JournalEntry } from '../types/entries'
 import { KIND_COLOR, KIND_LABEL } from './EntriesScreen'
 
-const KINDS: EntryKind[] = ['idea', 'review', 'observation', 'plan']
+const KINDS: EntryKind[] = ['idea', 'review', 'observation', 'plan', 'skipped']
 
 const parseTags = (raw: string): string[] =>
   raw

@@ -14,12 +14,14 @@ export const KIND_LABEL: Record<EntryKind, string> = {
   review: 'Review',
   observation: 'Observation',
   plan: 'Trade plan',
+  skipped: 'Skipped setup',
 }
 export const KIND_COLOR: Record<EntryKind, string> = {
   idea: colors.accent,
   review: colors.warning,
   observation: colors.textSecondary,
   plan: colors.positive,
+  skipped: colors.textMuted,
 }
 
 function EntryCard({ entry, onPress }: { entry: JournalEntry; onPress: () => void }) {

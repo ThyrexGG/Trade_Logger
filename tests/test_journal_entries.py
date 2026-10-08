@@ -50,7 +50,7 @@ def test_rejects_unknown_kind():
 def test_all_four_kinds_are_accepted():
     ids = []
     try:
-        for kind in ("idea", "review", "observation", "plan"):
+        for kind in ("idea", "review", "observation", "plan", "skipped"):
             r = client.post("/api/operations/journal/entries", json={"kind": kind, "body": f"a {kind}"})
             assert r.status_code == 200, (kind, r.text)
             assert r.json()["kind"] == kind

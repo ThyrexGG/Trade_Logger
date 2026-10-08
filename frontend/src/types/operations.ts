@@ -106,7 +106,7 @@ export interface JournalUpdateRequest {
   links?: JournalLink[]
 }
 
-export type JournalEntryKind = 'idea' | 'review' | 'observation' | 'plan'
+export type JournalEntryKind = 'idea' | 'review' | 'observation' | 'plan' | 'skipped'
 
 export interface JournalEntry {
   id: string
