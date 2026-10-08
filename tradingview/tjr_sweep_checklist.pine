@@ -3,7 +3,7 @@
 
 //@version=6
 indicator("TJR Sweep Checklist (TradeLogger)", shorttitle = "TL Sweep", overlay = true,
-     max_lines_count = 500, max_labels_count = 500)
+     max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // =============================================================================
 // What this draws (live and on past bars), following the TradeLogger research
@@ -34,7 +34,8 @@ preset      = input.string("NY open 08:30-11:00", "Window", options = ["NY open 
 confirmMins = input.int(15, "Minutes allowed from sweep to reversal", minval = 1, group = grpS)
 
 grpL = "Levels"
-showLevels  = input.bool(true, "Draw liquidity levels", group = grpL)
+showLevels  = input.bool(true, "Draw key levels (prev day/week, Asia, London, overnight, opening range)", group = grpL)
+showSwings  = input.bool(false, "Also draw swing highs/lows (busy)", group = grpL)
 swingLen    = input.int(3, "Swing strength (bars each side)", minval = 2, group = grpL)
 eqTolPct    = input.float(0.03, "Equal highs/lows tolerance (%)", minval = 0.0, step = 0.01, group = grpL)
 maxSwings   = input.int(40, "Max live swing levels kept", minval = 5, group = grpL)
@@ -42,6 +43,8 @@ maxSwings   = input.int(40, "Max live swing levels kept", minval = 5, group = gr
 grpT = "Trade drawing"
 rr          = input.float(2.0, "Target (R multiple)", minval = 0.5, step = 0.5, group = grpT)
 bufTicks    = input.int(4, "Stop buffer beyond the wick (ticks)", minval = 0, group = grpT)
+minScore    = input.int(0, "Only draw setups with score ≥", minval = 0, maxval = 7, group = grpT)
+showLegend  = input.bool(true, "Show the 'how to read' box", group = grpT)
 
 grpC = "Checklist"
 otherSym    = input.symbol("CME_MINI:ES1!", "SMT sibling (NQ↔ES, GBPUSD↔EURUSD, USDJPY↔EURJPY)", group = grpC)
@@ -80,8 +83,14 @@ type Lvl
     bool   equal
     int    born
     line   ln
+    label  tag
 
 var array<Lvl> levels = array.new<Lvl>()
+
+kindName(string k, bool isHigh) =>
+    k == "PDH" ? "Prev day high" : k == "PDL" ? "Prev day low" : k == "PWH" ? "Prev week high" : k == "PWL" ? "Prev week low" :
+     k == "ASIA" ? (isHigh ? "Asia high" : "Asia low") : k == "LDN" ? (isHigh ? "London high" : "London low") :
+     k == "ON" ? (isHigh ? "Overnight high" : "Overnight low") : k == "OR" ? (isHigh ? "Open range high" : "Open range low") : (isHigh ? "Swing high" : "Swing low")
 
 kindColor(string k) =>
     k == "PDH" or k == "PDL" ? color.new(color.orange, 20) : k == "PWH" or k == "PWL" ? color.new(color.purple, 20) : k == "SWING" ? color.new(color.gray, 55) : color.new(color.teal, 30)
@@ -93,6 +102,7 @@ purge(string kinds) =>
             Lvl lv = array.get(levels, i)
             if str.contains(kinds, "|" + lv.kind + "|")
                 line.delete(lv.ln)
+                label.delete(lv.tag)
                 array.remove(levels, i)
 
 addLevel(float price, bool isHigh, string kind, int startBar) =>
@@ -105,8 +115,11 @@ addLevel(float price, bool isHigh, string kind, int startBar) =>
                     eq := true
                     if not na(lv.ln)
                         line.set_style(lv.ln, line.style_solid)
-        line ln = showLevels ? line.new(startBar, price, bar_index, price, extend = extend.right, color = kindColor(kind), style = eq ? line.style_solid : line.style_dotted, width = 1) : na
-        array.push(levels, Lvl.new(price, isHigh, kind, eq, bar_index, ln))
+        bool draw = kind == "SWING" ? showSwings : showLevels
+        line ln = draw ? line.new(startBar, price, bar_index, price, extend = extend.right, color = kindColor(kind), style = eq ? line.style_solid : line.style_dotted, width = 1) : na
+        label tg = draw ? label.new(startBar, price, kindName(kind, isHigh) + (eq ? " (equal)" : ""), style = label.style_none,
+             textcolor = kindColor(kind), size = size.tiny, textalign = text.align_left) : na
+        array.push(levels, Lvl.new(price, isHigh, kind, eq, bar_index, ln, tg))
         // cap the number of live swing levels
         int swings = 0
         for lv in levels
@@ -117,6 +130,7 @@ addLevel(float price, bool isHigh, string kind, int startBar) =>
                 Lvl old = array.get(levels, i)
                 if old.kind == "SWING"
                     line.delete(old.ln)
+                    label.delete(old.tag)
                     array.remove(levels, i)
                     break
 
@@ -217,6 +231,8 @@ if nLv > 0
                 line.set_extend(lv.ln, extend.none)
                 line.set_x2(lv.ln, bar_index)
                 line.set_color(lv.ln, color.new(color.gray, 80))
+                label.set_textcolor(lv.tag, color.new(color.gray, 60))
+                label.set_text(lv.tag, kindName(lv.kind, lv.isHigh) + " (taken)")
             array.remove(levels, i)
 
 if inWin and hiSwept and not pShort.active
@@ -234,9 +250,9 @@ type Setup
     float target
     float risk
     int   score
-    line  le
-    line  ls
-    line  lt
+    bool  drawn
+    box   bWin
+    box   bRisk
 
 var array<Setup> openSetups = array.new<Setup>()
 var int   nAll = 0
@@ -286,13 +302,21 @@ makeSetup(int dir, Pending p) =>
         txt += wFirst ? "\n⚠ first 5 min of the open" : ""
         txt += wAsia ? "\n⚠ Asia level" : ""
         txt += wMany ? "\n⚠ many levels at once" : ""
-        color bg = score >= 5 ? color.new(color.teal, 10) : score >= 3 ? color.new(color.orange, 10) : color.new(color.gray, 10)
-        label.new(bar_index, dir < 0 ? high : low, txt, style = dir < 0 ? label.style_label_down : label.style_label_up,
-             color = bg, textcolor = color.white, size = size.small, textalign = text.align_left)
-        line le = line.new(bar_index, entry, bar_index + 1, entry, color = color.gray, width = 1)
-        line ls = line.new(bar_index, stop, bar_index + 1, stop, color = color.red, width = 1)
-        line lt = line.new(bar_index, target, bar_index + 1, target, color = color.green, width = 1)
-        array.push(openSetups, Setup.new(dir, entry, stop, target, risk, score, le, ls, lt))
+        bool drawIt = score >= minScore
+        box bWin  = na
+        box bRisk = na
+        if drawIt
+            color tagCol = score >= 5 ? color.new(color.teal, 0) : score >= 3 ? color.new(color.orange, 0) : color.new(color.gray, 0)
+            label.new(bar_index, p.ext, (dir < 0 ? "SHORT ▼ " : "LONG ▲ ") + str.tostring(score) + "/7",
+                 style = dir < 0 ? label.style_label_down : label.style_label_up, color = tagCol, textcolor = color.white,
+                 size = size.small, tooltip = txt)
+            bWin := box.new(bar_index, math.max(entry, target), bar_index + 1, math.min(entry, target), border_color = color.new(color.green, 40),
+                 bgcolor = color.new(color.green, 82), text = "TP " + str.tostring(target, format.mintick) + "  (+" + str.tostring(rr) + "R)",
+                 text_color = color.green, text_size = size.tiny, text_halign = text.align_right, text_valign = dir < 0 ? text.align_bottom : text.align_top)
+            bRisk := box.new(bar_index, math.max(entry, stop), bar_index + 1, math.min(entry, stop), border_color = color.new(color.red, 40),
+                 bgcolor = color.new(color.red, 82), text = "SL " + str.tostring(stop, format.mintick) + "   Entry " + str.tostring(entry, format.mintick),
+                 text_color = color.red, text_size = size.tiny, text_halign = text.align_right, text_valign = dir < 0 ? text.align_top : text.align_bottom)
+        array.push(openSetups, Setup.new(dir, entry, stop, target, risk, score, drawIt, bWin, bRisk))
         alert((dir < 0 ? "SHORT" : "LONG") + " sweep setup " + syminfo.ticker + "  score " + str.tostring(score) + "/7  entry " +
              str.tostring(entry, format.mintick) + "  stop " + str.tostring(stop, format.mintick) + "  target " + str.tostring(target, format.mintick),
              alert.freq_once_per_bar_close)
@@ -329,9 +353,13 @@ if nOpen > 0
             res := low <= s.stop ? -1.0 : high >= s.target ? rr : na
         if na(res) and (nyMin >= flatMin or newDay)
             res := s.dir * (close - s.entry) / s.risk
-        line.set_x2(s.le, bar_index)
-        line.set_x2(s.ls, bar_index)
-        line.set_x2(s.lt, bar_index)
+        if s.drawn
+            box.set_right(s.bWin, bar_index)
+            box.set_right(s.bRisk, bar_index)
+        if not na(res) and s.drawn
+            string outTxt = res > 0 ? "✓ +" + str.tostring(res, "#.0") + "R" : "✗ " + str.tostring(res, "#.0") + "R"
+            label.new(bar_index, res > 0 ? s.target : s.stop, outTxt, style = label.style_label_left,
+                 color = res > 0 ? color.new(color.green, 0) : color.new(color.red, 0), textcolor = color.white, size = size.tiny)
         if not na(res)
             nAll += 1
             wAll += res > 0 ? 1 : 0
@@ -357,5 +385,14 @@ if barstate.islast
     table.cell(tb, 0, 4, "Avg R score < " + str.tostring(goodScore) + " (" + str.tostring(nLo) + ")", text_color = color.white, text_size = size.small)
     table.cell(tb, 1, 4, nLo > 0 ? str.tostring(rLo / nLo, "#.00") : "-", text_color = rLo >= 0 ? color.lime : color.red, text_size = size.small)
     table.cell(tb, 0, 5, "Before spread/commission", text_color = color.gray, text_size = size.tiny)
+
+var table legend = table.new(position.bottom_right, 1, 6, bgcolor = color.new(color.black, 25))
+if barstate.islast and showLegend
+    table.cell(legend, 0, 0, "How to read", text_color = color.white, text_size = size.small, text_halign = text.align_left)
+    table.cell(legend, 0, 1, "Blue shading = your session window", text_color = color.white, text_size = size.tiny, text_halign = text.align_left)
+    table.cell(legend, 0, 2, "Dotted lines = levels price may sweep", text_color = color.white, text_size = size.tiny, text_halign = text.align_left)
+    table.cell(legend, 0, 3, "LONG ▲ / SHORT ▼ 4/7 = setup + checklist score (hover it)", text_color = color.white, text_size = size.tiny, text_halign = text.align_left)
+    table.cell(legend, 0, 4, "Green box = target zone · red box = stop zone", text_color = color.white, text_size = size.tiny, text_halign = text.align_left)
+    table.cell(legend, 0, 5, "✓ / ✗ = how it ended, in R", text_color = color.white, text_size = size.tiny, text_halign = text.align_left)
 
 bgcolor(inWin ? color.new(color.blue, 94) : na, title = "Session window")

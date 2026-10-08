@@ -266,17 +266,20 @@ and a results table, so you can study which setups work on the market you trade.
 
 ## What you see
 
-- **Dotted lines:** live liquidity: previous day (orange), previous week
-  (purple), Asia / London / overnight / opening range (teal), swing points
-  (grey; **solid** = equal highs/lows). A level greys out once price trades through it.
-- **A label on each setup:** direction, score out of 7 and the checklist:
-  equal highs/lows · previous day/week level · strong reversal · SMT ·
-  fair value gap · room to target · not a tight stop, plus ⚠ warnings (first 5
-  minutes after 09:30, Asia level, many levels at once).
-- **Grey / red / green lines:** entry, stop, target, until the setup resolves.
+- **Blue shading:** your session window (only sweeps inside it count).
+- **Dotted lines with names:** key levels price may sweep: previous day/week
+  high-low, Asia, London, overnight, opening range. A level says "(taken)"
+  and fades once price trades through it. Swing highs/lows are used too, but
+  only drawn if you turn on *Also draw swing highs/lows*.
+- **A small tag** like `LONG ▲ 4/7`: a setup and its checklist score.
+  **Hover over the tag** to see which checklist items it had and any warnings.
+- **Green box = target zone, red box = stop zone**, like TradingView's
+  long/short position tool, with the TP, SL and entry prices written on them.
+- **✓ +2.0R / ✗ −1.0R:** how the setup ended (or its R at the session's
+  flat time).
 - **Table (top right):** every setup on the loaded chart: count, win rate,
-  average R, and average R for high vs low scores. It's **before**
-  spread/commission. Scroll back or load more history to grow the sample.
+  average R, and average R for high vs low scores, **before** spread/commission.
+- *Only draw setups with score ≥* hides low-score setups if the chart gets busy.
 
 ## How to read it honestly
 
