@@ -36,7 +36,7 @@ function CountBar({ counts, title }: { counts: Record<string, number>; title: st
 export function AuditSummary({ data }: { data: AuditResponse }) {
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="tl-figures">
         <OpsMetric label="Audit records" value={data.total_records.toLocaleString()} sub={`${data.total_returned} shown`} />
         <OpsMetric label="Latest event" value={timeAgo(data.latest_event_at ?? undefined) ?? '—'} />
         <OpsMetric label="Decision ledger" value={data.decision_ledger_records} sub="research-decision audit rows" />
@@ -142,11 +142,11 @@ export function AuditView({ data }: { data: AuditResponse }) {
           autoComplete="off"
           className="w-48 rounded border border-border bg-background px-2 py-1 text-xs text-primary placeholder:text-muted focus:border-accent focus:outline-none"
         />
-        <select value={state} onChange={(e) => { setState(e.target.value); setLimit(PAGE) }} className="rounded border border-border bg-background px-2 py-1 text-xs text-primary" aria-label="Filter by state">
+        <select value={state} onChange={(e) => { setState(e.target.value); setLimit(PAGE) }} className="tl-select" aria-label="Filter by state">
           <option value="all">All states</option>
           {states.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
-        <select value={mode} onChange={(e) => { setMode(e.target.value); setLimit(PAGE) }} className="rounded border border-border bg-background px-2 py-1 text-xs text-primary" aria-label="Filter by mode">
+        <select value={mode} onChange={(e) => { setMode(e.target.value); setLimit(PAGE) }} className="tl-select" aria-label="Filter by mode">
           <option value="all">All modes</option>
           {modes.map((m) => <option key={m} value={m}>{m}</option>)}
         </select>

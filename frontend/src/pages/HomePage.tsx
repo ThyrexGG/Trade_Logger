@@ -1,15 +1,18 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAnalytics } from '../lib/useAnalytics'
-import { useAuth } from '../lib/auth'
+import { useOpenPositions } from '../lib/useOpenPositions'
+import { useAlerts } from '../lib/useAlerts'
+import { useCachedResource } from '../lib/dataCache'
+import { getDayTrades } from '../api/analytics'
 import { describeAccount, sortAccounts } from '../lib/accountLabel'
-import { formatSignedAmount } from '../lib/format'
-import { ALL_NAV_ITEMS } from '../lib/navigation'
-import type { IconComponent } from '../lib/icons'
+import { formatPrice, formatSignedAmount } from '../lib/format'
 import { SectionError } from '../components/operations/primitives'
 import { PnlHeatmap } from '../components/home/PnlHeatmap'
 import { DayTradesPanel } from '../components/home/DayTradesPanel'
-import { TodayStrip } from '../components/home/TodayStrip'
+import { MarketStrip } from '../components/home/MarketStrip'
+import { SessionRail } from '../components/home/SessionRail'
+import { PositionTracks } from '../components/home/PositionTracks'
 import { useCountUp } from '../components/home/useCountUp'
 import { bestAndWorst, buildGrid, currentStreak, monthSummary, prettyDate, windowStartMs, isoDay } from '../components/home/homeMath'
 
@@ -39,43 +42,23 @@ function useNarrow(): boolean {
   return narrow
 }
 
-function greeting(now: Date): string {
-  const h = now.getHours()
-  if (h < 5) return 'Late one'
-  if (h < 12) return 'Morning'
-  if (h < 18) return 'Afternoon'
-  return 'Evening'
+function isLong(direction: string): boolean {
+  const d = direction.toUpperCase()
+  return d.startsWith('B') || d === 'LONG'
 }
 
-/** Which FX sessions are open right now (UTC hours, ignoring DST shifts of an hour). */
-function sessionLabel(now: Date): string {
-  const day = now.getUTCDay()
-  const h = now.getUTCHours()
-  if (day === 6 || (day === 0 && h < 21) || (day === 5 && h >= 21)) return 'Markets closed for the weekend'
-  const open = [
-    (h >= 21 || h < 6) && 'Sydney',
-    h < 9 && 'Tokyo',
-    h >= 7 && h < 16 && 'London',
-    h >= 12 && h < 21 && 'New York',
-  ].filter(Boolean) as string[]
-  if (open.length === 0) return 'Between sessions'
-  return open.length > 1 ? `${open.join(' + ')} overlap` : `${open[0]} session open`
-}
-
-/** Only a name the person actually gave — an email's local part ("jsmith92") reads as a robot guessing. */
-function firstName(display: string | null | undefined): string {
-  const word = (display ?? '').trim().split(/\s+/)[0] ?? ''
-  return word ? word[0].toUpperCase() + word.slice(1) : ''
+function tone(v: number): string {
+  return v > 0 ? 'text-positive' : v < 0 ? 'text-negative' : 'text-primary'
 }
 
 /**
- * Home (`/workspace/home`) — the first screen after sign-in. Built around one
- * picture: six months of daily P&L as a heatmap that fills itself in, with the
- * running total drawn underneath along the same weeks. Everything comes from
- * the same analytics endpoint the Analytics page uses; nothing is invented.
+ * Today (`/workspace/home`) — the command centre. Laid out by urgency, top to
+ * bottom: what the market is doing and where we are in the trading day; what
+ * is open and at risk right now; how today is going; then the longer view.
+ * One account at a time; every figure comes from the same APIs the rest of
+ * the app uses.
  */
 export function HomePage() {
-  const { user } = useAuth()
   const narrow = useNarrow()
   const [account, setAccount] = useState<string | null>(loadAccount)
   const [hovered, setHovered] = useState<string | null>(null)
@@ -83,6 +66,8 @@ export function HomePage() {
   const start = useMemo(() => isoDay(windowStartMs(WEEKS_MAX)), [])
   const { state, data, error, refetch } = useAnalytics({ account: account ?? 'ALL', start })
   const accounts = useMemo(() => sortAccounts(data?.available.accounts ?? []), [data])
+  const positions = useOpenPositions()
+  const alerts = useAlerts()
 
   // First visit (or the remembered account is gone): pick the first account in
   // the app's usual order — Capital.com, then MT5 — instead of mixing them.
@@ -90,9 +75,7 @@ export function HomePage() {
     if (accounts.length && (!account || !accounts.includes(account))) setAccount(accounts[0])
   }, [accounts, account])
 
-  // Only ever render figures that belong to the selected account. While a
-  // switch is loading this is null and the skeleton shows, so one account's
-  // numbers never sit under another account's name.
+  // Only ever render figures that belong to the selected account.
   const view = data && (accounts.length === 0 || (account && data.filters_applied.account === account)) ? data : null
 
   function pickAccount(a: string) {
@@ -105,9 +88,14 @@ export function HomePage() {
     }
   }
 
+  const todayIso = isoDay(Date.now())
+  const todayTrades = useCachedResource(
+    `home:day:${account ?? 'ALL'}:${todayIso}`,
+    (signal) => getDayTrades(todayIso, { account: account ?? 'ALL' }, signal),
+    { refreshMs: 120_000, revalidateOn: ['tl:synced'] },
+  )
+
   const daily = view?.daily_pnl ?? []
-  // Show from the account's first trade (at least a quarter, at most six months)
-  // so a new account isn't a wall of empty squares; phones always get a quarter.
   const weeks = useMemo(() => {
     if (narrow) return WEEKS_MIN
     const first = daily.reduce<string | null>((m, d) => (!m || d.date < m ? d.date : m), null)
@@ -117,241 +105,228 @@ export function HomePage() {
   }, [daily, narrow])
   const grid = useMemo(() => buildGrid(daily, weeks), [daily, weeks])
   const month = useMemo(() => monthSummary(daily), [daily])
-  const today = useMemo(() => daily.find((d) => d.date.slice(0, 10) === isoDay(Date.now())) ?? null, [daily])
+  const today = useMemo(() => daily.find((d) => d.date.slice(0, 10) === todayIso) ?? null, [daily, todayIso])
   const streak = useMemo(() => currentStreak(daily), [daily])
   const { best, worst } = useMemo(() => bestAndWorst(daily), [daily])
-  const topSymbol = useMemo(
-    () => [...(view?.symbol_breakdown ?? [])].sort((a, b) => b.net_profit - a.net_profit)[0] ?? null,
-    [view],
+  const topSymbol = useMemo(() => [...(view?.symbol_breakdown ?? [])].sort((a, b) => b.net_profit - a.net_profit)[0] ?? null, [view])
+
+  const open = useMemo(
+    () => (positions.data?.positions ?? []).filter((p) => !account || p.account_id === account),
+    [positions.data, account],
   )
-  const monthPnl = useCountUp(month.pnl, 1300, 250)
-  const winRate = useCountUp(view?.metrics.win_rate ?? 0, 1100, 450)
+  const floating = open.reduce((s, p) => s + p.floating_pnl, 0)
+  const unprotected = open.filter((p) => !(p.sl > 0)).length
+  const waiting = (alerts.data?.alerts ?? []).filter((a) => a.status.toUpperCase() === 'ACTIVE')
+  const closedToday = todayTrades.data?.trades ?? []
+
+  const monthPnl = useCountUp(month.pnl, 900, 100)
+  const todayPnl = useCountUp(today?.net_profit ?? 0, 900, 100)
   const now = new Date()
-  const name = firstName(user?.display_name)
-  const pf = view?.metrics.profit_factor ?? 0
-  const shortcuts = ['workspace.journal', 'workspace.trade-planner', 'workspace.analytics', 'research.intelligence']
-    .map((id) => ALL_NAV_ITEMS.find((n) => n.id === id))
-    .filter((n): n is NonNullable<typeof n> => Boolean(n))
+  const yourSymbols = useMemo(() => (view?.symbol_breakdown ?? []).map((r) => r.symbol), [view])
 
   return (
-    <div className="mx-auto w-full max-w-[1240px] px-4 py-6 sm:px-6 sm:py-8">
-      {/* Which account this whole page is about — one at a time, never mixed */}
-      {accounts.length ? (
-        <div className="mb-5 flex flex-wrap items-center gap-2" role="radiogroup" aria-label="Account">
-          <span className="mr-1 text-[11px] font-medium uppercase tracking-[0.14em] text-muted">Account</span>
-          {accounts.map((a) => {
-            const info = describeAccount(a)
-            const on = account === a
-            return (
-              <button
-                key={a}
-                type="button"
-                role="radio"
-                aria-checked={on}
-                onClick={() => pickAccount(a)}
-                className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition-colors ${
-                  on ? 'border-accent bg-accent/10 font-semibold text-accent' : 'border-border text-secondary hover:bg-surface-hover hover:text-primary'
-                }`}
-              >
-                <span className={`h-1.5 w-1.5 rounded-full ${on ? 'bg-accent' : 'bg-border'}`} aria-hidden="true" />
-                {info.label}
+    <div className="mx-auto w-full max-w-[1320px] space-y-4 px-4 py-6 sm:px-6 sm:py-7">
+      {/* Header */}
+      <header className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
+        <div>
+          <p className="tl-eyebrow">
+            {now.toLocaleDateString(undefined, { weekday: 'short', day: '2-digit', month: 'short' })} ·{' '}
+            {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </p>
+          <h1 className="tl-page-title mt-1">Overview</h1>
+        </div>
+        {accounts.length ? (
+          <div className="tl-seg" role="radiogroup" aria-label="Account">
+            {accounts.map((a) => (
+              <button key={a} type="button" role="radio" aria-checked={account === a} onClick={() => pickAccount(a)}>
+                <span className={`h-1.5 w-1.5 rounded-full ${account === a ? 'bg-accent-fill' : 'bg-[var(--tl-border)]'}`} aria-hidden="true" />
+                {describeAccount(a).label}
               </button>
-            )
-          })}
-        </div>
-      ) : null}
-
-      {/* Greeting + this month */}
-      <header className="tl-home-hero">
-        <div className="min-w-0">
-          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
-            {now.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })} · {sessionLabel(now)}
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary [text-wrap:balance] sm:text-4xl">
-            {greeting(now)}
-            {name ? `, ${name}` : ''}.
-          </h1>
-          <p className="mt-2 max-w-xl text-sm text-secondary">
-            {!view
-              ? 'Pulling up your trades…'
-              : month.tradingDays
-                ? `${month.tradingDays} trading day${month.tradingDays === 1 ? '' : 's'} this month, ${month.greenDays} of them green.`
-                : 'No closed trades yet this month — the calendar below picks up the moment one closes.'}
-          </p>
-        </div>
-
-        <div className="tl-home-month">
-          <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
-            This month{account ? ` · ${describeAccount(account).label}` : ''}
+            ))}
           </div>
-          <div className={`font-mono text-4xl font-semibold tabular-nums sm:text-5xl ${month.pnl > 0 ? 'text-positive' : month.pnl < 0 ? 'text-negative' : 'text-primary'}`}>
-            {formatSignedAmount(monthPnl)}
-          </div>
-          <div className="mt-1 text-xs text-muted">
-            {month.trades} closed trade{month.trades === 1 ? '' : 's'}
-            {today ? (
-              <>
-                {' · today '}
-                <span className={`font-mono ${today.net_profit >= 0 ? 'text-positive' : 'text-negative'}`}>{formatSignedAmount(today.net_profit)}</span>
-              </>
-            ) : null}
-          </div>
-        </div>
+        ) : null}
       </header>
 
-      {/* Stat strip */}
-      <dl className="tl-home-stats">
-        <div>
-          <dt>Win rate · 6 mo</dt>
-          <dd>{view ? `${winRate.toFixed(1)}%` : '—'}</dd>
-        </div>
-        <div>
-          <dt>Profit factor · 6 mo</dt>
-          <dd>{view ? (Number.isFinite(pf) ? pf.toFixed(2) : '∞') : '—'}</dd>
-        </div>
-        <div>
-          <dt>Day streak</dt>
-          <dd className={streak ? (streak.green ? 'text-positive' : 'text-negative') : ''}>
-            {streak ? `${streak.length} ${streak.green ? 'green' : 'red'}` : '—'}
-          </dd>
-        </div>
-        <div>
-          <dt>Trades · 6 mo</dt>
-          <dd>{view ? view.metrics.total_trades : '—'}</dd>
-        </div>
-      </dl>
+      {/* Level 1 — the market and the trading day */}
+      <MarketStrip yourSymbols={yourSymbols} />
+      <SessionRail
+        trades={closedToday.map((t) => ({ id: t.trade_id, at: t.exit_time, pnl: t.net_profit, symbol: t.symbol }))}
+        open={open.filter((p) => p.open_time).map((p) => ({ id: p.position_id, at: p.open_time as string, symbol: p.symbol }))}
+      />
 
-      <TodayStrip account={account} />
-
-      {/* The calendar */}
-      <section className="tl-home-card mt-5" aria-label="Daily P&L calendar">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-semibold text-primary">
-              {weeks === WEEKS_MAX ? 'Your last six months' : `Your last ${weeks} weeks`}, day by day
-            </h2>
-            <p className="text-xs text-muted">Hover a square or the chart to see that day. Click a square to see its trades.</p>
-          </div>
-        </div>
-
-        {state === 'error' && !data ? (
-          <SectionError message={error ?? 'Your trades could not be loaded.'} onRetry={refetch} />
-        ) : !view ? (
-          <div className="tl-heat-skeleton" aria-busy="true" aria-label="Loading">
-            {Array.from({ length: 7 }, (_, i) => (
-              <div key={i} />
+      {/* Level 1/2 — your book right now, and today */}
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+        <section className="tl-card" aria-label="Your account now">
+          <dl className="grid grid-cols-2 border-b border-[var(--tl-border-subtle)] sm:grid-cols-4">
+            {[
+              { label: 'Today', value: view ? formatSignedAmount(todayPnl) : '—', cls: tone(today?.net_profit ?? 0), sub: today ? `${today.trades} closed` : 'no closed trades' },
+              { label: 'Open now', value: positions.data ? formatSignedAmount(floating) : '—', cls: tone(floating), sub: `${open.length} trade${open.length === 1 ? '' : 's'} running` },
+              { label: 'This month', value: view ? formatSignedAmount(monthPnl) : '—', cls: tone(month.pnl), sub: `${month.greenDays}/${month.tradingDays} days green` },
+              { label: 'Win rate · 6 mo', value: view ? `${view.metrics.win_rate.toFixed(1)}%` : '—', cls: 'text-primary', sub: view ? `profit factor ${Number.isFinite(view.metrics.profit_factor) ? view.metrics.profit_factor.toFixed(2) : '∞'}` : '' },
+            ].map((f, i) => (
+              <div key={f.label} className={`px-4 py-3.5 sm:px-5 ${i % 2 ? 'border-l border-[var(--tl-border-subtle)]' : ''} ${i === 2 ? 'border-t border-[var(--tl-border-subtle)] sm:border-l sm:border-t-0' : ''} ${i === 3 ? 'border-t border-[var(--tl-border-subtle)] sm:border-t-0' : ''}`}>
+                <dt className="tl-label">{f.label}</dt>
+                <dd className={`tl-figure mt-1 text-[1.35rem] leading-none sm:text-[1.5rem] ${f.cls}`}>{f.value}</dd>
+                <dd className="mt-1.5 text-xs text-muted">{f.sub}</dd>
+              </div>
             ))}
-          </div>
-        ) : (
-          <PnlHeatmap
-            key={`${account}-${grid.weeks}`}
-            grid={grid}
-            hovered={hovered}
-            selected={selected}
-            onHover={setHovered}
-            onSelect={(iso) => setSelected((cur) => (cur === iso ? null : iso))}
-          />
-        )}
+          </dl>
 
-        {selected && account ? <DayTradesPanel iso={selected} account={account} onClose={() => setSelected(null)} /> : null}
-      </section>
-
-      {/* Highlights */}
-      <section className="mt-5 grid gap-3 sm:grid-cols-3" aria-label="Highlights">
-        <Highlight
-          label="Best day"
-          value={best ? formatSignedAmount(best.net_profit) : '—'}
-          tone="positive"
-          sub={best ? prettyDate(best.date) : 'No green day yet'}
-          onClick={best ? () => setSelected(best.date) : undefined}
-        />
-        <Highlight
-          label="Toughest day"
-          value={worst ? formatSignedAmount(worst.net_profit) : '—'}
-          tone="negative"
-          sub={worst ? prettyDate(worst.date) : 'No red day — nice'}
-          onClick={worst ? () => setSelected(worst.date) : undefined}
-        />
-        <Highlight
-          label="Top symbol"
-          value={topSymbol ? topSymbol.symbol : '—'}
-          tone="accent"
-          sub={topSymbol ? `${formatSignedAmount(topSymbol.net_profit)} · ${topSymbol.trades} trades · ${topSymbol.win_rate.toFixed(0)}% won` : 'Trade a little first'}
-        />
-      </section>
-
-      {/* Shortcuts */}
-      {shortcuts.length ? (
-        <section className="mt-5" aria-label="Jump back in">
-          <h2 className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted">Jump back in</h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {shortcuts.map((n, i) => (
-              <SpotlightLink key={n.id} to={n.path} index={i} title={n.label} body={n.description} Icon={n.icon} />
-            ))}
+          <div className="px-4 pb-3 pt-3.5 sm:px-5">
+            <div className="mb-2 flex items-center gap-3">
+              <h2 className="text-[13.5px] font-semibold text-primary">Open trades</h2>
+              <span className="tl-rule" aria-hidden="true" />
+              {unprotected ? (
+                <span className="flex items-center gap-1.5 text-xs text-warning">
+                  <span className="h-1.5 w-1.5 rounded-full bg-warning" aria-hidden="true" />
+                  {unprotected} without a stop loss
+                </span>
+              ) : open.length ? (
+                <span className="flex items-center gap-1.5 text-xs text-muted">
+                  <span className="h-1.5 w-1.5 rounded-full bg-positive" aria-hidden="true" />
+                  All protected by a stop loss
+                </span>
+              ) : null}
+              <Link to="/workspace/positions" className="text-xs text-muted hover:text-accent">
+                All positions →
+              </Link>
+            </div>
+            {positions.state === 'loading' && !positions.data ? (
+              <div className="space-y-2 py-1">
+                <span className="tl-skeleton block h-8 rounded" />
+                <span className="tl-skeleton block h-8 rounded" />
+              </div>
+            ) : positions.state === 'error' && !positions.data ? (
+              <p className="py-2 text-sm text-muted">Couldn&rsquo;t load your open trades right now.</p>
+            ) : (
+              <PositionTracks positions={open} />
+            )}
           </div>
         </section>
-      ) : null}
+
+        <div className="space-y-4">
+          <section className="tl-card" aria-label="Closed today">
+            <div className="tl-card-head">
+              <h2 className="tl-card-title">Closed today</h2>
+              <span className="tl-rule" aria-hidden="true" />
+              <Link to="/workspace/journal" className="text-xs text-muted hover:text-accent">
+                Journal →
+              </Link>
+            </div>
+            <div className="tl-card-body">
+              {todayTrades.state === 'loading' && !todayTrades.data ? (
+                <span className="tl-skeleton block h-6 rounded" />
+              ) : closedToday.length === 0 ? (
+                <p className="text-sm text-muted">Nothing closed yet today.</p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {closedToday.slice(0, 6).map((t) => (
+                    <li key={t.trade_id}>
+                      <Link to={`/workspace/journal?trade=${encodeURIComponent(t.trade_id)}`} className="-mx-2 grid grid-cols-[3rem_minmax(0,1fr)_auto] items-baseline gap-2 rounded-[var(--tl-radius-sm)] px-2 py-1 hover:bg-surface-elevated">
+                        <span className="font-mono text-[11px] text-muted">{new Date(t.exit_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span className="truncate text-sm text-primary">
+                          <span className={`mr-1.5 font-mono text-[10.5px] ${isLong(t.direction) ? 'text-positive' : 'text-negative'}`}>{isLong(t.direction) ? 'BUY' : 'SELL'}</span>
+                          {t.symbol}
+                        </span>
+                        <span className={`tl-figure text-sm ${tone(t.net_profit)}`}>{formatSignedAmount(t.net_profit)}</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
+
+          <section className="tl-card" aria-label="Price alerts">
+            <div className="tl-card-head">
+              <h2 className="tl-card-title">Price alerts</h2>
+              <span className="tl-rule" aria-hidden="true" />
+              <Link to="/workspace/alerts" className="text-xs text-muted hover:text-accent">
+                {waiting.length ? 'Manage →' : 'Set one →'}
+              </Link>
+            </div>
+            <div className="tl-card-body">
+              {alerts.state === 'loading' && !alerts.data ? (
+                <span className="tl-skeleton block h-6 rounded" />
+              ) : waiting.length === 0 ? (
+                <p className="text-sm text-muted">No alerts waiting.</p>
+              ) : (
+                <ul className="space-y-1">
+                  {waiting.slice(0, 5).map((a) => (
+                    <li key={a.id} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-baseline gap-3 py-0.5">
+                      <span className="truncate font-mono text-[12.5px] text-primary">{a.symbol}</span>
+                      <span className="font-mono text-[11px] text-muted">{a.condition === 'ABOVE' ? '≥' : '≤'}</span>
+                      <span className="tl-figure text-sm text-secondary">{formatPrice(a.target_price)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
+        </div>
+      </div>
+
+      {/* Level 3 — the longer view */}
+      <section className="tl-card" aria-label="Performance">
+        <div className="tl-card-head">
+          <h2 className="tl-card-title">Performance</h2>
+          <span className="tl-label hidden sm:inline">{weeks === WEEKS_MAX ? 'last 6 months' : `last ${weeks} weeks`}</span>
+          <span className="tl-rule" aria-hidden="true" />
+          <Link to="/workspace/analytics" className="text-xs text-muted hover:text-accent">
+            Analytics →
+          </Link>
+        </div>
+        <div className="tl-card-body">
+          {state === 'error' && !data ? (
+            <SectionError message={error ?? 'Your trades could not be loaded.'} onRetry={refetch} />
+          ) : !view ? (
+            <div className="tl-heat-skeleton" aria-busy="true" aria-label="Loading">
+              {Array.from({ length: 7 }, (_, i) => (
+                <div key={i} />
+              ))}
+            </div>
+          ) : (
+            <PnlHeatmap
+              key={`${account}-${grid.weeks}`}
+              grid={grid}
+              hovered={hovered}
+              selected={selected}
+              onHover={setHovered}
+              onSelect={(iso) => setSelected((cur) => (cur === iso ? null : iso))}
+            />
+          )}
+
+          {view ? (
+            <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-[var(--tl-border-subtle)] pt-3.5 sm:grid-cols-4">
+              <Highlight label="Best day" value={best ? formatSignedAmount(best.net_profit) : '—'} sub={best ? prettyDate(best.date) : 'no green day yet'} cls="text-positive" onClick={best ? () => setSelected(best.date) : undefined} />
+              <Highlight label="Toughest day" value={worst ? formatSignedAmount(worst.net_profit) : '—'} sub={worst ? prettyDate(worst.date) : 'no red day'} cls="text-negative" onClick={worst ? () => setSelected(worst.date) : undefined} />
+              <Highlight label="Best market" value={topSymbol ? topSymbol.symbol : '—'} sub={topSymbol ? `${formatSignedAmount(topSymbol.net_profit)} · ${topSymbol.trades} trades` : 'trade a little first'} cls="text-primary" />
+              <Highlight label="Day streak" value={streak ? `${streak.length} ${streak.green ? 'green' : 'red'}` : '—'} sub="days in a row" cls={streak ? (streak.green ? 'text-positive' : 'text-negative') : 'text-primary'} />
+            </div>
+          ) : null}
+
+          {selected && account ? <DayTradesPanel iso={selected} account={account} onClose={() => setSelected(null)} /> : null}
+        </div>
+      </section>
     </div>
   )
 }
 
-function Highlight({
-  label,
-  value,
-  sub,
-  tone,
-  onClick,
-}: {
-  label: string
-  value: string
-  sub: string
-  tone: 'positive' | 'negative' | 'accent'
-  onClick?: () => void
-}) {
-  const color = tone === 'positive' ? 'text-positive' : tone === 'negative' ? 'text-negative' : 'text-accent'
+function Highlight({ label, value, sub, cls, onClick }: { label: string; value: string; sub: string; cls: string; onClick?: () => void }) {
   const body = (
     <>
-      <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">{label}</div>
-      <div className={`mt-1 font-mono text-2xl font-semibold ${color}`}>{value}</div>
-      <div className="mt-0.5 text-xs text-secondary">{sub}</div>
+      <span className="tl-label block">{label}</span>
+      <span className={`tl-figure mt-1 block text-[15px] ${cls}`}>{value}</span>
+      <span className="block text-xs text-muted">{sub}</span>
     </>
   )
   return onClick ? (
-    <button type="button" onClick={onClick} className="tl-home-card is-quiet tl-reveal text-left transition-colors hover:border-accent">
-      {body}
-    </button>
+    <div>
+      <button type="button" onClick={onClick} className="-m-1.5 rounded-[var(--tl-radius-sm)] p-1.5 text-left hover:bg-surface-elevated">
+        {body}
+      </button>
+    </div>
   ) : (
-    <div className="tl-home-card is-quiet tl-reveal">{body}</div>
-  )
-}
-
-function SpotlightLink({
-  to,
-  title,
-  body,
-  index,
-  Icon,
-}: {
-  to: string
-  title: string
-  body: string
-  index: number
-  Icon: IconComponent
-}) {
-  return (
-    <Link
-      to={to}
-      className="tl-spotlight tl-reveal"
-      style={{ '--i': index } as CSSProperties}
-      onPointerMove={(e) => {
-        const r = e.currentTarget.getBoundingClientRect()
-        e.currentTarget.style.setProperty('--sx', `${e.clientX - r.left}px`)
-        e.currentTarget.style.setProperty('--sy', `${e.clientY - r.top}px`)
-      }}
-    >
-      <Icon className="h-5 w-5 text-accent" />
-      <div className="mt-3 text-sm font-semibold text-primary">{title}</div>
-      <div className="mt-1 text-xs leading-relaxed text-secondary">{body}</div>
-    </Link>
+    <div>{body}</div>
   )
 }

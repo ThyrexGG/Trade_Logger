@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import type { AnalyticsAvailable, AnalyticsQuery } from '../../types/analytics'
-import { SectionCard } from '../intelligence/primitives'
 import { Tooltip } from '../common/Tooltip'
 import { parseNumberInput } from '../../lib/format'
 import { saveInitialBalance } from '../../api/analytics'
@@ -29,6 +28,7 @@ export function AnalyticsControls({
   const selectedSymbols = query.symbols ?? []
   const [balanceText, setBalanceText] = useState(String(query.initial_balance ?? 10000))
   const [autoFilled, setAutoFilled] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(false)
 
   // keep the local balance field in sync if the query is reset elsewhere
   useEffect(() => {
@@ -112,15 +112,17 @@ export function AnalyticsControls({
 
   const allSelected = selectedSymbols.length === 0 || selectedSymbols.length === available.symbols.length
 
+  const activeFilters = (allSelected ? 0 : 1) + (query.start ? 1 : 0) + (query.end ? 1 : 0)
+
   return (
-    <SectionCard title="Filters">
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1fr)]">
-        <label className="block text-[11px] text-muted">
-          Account
+    <div className="space-y-3">
+      <div className="tl-toolbar">
+        <label className="flex items-center">
+          <span className="sr-only">Account</span>
           <select
             value={query.account ?? 'ALL'}
             onChange={(e) => onChange({ ...query, account: e.target.value, symbols: undefined, start: undefined, end: undefined })}
-            className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+            className="tl-select"
           >
             <option value="ALL">All accounts</option>
             {available.accounts.map((a) => (
@@ -128,120 +130,114 @@ export function AnalyticsControls({
             ))}
           </select>
         </label>
-
-        <div className="text-[11px] text-muted">
-          Symbols
-          <div className="mt-1 flex flex-wrap gap-1">
-            <button
-              type="button"
-              onClick={() => onChange({ ...query, symbols: undefined })}
-              className={`rounded border px-2 py-0.5 text-[11px] ${
-                allSelected ? 'border-accent/40 bg-accent/10 text-accent' : 'border-border text-secondary hover:text-primary'
-              }`}
-            >
-              All
-            </button>
-            {available.symbols.map((s) => {
-              const on = !allSelected && selectedSymbols.includes(s)
-              return (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => toggleSymbol(s)}
-                  className={`rounded border px-2 py-0.5 font-mono text-[11px] ${
-                    on ? 'border-accent/40 bg-accent/10 text-accent' : 'border-border text-secondary hover:text-primary'
-                  }`}
-                >
-                  {s}
-                </button>
-              )
-            })}
-            {available.symbols.length === 0 ? <span className="text-muted">no trades</span> : null}
-          </div>
-        </div>
-
-        <label className="block text-[11px] text-muted">
-          <span className="inline-flex items-center gap-1">
-            Starting balance ($)
-            {autoFilled ? (
-              <Tooltip label="Detected from this account's synced balance minus its all-time P&L. Edit it if you know the real figure — a deposit or withdrawal in between would throw this off.">
-                <span className="cursor-help rounded bg-accent/10 px-1 text-[9px] font-semibold uppercase tracking-wide text-accent">
-                  auto
-                </span>
-              </Tooltip>
-            ) : null}
-          </span>
-          <input
-            value={balanceText}
-            onChange={(e) => {
-              setBalanceText(e.target.value)
-              setAutoFilled(false)
-              const n = parseNumberInput(e.target.value)
-              if (n === null || n <= 0) return
-              onChange({ ...query, initial_balance: n })
-              const acct = query.account
-              if (!acct || acct === 'ALL') return
-              if (saveTimer.current) window.clearTimeout(saveTimer.current)
-              pendingSave.current = { acct, n }
-              setSaveState('idle')
-              saveTimer.current = window.setTimeout(flushSave, 800)
-            }}
-            inputMode="decimal"
-            className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-xs tabular-nums text-primary focus:border-accent focus:outline-none"
-          />
-          <span className="mt-1 block min-h-[14px] text-[10px]" aria-live="polite">
-            {noAccountSelected ? (
-              <span className="text-muted">Pick an account above to save this balance.</span>
-            ) : saveState === 'saving' ? (
-              <span className="text-muted">Saving…</span>
-            ) : saveState === 'saved' ? (
-              <span className="text-positive">✓ Saved for {describeAccount(query.account).label}</span>
-            ) : saveState === 'error' ? (
-              <span className="text-warning">Couldn’t save — check your connection and retype it.</span>
-            ) : null}
-          </span>
-        </label>
-      </div>
-
-      <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-        <label className="block text-[11px] text-muted">
-          From
-          <input
-            type="date"
-            value={query.start ?? ''}
-            min={available.date_min ?? undefined}
-            max={available.date_max ?? undefined}
-            onChange={(e) => onChange({ ...query, start: e.target.value || undefined })}
-            className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
-          />
-        </label>
-        <label className="block text-[11px] text-muted">
-          To
-          <input
-            type="date"
-            value={query.end ?? ''}
-            min={available.date_min ?? undefined}
-            max={available.date_max ?? undefined}
-            onChange={(e) => onChange({ ...query, end: e.target.value || undefined })}
-            className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
-          />
-        </label>
-        <div className="flex items-end">
+        <button
+          type="button"
+          onClick={() => setFiltersOpen((v) => !v)}
+          aria-expanded={filtersOpen}
+          className={`tl-btn tl-btn--secondary ${activeFilters ? '!border-[var(--tl-accent-line)]' : ''}`}
+        >
+          Filters
+          {activeFilters ? <span className="rounded-full bg-accent-fill px-1.5 font-mono text-[10px] font-bold text-[var(--tl-gradient-ink)]">{activeFilters}</span> : null}
+        </button>
+        {activeFilters ? (
           <button
             type="button"
             onClick={() => onChange({ account: query.account, symbols: undefined, start: undefined, end: undefined, initial_balance: query.initial_balance })}
-            className="rounded border border-border px-2.5 py-1 text-[11px] text-secondary hover:text-primary"
+            className="tl-btn tl-btn--ghost"
           >
-            Clear dates / symbols
+            Clear
           </button>
-        </div>
+        ) : null}
+        {available.date_min ? (
+          <span className="ml-auto text-xs text-muted">
+            Trades from {available.date_min} to {available.date_max}
+          </span>
+        ) : null}
       </div>
 
-      {available.date_min ? (
-        <p className="mt-2 font-mono text-[10px] text-muted">
-          data range {available.date_min} → {available.date_max}
-        </p>
+      {filtersOpen ? (
+        <div className="tl-card tl-fade-in grid gap-4 p-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)]">
+          <div>
+            <p className="mb-1.5 text-xs font-semibold text-muted">Markets</p>
+            <div className="flex flex-wrap gap-1.5">
+              <button type="button" aria-pressed={allSelected} onClick={() => onChange({ ...query, symbols: undefined })} className="tl-chip">
+                All
+              </button>
+              {available.symbols.map((s) => (
+                <button key={s} type="button" aria-pressed={!allSelected && selectedSymbols.includes(s)} onClick={() => toggleSymbol(s)} className="tl-chip font-mono">
+                  {s}
+                </button>
+              ))}
+              {available.symbols.length === 0 ? <span className="text-xs text-muted">No trades yet</span> : null}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block text-xs font-semibold text-muted">
+              From
+              <input
+                type="date"
+                value={query.start ?? ''}
+                min={available.date_min ?? undefined}
+                max={available.date_max ?? undefined}
+                onChange={(e) => onChange({ ...query, start: e.target.value || undefined })}
+                className="tl-input mt-1.5 w-full"
+              />
+            </label>
+            <label className="block text-xs font-semibold text-muted">
+              To
+              <input
+                type="date"
+                value={query.end ?? ''}
+                min={available.date_min ?? undefined}
+                max={available.date_max ?? undefined}
+                onChange={(e) => onChange({ ...query, end: e.target.value || undefined })}
+                className="tl-input mt-1.5 w-full"
+              />
+            </label>
+          </div>
+
+          <label className="block text-xs font-semibold text-muted">
+            <span className="inline-flex items-center gap-1.5">
+              Starting balance ($)
+              {autoFilled ? (
+                <Tooltip label="Worked out from this account's synced balance minus its all-time profit and loss. Change it if you know the real figure: a deposit or withdrawal in between would throw it off.">
+                  <span className="cursor-help rounded bg-accent-soft px-1.5 text-[10px] font-bold text-accent">auto</span>
+                </Tooltip>
+              ) : null}
+            </span>
+            <input
+              value={balanceText}
+              onChange={(e) => {
+                setBalanceText(e.target.value)
+                setAutoFilled(false)
+                const n = parseNumberInput(e.target.value)
+                if (n === null || n <= 0) return
+                onChange({ ...query, initial_balance: n })
+                const acct = query.account
+                if (!acct || acct === 'ALL') return
+                if (saveTimer.current) window.clearTimeout(saveTimer.current)
+                pendingSave.current = { acct, n }
+                setSaveState('idle')
+                saveTimer.current = window.setTimeout(flushSave, 800)
+              }}
+              inputMode="decimal"
+              className="tl-input mt-1.5 w-full font-mono tabular-nums"
+            />
+            <span className="mt-1 block min-h-[16px] text-[11px] font-normal" aria-live="polite">
+              {noAccountSelected ? (
+                <span className="text-muted">Pick an account to save this balance.</span>
+              ) : saveState === 'saving' ? (
+                <span className="text-muted">Saving…</span>
+              ) : saveState === 'saved' ? (
+                <span className="text-positive">✓ Saved for {describeAccount(query.account).label}</span>
+              ) : saveState === 'error' ? (
+                <span className="text-warning">Couldn’t save — check your connection and retype it.</span>
+              ) : null}
+            </span>
+          </label>
+        </div>
       ) : null}
-    </SectionCard>
+    </div>
   )
 }

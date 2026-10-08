@@ -22,7 +22,7 @@ export function IntelligencePage() {
         <h1 className="text-lg font-semibold text-primary">Market Intelligence</h1>
         <div className="flex items-center gap-3 text-[11px] text-muted">
           {cc.refreshing ? <span aria-live="polite">Refreshing…</span> : null}
-          <button type="button" onClick={cc.refetch} className="rounded border border-border px-2 py-1 text-xs text-primary hover:bg-surface-hover">
+          <button type="button" onClick={cc.refetch} className="tl-btn tl-btn--secondary tl-btn--sm">
             Refresh
           </button>
         </div>

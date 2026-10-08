@@ -34,7 +34,7 @@ export function IntelligenceHeader({
   }
   if (section.state === 'error' && !s) {
     return (
-      <div className="rounded-lg border border-border bg-surface px-4 py-3 text-sm text-negative">
+      <div className="tl-card px-4 py-3 text-sm text-negative">
         Executive summary unavailable — {section.error}
       </div>
     )
@@ -42,7 +42,7 @@ export function IntelligenceHeader({
   if (!s) return null
 
   return (
-    <div className="rounded-lg border border-border bg-surface px-4 py-3">
+    <div className="tl-card px-4 py-3">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h1 className="text-lg font-semibold text-primary">

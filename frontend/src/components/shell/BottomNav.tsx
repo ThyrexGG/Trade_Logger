@@ -1,40 +1,51 @@
-import { NavLink } from 'react-router-dom'
-import { ZONES } from '../../lib/navigation'
+import { NavLink, useLocation } from 'react-router-dom'
+import { ZONES, findZoneByPath } from '../../lib/navigation'
+import { DotsIcon } from '../../lib/icons'
 
 /**
- * Thumb-reachable zone switcher for small screens. The sidebar drawer (hamburger)
- * still holds the full page tree; this is the fast path between the 4 zones.
- * Hidden at lg and up where the fixed sidebar takes over.
+ * Phone navigation: the four daily groups as thumb-sized tabs, each opening
+ * that group's main page, plus "More" for the full page list (the drawer).
+ * A tab stays lit for every page in its group, not just the first.
+ * Hidden at lg and up, where the sidebar takes over.
  */
-export function BottomNav() {
+export function BottomNav({ onOpenMore }: { onOpenMore: () => void }) {
+  const { pathname } = useLocation()
+  const activeZone = findZoneByPath(pathname)?.id
+  const daily = ZONES.filter((z) => z.id !== 'settings').slice(0, 4)
+
   return (
     <nav
-      aria-label="Zones"
-      className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 backdrop-blur-xl lg:hidden"
-      style={{
-        paddingBottom: 'env(safe-area-inset-bottom)',
-        background: 'var(--tl-glass-bg)',
-        borderTop: '1px solid var(--tl-glass-border)',
-      }}
+      aria-label="Sections"
+      className="fixed inset-x-0 bottom-0 z-30 grid border-t border-border-subtle bg-background/95 backdrop-blur lg:hidden"
+      style={{ gridTemplateColumns: `repeat(${daily.length + 1}, minmax(0, 1fr))`, paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      {ZONES.map((zone) => {
+      {daily.map((zone) => {
         const Icon = zone.icon
+        const on = activeZone === zone.id
         return (
           <NavLink
             key={zone.id}
             to={zone.path}
-            className={({ isActive }) =>
-              [
-                'flex flex-col items-center gap-0.5 py-2 text-[10px] font-medium',
-                isActive ? 'text-accent' : 'text-muted',
-              ].join(' ')
-            }
+            aria-current={on ? 'page' : undefined}
+            className={`flex min-h-[56px] flex-col items-center justify-center gap-1 text-[11px] font-semibold ${on ? 'text-primary' : 'text-muted'}`}
           >
-            <Icon className="h-5 w-5" />
+            <span className={`grid h-7 w-12 place-items-center rounded-full transition-colors ${on ? 'bg-accent-soft' : ''}`}>
+              <Icon className={`h-[19px] w-[19px] ${on ? 'text-accent' : ''}`} />
+            </span>
             {zone.shortLabel}
           </NavLink>
         )
       })}
+      <button
+        type="button"
+        onClick={onOpenMore}
+        className={`flex min-h-[56px] flex-col items-center justify-center gap-1 text-[11px] font-semibold ${activeZone === 'settings' ? 'text-primary' : 'text-muted'}`}
+      >
+        <span className="grid h-7 w-12 place-items-center rounded-full">
+          <DotsIcon className="h-[19px] w-[19px]" />
+        </span>
+        More
+      </button>
     </nav>
   )
 }

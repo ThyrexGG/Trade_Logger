@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import type { PositionItem, PositionsResponse } from '../../types/positions'
 import { OpsMetric, OpsStatusTag, OpsUnavailable, SectionCard } from './primitives'
-import { formatLots, formatPrice, formatUsd, timeAgo, formatDateTime } from '../../lib/format'
+import { formatLots, formatPrice, formatUsd, formatDateTime } from '../../lib/format'
 import { AccountBadge } from '../common/AccountBadge'
 
 function rTone(r: string): 'positive' | 'negative' | 'neutral' {
@@ -55,15 +55,13 @@ function Card({ p }: { p: PositionItem }) {
 
 export function PositionsSummary({ data }: { data: PositionsResponse }) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <div className="tl-figures">
       <OpsMetric label="Open positions" value={data.total_open} />
       <OpsMetric
         label="Total floating P&L"
         value={`${data.total_floating_pnl >= 0 ? '+' : ''}${formatUsd(data.total_floating_pnl).replace('$', '')}`}
         tone={data.total_floating_pnl > 0 ? 'positive' : data.total_floating_pnl < 0 ? 'negative' : 'neutral'}
       />
-      <OpsMetric label="Updated" value={timeAgo(data.timestamp) ?? '—'} />
-      <OpsMetric label="Transmission" value={<OpsStatusTag value="BLOCKED" tone="negative" size="sm" />} />
     </div>
   )
 }
@@ -152,9 +150,9 @@ export function PositionsView({ data }: { data: PositionsResponse }) {
       </div>
 
       <p className="mt-3 text-[11px] text-muted">
-        Read-only operational state — no close / modify / reverse action exists.
-        R, MAE and MFE are computed by the backend. A per-position detail
-        endpoint is not exposed by the current API.
+        <strong className="font-medium text-secondary">R</strong> is how many times your risk you&rsquo;re up or down.{' '}
+        <strong className="font-medium text-secondary">MAE / MFE</strong> are the worst and best this trade has been since it opened.
+        Trades are managed in your broker — TradeLogger never opens or closes them.
       </p>
     </SectionCard>
   )

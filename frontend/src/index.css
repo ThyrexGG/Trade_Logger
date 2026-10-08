@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import './styles/tokens.css';
+@import './styles/kit.css';
 
 /*
  * Map TradeLogger design tokens onto Tailwind's theme so utilities such as
@@ -22,12 +23,20 @@
   --color-warning: var(--tl-warning);
   --color-info: var(--tl-info);
   --color-accent: var(--tl-accent);
+  --color-accent-fill: var(--tl-accent-fill);
+  --color-accent-soft: var(--tl-accent-soft);
   --color-neutral: var(--tl-neutral);
   --color-blocked: var(--tl-blocked);
   --color-stale: var(--tl-stale);
 
   --font-sans: var(--tl-font-sans);
   --font-mono: var(--tl-font-mono);
+
+  /* Weight ceiling: Geist is loaded up to 600 and hierarchy comes from size
+     and brightness, so bold/extrabold resolve to 600 rather than a faked bold. */
+  --font-weight-bold: 600;
+  --font-weight-extrabold: 600;
+  --font-weight-black: 600;
 }
 
 html,
@@ -43,6 +52,13 @@ body {
   font-family: var(--tl-font-sans);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+}
+
+/* Every mono run is a figure, time or code: keep digits on a fixed grid. */
+.font-mono,
+code,
+kbd {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Visible, consistent focus treatment for keyboard users. */
@@ -112,11 +128,11 @@ textarea,
    hover (e.g. the Journal calendar's day preview) — noticeably springier
    than tl-fade-in/tl-toast, which are meant to be quiet. */
 @keyframes tl-pop-in {
-  from { opacity: 0; transform: scale(0.88) translateY(6px); }
+  from { opacity: 0; transform: scale(0.97) translateY(4px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 .tl-pop-in {
-  animation: tl-pop-in 240ms cubic-bezier(0.16, 1, 0.3, 1);
+  animation: tl-pop-in 180ms var(--tl-ease);
   transform-origin: top center;
 }
 
@@ -206,17 +222,15 @@ textarea,
 .tl-home-stats dd.text-negative { color: var(--tl-negative); }
 
 .tl-home-card {
-  border-radius: 1rem;
+  border-radius: var(--tl-radius-lg);
   padding: 1.1rem 1.25rem;
-  background: var(--tl-glass-bg);
-  border: 1px solid var(--tl-glass-border);
-  box-shadow: 0 8px 24px var(--tl-glass-shadow), inset 0 1px 0 var(--tl-glass-highlight);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: var(--tl-surface);
+  border: 1px solid var(--tl-border);
+  box-shadow: inset 0 2px 0 var(--tl-accent-fill);
 }
 .tl-home-card.is-quiet {
-  border-color: var(--tl-border);
-  box-shadow: 0 6px 18px var(--tl-glass-shadow);
+  border-color: var(--tl-border-subtle);
+  box-shadow: none;
 }
 
 /* Calendar card: a compact fixed-size heatmap beside the running-total chart;
@@ -285,7 +299,7 @@ textarea,
   padding: 0;
   border-radius: 4px;
   background: var(--tl-surface-elevated);
-  animation: tl-heat-pop 480ms cubic-bezier(0.2, 0.9, 0.25, 1.15) backwards;
+  animation: tl-heat-pop 420ms var(--tl-ease) backwards;
   animation-delay: var(--d, 0ms);
   transition: transform 120ms ease-out, box-shadow 120ms ease-out;
 }
@@ -321,7 +335,7 @@ textarea,
 @keyframes tl-heat-pop {
   from {
     opacity: 0;
-    transform: scale(0.2);
+    transform: scale(0.6);
   }
 }
 .tl-heat-legend {
@@ -432,12 +446,10 @@ textarea,
   position: relative;
   display: block;
   overflow: hidden;
-  border-radius: 1rem;
+  border-radius: var(--tl-radius-lg);
   padding: 1.1rem 1.15rem;
-  background: var(--tl-glass-bg);
-  border: 1px solid var(--tl-border);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: var(--tl-surface);
+  border: 1px solid var(--tl-border-subtle);
   transition: border-color 160ms ease-out, transform 160ms ease-out;
 }
 .tl-spotlight::before {
@@ -494,10 +506,11 @@ textarea,
    Beginner helpers: the per-page guide and the "show details" disclosure.
    --------------------------------------------------------------------------- */
 .tl-guide {
-  border-radius: 0.9rem;
-  padding: 0.85rem 1rem;
-  background: color-mix(in oklab, var(--tl-accent) 7%, var(--tl-surface));
-  border: 1px solid color-mix(in oklab, var(--tl-accent) 28%, transparent);
+  border-radius: var(--tl-radius-lg);
+  padding: 0.8rem 1rem;
+  background: var(--tl-surface);
+  border: 1px solid var(--tl-border-subtle);
+  border-left: 3px solid var(--tl-accent-fill);
 }
 .tl-guide-mark {
   display: grid;
@@ -512,7 +525,7 @@ textarea,
   background: var(--tl-gradient-primary);
 }
 .tl-more {
-  border-radius: 0.9rem;
+  border-radius: var(--tl-radius-lg);
   border: 1px solid var(--tl-border);
   background: var(--tl-surface);
   padding: 0.75rem 1rem;

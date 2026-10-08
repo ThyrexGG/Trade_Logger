@@ -17,7 +17,7 @@ const CONDITIONS: { value: AlertCondition; label: string }[] = [
 
 export function AlertsSummary({ data }: { data: AlertsResponse }) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <div className="tl-figures">
       <OpsMetric label="Total alerts" value={data.total} />
       <OpsMetric label="Active" value={data.active} tone={data.active > 0 ? 'info' : 'neutral'} />
       <OpsMetric label="Triggered" value={data.triggered} tone={data.triggered > 0 ? 'warning' : 'neutral'} />
@@ -208,7 +208,7 @@ export function AlertsPanel({
           </label>
 
           {formError ? (
-            <p className="rounded border border-negative/30 bg-negative/10 px-2 py-1 text-[11px] text-negative" role="alert">
+            <p className="rounded-[var(--tl-radius)] border border-negative/30 bg-negative/10 px-3 py-2 text-xs text-negative" role="alert">
               {formError}
             </p>
           ) : null}

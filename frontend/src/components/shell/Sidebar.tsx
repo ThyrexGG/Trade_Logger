@@ -1,9 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ZONES } from '../../lib/navigation'
-import { useHealth } from '../../lib/health'
-import { apiStatusView } from '../../lib/status'
 import { CloseIcon } from '../../lib/icons'
-import { StatusDot } from './StatusDot'
+import { BrandLockup } from './BrandMark'
 import { ZoneSection } from './ZoneSection'
 
 interface SidebarProps {
@@ -12,18 +10,19 @@ interface SidebarProps {
   onClose: () => void
 }
 
-/** Persistent navigation sidebar. Fixed on desktop, off-canvas drawer below lg. */
+/**
+ * Primary navigation. Fixed on desktop; an off-canvas drawer below lg (opened
+ * from the bottom bar's "More"). Settings sits apart at the bottom — it's
+ * visited rarely, so it shouldn't compete with the daily groups above.
+ */
 export function Sidebar({ open, onClose }: SidebarProps) {
-  const { state } = useHealth()
-  const api = apiStatusView(state)
+  const daily = ZONES.filter((z) => z.id !== 'settings')
+  const settings = ZONES.find((z) => z.id === 'settings')
 
   return (
     <>
-      {/* Mobile backdrop */}
       <div
-        className={`fixed inset-0 z-30 bg-black/60 lg:hidden ${
-          open ? 'block' : 'hidden'
-        }`}
+        className={`fixed inset-0 z-30 bg-black/55 lg:hidden ${open ? 'block' : 'hidden'}`}
         onClick={onClose}
         aria-hidden="true"
       />
@@ -31,52 +30,37 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       <aside
         aria-label="Primary navigation"
         className={[
-          'fixed inset-y-0 left-0 z-40 flex w-[var(--tl-sidebar-width)] flex-col backdrop-blur-xl',
+          'fixed inset-y-0 left-0 z-40 flex w-[var(--tl-sidebar-width)] flex-col border-r border-border-subtle bg-background',
           'transition-transform duration-200 lg:translate-x-0',
-          open ? 'translate-x-0' : '-translate-x-full',
+          open ? 'translate-x-0 shadow-[var(--tl-shadow-pop)]' : '-translate-x-full',
         ].join(' ')}
-        style={{ background: 'var(--tl-glass-bg)', borderRight: '1px solid var(--tl-glass-border)' }}
       >
-        <div
-          className="flex h-[var(--tl-topbar-height)] shrink-0 items-center justify-between px-3"
-          style={{ borderBottom: '1px solid var(--tl-glass-border)' }}
-        >
-          <Link
-            to="/workspace"
-            onClick={onClose}
-            className="flex items-center gap-2"
-          >
-            <span className="h-2.5 w-2.5 rounded-full bg-accent" />
-            <span className="font-mono text-sm font-semibold tracking-wide text-primary">
-              TradeLogger
-            </span>
+        <div className="flex h-[var(--tl-topbar-height)] shrink-0 items-center justify-between px-5">
+          <Link to="/workspace/home" onClick={onClose} aria-label="TradeLogger home">
+            <BrandLockup />
           </Link>
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1 text-muted hover:bg-surface-hover hover:text-primary lg:hidden"
+            className="tl-btn tl-btn--ghost tl-btn--sm lg:hidden"
             aria-label="Close navigation"
           >
             <CloseIcon />
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-3">
-          <div className="flex flex-col gap-4">
-            {ZONES.map((zone) => (
+        <nav className="flex flex-1 flex-col overflow-y-auto pb-4 pt-3" aria-label="Pages">
+          <div className="flex flex-col gap-5">
+            {daily.map((zone) => (
               <ZoneSection key={zone.id} zone={zone} onNavigate={onClose} />
             ))}
           </div>
+          {settings ? (
+            <div className="mt-auto border-t border-border-subtle pt-4">
+              <ZoneSection zone={settings} onNavigate={onClose} />
+            </div>
+          ) : null}
         </nav>
-
-        <div className="shrink-0 space-y-1.5 border-t border-border-subtle px-3 py-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] uppercase tracking-wider text-muted">
-              API
-            </span>
-            <StatusDot tone={api.tone} label={api.label} pulse={api.pulse} />
-          </div>
-        </div>
       </aside>
     </>
   )

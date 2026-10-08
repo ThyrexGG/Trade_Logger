@@ -5,10 +5,10 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <!-- Manrope (UI text) + JetBrains Mono (numbers/tabular data) — tokens.css
-         referenced both by name already but neither was actually loaded, so
-         every page has been rendering in plain OS system fonts this whole
-         time. preconnect first so the actual font fetch doesn't wait on DNS. -->
+    <!-- Geist (UI text) + Geist Mono (every figure, price, time and technical
+         label). Weights stop at 600 on purpose: hierarchy comes from size and
+         brightness, not heavier and heavier bold. preconnect first so the font
+         fetch doesn't wait on DNS. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!-- Render's free tier + a cross-origin API means the first request pays
@@ -17,13 +17,13 @@
          of happening only once the app's first fetch actually fires. -->
     <link rel="preconnect" href="%VITE_API_BASE_URL%" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="dark light" />
-    <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)" />
-    <meta name="theme-color" content="#f5f5f4" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0b0f17" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f4f6fa" media="(prefers-color-scheme: light)" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />

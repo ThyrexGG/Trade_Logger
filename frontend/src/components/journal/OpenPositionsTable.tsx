@@ -123,7 +123,7 @@ function OpenPositionEditor({
       </div>
 
       {error ? (
-        <p className="rounded border border-negative/30 bg-negative/10 px-2 py-1 text-[11px] text-negative" role="alert">
+        <p className="rounded-[var(--tl-radius)] border border-negative/30 bg-negative/10 px-3 py-2 text-xs text-negative" role="alert">
           {error}
         </p>
       ) : null}
@@ -133,7 +133,7 @@ function OpenPositionEditor({
           type="button"
           onClick={save}
           disabled={saving || !dirty}
-          className="rounded border border-accent/40 bg-accent/10 px-2.5 py-1 text-[11px] text-accent disabled:opacity-40"
+          className="tl-btn tl-btn--primary tl-btn--sm"
         >
           {saving ? 'Saving…' : 'Save'}
         </button>
@@ -141,7 +141,7 @@ function OpenPositionEditor({
           type="button"
           onClick={onCancel}
           disabled={saving}
-          className="rounded border border-border px-2.5 py-1 text-[11px] text-secondary hover:text-primary disabled:opacity-40"
+          className="tl-btn tl-btn--ghost tl-btn--sm"
         >
           Cancel
         </button>

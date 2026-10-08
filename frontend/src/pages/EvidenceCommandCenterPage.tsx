@@ -31,7 +31,7 @@ export function EvidenceCommandCenterPage() {
         <button
           type="button"
           onClick={refetch}
-          className="rounded border border-border px-2 py-1 text-xs text-primary hover:bg-surface-hover"
+          className="tl-btn tl-btn--secondary tl-btn--sm"
         >
           Refresh
         </button>
@@ -55,7 +55,7 @@ export function EvidenceCommandCenterPage() {
       {data ? (
         <>
           {state === 'error' && error ? (
-            <p className="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[11px] text-warning">
+            <p className="rounded-[var(--tl-radius)] border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
               Showing last good evidence — refresh failed: {error}
             </p>
           ) : null}

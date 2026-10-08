@@ -104,7 +104,7 @@ function EntryCard({
             <select
               value={kind}
               onChange={(e) => setKind(e.target.value as JournalEntryKind)}
-              className="rounded border border-border bg-background px-2 py-1 text-xs text-primary"
+              className="tl-select"
             >
               {KINDS.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
             </select>
@@ -142,7 +142,7 @@ function EntryCard({
               type="button"
               onClick={save}
               disabled={busy}
-              className="rounded border border-accent/40 bg-accent/10 px-2.5 py-1 text-[11px] text-accent disabled:opacity-40"
+              className="tl-btn tl-btn--primary tl-btn--sm"
             >
               {busy ? 'Saving…' : 'Save'}
             </button>
@@ -232,7 +232,7 @@ export function FreeEntries() {
             <select
               value={draft.kind}
               onChange={(e) => setDraft({ ...draft, kind: e.target.value as JournalEntryKind })}
-              className="rounded border border-border bg-background px-2 py-1 text-xs text-primary"
+              className="tl-select"
             >
               {KINDS.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
             </select>
@@ -268,7 +268,7 @@ export function FreeEntries() {
             type="button"
             onClick={create}
             disabled={busy}
-            className="rounded border border-accent/40 bg-accent/10 px-2.5 py-1 text-[11px] text-accent disabled:opacity-40"
+            className="tl-btn tl-btn--primary tl-btn--sm"
           >
             {busy ? 'Creating…' : 'Create — then add screenshots'}
           </button>

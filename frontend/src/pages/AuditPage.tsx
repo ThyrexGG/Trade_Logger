@@ -22,10 +22,10 @@ export function AuditPage() {
       actions={
         <div className="flex flex-wrap items-center gap-2">
           {refreshing ? <span className="text-[11px] text-muted" aria-live="polite">Refreshing…</span> : null}
-          <Link to="/operations/system" className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover">
+          <Link to="/operations/system" className="tl-btn tl-btn--secondary tl-btn--sm">
             System
           </Link>
-          <button type="button" onClick={refetch} className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover">
+          <button type="button" onClick={refetch} className="tl-btn tl-btn--secondary tl-btn--sm">
             Refresh
           </button>
         </div>
@@ -43,7 +43,7 @@ export function AuditPage() {
         ) : data ? (
           <>
             {state === 'error' && error ? (
-              <p className="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[11px] text-warning">
+              <p className="rounded-[var(--tl-radius)] border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
                 Showing last good audit trail — refresh failed: {error}
               </p>
             ) : null}

@@ -6,8 +6,6 @@ import { ALL_NAV_ITEMS, IS_FRIENDS_TIER, ZONES } from './lib/navigation'
 // The default landing view and the lightweight zone/overview pages stay in the
 // main bundle so the first paint after load needs no extra round-trip.
 import { MarketWorkspacePage } from './pages/MarketWorkspacePage'
-import { ZoneOverviewPage } from './pages/ZoneOverviewPage'
-import { OperationsOverviewPage } from './pages/OperationsOverviewPage'
 import { EvidenceCommandCenterPage } from './pages/EvidenceCommandCenterPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { NotFoundPage } from './pages/NotFoundPage'
@@ -101,7 +99,7 @@ export default function App() {
           />
           <Route
             path="research"
-            element={zoneIds.has('research') ? <ZoneOverviewPage zoneId="research" /> : <Navigate to={DEFAULT_LANDING} replace />}
+            element={<Navigate to="/research/intelligence" replace />}
           />
           <Route
             path="evidence"
@@ -109,7 +107,7 @@ export default function App() {
           />
           <Route
             path="operations"
-            element={zoneIds.has('operations') ? <OperationsOverviewPage /> : <Navigate to={DEFAULT_LANDING} replace />}
+            element={<Navigate to="/operations/connections" replace />}
           />
           {/* Command Center was folded into Home — keep old links/bookmarks working. */}
           <Route path="workspace/command-center" element={<Navigate to={DEFAULT_LANDING} replace />} />

@@ -199,6 +199,7 @@ export function SectionCard({
   info,
   children,
   className = '',
+  feature = false,
 }: {
   title: string
   action?: ReactNode
@@ -206,31 +207,20 @@ export function SectionCard({
   info?: string
   children: ReactNode
   className?: string
+  /** the one card on a page that matters most — gets the gold top rule */
+  feature?: boolean
 }) {
   return (
-    <section
-      aria-label={title}
-      className={`rounded-2xl backdrop-blur-lg ${className}`}
-      style={{
-        background: 'var(--tl-glass-bg)',
-        border: '1px solid var(--tl-glass-border)',
-        // Outer drop shadow for lift + an inset top-edge highlight — the
-        // thin bright line where light catches a glass card's upper rim in
-        // the reference concept.
-        boxShadow: `0 8px 24px var(--tl-glass-shadow), inset 0 1px 0 var(--tl-glass-highlight)`,
-      }}
-    >
-      <header
-        className="flex items-center justify-between gap-2 px-4 py-2.5"
-        style={{ borderBottom: '1px solid var(--tl-glass-border)' }}
-      >
-        <h2 className="flex items-center text-xs font-semibold uppercase tracking-wider text-secondary">
+    <section aria-label={title} className={`tl-card ${feature ? 'tl-card--feature' : ''} ${className}`}>
+      <header className="tl-card-head">
+        <h2 className="tl-card-title">
           {title}
           {info ? <InfoTip text={info} /> : null}
         </h2>
-        {action}
+        <span className="tl-rule" aria-hidden="true" />
+        {action ? <div className="flex shrink-0 items-center gap-2">{action}</div> : null}
       </header>
-      <div className="p-4">{children}</div>
+      <div className="tl-card-body">{children}</div>
     </section>
   )
 }
@@ -243,15 +233,12 @@ export function SectionError({
   onRetry: () => void
 }) {
   return (
-    <div className="text-sm">
-      <p className="text-negative">Section unavailable</p>
-      {message ? <p className="mt-1 text-xs text-muted">{message}</p> : null}
-      <button
-        type="button"
-        onClick={onRetry}
-        className="mt-3 rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover"
-      >
-        Retry
+    <div className="tl-state" role="alert">
+      <span className="tl-state-icon tl-state-icon--error" aria-hidden="true">!</span>
+      <p className="text-sm font-semibold text-primary">This couldn&rsquo;t load right now</p>
+      {message ? <p className="max-w-md text-xs text-muted">{message}</p> : null}
+      <button type="button" onClick={onRetry} className="tl-btn tl-btn--secondary tl-btn--sm mt-1">
+        Try again
       </button>
     </div>
   )
@@ -267,7 +254,7 @@ export function SkeletonRows({ rows = 4 }: { rows?: number }) {
       {Array.from({ length: rows }).map((_, i) => (
         <div
           key={i}
-          className="h-4 animate-pulse rounded bg-surface-elevated"
+          className="tl-skeleton h-3.5 rounded"
           style={{ width: i === rows - 1 && rows > 1 ? '55%' : `${92 - (i % 3) * 7}%` }}
         />
       ))}
@@ -278,7 +265,7 @@ export function SkeletonRows({ rows = 4 }: { rows?: number }) {
 /** A single pulsing rectangle — for a chart, card or any block-shaped area
  * that isn't a list of text lines. */
 export function SkeletonBlock({ className = 'h-28 w-full' }: { className?: string }) {
-  return <div className={`animate-pulse rounded-lg bg-surface-elevated ${className}`} aria-hidden="true" />
+  return <div className={`tl-skeleton rounded-[var(--tl-radius)] ${className}`} aria-hidden="true" />
 }
 
 /** A row of pulsing stat-tile placeholders, matching the OpsMetric /
@@ -289,9 +276,9 @@ export function SkeletonMetrics({ count = 4 }: { count?: number }) {
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-hidden="true">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="space-y-1.5 rounded-lg border border-border-subtle bg-surface p-3">
-          <div className="h-2.5 w-2/3 animate-pulse rounded bg-surface-elevated" />
-          <div className="h-4 w-1/2 animate-pulse rounded bg-surface-elevated" />
+        <div key={i} className="tl-stat space-y-2">
+          <div className="tl-skeleton h-2.5 w-2/3 rounded" />
+          <div className="tl-skeleton h-5 w-1/2 rounded" />
         </div>
       ))}
     </div>

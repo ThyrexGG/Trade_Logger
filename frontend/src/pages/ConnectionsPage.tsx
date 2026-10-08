@@ -91,14 +91,14 @@ export function ConnectionsPage() {
         <div className="flex items-center gap-2">
           <Link
             to="/operations/partners"
-            className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover"
+            className="tl-btn tl-btn--secondary tl-btn--sm"
           >
             Don't have an account? →
           </Link>
           <button
             type="button"
             onClick={() => void load()}
-            className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover"
+            className="tl-btn tl-btn--secondary tl-btn--sm"
           >
             Refresh
           </button>
@@ -154,7 +154,7 @@ export function ConnectionsPage() {
                         type="button"
                         disabled={busy === r.id}
                         onClick={() => void act(r.id, () => testConnection(r.id), 'Test')}
-                        className="rounded border border-border px-2 py-1 text-xs text-primary hover:bg-surface-hover disabled:opacity-50"
+                        className="tl-btn tl-btn--secondary tl-btn--sm"
                       >
                         Test
                       </button>
@@ -162,7 +162,7 @@ export function ConnectionsPage() {
                         type="button"
                         disabled={busy === r.id}
                         onClick={() => void act(r.id, () => syncConnection(r.id), 'Sync')}
-                        className="rounded border border-border px-2 py-1 text-xs text-primary hover:bg-surface-hover disabled:opacity-50"
+                        className="tl-btn tl-btn--secondary tl-btn--sm"
                       >
                         Sync now
                       </button>
@@ -415,7 +415,7 @@ function AccountDataDangerZone() {
                       type="button"
                       disabled={restoringPath !== null}
                       onClick={() => void restoreSnapshot(snap)}
-                      className="rounded border border-border px-2 py-1 text-xs text-primary hover:bg-surface-hover disabled:opacity-50"
+                      className="tl-btn tl-btn--secondary tl-btn--sm"
                     >
                       {restoring ? 'Restoring…' : 'Restore'}
                     </button>

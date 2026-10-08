@@ -103,7 +103,7 @@ function SetupForm({
         step={step}
         value={form[k] as number}
         onChange={(e) => setForm((f) => ({ ...f, [k]: Number(e.target.value) }))}
-        className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+        className="tl-input"
       />
     </label>
   )
@@ -131,7 +131,7 @@ function SetupForm({
             type="text"
             value={form.firm}
             onChange={(e) => setForm((f) => ({ ...f, firm: e.target.value }))}
-            className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+            className="tl-input"
           />
         </label>
         {field('account_size', 'Account size ($)', '1')}
@@ -146,7 +146,7 @@ function SetupForm({
           <select
             value={form.drawdown_mode}
             onChange={(e) => setForm((f) => ({ ...f, drawdown_mode: e.target.value as 'trailing' | 'static' }))}
-            className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+            className="tl-select"
           >
             <option value="trailing">Trailing (from peak)</option>
             <option value="static">Static (from initial size)</option>
@@ -302,9 +302,9 @@ export function ChallengeTracker({ account }: { account?: string }) {
                 setHidden(true)
                 saveHidden(acc, true)
               }}
-              className="text-[11px] text-muted hover:text-secondary hover:underline"
+              className="tl-btn tl-btn--ghost tl-btn--sm"
             >
-              Not applicable for this account — hide
+              Not a challenge account? Hide
             </button>
           ) : undefined
         }

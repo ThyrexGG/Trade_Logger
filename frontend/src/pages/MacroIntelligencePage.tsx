@@ -45,7 +45,7 @@ export function MacroIntelligencePage() {
       actions={
         <div className="flex items-center gap-2">
           {refreshing ? <span className="text-[11px] text-muted" aria-live="polite">Refreshing…</span> : null}
-          <button type="button" onClick={refetch} className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover">
+          <button type="button" onClick={refetch} className="tl-btn tl-btn--secondary tl-btn--sm">
             Refresh
           </button>
         </div>
@@ -83,7 +83,7 @@ export function MacroIntelligencePage() {
           ) : (
             <>
               {error ? (
-                <p className="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[11px] text-warning">
+                <p className="rounded-[var(--tl-radius)] border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
                   Some sections failed to refresh: {error}
                 </p>
               ) : null}

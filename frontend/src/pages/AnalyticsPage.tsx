@@ -75,45 +75,41 @@ export function AnalyticsPage() {
   return (
     <PageContainer
       title="Analytics"
-      description="Account, symbol and date-filtered trading performance over the closed-trade journal. Read-only — nothing here is executed."
       actions={
         <div className="flex flex-wrap items-center gap-2">
-          {refreshing ? <span className="text-[11px] text-muted" aria-live="polite">Updating…</span> : null}
-          {sync.error ? <span className="text-[11px] text-warning" aria-live="polite">{sync.error}</span> : null}
+          {refreshing ? <span className="text-xs text-muted" aria-live="polite">Updating…</span> : null}
+          {sync.error ? <span className="text-xs text-warning" aria-live="polite">{sync.error}</span> : null}
+          <Link to="/workspace/journal" className="tl-btn tl-btn--ghost">
+            Open Journal
+          </Link>
           <button
             type="button"
             onClick={() => void sync.syncNow()}
             disabled={syncing}
-            className="rounded border border-accent/40 bg-accent/10 px-2.5 py-1 text-xs text-accent hover:bg-accent/20 disabled:opacity-50"
-            title="Pull the latest closed trades from the broker now, then refresh"
+            className="tl-btn tl-btn--primary"
+            title="Pull your latest closed trades from your broker, then refresh"
           >
             {syncing ? 'Syncing…' : 'Sync now'}
-          </button>
-          <Link to="/workspace/journal" className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover">
-            Journal
-          </Link>
-          <button type="button" onClick={refetch} className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover">
-            Refresh
           </button>
         </div>
       }
     >
       <div className="space-y-4">
         {state === 'loading' && !data ? (
-          <div className="rounded-lg border border-border bg-surface p-4">
+          <div className="tl-card p-5">
             <SkeletonRows rows={8} />
           </div>
         ) : state === 'error' && !data ? (
-          <div className="rounded-lg border border-border bg-surface p-4">
-            <SectionError message={error ?? 'The analytics service could not be reached.'} onRetry={refetch} />
+          <div className="tl-card">
+            <SectionError message={error ?? 'Your analytics could not be loaded.'} onRetry={refetch} />
           </div>
         ) : data ? (
           <div className="tl-fade-in space-y-4">
             {error ? (
-              <p className="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[11px] text-warning">
+              <p className="rounded-[var(--tl-radius)] border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
                 {/HTTP\s*4/.test(error) || error.includes('422')
-                  ? `Filter rejected — showing the last valid result. ${error}`
-                  : `Showing last good analytics — refresh failed: ${error}`}
+                  ? 'Those filters didn\u2019t work — showing the last result that did.'
+                  : 'Couldn\u2019t refresh just now — showing your numbers from a moment ago.'}
               </p>
             ) : null}
             <AnalyticsControls
@@ -122,15 +118,11 @@ export function AnalyticsPage() {
               query={query}
               onChange={handleQueryChange}
             />
-            <ChallengeTracker account={query.account} />
             <AnalyticsView data={data} />
+            <ChallengeTracker account={query.account} />
           </div>
         ) : null}
 
-        <p className="border-t border-border-subtle pt-3 text-[11px] text-muted">
-          Source: <code>closed_trades</code> via <code>analytics.calculate_performance_metrics</code>.
-          Data comes in through the broker sync (the <strong>Sync now</strong> button above).
-        </p>
       </div>
     </PageContainer>
   )

@@ -1,0 +1,338 @@
+/* ===========================================================================
+   "Precision" component kit. Everything lives in @layer components so a
+   Tailwind utility on the same element still wins — a page can adjust a
+   detail without fighting the kit.
+   =========================================================================== */
+@layer components {
+  /* Panel: one step up the luminance scale, hairline border, and a title
+     followed by a fine rule that runs to the edge. */
+  .tl-card {
+    background: var(--tl-surface);
+    border: 1px solid var(--tl-border-subtle);
+    border-radius: var(--tl-radius-lg);
+  }
+  /* The one panel on a page that matters most: a hairline of accent along
+     its top edge — noticed, not shouted. */
+  .tl-card--feature {
+    border-color: var(--tl-border);
+    box-shadow: inset 0 1px 0 var(--tl-accent-line);
+  }
+  .tl-card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.75rem;
+    padding: 0.95rem 1.1rem 0;
+  }
+  .tl-card-title {
+    display: flex;
+    align-items: center;
+    flex: 0 1 auto;
+    min-width: 0;
+    font-size: 0.86rem;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    color: var(--tl-text-primary);
+  }
+  .tl-rule {
+    flex: 1;
+    min-width: 1rem;
+    height: 1px;
+    background: var(--tl-border-subtle);
+  }
+  .tl-card-body {
+    padding: 0.85rem 1.1rem 1.1rem;
+  }
+
+  /* Stat tile */
+  .tl-stat {
+    border-radius: var(--tl-radius);
+    background: var(--tl-surface);
+    border: 1px solid var(--tl-border-subtle);
+    padding: 0.7rem 0.85rem;
+  }
+  .tl-stat-label {
+    display: flex;
+    align-items: center;
+    font-size: 0.74rem;
+    font-weight: 500;
+    color: var(--tl-text-muted);
+  }
+  .tl-stat-value {
+    margin-top: 0.2rem;
+    font-family: var(--tl-font-mono);
+    font-size: 1.15rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  .tl-stat-sub {
+    margin-top: 0.1rem;
+    font-size: 0.72rem;
+    color: var(--tl-text-muted);
+  }
+
+  /* Figure row: several stats as ONE panel divided by hairlines, instead of a
+     row of separate boxes. Any .tl-stat (OpsMetric) inside loses its own box. */
+  .tl-figures {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+    background: var(--tl-surface);
+    border: 1px solid var(--tl-border-subtle);
+    border-radius: var(--tl-radius-lg);
+    overflow: hidden;
+  }
+  .tl-figures > * {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    padding: 0.85rem 1rem;
+    box-shadow: 1px 0 0 var(--tl-border-subtle), 0 1px 0 var(--tl-border-subtle);
+  }
+
+  /* Empty / error / unavailable: centred, calm, one clear action. */
+  .tl-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    text-align: center;
+    padding: 1.4rem 1rem;
+  }
+  .tl-state--quiet {
+    border: 1px dashed var(--tl-border);
+    border-radius: var(--tl-radius);
+  }
+  .tl-state-icon {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    font-weight: 800;
+    background: var(--tl-surface-elevated);
+    color: var(--tl-text-secondary);
+  }
+  .tl-state-icon--error {
+    background: color-mix(in oklab, var(--tl-negative) 16%, transparent);
+    color: var(--tl-negative);
+  }
+
+  .tl-skeleton {
+    background: linear-gradient(90deg, var(--tl-surface-elevated) 0%, var(--tl-surface-hover) 50%, var(--tl-surface-elevated) 100%);
+    background-size: 200% 100%;
+    animation: tl-shimmer 1.4s ease-in-out infinite;
+  }
+
+  /* Buttons. Primary is the one gold key on a screen, with a 2px edge that
+     compresses on press. Secondary is a raised neutral; ghost is text-weight. */
+  .tl-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    height: 2.25rem;
+    padding: 0 0.95rem;
+    border-radius: var(--tl-radius);
+    border: 1px solid transparent;
+    font: 500 0.82rem/1 var(--tl-font-sans);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    text-decoration: none;
+    transition: background-color var(--tl-dur-fast) var(--tl-ease), border-color var(--tl-dur-fast) var(--tl-ease), color var(--tl-dur-fast) var(--tl-ease), transform var(--tl-dur-fast) var(--tl-ease), box-shadow var(--tl-dur-fast) var(--tl-ease);
+  }
+  .tl-btn:disabled,
+  .tl-btn[aria-disabled='true'] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .tl-btn--sm {
+    height: 1.9rem;
+    padding: 0 0.7rem;
+    font-size: 0.78rem;
+    border-radius: var(--tl-radius-sm);
+  }
+  .tl-btn--lg {
+    height: 2.75rem;
+    padding: 0 1.25rem;
+    font-size: 0.9rem;
+  }
+  .tl-btn--primary {
+    background: var(--tl-accent-fill);
+    color: var(--tl-gradient-ink);
+    font-weight: 600;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  }
+  .tl-btn--primary:hover:not(:disabled) {
+    background: var(--tl-accent-fill-hover);
+  }
+  .tl-btn--primary:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+  .tl-btn--secondary {
+    background: var(--tl-surface-elevated);
+    border-color: var(--tl-border);
+    color: var(--tl-text-primary);
+  }
+  .tl-btn--secondary:hover:not(:disabled) {
+    background: var(--tl-surface-hover);
+  }
+  .tl-btn--secondary:active:not(:disabled),
+  .tl-btn--ghost:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+  .tl-btn--ghost {
+    background: transparent;
+    color: var(--tl-text-secondary);
+  }
+  .tl-btn--ghost:hover:not(:disabled) {
+    background: var(--tl-surface-elevated);
+    color: var(--tl-text-primary);
+  }
+
+  /* Segmented control: one choice out of a few (date range, view, tabs). */
+  .tl-seg {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    padding: 3px;
+    border-radius: var(--tl-radius);
+    background: var(--tl-surface-elevated);
+    border: 1px solid var(--tl-border-subtle);
+  }
+  .tl-seg > button,
+  .tl-seg > a {
+    height: 1.85rem;
+    padding: 0 0.8rem;
+    border-radius: 7px;
+    border: 0;
+    background: transparent;
+    color: var(--tl-text-secondary);
+    font: 500 0.78rem/1 var(--tl-font-sans);
+    white-space: nowrap;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    text-decoration: none;
+  }
+  .tl-seg > button:hover,
+  .tl-seg > a:hover {
+    color: var(--tl-text-primary);
+  }
+  .tl-seg > [aria-selected='true'],
+  .tl-seg > [aria-pressed='true'],
+  .tl-seg > [aria-checked='true'],
+  .tl-seg > [aria-current='page'] {
+    background: var(--tl-surface);
+    color: var(--tl-text-primary);
+    box-shadow: 0 1px 0 var(--tl-border), 0 0 0 1px var(--tl-border-subtle);
+  }
+
+  /* Chip: compact filter/label pill — the only fully-round shape in the kit. */
+  .tl-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    height: 1.75rem;
+    padding: 0 0.7rem;
+    border-radius: 999px;
+    border: 1px solid var(--tl-border);
+    background: transparent;
+    color: var(--tl-text-secondary);
+    font: 500 0.75rem/1 var(--tl-font-sans);
+    cursor: pointer;
+  }
+  .tl-chip[aria-pressed='true'],
+  .tl-chip[aria-checked='true'] {
+    border-color: var(--tl-accent-line);
+    background: var(--tl-accent-soft);
+    color: var(--tl-accent);
+  }
+
+  /* Form controls */
+  .tl-select,
+  .tl-input {
+    height: 2.25rem;
+    border-radius: var(--tl-radius);
+    border: 1px solid var(--tl-border);
+    background-color: var(--tl-surface-elevated);
+    color: var(--tl-text-primary);
+    font: 500 0.82rem/1 var(--tl-font-sans);
+    padding: 0 0.75rem;
+  }
+  .tl-select {
+    appearance: none;
+    padding-right: 2rem;
+    cursor: pointer;
+    background-image: linear-gradient(45deg, transparent 50%, var(--tl-text-muted) 50%), linear-gradient(135deg, var(--tl-text-muted) 50%, transparent 50%);
+    background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52%;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+  }
+  .tl-select:hover,
+  .tl-input:hover {
+    border-color: color-mix(in oklab, var(--tl-text-muted) 45%, transparent);
+  }
+  .tl-select:focus,
+  .tl-input:focus {
+    outline: none;
+    border-color: var(--tl-accent-line);
+    box-shadow: 0 0 0 3px var(--tl-accent-soft);
+  }
+
+  /* Toolbar: the filter row under a page title. Wraps instead of overflowing. */
+  .tl-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+  }
+
+  /* Page header */
+  .tl-page-title {
+    font-size: 1.45rem;
+    line-height: 1.2;
+    font-weight: 600;
+    letter-spacing: -0.022em;
+    color: var(--tl-text-primary);
+    text-wrap: balance;
+  }
+  /* Technical label: mono, small caps-style. Used for eyebrows, column
+     headers and system values — the "instrument panel" voice. */
+  .tl-eyebrow,
+  .tl-label {
+    font-family: var(--tl-font-mono);
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--tl-text-muted);
+  }
+  /* A figure: mono, tabular, never bold. */
+  .tl-figure {
+    font-family: var(--tl-font-mono);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+}
+
+@keyframes tl-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tl-skeleton {
+    animation: none;
+  }
+  .tl-btn:active {
+    transform: none !important;
+  }
+}

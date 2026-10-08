@@ -146,7 +146,7 @@ export function MarketSnapshot({
       ) : data ? (
         <div className="space-y-5 p-4">
           {state === 'error' && error ? (
-            <p className="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[11px] text-warning">
+            <p className="rounded-[var(--tl-radius)] border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
               Showing last snapshot — refresh failed
             </p>
           ) : null}

@@ -1,141 +1,77 @@
+import { Link } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import { isLocalFallbackBuild } from '../../lib/appMode'
-import { useHealth } from '../../lib/health'
 import { useSyncOnOpen } from '../../lib/syncOnOpen'
-import { useTheme } from '../../lib/theme'
-import { apiStatusView, systemStatusView } from '../../lib/status'
-import { MenuIcon, MonitorIcon, MoonIcon, SearchIcon, SunIcon } from '../../lib/icons'
+import { SearchIcon } from '../../lib/icons'
 import { isMac } from '../../lib/platform'
 import { Tooltip } from '../common/Tooltip'
+import { AccountMenu } from './AccountMenu'
+import { BrandMark } from './BrandMark'
 import { Breadcrumbs } from './Breadcrumbs'
-import { StatusDot } from './StatusDot'
-
-const THEME_ICON = { light: SunIcon, dark: MoonIcon, system: MonitorIcon } as const
-const THEME_LABEL = {
-  system: 'Theme: following your system — click for light',
-  light: 'Theme: light — click for dark',
-  dark: 'Theme: dark — click to follow your system',
-} as const
 
 interface TopBarProps {
-  onOpenSidebar: () => void
   onOpenCommandPalette: () => void
 }
 
-/** Persistent header: breadcrumb (left), live status + command palette (right). */
-export function TopBar({ onOpenSidebar, onOpenCommandPalette }: TopBarProps) {
-  const { state: authState, user, degraded, logout } = useAuth()
+/**
+ * Header: where you are (breadcrumb), anything that needs your attention right
+ * now (syncing / reconnecting / local mode — only when true), search, and the
+ * account menu. Healthy-state status lights were removed from the header: they
+ * said "Connected / Operational" all day and told a trader nothing; health now
+ * shows as a small dot on the avatar and in its menu.
+ */
+export function TopBar({ onOpenCommandPalette }: TopBarProps) {
+  const { degraded } = useAuth()
   const { syncing } = useSyncOnOpen()
-  const { state } = useHealth()
-  const { choice, cycle } = useTheme()
-  const api = apiStatusView(state)
-  const system = systemStatusView(state)
-  const ThemeIcon = THEME_ICON[choice]
 
   return (
-    <header
-      className="sticky top-0 z-20 flex h-[var(--tl-topbar-height)] items-center gap-2 px-3 backdrop-blur-xl sm:gap-3 sm:px-4"
-      style={{ background: 'var(--tl-glass-bg)', borderBottom: '1px solid var(--tl-glass-border)' }}
-    >
-      <Tooltip label="Open navigation">
-        <button
-          type="button"
-          onClick={onOpenSidebar}
-          className="rounded p-1.5 text-muted hover:bg-surface-hover hover:text-primary lg:hidden"
-          aria-label="Open navigation"
-        >
-          <MenuIcon />
-        </button>
-      </Tooltip>
+    <header className="sticky top-0 z-20 flex h-[var(--tl-topbar-height)] items-center gap-3 border-b border-border-subtle bg-background/90 px-4 backdrop-blur sm:px-6">
+      <Link to="/workspace/home" className="lg:hidden" aria-label="TradeLogger home">
+        <BrandMark size={26} />
+      </Link>
 
       <div className="min-w-0 flex-1 truncate">
         <Breadcrumbs />
       </div>
 
       {isLocalFallbackBuild() ? (
-        <Tooltip label="Showing this PC's own local copy of your data while the cloud backend is down — nothing here syncs to your other devices yet, and it switches back to the cloud automatically once it's reachable again.">
-          <span className="flex shrink-0 items-center gap-1.5 rounded border border-warning/40 bg-warning/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-warning">
+        <Tooltip label="Showing this PC's own local copy of your data while the cloud is down — it switches back automatically once the cloud is reachable again.">
+          <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-warning/40 bg-warning/10 px-2.5 py-1 text-[11px] font-bold text-warning">
             <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-warning" aria-hidden="true" />
-            Local mode
+            Offline copy
           </span>
         </Tooltip>
       ) : null}
-
-      <div className="hidden items-center gap-4 md:flex">
-        <span className="flex items-center gap-1.5">
-          <span className="text-[11px] uppercase tracking-wider text-muted">
-            API
-          </span>
-          <StatusDot tone={api.tone} label={api.label} pulse={api.pulse} />
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="text-[11px] uppercase tracking-wider text-muted">
-            System
-          </span>
-          <StatusDot
-            tone={system.tone}
-            label={system.label}
-            pulse={system.pulse}
-          />
-        </span>
-      </div>
 
       {syncing ? (
-        <Tooltip label="Catching up on broker data (trades, positions, balance)">
-          <span className="flex shrink-0 items-center gap-1.5 rounded border border-border bg-surface-elevated px-1.5 py-1 text-[11px] text-muted sm:px-2">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" aria-hidden="true" />
-            <span className="hidden sm:inline">Syncing…</span>
-          </span>
-        </Tooltip>
+        <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-surface-elevated px-2.5 py-1 text-[11px] font-semibold text-secondary" role="status">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-fill" aria-hidden="true" />
+          <span className="hidden sm:inline">Syncing your trades…</span>
+          <span className="sm:hidden">Syncing</span>
+        </span>
       ) : degraded ? (
-        <Tooltip label="The server couldn't be reached (likely waking up) — you're seeing your last session while it retries in the background">
-          <span className="flex shrink-0 items-center gap-1.5 rounded border border-warning/30 bg-warning/10 px-1.5 py-1 text-[11px] text-warning sm:px-2">
+        <Tooltip label="The server is waking up — you're seeing your last session while it reconnects in the background.">
+          <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-warning/30 bg-warning/10 px-2.5 py-1 text-[11px] font-semibold text-warning" role="status">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-warning" aria-hidden="true" />
-            <span className="hidden sm:inline">Reconnecting…</span>
+            Reconnecting
           </span>
         </Tooltip>
       ) : null}
 
-      <Tooltip label={THEME_LABEL[choice]}>
-        <button
-          type="button"
-          onClick={cycle}
-          className="shrink-0 rounded p-1.5 text-muted hover:bg-surface-hover hover:text-primary"
-          aria-label={THEME_LABEL[choice]}
-        >
-          <ThemeIcon className="h-4 w-4" />
-        </button>
-      </Tooltip>
+      <button
+        type="button"
+        onClick={onOpenCommandPalette}
+        className="flex h-9 shrink-0 items-center gap-2 rounded-[var(--tl-radius)] border border-border-subtle bg-surface px-2.5 text-xs font-semibold text-secondary hover:border-border hover:text-primary sm:min-w-[200px]"
+        aria-label="Search pages and actions"
+      >
+        <SearchIcon className="h-4 w-4" />
+        <span className="hidden flex-1 text-left sm:inline">Search…</span>
+        <kbd className="hidden rounded border border-border-subtle bg-surface-elevated px-1.5 py-0.5 font-mono text-[10px] text-muted sm:inline">
+          {isMac() ? '⌘' : 'Ctrl'} K
+        </kbd>
+      </button>
 
-      <Tooltip label={`Search everything — pages, symbols, actions (${isMac() ? '⌘' : 'Ctrl'}+K)`}>
-        <button
-          type="button"
-          onClick={onOpenCommandPalette}
-          className="flex shrink-0 items-center gap-2 rounded border border-border bg-surface-elevated px-2 py-1.5 text-xs text-secondary hover:border-border-subtle hover:text-primary sm:px-2.5"
-          aria-label="Open command palette"
-        >
-          <SearchIcon className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Search</span>
-          <kbd className="hidden rounded bg-surface px-1.5 py-0.5 font-mono text-[10px] text-muted sm:inline">
-            {isMac() ? '⌘' : 'Ctrl'} K
-          </kbd>
-        </button>
-      </Tooltip>
-
-      {authState === 'authed' ? (
-        <Tooltip label={user ? `Signed in as ${user.email} — click to sign out` : 'Sign out'}>
-          <button
-            type="button"
-            onClick={() => void logout()}
-            className="shrink-0 rounded border border-border px-2 py-1.5 text-xs text-muted hover:border-border-subtle hover:text-primary"
-          >
-            <span className="hidden max-w-[14ch] truncate sm:inline">
-              {user ? user.email : 'Sign out'}
-            </span>
-            <span className="sm:hidden" aria-hidden="true">⎋</span>
-          </button>
-        </Tooltip>
-      ) : null}
+      <AccountMenu />
     </header>
   )
 }

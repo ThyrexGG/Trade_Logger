@@ -6,38 +6,28 @@ interface NavigationItemProps {
   onNavigate?: () => void
 }
 
-/** Single sidebar navigation row. Active route is marked by colour + a rail. */
+/** One sidebar row. The current page gets a solid surface and a gold icon — the only gold in the sidebar. */
 export function NavigationItem({ item, onNavigate }: NavigationItemProps) {
   const Icon = item.icon
   return (
     <NavLink
       to={item.path}
       onClick={onNavigate}
+      title={item.description}
       className={({ isActive }) =>
         [
-          'group flex items-center gap-2.5 rounded-md border-l-2 py-1.5 pl-2.5 pr-2 text-sm transition-colors',
+          'group flex h-9 items-center gap-2.5 rounded-[var(--tl-radius)] px-2.5 text-[13.5px] font-semibold transition-colors',
           isActive
-            ? 'border-accent bg-surface-hover text-primary'
-            : 'border-transparent text-secondary hover:bg-surface-elevated hover:text-primary',
+            ? 'bg-surface-elevated text-primary shadow-[0_0_0_1px_var(--tl-border-subtle)]'
+            : 'text-secondary hover:bg-surface-elevated/60 hover:text-primary',
         ].join(' ')
       }
     >
       {({ isActive }) => (
         <>
-          <Icon
-            className={
-              isActive ? 'text-accent' : 'text-muted group-hover:text-secondary'
-            }
-          />
+          <Icon className={`h-[17px] w-[17px] shrink-0 ${isActive ? 'text-accent' : 'text-muted group-hover:text-secondary'}`} />
           <span className="flex-1 truncate">{item.label}</span>
-          {item.status === 'shell' ? (
-            <span
-              className="rounded bg-surface px-1 text-[9px] font-semibold uppercase tracking-wide text-muted"
-              title="Shell page — migration in progress"
-            >
-              shell
-            </span>
-          ) : null}
+          {isActive ? <span className="h-1.5 w-1.5 rounded-full bg-accent-fill" aria-hidden="true" /> : null}
         </>
       )}
     </NavLink>

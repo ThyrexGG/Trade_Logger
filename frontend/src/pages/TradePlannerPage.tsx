@@ -53,7 +53,7 @@ export function TradePlannerPage() {
       <div className="space-y-4">
         <DisclaimerNote />
 
-        <div className="grid grid-cols-2 gap-1 rounded-xl border border-border p-1 text-xs sm:flex sm:w-fit" role="tablist" aria-label="Trade Planner steps">
+        <div className="tl-seg grid grid-cols-2 sm:inline-flex" role="tablist" aria-label="Trade Planner steps">
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -62,8 +62,7 @@ export function TradePlannerPage() {
               aria-selected={tab === t.id}
               title={t.hint}
               onClick={() => go(t.id)}
-              className={`rounded-lg px-3.5 py-1.5 font-medium whitespace-nowrap transition-colors ${tab === t.id ? 'shadow' : 'text-muted hover:text-primary'}`}
-              style={tab === t.id ? { background: 'var(--tl-gradient-primary)', color: 'var(--tl-gradient-ink)' } : undefined}
+              className="!h-8 !px-3.5"
             >
               {t.label}
             </button>

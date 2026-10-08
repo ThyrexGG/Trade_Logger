@@ -211,7 +211,7 @@ export function SaveToJournal({
             <select
               value={kind}
               onChange={(e) => setKind(e.target.value as JournalEntryKind)}
-              className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+              className="tl-select"
             >
               <option value="plan">Trade Plan</option>
               <option value="idea">Idea</option>
@@ -225,7 +225,7 @@ export function SaveToJournal({
               type="text"
               value={instrument}
               onChange={(e) => setInstrument(e.target.value)}
-              className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+              className="tl-input"
             />
           </label>
           <label className="col-span-2 flex flex-col gap-1 text-[11px] text-muted">
@@ -234,7 +234,7 @@ export function SaveToJournal({
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+              className="tl-input"
             />
           </label>
         </div>

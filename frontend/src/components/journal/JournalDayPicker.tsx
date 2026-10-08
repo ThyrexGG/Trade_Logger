@@ -270,14 +270,12 @@ export function JournalDayPicker({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-1.5 rounded border px-2.5 py-1 text-xs ${
-          selected ? 'border-accent/40 bg-accent/10 text-accent' : 'border-border text-secondary hover:bg-surface-hover'
-        }`}
+        className={`tl-btn tl-btn--secondary ${selected ? '!border-[var(--tl-accent-line)] !bg-accent-soft !text-accent' : ''}`}
         aria-expanded={open}
         title="Pick a day to show just that day's trades"
       >
         <CalendarIcon />
-        {selectedLabel ?? 'Calendar'}
+        {selectedLabel ?? 'Pick a day'}
         {selected ? (
           <span
             role="button"

@@ -96,7 +96,7 @@ export function BacktestWorkspacePage() {
       actions={
         <Link
           to="/research/strategy"
-          className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover"
+          className="tl-btn tl-btn--secondary tl-btn--sm"
         >
           Strategy Lab
         </Link>
@@ -205,7 +205,7 @@ export function BacktestWorkspacePage() {
                       </p>
                     ) : null}
                     {audit.state === 'failed' && audit.error ? (
-                      <p className="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[11px] text-warning">
+                      <p className="rounded-[var(--tl-radius)] border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
                         Last run failed: {audit.error}
                       </p>
                     ) : null}

@@ -81,7 +81,7 @@ export function RiskResult({ state, result, error, isStale, onRetry }: RiskResul
   return (
     <div className="space-y-4" aria-live="polite">
       {state === 'error' && error ? (
-        <p className="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[11px] text-warning">
+        <p className="rounded-[var(--tl-radius)] border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
           Showing last result — recalculation failed: {error}
         </p>
       ) : null}
@@ -89,7 +89,7 @@ export function RiskResult({ state, result, error, isStale, onRetry }: RiskResul
       {isStale ? (
         <p
           role="status"
-          className="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[11px] text-warning"
+          className="rounded-[var(--tl-radius)] border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning"
         >
           Inputs changed — recalculate for an updated position size.
         </p>

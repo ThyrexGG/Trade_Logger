@@ -250,7 +250,7 @@ export function Delta({
 /** Truthful "nothing to show" state — distinct from a zero value. */
 export function EvidenceEmpty({ children }: { children: ReactNode }) {
   return (
-    <p className="rounded border border-dashed border-border-subtle px-3 py-4 text-center text-xs text-muted">
+    <p className="tl-state tl-state--quiet text-xs text-muted">
       {children}
     </p>
   )

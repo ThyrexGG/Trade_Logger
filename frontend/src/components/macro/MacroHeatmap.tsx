@@ -86,7 +86,7 @@ function HeatmapBody({ data }: { data: MacroHeatmapResponse }) {
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="tl-figures">
         <OpsMetric label="Economy" value={`${data.country_name ?? data.country}`} />
         <OpsMetric
           label="Aggregate"

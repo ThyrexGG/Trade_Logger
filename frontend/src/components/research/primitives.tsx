@@ -96,7 +96,7 @@ function friendlyReason(children: ReactNode): ReactNode {
 
 export function ResearchUnavailable({ children }: { children: ReactNode }) {
   return (
-    <p className="rounded border border-dashed border-border-subtle px-3 py-4 text-center text-xs text-muted">
+    <p className="tl-state tl-state--quiet text-xs text-muted">
       {friendlyReason(children)}
     </p>
   )

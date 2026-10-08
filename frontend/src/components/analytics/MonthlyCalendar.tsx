@@ -143,7 +143,7 @@ function InlineTradeJournal({
           type="button"
           onClick={save}
           disabled={saving || !dirty}
-          className="rounded border border-accent/40 bg-accent/10 px-2.5 py-1 text-[11px] text-accent disabled:opacity-40"
+          className="tl-btn tl-btn--primary tl-btn--sm"
         >
           {saving ? 'Saving…' : 'Save note'}
         </button>

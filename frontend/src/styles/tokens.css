@@ -1,223 +1,217 @@
 /*
- * TradeLogger design tokens (Stage 5 shell design system).
- * Derived from the existing Streamlit visual language in ui_components.py (TOKENS)
- * and .streamlit/config.toml. Consistency baseline for the React terminal —
- * not a redesign.
+ * TradeLogger design tokens — "Precision".
  *
- * Theme model (added later): the app shipped dark-only for a long time, so
- * dark stays the unconditional default on bare `:root` — a visitor with no
- * saved preference and no OS signal sees exactly what always shipped. From
- * there:
- *   - OS reports light AND the visitor hasn't chosen explicitly -> light.
- *   - `[data-theme="light"]` / `[data-theme="dark"]` (set by the toggle in
- *     TopBar, persisted in localStorage) wins over the OS either way.
- * Every component reads color through the `--tl-*` variables below via
- * Tailwind's `@theme inline` mapping in index.css — nothing else needs to
- * change per-component for either theme to apply everywhere at once.
+ * Direction: a personal trading command centre that feels advanced because
+ * of its precision — hierarchy, type, spacing, motion — not because of glow.
  *
- * Palette: gold / black / gray. Only the *decorative* tokens (surfaces,
- * accent, glow blobs, gradient) carry this identity — the four semantic
- * status colors (positive/negative/warning/info) are left as their
- * universal green/red/amber/blue meanings, since those are a functional
- * signal traders read at a glance, not a brand choice.
+ *   - Ground: deep navy, never pure black. Depth comes from a LUMINANCE SCALE
+ *     (background → surface → elevated → hover), each step a little lighter,
+ *     plus hairline borders — not from drop shadows or blur.
+ *   - One accent: an ice cyan, used for interaction (the primary action, the
+ *     current page, focus, selection) and nothing decorative.
+ *   - Semantic colours keep fixed jobs: green = gain, red = loss/risk,
+ *     amber = warning, periwinkle = information/system. They are used on the
+ *     figures they describe, never as large fills, so most of the screen stays
+ *     neutral. P&L always carries a +/− sign too (never colour alone).
+ *   - Type: Geist for UI, Geist Mono for every figure, time and technical
+ *     label. Weights stop at 600 — size and brightness carry hierarchy.
  *
- * Light palette is WCAG AA-verified, not a straight invert of the dark set:
- * every text/semantic color below is >=4.5:1 against all three light
- * surfaces (background/surface/surface-elevated) — checked with the actual
- * relative-luminance formula, not eyeballed. Gold in particular is a
- * genuine contrast trap (bright gold text or a gold background under white
- * text both fail AA badly) — see --tl-accent and --tl-gradient-ink below
- * for how each is handled. The dark set was already comfortably AA (light
- * text on near-black) so it's untouched other than the hue shift.
+ * Legacy names (`--tl-glass-*`, `--tl-gradient-*`, `--tl-glow-*`) are kept
+ * because dozens of components read them; they now resolve to this system.
+ *
+ * Theme model: dark is the default on bare :root; the OS light preference
+ * applies when nothing is chosen; `[data-theme]` (account menu, persisted)
+ * wins either way. Light text colours are AA (≥4.5:1) on all light surfaces.
  */
 :root {
-  /* Surfaces — neutral gray-black, not the blue-slate tint the previous
-     glassmorphism pass used. Still pushed dark enough that glass panels
-     (below) have real contrast to lift off. */
-  --tl-background: #0a0a0a;
-  --tl-surface: #141414;
-  --tl-surface-elevated: #1f1f1f;
-  --tl-surface-hover: #2b2b2b;
-  --tl-border: rgba(255, 255, 255, 0.12);
-  --tl-border-subtle: rgba(255, 255, 255, 0.08);
-  /* Translucent glass panels (chart tooltips, popovers, SectionCard, nav) —
-     neutral dark-gray wash behind a backdrop-blur, with a thin warm-gold
-     tint on the border/highlight instead of plain white so the chrome
-     itself reads as part of the gold/black/gray identity. */
-  --tl-glass-bg: rgba(15, 15, 15, 0.6);
-  --tl-glass-border: rgba(240, 185, 11, 0.3);
-  --tl-glass-shadow: rgba(0, 0, 0, 0.5);
-  /* Inset top-edge highlight — the thin bright line where light catches a
-     glass card's upper rim. Warm gold-white rather than plain white. */
-  --tl-glass-highlight: rgba(255, 214, 122, 0.35);
+  /* Luminance scale */
+  --tl-background: #0b0f17;
+  --tl-surface: #111722;
+  --tl-surface-elevated: #171e2b;
+  --tl-surface-hover: #1f2836;
+  --tl-border: rgba(160, 182, 220, 0.14);
+  --tl-border-subtle: rgba(160, 182, 220, 0.08);
+
+  --tl-glass-bg: #111722;
+  --tl-glass-border: rgba(160, 182, 220, 0.08);
+  --tl-glass-shadow: rgba(2, 6, 14, 0.5);
+  --tl-glass-highlight: rgba(200, 220, 255, 0.03);
 
   /* Text */
-  --tl-text-primary: #ffffff;
-  --tl-text-secondary: #a3a3a3;
-  --tl-text-muted: #737373;
+  --tl-text-primary: #e8edf5;
+  --tl-text-secondary: #a4afc2;
+  --tl-text-muted: #77849a;
 
-  /* Semantic state — universal trading conventions, not part of the
-     gold/black/gray identity: green/red/amber/blue keep their meaning
-     regardless of theme. */
-  --tl-positive: #10b981;
-  --tl-negative: #ef4444;
-  --tl-warning: #f59e0b;
-  --tl-info: #3b82f6;
-  --tl-accent: #f0b90b; /* gold — the brand color */
-  --tl-neutral: #737373;
+  /* Semantic */
+  --tl-positive: #3ddc97;
+  --tl-negative: #f87171;
+  --tl-warning: #f5b23d;
+  --tl-info: #8b9cff;
+  --tl-neutral: #77849a;
+  --tl-blocked: #f87171;
+  --tl-stale: #d18b2a;
 
-  /* Extended shell states */
-  --tl-blocked: #ef4444; /* fail-closed safety lock */
-  --tl-stale: #a16207; /* aged / cached data */
-  --tl-active: #f0b90b; /* current selection / route */
+  /* Accent — ice cyan */
+  --tl-accent: #5ad1f5; /* accent TEXT / icons */
+  --tl-active: #5ad1f5;
+  --tl-focus: #5ad1f5;
+  --tl-accent-fill: #5ad1f5; /* primary button, selection marks */
+  --tl-accent-fill-hover: #7ddcf8;
+  --tl-accent-depth: #2b8fb0;
+  --tl-accent-soft: rgba(90, 209, 245, 0.1);
+  --tl-accent-line: rgba(90, 209, 245, 0.42);
+  --tl-gradient-primary: #5ad1f5;
+  --tl-gradient-ink: #04131c; /* text on the accent fill */
 
-  /* Focus ring */
-  --tl-focus: #f0b90b;
+  /* Data-viz neutrals (charts, the heatmap's empty days, grids) */
+  --tl-grid-line: rgba(160, 182, 220, 0.06);
+  --tl-glow-a: #5ad1f5;
+  --tl-glow-b: #2b8fb0;
+  --tl-glow-c: #77849a;
 
-  /* Background glow blobs (AppShell) — separate from the semantic accent
-     colors above (those carry meaning elsewhere: tags, status text) so this
-     is purely decorative. Gold + bronze + a neutral gray, i.e. this
-     palette's own three names, not a borrowed template gradient. */
-  --tl-glow-a: #f0b90b; /* gold */
-  --tl-glow-b: #b8860b; /* bronze/goldenrod — deeper counterpoint */
-  --tl-glow-c: #6b7280; /* neutral gray — cool anchor, keeps it from reading as flat yellow */
-  /* Gradient CTA (login/sign-up primary buttons, tab switcher). Built from
-     the glow tokens above, so it re-tints with them automatically per
-     theme — defined once here, resolved per-scope at use time. */
-  --tl-gradient-primary: linear-gradient(135deg, var(--tl-glow-a) 0%, var(--tl-glow-b) 100%);
-  /* Text color for anything sitting ON TOP of --tl-gradient-primary. White
-     text on a gold/bronze background fails AA badly at every point on this
-     gradient (checked: ~1.8:1 on the gold end, ~3.3:1 on the bronze end,
-     both well under the 4.5:1 normal-text minimum) — dark ink is the
-     correct choice here on contrast grounds, not just a style preference,
-     and happens to also be the more classic black-on-gold combination.
-     One constant value, not per-theme: the gradient itself is gold/bronze
-     in both themes, so the same dark ink reads correctly on either. */
-  --tl-gradient-ink: #1c1917;
+  /* Shape — small radii read as precise. Round shapes are reserved for
+     status dots and chips. */
+  --tl-radius-sm: 5px;
+  --tl-radius: 8px;
+  --tl-radius-lg: 10px;
 
-  /* Typography — Manrope (distinctive geometric sans, not the Inter every
-     AI-generated app ships with by default) for UI text; JetBrains Mono
-     for anything numeric/tabular, which a trading terminal has a lot of.
-     Loaded via Google Fonts in index.html; the system-font fallbacks below
-     only apply before that loads or if it fails. */
-  --tl-font-sans: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-    Helvetica, Arial, sans-serif;
-  --tl-font-mono: 'JetBrains Mono', 'Fira Code', 'Roboto Mono', Consolas, monospace;
+  --tl-shadow-pop: 0 16px 40px rgba(2, 6, 14, 0.55), 0 2px 6px rgba(2, 6, 14, 0.35);
+
+  /* Motion — easing only; nothing overshoots. */
+  --tl-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --tl-dur-fast: 120ms;
+  --tl-dur: 200ms;
+
+  /* Typography */
+  --tl-font-sans: 'Geist', ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --tl-font-mono: 'Geist Mono', ui-monospace, 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
 
   /* Shell metrics */
-  --tl-sidebar-width: 240px;
+  --tl-sidebar-width: 228px;
   --tl-topbar-height: 52px;
 }
 
-/* Light palette applied when the OS prefers light and the visitor hasn't
-   explicitly chosen dark. */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme='dark']) {
-    --tl-background: #f5f5f4;
+    --tl-background: #f4f6fa;
     --tl-surface: #ffffff;
-    --tl-surface-elevated: #e7e5e4;
-    --tl-surface-hover: #d6d3d1;
-    --tl-border: rgba(28, 25, 23, 0.12);
-    --tl-border-subtle: rgba(28, 25, 23, 0.08);
-    --tl-glass-bg: rgba(255, 255, 255, 0.45);
-    --tl-glass-border: rgba(180, 130, 20, 0.25);
-    --tl-glass-shadow: rgba(28, 25, 23, 0.18);
-    --tl-glass-highlight: rgba(255, 255, 255, 0.7);
+    --tl-surface-elevated: #eef1f6;
+    --tl-surface-hover: #e3e8f0;
+    --tl-border: rgba(15, 30, 60, 0.14);
+    --tl-border-subtle: rgba(15, 30, 60, 0.08);
+    --tl-glass-bg: #ffffff;
+    --tl-glass-border: rgba(15, 30, 60, 0.09);
+    --tl-glass-shadow: rgba(15, 30, 60, 0.08);
+    --tl-glass-highlight: transparent;
 
-    --tl-text-primary: #1c1917;
-    --tl-text-secondary: #44403c;
-    --tl-text-muted: #57534e;
+    --tl-text-primary: #0e1726;
+    --tl-text-secondary: #3c4a5f;
+    --tl-text-muted: #5b6779;
 
     --tl-positive: #047857;
     --tl-negative: #b91c1c;
     --tl-warning: #9a3412;
-    --tl-info: #1d4ed8;
-    /* Dark bronze, not the bright gold used for backgrounds/glows: verified
-       >=4.5:1 against all three light surfaces (white surface, #f5f5f4
-       background, #e7e5e4 elevated) via the actual relative-luminance
-       formula — bright gold (#f0b90b) itself is ~1.8:1 on white and fails. */
-    --tl-accent: #7a5c00;
-    --tl-neutral: #57534e;
-
+    --tl-info: #4338ca;
+    --tl-neutral: #5b6779;
     --tl-blocked: #b91c1c;
     --tl-stale: #92400e;
-    --tl-active: #7a5c00;
 
-    --tl-focus: #7a5c00;
+    --tl-accent: #0a6f94;
+    --tl-active: #0a6f94;
+    --tl-focus: #0a6f94;
+    --tl-accent-fill: #12a8d8;
+    --tl-accent-fill-hover: #2bb6e2;
+    --tl-accent-depth: #0a6f94;
+    --tl-accent-soft: rgba(18, 168, 216, 0.1);
+    --tl-accent-line: rgba(10, 111, 148, 0.45);
+    --tl-gradient-primary: #12a8d8;
 
-    --tl-glow-a: #eab308;
-    --tl-glow-b: #c2872f;
-    --tl-glow-c: #9ca3af;
+    --tl-grid-line: rgba(15, 30, 60, 0.06);
+    --tl-glow-a: #12a8d8;
+    --tl-glow-b: #0a6f94;
+    --tl-glow-c: #94a3b8;
+    --tl-shadow-pop: 0 16px 40px rgba(15, 30, 60, 0.14), 0 2px 6px rgba(15, 30, 60, 0.08);
   }
 }
 
-/* Explicit "light" from the toggle wins over the OS reporting dark. */
 [data-theme='light'] {
-  --tl-background: #f5f5f4;
+  --tl-background: #f4f6fa;
   --tl-surface: #ffffff;
-  --tl-surface-elevated: #e7e5e4;
-  --tl-surface-hover: #d6d3d1;
-  --tl-border: rgba(28, 25, 23, 0.12);
-  --tl-border-subtle: rgba(28, 25, 23, 0.08);
-  --tl-glass-bg: rgba(255, 255, 255, 0.45);
-  --tl-glass-border: rgba(180, 130, 20, 0.25);
-  --tl-glass-shadow: rgba(28, 25, 23, 0.18);
-  --tl-glass-highlight: rgba(255, 255, 255, 0.7);
+  --tl-surface-elevated: #eef1f6;
+  --tl-surface-hover: #e3e8f0;
+  --tl-border: rgba(15, 30, 60, 0.14);
+  --tl-border-subtle: rgba(15, 30, 60, 0.08);
+  --tl-glass-bg: #ffffff;
+  --tl-glass-border: rgba(15, 30, 60, 0.09);
+  --tl-glass-shadow: rgba(15, 30, 60, 0.08);
+  --tl-glass-highlight: transparent;
 
-  --tl-text-primary: #1c1917;
-  --tl-text-secondary: #44403c;
-  --tl-text-muted: #57534e;
+  --tl-text-primary: #0e1726;
+  --tl-text-secondary: #3c4a5f;
+  --tl-text-muted: #5b6779;
 
   --tl-positive: #047857;
   --tl-negative: #b91c1c;
   --tl-warning: #9a3412;
-  --tl-info: #1d4ed8;
-  --tl-accent: #7a5c00;
-  --tl-neutral: #57534e;
-
+  --tl-info: #4338ca;
+  --tl-neutral: #5b6779;
   --tl-blocked: #b91c1c;
   --tl-stale: #92400e;
-  --tl-active: #7a5c00;
 
-  --tl-focus: #7a5c00;
+  --tl-accent: #0a6f94;
+  --tl-active: #0a6f94;
+  --tl-focus: #0a6f94;
+  --tl-accent-fill: #12a8d8;
+  --tl-accent-fill-hover: #2bb6e2;
+  --tl-accent-depth: #0a6f94;
+  --tl-accent-soft: rgba(18, 168, 216, 0.1);
+  --tl-accent-line: rgba(10, 111, 148, 0.45);
+  --tl-gradient-primary: #12a8d8;
 
-  --tl-glow-a: #eab308;
-  --tl-glow-b: #c2872f;
-  --tl-glow-c: #9ca3af;
+  --tl-grid-line: rgba(15, 30, 60, 0.06);
+  --tl-glow-a: #12a8d8;
+  --tl-glow-b: #0a6f94;
+  --tl-glow-c: #94a3b8;
+  --tl-shadow-pop: 0 16px 40px rgba(15, 30, 60, 0.14), 0 2px 6px rgba(15, 30, 60, 0.08);
 }
 
-/* Explicit "dark" from the toggle wins over the OS reporting light — same
-   values as bare `:root`, restated so the override actually overrides. */
 [data-theme='dark'] {
-  --tl-background: #0a0a0a;
-  --tl-surface: #141414;
-  --tl-surface-elevated: #1f1f1f;
-  --tl-surface-hover: #2b2b2b;
-  --tl-border: rgba(255, 255, 255, 0.12);
-  --tl-border-subtle: rgba(255, 255, 255, 0.08);
-  --tl-glass-bg: rgba(15, 15, 15, 0.6);
-  --tl-glass-border: rgba(240, 185, 11, 0.3);
-  --tl-glass-shadow: rgba(0, 0, 0, 0.5);
-  --tl-glass-highlight: rgba(255, 214, 122, 0.35);
+  --tl-background: #0b0f17;
+  --tl-surface: #111722;
+  --tl-surface-elevated: #171e2b;
+  --tl-surface-hover: #1f2836;
+  --tl-border: rgba(160, 182, 220, 0.14);
+  --tl-border-subtle: rgba(160, 182, 220, 0.08);
+  --tl-glass-bg: #111722;
+  --tl-glass-border: rgba(160, 182, 220, 0.08);
+  --tl-glass-shadow: rgba(2, 6, 14, 0.5);
+  --tl-glass-highlight: rgba(200, 220, 255, 0.03);
 
-  --tl-text-primary: #ffffff;
-  --tl-text-secondary: #a3a3a3;
-  --tl-text-muted: #737373;
+  --tl-text-primary: #e8edf5;
+  --tl-text-secondary: #a4afc2;
+  --tl-text-muted: #77849a;
 
-  --tl-positive: #10b981;
-  --tl-negative: #ef4444;
-  --tl-warning: #f59e0b;
-  --tl-info: #3b82f6;
-  --tl-accent: #f0b90b;
-  --tl-neutral: #737373;
+  --tl-positive: #3ddc97;
+  --tl-negative: #f87171;
+  --tl-warning: #f5b23d;
+  --tl-info: #8b9cff;
+  --tl-neutral: #77849a;
+  --tl-blocked: #f87171;
+  --tl-stale: #d18b2a;
 
-  --tl-blocked: #ef4444;
-  --tl-stale: #a16207;
-  --tl-active: #f0b90b;
+  --tl-accent: #5ad1f5;
+  --tl-active: #5ad1f5;
+  --tl-focus: #5ad1f5;
+  --tl-accent-fill: #5ad1f5;
+  --tl-accent-fill-hover: #7ddcf8;
+  --tl-accent-depth: #2b8fb0;
+  --tl-accent-soft: rgba(90, 209, 245, 0.1);
+  --tl-accent-line: rgba(90, 209, 245, 0.42);
+  --tl-gradient-primary: #5ad1f5;
 
-  --tl-focus: #f0b90b;
-
-  --tl-glow-a: #f0b90b;
-  --tl-glow-b: #b8860b;
-  --tl-glow-c: #6b7280;
+  --tl-grid-line: rgba(160, 182, 220, 0.06);
+  --tl-glow-a: #5ad1f5;
+  --tl-glow-b: #2b8fb0;
+  --tl-glow-c: #77849a;
+  --tl-shadow-pop: 0 16px 40px rgba(2, 6, 14, 0.55), 0 2px 6px rgba(2, 6, 14, 0.35);
 }

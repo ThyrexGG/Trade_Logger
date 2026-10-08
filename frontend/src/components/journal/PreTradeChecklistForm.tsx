@@ -227,7 +227,7 @@ export function PreTradeChecklistForm({ prefill }: { prefill?: ChecklistPrefill 
             <select
               value={account}
               onChange={(e) => setAccount(e.target.value)}
-              className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+              className="tl-select"
             >
               {accounts.length === 0 ? <option value="">No synced accounts</option> : null}
               {accounts.map((a) => (
@@ -245,7 +245,7 @@ export function PreTradeChecklistForm({ prefill }: { prefill?: ChecklistPrefill 
                 invalidate()
               }}
               placeholder="EURUSD"
-              className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+              className="tl-input"
             />
           </label>
           <label className="flex flex-col gap-1 text-[11px] text-muted">
@@ -256,7 +256,7 @@ export function PreTradeChecklistForm({ prefill }: { prefill?: ChecklistPrefill 
                 setDirection(e.target.value as 'long' | 'short')
                 invalidate()
               }}
-              className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+              className="tl-select"
             >
               <option value="long">Long</option>
               <option value="short">Short</option>
@@ -270,7 +270,7 @@ export function PreTradeChecklistForm({ prefill }: { prefill?: ChecklistPrefill 
                 setSetupTag(e.target.value)
                 invalidate()
               }}
-              className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+              className="tl-select"
             >
               {SETUP_PRESETS.map((p) => (
                 <option key={p} value={p}>{p}</option>
@@ -287,7 +287,7 @@ export function PreTradeChecklistForm({ prefill }: { prefill?: ChecklistPrefill 
                 setEntry(e.target.value)
                 invalidate()
               }}
-              className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+              className="tl-input"
             />
           </label>
           <label className="flex flex-col gap-1 text-[11px] text-muted">
@@ -300,7 +300,7 @@ export function PreTradeChecklistForm({ prefill }: { prefill?: ChecklistPrefill 
                 setStopLoss(e.target.value)
                 invalidate()
               }}
-              className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+              className="tl-input"
             />
           </label>
           <label className="flex flex-col gap-1 text-[11px] text-muted">
@@ -313,7 +313,7 @@ export function PreTradeChecklistForm({ prefill }: { prefill?: ChecklistPrefill 
                 setTakeProfit(e.target.value)
                 invalidate()
               }}
-              className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+              className="tl-input"
             />
           </label>
           <label className="flex flex-col gap-1 text-[11px] text-muted">
@@ -328,7 +328,7 @@ export function PreTradeChecklistForm({ prefill }: { prefill?: ChecklistPrefill 
                 invalidate()
               }}
               placeholder="e.g. 50"
-              className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+              className="tl-input"
             />
           </label>
         </div>

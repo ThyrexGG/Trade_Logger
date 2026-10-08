@@ -102,7 +102,7 @@ export function MacroOverview({ data }: { data: MacroOverviewResponse }) {
   }
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="tl-figures">
         <OpsMetric label="Macro regime" value={data.macro_regime} sub={data.macro_regime_note ?? undefined} />
         <OpsMetric label="Confidence" value={data.confidence != null ? `${data.confidence}` : '—'} />
         <OpsMetric label="High-impact ahead" value={data.upcoming_high_impact.length} />
@@ -495,7 +495,7 @@ export function MacroCurrencies({ data }: { data: MacroCurrenciesResponse }) {
             <OpsUnavailable>{c.reason ?? 'Insufficient evidence.'}</OpsUnavailable>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="tl-figures">
                 <OpsMetric label="Macro score" value={num(c.score)} tone={dir(c.direction)} />
                 <OpsMetric label="Classification" value={c.classification ?? '—'} />
                 <OpsMetric label="Confidence" value={c.confidence != null ? `${c.confidence}` : '—'} />

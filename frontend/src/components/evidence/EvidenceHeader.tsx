@@ -30,7 +30,7 @@ export function EvidenceHeader({
   }
   if (state === 'error' && !data) {
     return (
-      <div className="rounded-lg border border-border bg-surface px-4 py-3 text-sm text-negative">
+      <div className="tl-card px-4 py-3 text-sm text-negative">
         Forward evidence unavailable — {error}
       </div>
     )
@@ -41,7 +41,7 @@ export function EvidenceHeader({
   const hasSample = m.trades_n > 0
 
   return (
-    <div className="rounded-lg border border-border bg-surface px-4 py-3">
+    <div className="tl-card px-4 py-3">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h1 className="text-lg font-semibold text-primary">Forward Evidence</h1>

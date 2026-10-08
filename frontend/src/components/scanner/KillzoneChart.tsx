@@ -709,7 +709,7 @@ export function KillzoneChart({
             <select
               value={viewTf}
               onChange={(e) => setViewTf(e.target.value)}
-              className="rounded border border-border bg-background px-1.5 py-0.5 text-[11px] text-primary focus:border-accent focus:outline-none"
+              className="tl-select !h-7 !px-2 !text-[11px]"
             >
               {VIEW_TF_OPTIONS.map((tf) => (
                 <option key={tf} value={tf}>{tf}</option>
@@ -721,7 +721,7 @@ export function KillzoneChart({
             <select
               value={count}
               onChange={(e) => setCount(Number(e.target.value))}
-              className="rounded border border-border bg-background px-1.5 py-0.5 text-[11px] text-primary focus:border-accent focus:outline-none"
+              className="tl-select !h-7 !px-2 !text-[11px]"
             >
               {HISTORY_OPTIONS.map((n) => (
                 <option key={n} value={n}>{n} candles</option>
@@ -734,7 +734,7 @@ export function KillzoneChart({
               <select
                 value={chartHeight}
                 onChange={(e) => changeHeight(Number(e.target.value))}
-                className="rounded border border-border bg-background px-1.5 py-0.5 text-[11px] text-primary focus:border-accent focus:outline-none"
+                className="tl-select !h-7 !px-2 !text-[11px]"
               >
                 {HEIGHT_OPTIONS.map((h) => (
                   <option key={h.px} value={h.px}>{h.label}</option>

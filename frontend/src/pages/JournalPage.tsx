@@ -202,68 +202,66 @@ export function JournalPage() {
   // fall back to unfiltered so the link still resolves instead of 404-ing.
   const viewData = focusTradeId && filtered && !filtered.entries.some((e) => e.trade_id === focusTradeId) ? data : filtered
 
+  const syncBusy = sync.syncing || Boolean(sync.status?.cycle_in_progress)
+
   return (
     <PageContainer
-      title="Trade Journal"
-      description="Closed-trade record with editable setup tags, notes and chart snapshots. Execution facts are immutable."
+      title="Journal"
       actions={
         <div className="flex flex-wrap items-center gap-2">
-          {refreshing ? <span className="text-[11px] text-muted" aria-live="polite">Refreshing…</span> : null}
+          {refreshing ? <span className="text-xs text-muted" aria-live="polite">Updating…</span> : null}
+          <button
+            type="button"
+            onClick={exportCsv}
+            disabled={!viewData || viewData.entries.length === 0}
+            className="tl-btn tl-btn--ghost"
+            title="Download the trades shown below as a spreadsheet"
+          >
+            Export
+          </button>
           <button
             type="button"
             onClick={() => void sync.syncNow()}
-            disabled={sync.syncing || sync.status?.cycle_in_progress}
-            className="rounded border border-accent/40 bg-accent/10 px-2.5 py-1 text-xs text-accent hover:bg-accent/20 disabled:opacity-50"
-            title="Pull the latest trades & positions from Capital.com now"
+            disabled={syncBusy}
+            className="tl-btn tl-btn--primary"
+            title="Pull your latest trades and positions from your broker now"
           >
-            {sync.syncing || sync.status?.cycle_in_progress ? 'Syncing…' : 'Sync now'}
+            {syncBusy ? 'Syncing…' : 'Sync now'}
           </button>
-          <div className="flex overflow-hidden rounded border border-border text-xs">
+        </div>
+      }
+    >
+      <div className="space-y-5">
+        <div className="tl-toolbar">
+          {data && data.accounts.length > 1 ? (
+            <label className="flex items-center">
+              <span className="sr-only">Account</span>
+              <select value={account} onChange={(e) => changeAccount(e.target.value)} className="tl-select">
+                <option value="ALL">All accounts</option>
+                {data.accounts.map((a) => (
+                  <option key={a} value={a}>{describeAccount(a).label}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <div className="tl-seg" role="group" aria-label="Date range">
             {(Object.keys(DATE_FILTER_LABEL) as DateFilter[]).map((f) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => changeDateFilter(f)}
-                className={`px-2.5 py-1 first:border-l-0 border-l border-border ${
-                  !selectedDay && dateFilter === f ? 'bg-accent/10 text-accent' : 'text-secondary hover:bg-surface-hover'
-                }`}
-              >
+              <button key={f} type="button" aria-pressed={!selectedDay && dateFilter === f} onClick={() => changeDateFilter(f)}>
                 {DATE_FILTER_LABEL[f]}
               </button>
             ))}
           </div>
           <JournalDayPicker entries={accountEntries} selected={selectedDay} onSelect={setSelectedDay} />
-          <div className="flex overflow-hidden rounded border border-border text-xs">
-            <button
-              type="button"
-              onClick={() => changeView('feed')}
-              className={`px-2.5 py-1 ${view === 'feed' ? 'bg-accent/10 text-accent' : 'text-secondary hover:bg-surface-hover'}`}
-            >
-              Feed
+          <div className="tl-seg ml-auto" role="group" aria-label="Layout">
+            <button type="button" aria-pressed={view === 'feed'} onClick={() => changeView('feed')}>
+              Cards
             </button>
-            <button
-              type="button"
-              onClick={() => changeView('table')}
-              className={`border-l border-border px-2.5 py-1 ${view === 'table' ? 'bg-accent/10 text-accent' : 'text-secondary hover:bg-surface-hover'}`}
-            >
+            <button type="button" aria-pressed={view === 'table'} onClick={() => changeView('table')}>
               Table
             </button>
           </div>
-          <button type="button" onClick={refetch} className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover">
-            Refresh
-          </button>
-          <button
-            type="button"
-            onClick={exportCsv}
-            disabled={!viewData || viewData.entries.length === 0}
-            className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Export CSV
-          </button>
         </div>
-      }
-    >
-      <div className="space-y-4">
+
         {view === 'table' ? (
           <OpenPositionsTable positions={openPositionsForAccount} />
         ) : (
@@ -271,38 +269,23 @@ export function JournalPage() {
         )}
 
         {state === 'loading' && !data ? (
-          <div className="rounded-lg border border-border bg-surface p-4">
+          <div className="tl-card p-5">
             <SkeletonRows rows={8} />
           </div>
         ) : state === 'error' && !data ? (
-          <div className="rounded-lg border border-border bg-surface p-4">
-            <SectionError message={error ?? 'The journal service could not be reached.'} onRetry={refetch} />
+          <div className="tl-card">
+            <SectionError message={error ?? 'Your journal could not be loaded.'} onRetry={refetch} />
           </div>
         ) : data && viewData ? (
           <div className="tl-fade-in space-y-4">
             {state === 'error' && error ? (
-              <p className="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[11px] text-warning">
-                Showing last good journal — refresh failed: {error}
+              <p className="rounded-[var(--tl-radius)] border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+                Couldn&rsquo;t refresh just now — showing your journal from a moment ago.
               </p>
-            ) : null}
-            {data.accounts.length > 1 ? (
-              <label className="block w-fit text-[11px] text-muted">
-                Account
-                <select
-                  value={account}
-                  onChange={(e) => changeAccount(e.target.value)}
-                  className="mt-1 block w-full min-w-[10rem] rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
-                >
-                  <option value="ALL">All accounts — {data.total_trades} trades</option>
-                  {data.accounts.map((a) => (
-                    <option key={a} value={a}>{describeAccount(a).label}</option>
-                  ))}
-                </select>
-              </label>
             ) : null}
             <JournalSummary data={viewData} />
             {viewData.entries.length === 0 && data.entries.length > 0 ? (
-              <div className="rounded-lg border border-border bg-surface p-4 text-center text-xs text-muted">
+              <div className="tl-state tl-state--quiet text-sm text-muted">
                 {selectedDay
                   ? `No trades closed on ${new Date(`${selectedDay}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}.`
                   : 'No trades match the current filter.'}
@@ -316,12 +299,6 @@ export function JournalPage() {
           </div>
         ) : null}
 
-        <p className="border-t border-border-subtle pt-3 text-[11px] text-muted">
-          One entry per closed trade (from the authoritative <code>closed_trades</code> table).
-          Editable: setup tag, notes, chart-snapshot URL, and uploaded screenshots
-          (stored in the database, up to 4 MB each — drag-drop or paste). Execution
-          facts are immutable and nothing here can submit or transmit an order.
-        </p>
       </div>
     </PageContainer>
   )

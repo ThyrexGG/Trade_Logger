@@ -363,7 +363,7 @@ export function KillzoneScannerView({ tab, onTabChange: setTab }: { tab: Tab; on
                       inputRef.current = e.target.value
                       submit()
                     }}
-                    className="rounded border border-border bg-background px-2 py-1.5 text-sm text-primary focus:border-accent focus:outline-none"
+                    className="tl-select"
                   >
                     {/* Present only while the current symbol isn't one of the presets
                         (e.g. still set from an old free-text entry), so the select
@@ -385,7 +385,7 @@ export function KillzoneScannerView({ tab, onTabChange: setTab }: { tab: Tab; on
                   <select
                     value={ltf}
                     onChange={(e) => changeLtf(e.target.value)}
-                    className="rounded border border-border bg-background px-2 py-1.5 text-sm text-primary focus:border-accent focus:outline-none"
+                    className="tl-select"
                   >
                     {LTF_OPTIONS.map((tf) => (
                       <option key={tf} value={tf}>{tf}</option>
@@ -580,7 +580,7 @@ export function KillzoneScannerView({ tab, onTabChange: setTab }: { tab: Tab; on
                                 <button
                                   type="button"
                                   onClick={() => planThis(c)}
-                                  className="rounded border border-accent/40 bg-accent/10 px-2 py-0.5 text-[10.5px] font-medium text-accent hover:bg-accent/20"
+                                  className="tl-btn tl-btn--secondary tl-btn--sm"
                                 >
                                   Plan this
                                 </button>
@@ -755,7 +755,7 @@ export function KillzoneScannerView({ tab, onTabChange: setTab }: { tab: Tab; on
                               <button
                                 type="button"
                                 onClick={() => openSymbolFromBoard(r.symbol)}
-                                className="rounded border border-accent/40 bg-accent/10 px-2 py-0.5 text-[10.5px] font-medium text-accent hover:bg-accent/20"
+                                className="tl-btn tl-btn--secondary tl-btn--sm"
                               >
                                 Open
                               </button>

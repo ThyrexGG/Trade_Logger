@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { JournalResponse, JournalTradeItem, JournalUpdateRequest } from '../../types/operations'
 import { OpsMetric, OpsUnavailable, SectionCard } from './primitives'
-import { timeAgo, formatSignedAmount, formatDateTime } from '../../lib/format'
+import { formatSignedAmount, formatDateTime } from '../../lib/format'
 import { SETUP_PRESETS } from '../../lib/setupPresets'
 import { patchJournalEntry } from '../../api/operations'
 import { ChartSnapshot } from '../journal/ChartSnapshot'
@@ -21,7 +21,7 @@ const PAGE = 40
 export function JournalSummary({ data }: { data: JournalResponse }) {
   const wr = data.total_trades > 0 ? (data.wins / data.total_trades) * 100 : null
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <div className="tl-figures">
       <OpsMetric label="Closed trades" value={data.total_trades} />
       <OpsMetric
         label="Win / loss"
@@ -29,11 +29,10 @@ export function JournalSummary({ data }: { data: JournalResponse }) {
         sub={wr === null ? undefined : `${wr.toFixed(0)}% win rate`}
       />
       <OpsMetric
-        label="Net P&L (recorded)"
+        label="Net P&L"
         value={formatSignedAmount(data.total_net_profit)}
         tone={data.total_net_profit > 0 ? 'positive' : data.total_net_profit < 0 ? 'negative' : 'neutral'}
       />
-      <OpsMetric label="Updated" value={timeAgo(data.timestamp) ?? '—'} />
     </div>
   )
 }
@@ -171,7 +170,7 @@ function JournalEditor({
       </div>
 
       {error ? (
-        <p className="rounded border border-negative/30 bg-negative/10 px-2 py-1 text-[11px] text-negative" role="alert">
+        <p className="rounded-[var(--tl-radius)] border border-negative/30 bg-negative/10 px-3 py-2 text-xs text-negative" role="alert">
           {error}
         </p>
       ) : null}
@@ -181,7 +180,7 @@ function JournalEditor({
           type="button"
           onClick={save}
           disabled={saving || !dirty}
-          className="rounded border border-accent/40 bg-accent/10 px-2.5 py-1 text-[11px] text-accent disabled:opacity-40"
+          className="tl-btn tl-btn--primary tl-btn--sm"
         >
           {saving ? 'Saving…' : 'Save'}
         </button>
@@ -189,7 +188,7 @@ function JournalEditor({
           type="button"
           onClick={onCancel}
           disabled={saving}
-          className="rounded border border-border px-2.5 py-1 text-[11px] text-secondary hover:text-primary disabled:opacity-40"
+          className="tl-btn tl-btn--ghost tl-btn--sm"
         >
           Cancel
         </button>
@@ -297,7 +296,7 @@ export function JournalView({
           <select
             value={account}
             onChange={(e) => { setAccount(e.target.value); setLimit(PAGE) }}
-            className="rounded border border-border bg-background px-2 py-1 text-xs text-primary"
+            className="tl-select"
             aria-label="Filter by account"
           >
             <option value="all">All accounts</option>

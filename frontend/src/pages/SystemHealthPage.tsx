@@ -28,7 +28,7 @@ export function SystemHealthPage() {
           <button
             type="button"
             onClick={() => { health.refetch(); ops.refetch() }}
-            className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover"
+            className="tl-btn tl-btn--secondary tl-btn--sm"
           >
             Re-check
           </button>

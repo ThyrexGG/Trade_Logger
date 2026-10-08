@@ -97,9 +97,7 @@ export function CrossAssetRegime({
           </div>
         </div>
 
-        <p className="border-t border-border-subtle pt-2 text-[11px] text-muted">
-          Regime transition history is not exposed by the current API.
-        </p>
+        
       </div>
     )
   }

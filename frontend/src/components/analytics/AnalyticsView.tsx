@@ -77,7 +77,7 @@ export function AnalyticsView({ data }: { data: AnalyticsPerformanceResponse }) 
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+      <div className="tl-figures">
         <OpsMetric
           label={data.official_balance != null ? 'Account balance (broker)' : 'Account balance (derived)'}
           value={formatUsd(balance)}
@@ -180,7 +180,7 @@ export function AnalyticsView({ data }: { data: AnalyticsPerformanceResponse }) 
         </SectionCard>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid items-start gap-4 lg:grid-cols-2">
         <SectionCard title="Net P&L by symbol" info="Which instruments made or lost money over the filtered period, with trade count and win rate. Bars extend right for profit, left for loss.">
           {data.symbol_breakdown.length === 0 ? (
             <OpsUnavailable>No symbols in range.</OpsUnavailable>
@@ -206,7 +206,7 @@ export function AnalyticsView({ data }: { data: AnalyticsPerformanceResponse }) 
         </SectionCard>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <SectionCard title="Direction split" info="Long vs short: how many trades, win rate and net P&L on each side. A big skew can mean a directional bias worth examining.">
           <div className="grid grid-cols-2 gap-2 text-[11px]">
             <DirCell label="Long" s={m.long_stats} />

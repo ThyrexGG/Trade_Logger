@@ -174,7 +174,7 @@ export function ManualTradeForm({ knownAccounts, onCreated, editing, onCancel }:
             value={account}
             onChange={(e) => setAccount(e.target.value)}
             placeholder="e.g. OWN_MONEY"
-            className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+            className="tl-input"
           />
           <datalist id={`manual-trade-accounts-${editing?.trade_id ?? 'new'}`}>
             {knownAccounts.map((a) => (
@@ -189,7 +189,7 @@ export function ManualTradeForm({ knownAccounts, onCreated, editing, onCancel }:
             value={symbol}
             onChange={(e) => setSymbol(e.target.value.toUpperCase())}
             placeholder="EURUSD"
-            className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+            className="tl-input"
           />
         </label>
         <label className="flex flex-col gap-1 text-[11px] text-muted">
@@ -197,7 +197,7 @@ export function ManualTradeForm({ knownAccounts, onCreated, editing, onCancel }:
           <select
             value={direction}
             onChange={(e) => setDirection(e.target.value as 'BUY' | 'SELL')}
-            className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+            className="tl-select"
           >
             <option value="BUY">Buy / Long</option>
             <option value="SELL">Sell / Short</option>
@@ -208,21 +208,21 @@ export function ManualTradeForm({ knownAccounts, onCreated, editing, onCancel }:
           Volume <span className="normal-case text-muted/70">(optional)</span>
           <input
             type="number" step="any" value={volume} onChange={(e) => setVolume(e.target.value)}
-            className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+            className="tl-input"
           />
         </label>
         <label className="flex flex-col gap-1 text-[11px] text-muted">
           Entry price <span className="normal-case text-muted/70">(optional)</span>
           <input
             type="number" step="any" value={entryPrice} onChange={(e) => setEntryPrice(e.target.value)}
-            className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+            className="tl-input"
           />
         </label>
         <label className="flex flex-col gap-1 text-[11px] text-muted">
           Exit price <span className="normal-case text-muted/70">(optional)</span>
           <input
             type="number" step="any" value={exitPrice} onChange={(e) => setExitPrice(e.target.value)}
-            className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+            className="tl-input"
           />
         </label>
 
@@ -230,21 +230,21 @@ export function ManualTradeForm({ knownAccounts, onCreated, editing, onCancel }:
           Entry time
           <input
             type="datetime-local" value={entryTime} onChange={(e) => setEntryTime(e.target.value)}
-            className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+            className="tl-input"
           />
         </label>
         <label className="flex flex-col gap-1 text-[11px] text-muted">
           Exit time
           <input
             type="datetime-local" value={exitTime} onChange={(e) => setExitTime(e.target.value)}
-            className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+            className="tl-input"
           />
         </label>
         <label className="flex flex-col gap-1 text-[11px] text-muted">
           Setup <span className="normal-case text-muted/70">(optional)</span>
           <input
             type="text" list={`manual-trade-setups-${editing?.trade_id ?? 'new'}`} value={setupTag} onChange={(e) => setSetupTag(e.target.value)}
-            className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+            className="tl-input"
           />
           <datalist id={`manual-trade-setups-${editing?.trade_id ?? 'new'}`}>
             {SETUP_PRESETS.map((p) => (
@@ -257,21 +257,21 @@ export function ManualTradeForm({ knownAccounts, onCreated, editing, onCancel }:
           Commission <span className="normal-case text-muted/70">(optional, usually negative)</span>
           <input
             type="number" step="any" value={commission} onChange={(e) => setCommission(e.target.value)}
-            className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+            className="tl-input"
           />
         </label>
         <label className="flex flex-col gap-1 text-[11px] text-muted">
           Swap <span className="normal-case text-muted/70">(optional)</span>
           <input
             type="number" step="any" value={swap} onChange={(e) => setSwap(e.target.value)}
-            className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+            className="tl-input"
           />
         </label>
         <label className="flex flex-col gap-1 text-[11px] text-muted">
           Profit <span className="normal-case text-muted/70">(before commission/swap, as reported)</span>
           <input
             type="number" step="any" value={grossProfit} onChange={(e) => setGrossProfit(e.target.value)}
-            className="rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+            className="tl-input"
           />
         </label>
       </div>

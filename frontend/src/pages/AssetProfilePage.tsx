@@ -23,13 +23,13 @@ export function AssetProfilePage() {
         <div className="flex flex-wrap gap-2">
           <Link
             to={`/workspace/market?symbol=${encodeURIComponent(symbol)}`}
-            className="rounded border border-border px-2.5 py-1 text-xs text-primary hover:bg-surface-hover"
+            className="tl-btn tl-btn--secondary tl-btn--sm"
           >
             Market workspace
           </Link>
           <Link
             to={`/workspace/risk?symbol=${encodeURIComponent(symbol)}`}
-            className="rounded border border-accent/50 bg-accent/10 px-2.5 py-1 text-xs font-semibold text-accent hover:bg-accent/20"
+            className="tl-btn tl-btn--primary tl-btn--sm"
           >
             Plan risk
           </Link>
