@@ -3,6 +3,7 @@
 TradeLogger FastAPI Pydantic Response & Request Schemas
 Stage 2 & Stage 3 Read-Only Vertical Slice Models
 """
+import re
 from typing import Dict, List, Literal, Optional, Any
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -725,6 +726,27 @@ class TradeLeg(BaseModel):
     net: float
 
 
+MAX_JOURNAL_LINKS = 10
+_HTTP_URL = re.compile(r"^https?://[^\s/$.?#][^\s]*$", re.IGNORECASE)
+
+
+class JournalLink(BaseModel):
+    """A web link attached to a trade or note (a TradingView idea/chart, a
+    news article, a video...). Only http(s) URLs are accepted, so a stored
+    link can never become a `javascript:` URL in the browser."""
+    model_config = ConfigDict(extra="forbid")
+    url: str = Field(min_length=1, max_length=2048)
+    label: Optional[str] = Field(default=None, max_length=80)
+
+    @model_validator(mode="after")
+    def _http_only(self) -> "JournalLink":
+        self.url = self.url.strip()
+        if not _HTTP_URL.match(self.url):
+            raise ValueError("links must be full web addresses starting with http:// or https://")
+        self.label = (self.label or "").strip() or None
+        return self
+
+
 class JournalTradeItem(BaseModel):
     trade_id: str
     account_id: str
@@ -745,6 +767,7 @@ class JournalTradeItem(BaseModel):
     rating: Optional[int] = None
     chart_snapshot_url: Optional[str] = None
     screenshot_count: int = 0
+    links: List[JournalLink] = []
     # Set when the position was closed in pieces: net/gross/commission/swap are then the whole position's totals,
     # and `legs` breaks them down. `position_open` = some of it is still open at the broker.
     legs: List[TradeLeg] = []
@@ -806,6 +829,7 @@ class JournalEntry(BaseModel):
     body: str = ""
     tags: List[str] = []
     screenshot_count: int = 0
+    links: List[JournalLink] = []
     created_at: str
     updated_at: str
 
@@ -817,6 +841,7 @@ class JournalEntryCreate(BaseModel):
     title: Optional[str] = Field(default=None, max_length=200)
     body: str = Field(default="", max_length=20_000)
     tags: List[str] = Field(default_factory=list, max_length=20)
+    links: List[JournalLink] = Field(default_factory=list, max_length=MAX_JOURNAL_LINKS)
 
     @model_validator(mode="after")
     def _kind_ok(self) -> "JournalEntryCreate":
@@ -832,12 +857,13 @@ class JournalEntryUpdate(BaseModel):
     title: Optional[str] = Field(default=None, max_length=200)
     body: Optional[str] = Field(default=None, max_length=20_000)
     tags: Optional[List[str]] = Field(default=None, max_length=20)
+    links: Optional[List[JournalLink]] = Field(default=None, max_length=MAX_JOURNAL_LINKS)
 
     @model_validator(mode="after")
     def _valid(self) -> "JournalEntryUpdate":
         if self.kind is not None and self.kind not in _JOURNAL_ENTRY_KINDS:
             raise ValueError(f"kind must be one of {_JOURNAL_ENTRY_KINDS}")
-        if all(getattr(self, f) is None for f in ("kind", "instrument", "title", "body", "tags")):
+        if all(getattr(self, f) is None for f in ("kind", "instrument", "title", "body", "tags", "links")):
             raise ValueError("provide at least one field to update")
         return self
 
@@ -883,13 +909,17 @@ class JournalUpdateRequest(BaseModel):
     notes: Optional[str] = Field(default=None, max_length=20_000)
     chart_snapshot_url: Optional[str] = Field(default=None, max_length=3_000_000)
     rating: Optional[int] = Field(default=None, ge=0, le=5)
+    # Replaces the trade's whole link list (send [] to remove them all). Stored
+    # in `journal_links`, not on the closed_trades row, so a broker re-sync
+    # can never touch them.
+    links: Optional[List[JournalLink]] = Field(default=None, max_length=MAX_JOURNAL_LINKS)
 
     @model_validator(mode="after")
     def _at_least_one_field(self) -> "JournalUpdateRequest":
-        if all(getattr(self, f) is None for f in _JOURNAL_EDITABLE_FIELDS):
+        if all(getattr(self, f) is None for f in _JOURNAL_EDITABLE_FIELDS) and self.links is None:
             raise ValueError(
                 "provide at least one editable field: "
-                + ", ".join(_JOURNAL_EDITABLE_FIELDS)
+                + ", ".join(_JOURNAL_EDITABLE_FIELDS + ("links",))
             )
         return self
 

@@ -898,6 +898,8 @@ def init_db(force: bool = False):
 
     # Per-user settings (W8.6) — broker-sync heartbeat + auto-sync toggle.
     _ensure_user_settings(cursor)
+    # Journal links (TradingView/article links on trades and notes).
+    _ensure_journal_links(cursor)
 
     # --- multi-user tenant column (W8.4) ---------------------------------
     # Every journal-side table gets `user_id`. Single-user / passphrase / the
@@ -908,7 +910,7 @@ def init_db(force: bool = False):
     # engines; Alembic 0002 is the same change for operators who run migrations.
     _ifne = "IF NOT EXISTS " if is_postgres() else ""
     for _t in ("raw_deals", "closed_trades", "open_positions", "account_metadata",
-               "price_alerts", "journal_entries", "journal_screenshots"):
+               "price_alerts", "journal_entries", "journal_screenshots", "journal_links"):
         try:
             cursor.execute(
                 f"ALTER TABLE {_t} ADD COLUMN {_ifne}user_id TEXT NOT NULL DEFAULT 'local'"
@@ -1165,6 +1167,8 @@ def delete_manual_trade(trade_id: str) -> bool:
         removed = (cur.rowcount or 0) > 0
         if removed:
             cur.execute(f"DELETE FROM journal_screenshots WHERE trade_id = {ph} AND user_id = {ph}", (str(trade_id), uid))
+            _ensure_journal_links(cur)
+            cur.execute(f"DELETE FROM journal_links WHERE trade_id = {ph} AND user_id = {ph}", (str(trade_id), uid))
         conn.commit()
     finally:
         conn.close()
@@ -1741,6 +1745,94 @@ def count_journal_screenshots():
     return out
 
 
+# ----------------- Journal links -----------------
+# Web links on a closed trade or a free-standing entry, in display order.
+# `trade_id` is the owner id (closed trade OR journal entry), exactly like
+# journal_screenshots, and the links live off the closed_trades row so a
+# broker re-sync can never overwrite them. Validation (http/https only, max
+# count, lengths) is the API schema's job.
+#
+# The API process never runs init_db() on boot (only the sync paths do), so
+# the table is created on first use, like user_settings. TEXT/INTEGER only,
+# so the same DDL works on SQLite and Postgres.
+_JOURNAL_LINKS_READY = False
+
+
+def _ensure_journal_links(cursor):
+    global _JOURNAL_LINKS_READY
+    # (under pytest, always re-check: the suite swaps databases between tests)
+    if _JOURNAL_LINKS_READY and not os.getenv("PYTEST_CURRENT_TEST"):
+        return
+    cursor.execute(
+        "CREATE TABLE IF NOT EXISTS journal_links ("
+        " id TEXT PRIMARY KEY, trade_id TEXT NOT NULL, url TEXT NOT NULL, label TEXT,"
+        " position INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL,"
+        " user_id TEXT NOT NULL DEFAULT 'local')"
+    )
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_journal_links_owner ON journal_links (user_id, trade_id)")
+    _JOURNAL_LINKS_READY = True
+
+
+def replace_journal_links(owner_id, links):
+    """Replace every link on one trade/entry for the current tenant.
+    `links` is a list of {"url", "label"} dicts; [] removes them all."""
+    import uuid as _uuid
+    uid = tenant.current_user_id()
+    ph = "%s" if is_postgres() else "?"
+    ts = _now_iso()
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        _ensure_journal_links(cur)
+        cur.execute(f"DELETE FROM journal_links WHERE trade_id = {ph} AND user_id = {ph}", (str(owner_id), uid))
+        for i, link in enumerate(links or []):
+            cur.execute(
+                f"INSERT INTO journal_links (id, trade_id, url, label, position, created_at, user_id) "
+                f"VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})",
+                (_uuid.uuid4().hex, str(owner_id), str(link["url"]), (link.get("label") or None), i, ts, uid),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def list_journal_links(owner_id):
+    """[{"url", "label"}] for one trade/entry (current tenant), in order."""
+    uid = tenant.current_user_id()
+    ph = "%s" if is_postgres() else "?"
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        _ensure_journal_links(cur)
+        cur.execute(
+            f"SELECT url, label FROM journal_links WHERE trade_id = {ph} AND user_id = {ph} ORDER BY position, created_at",
+            (str(owner_id), uid),
+        )
+        return [{"url": r[0], "label": r[1]} for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+def journal_links_by_owner():
+    """{owner_id: [{"url", "label"}]} for the current tenant: one query for list views."""
+    uid = tenant.current_user_id()
+    ph = "%s" if is_postgres() else "?"
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        _ensure_journal_links(cur)
+        cur.execute(
+            f"SELECT trade_id, url, label FROM journal_links WHERE user_id = {ph} ORDER BY trade_id, position, created_at",
+            (uid,),
+        )
+        out = {}
+        for owner, url, label in cur.fetchall():
+            out.setdefault(str(owner), []).append({"url": url, "label": label})
+        return out
+    finally:
+        conn.close()
+
+
 # ----------------- Free-standing journal entries -----------------
 
 def _now_iso():
@@ -1840,6 +1932,11 @@ def delete_journal_entry(entry_id):
     ph = "%s" if is_postgres() else "?"
     cur.execute(
         f"DELETE FROM journal_screenshots WHERE trade_id = {ph} AND user_id = {ph}",
+        (str(entry_id), uid),
+    )
+    _ensure_journal_links(cur)
+    cur.execute(
+        f"DELETE FROM journal_links WHERE trade_id = {ph} AND user_id = {ph}",
         (str(entry_id), uid),
     )
     cur.execute(

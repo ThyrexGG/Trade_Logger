@@ -33,7 +33,14 @@ import os
 
 import pytest
 
-import api.main  # noqa: F401 -- forces every load_dotenv(override=True) reachable from the app's import graph to fire before the correction below
+# The developer's .env DATABASE_URL is the LIVE production database. During a
+# test, PYTEST_CURRENT_TEST already routes database.py to SQLite, but several
+# test modules call database.init_db() at import time (collection), before that
+# variable exists — which ran schema DDL against production. Pin SQLite for the
+# whole run. (load_dotenv(override=True) can't undo it: .env doesn't set it.)
+os.environ["USE_LOCAL_SQLITE"] = "1"
+
+import api.main  # noqa: F401,E402 -- forces every load_dotenv(override=True) reachable from the app's import graph to fire before the correction below
 
 
 def _reset_auth_env() -> None:

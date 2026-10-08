@@ -8,6 +8,7 @@ import {
 } from '../../api/operations'
 import { SectionCard } from '../operations/primitives'
 import { ScreenshotStrip } from './ScreenshotStrip'
+import { cleanLinks, JournalLinkChips, JournalLinksEditor, toDrafts, type LinkDraft } from './JournalLinks'
 
 const KINDS: { id: JournalEntryKind; label: string }[] = [
   { id: 'idea', label: 'Idea' },
@@ -41,10 +42,16 @@ function EntryCard({
   const [title, setTitle] = useState(entry.title ?? '')
   const [body, setBody] = useState(entry.body)
   const [tags, setTags] = useState((entry.tags ?? []).join(', '))
+  const [links, setLinks] = useState<LinkDraft[]>(toDrafts(entry.links))
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
   async function save() {
+    const cleaned = cleanLinks(links)
+    if (cleaned.invalid) {
+      setErr('One of your links isn\u2019t a full web address \u2014 copy the whole link (it starts with https://).')
+      return
+    }
     setBusy(true)
     setErr(null)
     try {
@@ -54,7 +61,9 @@ function EntryCard({
         title: title.trim() || null,
         body,
         tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
+        links: cleaned.links,
       })
+      setLinks(toDrafts(updated.links))
       onChanged(updated)
       setEditing(false)
     } catch (e) {
@@ -136,6 +145,10 @@ function EntryCard({
             placeholder="tags, comma separated"
             className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-primary placeholder:text-muted"
           />
+          <fieldset>
+            <legend className="tl-label mb-1.5">Links</legend>
+            <JournalLinksEditor value={links} onChange={setLinks} idPrefix={`note-${entry.id}`} />
+          </fieldset>
           {err ? <p className="text-[11px] text-negative">{err}</p> : null}
           <div className="flex gap-2">
             <button
@@ -148,16 +161,23 @@ function EntryCard({
             </button>
             <button
               type="button"
-              onClick={() => setEditing(false)}
+              onClick={() => {
+                setLinks(toDrafts(entry.links))
+                setErr(null)
+                setEditing(false)
+              }}
               className="rounded border border-border px-2.5 py-1 text-[11px] text-secondary hover:text-primary"
             >
               Cancel
             </button>
           </div>
         </div>
-      ) : entry.body ? (
-        <p className="mt-1.5 whitespace-pre-wrap text-xs text-secondary">{entry.body}</p>
-      ) : null}
+      ) : (
+        <>
+          {entry.body ? <p className="mt-1.5 whitespace-pre-wrap text-xs text-secondary">{entry.body}</p> : null}
+          <JournalLinkChips links={entry.links} className="mt-2" />
+        </>
+      )}
 
       {entry.tags?.length ? (
         <div className="mt-1.5 flex flex-wrap gap-1">
@@ -181,6 +201,8 @@ export function FreeEntries() {
   const [entries, setEntries] = useState<JournalEntry[] | null>(null)
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState({ kind: 'idea' as JournalEntryKind, instrument: '', title: '', body: '', tags: '' })
+  const [draftLinks, setDraftLinks] = useState<LinkDraft[]>([])
+  const [createErr, setCreateErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(() => {
@@ -191,8 +213,14 @@ export function FreeEntries() {
   useEffect(() => load(), [load])
 
   async function create() {
-    if (!draft.body.trim() && !draft.title.trim()) return
+    const cleaned = cleanLinks(draftLinks)
+    if (!draft.body.trim() && !draft.title.trim() && !cleaned.links.length) return
+    if (cleaned.invalid) {
+      setCreateErr('One of your links isn\u2019t a full web address \u2014 copy the whole link (it starts with https://).')
+      return
+    }
     setBusy(true)
+    setCreateErr(null)
     try {
       await createJournalEntry({
         kind: draft.kind,
@@ -200,10 +228,14 @@ export function FreeEntries() {
         title: draft.title.trim() || null,
         body: draft.body,
         tags: draft.tags.split(',').map((t) => t.trim()).filter(Boolean),
+        links: cleaned.links,
       })
       setDraft({ kind: 'idea', instrument: '', title: '', body: '', tags: '' })
+      setDraftLinks([])
       setAdding(false)
       load()
+    } catch (e) {
+      setCreateErr(e instanceof Error ? e.message : 'Could not save the note.')
     } finally {
       setBusy(false)
     }
@@ -264,6 +296,11 @@ export function FreeEntries() {
             placeholder="tags, comma separated"
             className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-primary placeholder:text-muted"
           />
+          <fieldset>
+            <legend className="tl-label mb-1.5">Links</legend>
+            <JournalLinksEditor value={draftLinks} onChange={setDraftLinks} idPrefix="note-new" />
+          </fieldset>
+          {createErr ? <p className="text-[11px] text-negative">{createErr}</p> : null}
           <button
             type="button"
             onClick={create}

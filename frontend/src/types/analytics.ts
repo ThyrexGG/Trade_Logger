@@ -3,6 +3,7 @@
  * Every metric is produced by the backend `analytics.calculate_performance_metrics`;
  * the frontend only formats.
  */
+import type { JournalLink } from './operations'
 
 export interface SymbolPnl {
   symbol: string
@@ -146,6 +147,7 @@ export interface DayTrade {
   rating: number | null
   chart_snapshot_url: string | null
   screenshot_count?: number
+  links?: JournalLink[]
 }
 
 export interface AnalyticsDayTradesResponse {

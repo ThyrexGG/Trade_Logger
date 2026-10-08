@@ -4,6 +4,7 @@ import { getDayTrades } from '../../api/analytics'
 import type { DayTrade } from '../../types/analytics'
 import { formatSignedAmount } from '../../lib/format'
 import { prettyDate } from './homeMath'
+import { isTradingView, siteName } from '../journal/JournalLinks'
 
 function fmtTime(iso: string): string {
   return iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'
@@ -73,6 +74,17 @@ export function DayTradesPanel({ iso, account, onClose }: { iso: string; account
                 {fmtTime(t.entry_time)} → {fmtTime(t.exit_time)}
               </span>
               <span className={`w-24 text-right font-mono ${t.net_profit >= 0 ? 'text-positive' : 'text-negative'}`}>{formatSignedAmount(t.net_profit)}</span>
+              {t.links?.length ? (
+                <a
+                  href={(t.links.find((l) => isTradingView(l.url)) ?? t.links[0]).url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-accent hover:underline"
+                  title={t.links.map((l) => l.label || siteName(l.url)).join(' · ')}
+                >
+                  {t.links.some((l) => isTradingView(l.url)) ? 'Chart' : 'Link'}
+                </a>
+              ) : null}
               <Link to={`/workspace/journal?trade=${encodeURIComponent(t.trade_id)}`} className="text-xs text-accent hover:underline">
                 Journal
               </Link>

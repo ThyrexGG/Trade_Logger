@@ -6,6 +6,7 @@ import { formatSignedAmount, formatDateTime } from '../../lib/format'
 import { SETUP_PRESETS } from '../../lib/setupPresets'
 import { patchJournalEntry } from '../../api/operations'
 import { ChartSnapshot } from '../journal/ChartSnapshot'
+import { JournalLinkChips } from '../journal/JournalLinks'
 import { HandLoggedControls } from '../journal/HandLoggedControls'
 import { ScreenshotStrip, type ScreenshotStripHandle } from '../journal/ScreenshotStrip'
 import { StarRating } from '../journal/StarRating'
@@ -390,6 +391,7 @@ export function JournalView({
                           <ChartSnapshot url={e.chart_snapshot_url} compact />
                         </span>
                       ) : null}
+                      <JournalLinkChips links={e.links} className="mt-1" />
                     </td>
                     <td className="px-2 py-1.5"><Stars n={e.rating} /></td>
                     {multiAccount ? (

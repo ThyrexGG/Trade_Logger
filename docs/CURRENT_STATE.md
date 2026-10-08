@@ -46,7 +46,7 @@ power-user workflows not yet migrated.
 | Macro Intelligence — economic calendar, surprise, currency strength, asset macro context | **foundation only — DEMO / SEEDED DATA** |
 | Strategy Lab + Backtesting + Edge Audit | **production-safe** (yfinance history) |
 | Forward Evidence & Governance | **production-safe**; currently N=0 forward observations |
-| Journal / Audit / System Health | **production-safe**; journal annotations editable |
+| Journal / Audit / System Health | **production-safe**; journal annotations editable; web links (TradingView etc.) on trades and notes — see `docs/JOURNAL_LINKS.md` |
 
 ---
 

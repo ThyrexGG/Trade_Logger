@@ -380,7 +380,8 @@ function DayDetail({
                       {t.notes ? <span className="ml-1 text-[10px]">✎</span> : null}
                       {t.screenshot_count ? <span className="ml-1 text-[10px]">📷{t.screenshot_count}</span> : null}
                       {t.chart_snapshot_url ? <span className="ml-1 text-[10px]">📈</span> : null}
-                      {!t.setup_tag && !t.notes && !t.rating && !t.screenshot_count && !t.chart_snapshot_url ? (
+                      {t.links?.length ? <span className="ml-1 text-[10px]" title={`${t.links.length} link${t.links.length === 1 ? '' : 's'}`}>🔗{t.links.length}</span> : null}
+                      {!t.setup_tag && !t.notes && !t.rating && !t.screenshot_count && !t.chart_snapshot_url && !t.links?.length ? (
                         <span className="text-[10px] text-muted">add</span>
                       ) : null}
                     </td>

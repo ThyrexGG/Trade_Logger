@@ -42,6 +42,12 @@ export interface TradeLeg {
   net: number
 }
 
+/** A web link on a trade or note (TradingView idea/chart, article, video…). http(s) only. */
+export interface JournalLink {
+  url: string
+  label?: string | null
+}
+
 export interface JournalTradeItem {
   trade_id: string
   account_id: string
@@ -62,6 +68,7 @@ export interface JournalTradeItem {
   rating: number | null
   chart_snapshot_url: string | null
   screenshot_count?: number
+  links?: JournalLink[]
   /** Set when the position was closed in pieces: the P&L fields are then the whole position's totals. */
   legs?: TradeLeg[]
   /** some of the position is still open at the broker, so every leg so far is a partial */
@@ -95,6 +102,8 @@ export interface JournalUpdateRequest {
   notes?: string
   chart_snapshot_url?: string
   rating?: number
+  /** replaces the trade's whole link list ([] removes them all) */
+  links?: JournalLink[]
 }
 
 export type JournalEntryKind = 'idea' | 'review' | 'observation' | 'plan'
@@ -107,6 +116,7 @@ export interface JournalEntry {
   body: string
   tags: string[]
   screenshot_count: number
+  links?: JournalLink[]
   created_at: string
   updated_at: string
 }
@@ -117,6 +127,7 @@ export interface JournalEntryCreate {
   title?: string | null
   body?: string
   tags?: string[]
+  links?: JournalLink[]
 }
 
 export interface JournalEntriesResponse {

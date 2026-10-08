@@ -285,4 +285,5 @@ Don't run the full `pytest` suite at the same time: its fixtures delete
 | 2026-10-08 | `3d18e5e` | Plain-English Market Intelligence + page guides everywhere |
 | 2026-10-08 | `15feaa3` | Loss Limits removed; Killzone Scanner + Chart Analyzer merged into Trade Planner |
 | 2026-10-08 | `1fede99` | Precision system, trader's-day navigation, Overview command centre |
-| 2026-10-08 | (this change) | New logo and all brand assets, login and legal screens, branded reset email; see [BRAND.md](BRAND.md) |
+| 2026-10-08 | `230c301` | New logo and all brand assets, login and legal screens, branded reset email; see [BRAND.md](BRAND.md) |
+| 2026-10-08 | (this change) | Link chips + link editor on notes and trade cards; see [JOURNAL_LINKS.md](JOURNAL_LINKS.md) |

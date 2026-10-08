@@ -39,6 +39,7 @@ from api.schemas import (
     DailyPnl,
     DirectionStats,
     EquityAnchor,
+    JournalLink,
     JournalTradeItem,
     PeriodReturns,
     PerformanceMetrics,
@@ -396,6 +397,12 @@ def get_day_trades(
         counts = database.count_journal_screenshots()
         for t in trades:
             t.screenshot_count = counts.get(t.trade_id, 0)
+    except Exception:
+        pass
+    try:
+        link_map = database.journal_links_by_owner()
+        for t in trades:
+            t.links = [JournalLink(**link) for link in link_map.get(t.trade_id, [])]
     except Exception:
         pass
     return AnalyticsDayTradesResponse(

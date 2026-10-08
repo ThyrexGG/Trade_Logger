@@ -29,6 +29,7 @@ import pandas as pd
 from fastapi import APIRouter, File, Form, HTTPException, Path, Query, Response, UploadFile
 
 import database
+import tenant
 from api import trade_groups
 from api.schemas import (
     JournalEntriesResponse,
@@ -88,7 +89,7 @@ def _placeholder(conn: Any) -> str:
     return "?" if is_sq else "%s"
 
 
-def _journal_item(r: Mapping[str, Any], sc_count: int = 0) -> JournalTradeItem:
+def _journal_item(r: Mapping[str, Any], sc_count: int = 0, links: Optional[List[Dict[str, Any]]] = None) -> JournalTradeItem:
     """Serialize one `closed_trades` row (dict or pandas row) into the schema."""
     rating_raw = r.get("rating")
     try:
@@ -115,19 +116,23 @@ def _journal_item(r: Mapping[str, Any], sc_count: int = 0) -> JournalTradeItem:
         rating=rating,
         chart_snapshot_url=_s(r.get("chart_snapshot_url")),
         screenshot_count=int(sc_count or 0),
+        links=list(links or []),
         legs=r.get("legs") or [],
         position_open=bool(r.get("position_open")),
     )
 
 
 def _fetch_journal_row(trade_id: str) -> Optional[Dict[str, Any]]:
-    """Read one closed trade straight from the DB (bypasses the read cache)."""
+    """Read one of the CALLER'S closed trades straight from the DB (bypasses the
+    read cache). Scoped to the current tenant: another account's trade id must
+    look exactly like a missing one."""
     conn = database.get_connection()
     try:
         cur = conn.cursor()
+        ph = _placeholder(conn)
         cur.execute(
-            f"SELECT * FROM closed_trades WHERE trade_id = {_placeholder(conn)}",
-            (trade_id,),
+            f"SELECT * FROM closed_trades WHERE trade_id = {ph} AND user_id = {ph}",
+            (trade_id, tenant.current_user_id()),
         )
         row = cur.fetchone()
         if row is None:
@@ -150,6 +155,10 @@ def get_journal() -> JournalResponse:
         sc_counts = database.count_journal_screenshots()
     except Exception:
         sc_counts = {}
+    try:
+        link_map = database.journal_links_by_owner()
+    except Exception:
+        link_map = {}
     entries: List[JournalTradeItem] = []
     wins = losses = 0
     total_net = 0.0
@@ -166,7 +175,7 @@ def get_journal() -> JournalResponse:
         acc = _s(r.get("account_id")) or "UNKNOWN"
         accounts.add(acc)
         tid = _s(r.get("trade_id")) or ""
-        entries.append(_journal_item(r, sc_counts.get(tid, 0)))
+        entries.append(_journal_item(r, sc_counts.get(tid, 0), link_map.get(tid)))
 
     return JournalResponse(
         entries=entries,
@@ -204,7 +213,7 @@ def create_manual_trade(payload: ManualTradeIn) -> JournalTradeItem:
         sc_count = database.count_journal_screenshots().get(trade_id, 0)
     except Exception:
         sc_count = 0
-    return _journal_item(row, sc_count)
+    return _journal_item(row, sc_count, _links_for(trade_id))
 
 
 @router.put("/journal/trades/{trade_id}", response_model=JournalTradeItem)
@@ -226,7 +235,7 @@ def update_manual_trade(payload: ManualTradeIn, trade_id: str = Path(..., min_le
         sc_count = database.count_journal_screenshots().get(trade_id, 0)
     except Exception:
         sc_count = 0
-    return _journal_item(row, sc_count)
+    return _journal_item(row, sc_count, _links_for(trade_id))
 
 
 @router.delete("/journal/trades/{trade_id}")
@@ -275,6 +284,10 @@ def patch_journal(
     updated = _fetch_journal_row(trade_id)
     if updated is None:  # pragma: no cover - row cannot vanish between calls
         raise HTTPException(status_code=404, detail=f"Trade '{trade_id}' disappeared during update")
+    updated_fields = list(kwargs.keys())
+    if payload.links is not None:
+        database.replace_journal_links(trade_id, [link.model_dump() for link in payload.links])
+        updated_fields.append("links")
 
     try:
         sc_count = len(database.list_journal_screenshots(trade_id))
@@ -285,8 +298,8 @@ def patch_journal(
     except Exception:  # noqa: BLE001 - the annotation is saved; never fail the reply over the breakdown
         pass
     return JournalUpdateResponse(
-        entry=_journal_item(updated, sc_count),
-        updated_fields=list(kwargs.keys()),
+        entry=_journal_item(updated, sc_count, _links_for(trade_id)),
+        updated_fields=updated_fields,
         timestamp=datetime.now(timezone.utc).isoformat(),
     )
 
@@ -414,7 +427,14 @@ def journal_screenshot_delete(
 # Market ideas / reviews / observations that are NOT tied to a closed trade.
 # Pure research notes; no execution capability.
 
-def _entry_model(row: Mapping[str, Any], sc_count: int = 0) -> JournalEntry:
+def _links_for(owner_id: str) -> List[Dict[str, Any]]:
+    try:
+        return database.list_journal_links(owner_id)
+    except Exception:
+        return []
+
+
+def _entry_model(row: Mapping[str, Any], sc_count: int = 0, links: Optional[List[Dict[str, Any]]] = None) -> JournalEntry:
     return JournalEntry(
         id=str(row.get("id")),
         kind=str(row.get("kind") or "idea"),
@@ -423,6 +443,7 @@ def _entry_model(row: Mapping[str, Any], sc_count: int = 0) -> JournalEntry:
         body=str(row.get("body") or ""),
         tags=list(row.get("tags") or []),
         screenshot_count=int(sc_count or 0),
+        links=list(links or []),
         created_at=str(row.get("created_at") or ""),
         updated_at=str(row.get("updated_at") or ""),
     )
@@ -435,8 +456,12 @@ def journal_entries_list() -> JournalEntriesResponse:
         counts = database.count_journal_screenshots()
     except Exception:
         counts = {}
+    try:
+        link_map = database.journal_links_by_owner()
+    except Exception:
+        link_map = {}
     return JournalEntriesResponse(
-        entries=[_entry_model(r, counts.get(str(r.get("id")), 0)) for r in rows],
+        entries=[_entry_model(r, counts.get(str(r.get("id")), 0), link_map.get(str(r.get("id")))) for r in rows],
         timestamp=datetime.now(timezone.utc).isoformat(),
     )
 
@@ -451,9 +476,11 @@ def journal_entries_create(payload: JournalEntryCreate) -> JournalEntry:
         title=(payload.title.strip() if payload.title else None),
         body=payload.body, tags=tags,
     )
+    if payload.links:
+        database.replace_journal_links(eid, [link.model_dump() for link in payload.links])
     row = database.get_journal_entry(eid)
     return _entry_model(row or {"id": eid, "kind": payload.kind, "body": payload.body,
-                                "created_at": "", "updated_at": ""})
+                                "created_at": "", "updated_at": ""}, 0, _links_for(eid))
 
 
 @router.patch("/journal/entries/{entry_id}", response_model=JournalEntry)
@@ -464,19 +491,23 @@ def journal_entries_update(
     if not database.journal_entry_exists(entry_id):
         raise HTTPException(status_code=404, detail=f"Journal entry '{entry_id}' not found")
     fields = payload.model_dump(exclude_none=True)
+    links = fields.pop("links", None)
+    if links is not None:
+        database.replace_journal_links(entry_id, links)
     if "instrument" in fields and fields["instrument"]:
         fields["instrument"] = fields["instrument"].strip().upper()
     if "title" in fields and fields["title"]:
         fields["title"] = fields["title"].strip()
     if "tags" in fields:
         fields["tags"] = [t.strip() for t in fields["tags"] if isinstance(t, str) and t.strip()][:20]
-    database.update_journal_entry(entry_id, **fields)
+    if fields:
+        database.update_journal_entry(entry_id, **fields)
     row = database.get_journal_entry(entry_id)
     try:
         n = len(database.list_journal_screenshots(entry_id))
     except Exception:
         n = 0
-    return _entry_model(row or {}, n)
+    return _entry_model(row or {}, n, _links_for(entry_id))
 
 
 @router.delete("/journal/entries/{entry_id}")

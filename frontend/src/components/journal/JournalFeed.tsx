@@ -6,6 +6,7 @@ import { patchJournalEntry } from '../../api/operations'
 import { ChartSnapshot } from './ChartSnapshot'
 import { HandLoggedControls } from './HandLoggedControls'
 import { ScreenshotStrip, type ScreenshotStripHandle } from './ScreenshotStrip'
+import { cleanLinks, JournalLinksEditor, linksKey, toDrafts, type LinkDraft } from './JournalLinks'
 import { StarRating } from './StarRating'
 import { ExitsBadge, TradeLegs } from './TradeLegs'
 import { AccountBadge } from '../common/AccountBadge'
@@ -42,12 +43,15 @@ function FeedCard({
   const [rating, setRating] = useState(entry.rating ?? 0)
   const [status, setStatus] = useState<SaveStatus>('idle')
   const [showLinkField, setShowLinkField] = useState(Boolean(entry.chart_snapshot_url))
+  const [linkDrafts, setLinkDrafts] = useState<LinkDraft[]>(toDrafts(entry.links))
+  const [showLinks, setShowLinks] = useState(Boolean(entry.links?.length))
   const [shotCount, setShotCount] = useState(0)
   const baseline = useRef({
     notes: entry.notes ?? '',
     setupTag: entry.setup_tag ?? '',
     chartUrl: entry.chart_snapshot_url ?? '',
     rating: entry.rating ?? 0,
+    links: linksKey(entry.links),
   })
   const stripRef = useRef<ScreenshotStripHandle>(null)
 
@@ -58,7 +62,10 @@ function FeedCard({
   useEffect(() => {
     const b = baseline.current
     const chartUrlTrim = chartUrl.trim()
-    if (notes === b.notes && setupTag.trim() === b.setupTag && chartUrlTrim === b.chartUrl && rating === b.rating) return
+    // a half-typed link (not a web address yet) is simply not sent until it is
+    const cleaned = cleanLinks(linkDrafts)
+    const linksChanged = !cleaned.invalid && linksKey(cleaned.links) !== b.links
+    if (notes === b.notes && setupTag.trim() === b.setupTag && chartUrlTrim === b.chartUrl && rating === b.rating && !linksChanged) return
     setStatus('saving')
     const t = setTimeout(async () => {
       const body: JournalUpdateRequest = {}
@@ -66,6 +73,7 @@ function FeedCard({
       if (setupTag.trim() !== b.setupTag) body.setup_tag = setupTag.trim()
       if (chartUrlTrim !== b.chartUrl) body.chart_snapshot_url = chartUrlTrim
       if (rating !== b.rating) body.rating = rating
+      if (linksChanged) body.links = cleaned.links
       if (Object.keys(body).length === 0) return
       try {
         const res = await patchJournalEntry(entry.trade_id, body)
@@ -74,6 +82,7 @@ function FeedCard({
           setupTag: res.entry.setup_tag ?? '',
           chartUrl: res.entry.chart_snapshot_url ?? '',
           rating: res.entry.rating ?? 0,
+          links: linksKey(res.entry.links),
         }
         if ('setup_tag' in body) invalidateTagRecord()
         onSaved(res.entry)
@@ -84,7 +93,7 @@ function FeedCard({
     }, SAVE_DEBOUNCE_MS)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [notes, setupTag, chartUrl, rating, entry.trade_id])
+  }, [notes, setupTag, chartUrl, rating, linkDrafts, entry.trade_id])
 
   const win = entry.net_profit > 0
   const loss = entry.net_profit < 0
@@ -165,6 +174,17 @@ function FeedCard({
           className="text-[11px] text-accent hover:underline"
         >
           + add a chart link instead of a screenshot
+        </button>
+      )}
+
+      {showLinks ? (
+        <fieldset>
+          <legend className="mb-1.5 text-[11px] text-muted">Links (TradingView idea, news, video…)</legend>
+          <JournalLinksEditor value={linkDrafts} onChange={setLinkDrafts} idPrefix={`trade-${entry.trade_id}`} />
+        </fieldset>
+      ) : (
+        <button type="button" onClick={() => setShowLinks(true)} className="block text-[11px] text-accent hover:underline">
+          + add a link (TradingView idea, news, video…)
         </button>
       )}
 
