@@ -372,6 +372,125 @@ def placebo_p(trades: List[Trade], df: pd.DataFrame, rng: np.random.Generator) -
 
 
 # ----------------------------------------------------------------------------
+# Trade management follow-up (pre-registered after the entry verdict, before
+# this run): the SAME entries and stops, different exits.
+#   FULL_2R           the original: whole position to 2R
+#   PARTIAL_1R_BE     half off at +1R, stop -> entry (from the next bar), rest to 2R
+#   PARTIAL_LEVEL_BE  half off at the nearest key level in the trade's direction
+#                     (any of the day's OR/ON/LDN/PD highs and lows) that is at
+#                     least 0.5R away and short of 2R; none -> +1R. Then as above.
+# Everything still flat at 12:00. Costs: entry spread, plus slippage on the
+# market entry (RECLAIM) and on each market exit, weighted by the size it closes.
+# ----------------------------------------------------------------------------
+MANAGEMENT = ("FULL_2R", "PARTIAL_1R_BE", "PARTIAL_LEVEL_BE")
+PARTIAL_SIZE = 0.5
+KEY_LEVEL_MIN_R = 0.5
+
+
+def _levels_by_day(df: pd.DataFrame, tf: str) -> Dict[str, List[float]]:
+    """day -> every level price known that day (same construction as backtest())."""
+    out: Dict[str, List[float]] = {}
+    prev_rth = None
+    for day in sorted({d for d in df.index.normalize() if d.weekday() < 5}):
+        t930 = day + pd.Timedelta(hours=9, minutes=30)
+        rth = df.loc[t930: day + pd.Timedelta(hours=16) - pd.Timedelta(seconds=1)]
+        lv = _levels_for_day(df, day, prev_rth, tf)
+        out[str(day.date())] = [x for (hi, lo, _) in lv.values() for x in (hi, lo)]
+        if len(rth):
+            prev_rth = rth
+    return out
+
+
+def _simulate_managed(h, l, o, start, end, side, entry, stop, partial_px, fill_bar) -> Tuple[float, str, float]:
+    """Half off at `partial_px`, stop to entry, rest to TARGET_R. Returns
+    (gross R for the whole position, outcome, fraction of size closed at market)."""
+    risk = abs(entry - stop)
+    target = entry + side * TARGET_R * risk
+
+    def through(k, px, favourable):
+        if favourable:
+            return h[k] >= px if side > 0 else l[k] <= px
+        return l[k] <= px if side > 0 else h[k] >= px
+
+    if fill_bar is not None and through(fill_bar, stop, False):
+        return -1.0, "stop", 1.0
+    r1 = None
+    for k in range(start, end):
+        if r1 is None:
+            if through(k, stop, False):
+                return -1.0, "stop", 1.0
+            if through(k, partial_px, True):
+                r1 = side * (partial_px - entry) / risk
+                if through(k, target, True):
+                    return PARTIAL_SIZE * r1 + (1 - PARTIAL_SIZE) * TARGET_R, "partial+target", 0.0
+        else:
+            if through(k, entry, False):
+                return PARTIAL_SIZE * r1, "partial+breakeven", 1 - PARTIAL_SIZE
+            if through(k, target, True):
+                return PARTIAL_SIZE * r1 + (1 - PARTIAL_SIZE) * TARGET_R, "partial+target", 0.0
+    px = o[end] if end < len(o) else o[end - 1]
+    rem = side * (px - entry) / risk
+    if r1 is None:
+        return rem, "time", 1.0
+    return PARTIAL_SIZE * r1 + (1 - PARTIAL_SIZE) * rem, "partial+time", 1 - PARTIAL_SIZE
+
+
+def managed_r(trades: List[Trade], df: pd.DataFrame, levels: Dict[str, List[float]], mode: str) -> List[Tuple[Trade, float, str]]:
+    if mode == "FULL_2R":
+        return [(t, t.r, t.exit_reason) for t in trades]
+    h, l, o, spr = (df[k].to_numpy() for k in ("high", "low", "open", "spread"))
+    idx = df.index
+    out = []
+    for t in trades:
+        side = 1 if t.side == "LONG" else -1
+        eb = idx.get_loc(pd.Timestamp(t.entry_time))
+        i_end = idx.searchsorted(pd.Timestamp(t.day) + pd.Timedelta(hours=12))
+        partial = t.entry + side * 1.0 * t.risk
+        if mode == "PARTIAL_LEVEL_BE":
+            lo_px = t.entry + side * KEY_LEVEL_MIN_R * t.risk
+            ahead = [x for x in levels.get(t.day, [])
+                     if (side > 0 and lo_px <= x < t.target) or (side < 0 and t.target < x <= lo_px)]
+            if ahead:
+                partial = min(ahead) if side > 0 else max(ahead)
+        fill_bar = eb if t.entry_model == "TJR" else None
+        start = eb + 1
+        gross, outcome, mkt_frac = _simulate_managed(h, l, o, start, i_end, side, t.entry, t.stop, partial, fill_bar)
+        slip = SLIPPAGE[t.symbol]
+        cost = float(spr[eb]) + (slip if t.entry_model == "RECLAIM" else 0.0) + slip * mkt_frac
+        out.append((t, gross - cost / t.risk, outcome))
+    return out
+
+
+def run_management() -> Dict:
+    rng = np.random.default_rng(SEED)
+    res: Dict = {"phase": "101b", "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+                 "management": MANAGEMENT, "partial_size": PARTIAL_SIZE, "cells": []}
+    for s in SYMBOLS:
+        df = load(s, "M5")
+        trades = backtest(s, "M5", df)
+        levels = _levels_by_day(df, "M5")
+        all_days = sorted({str(d.date()) for d in df.index.normalize() if d.weekday() < 5})
+        cut = all_days[int(len(all_days) * (1 - OOS_FRACTION))]
+        for level in LEVELS:
+            for model in ENTRIES:
+                cell = [t for t in trades if t.level == level and t.entry_model == model]
+                row = {"symbol": s, "level": level, "entry": model, "oos_from": cut}
+                for mode in MANAGEMENT:
+                    rs = managed_r(cell, df, levels, mode)
+                    full = np.array([r for _, r, _ in rs])
+                    oos = np.array([r for t, r, _ in rs if t.day >= cut])
+                    row[mode] = {
+                        "full": summarize(full, rng), "oos": summarize(oos, rng),
+                        "outcomes": {k: sum(1 for *_, o_ in rs if o_ == k) for k in sorted({o_ for *_, o_ in rs})},
+                    }
+                res["cells"].append(row)
+    os.makedirs(CACHE, exist_ok=True)
+    with open(os.path.join(CACHE, "phase101_management.json"), "w", encoding="utf-8") as f:
+        json.dump(res, f, indent=1, default=str)
+    return res
+
+
+# ----------------------------------------------------------------------------
 # Run
 # ----------------------------------------------------------------------------
 def run() -> Dict:
@@ -437,9 +556,19 @@ def run() -> Dict:
 def main(argv=None) -> int:  # pragma: no cover
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--fetch", action="store_true", help="refresh the candle cache from the local MT5 terminal first")
+    ap.add_argument("--management", action="store_true", help="compare full-2R vs partial-at-1R / partial-at-key-level + breakeven")
     a = ap.parse_args(argv)
     if a.fetch:
         fetch_from_mt5()
+    if a.management:
+        m = run_management()
+        for c in m["cells"]:
+            parts = []
+            for mode in MANAGEMENT:
+                f, o = c[mode]["full"], c[mode]["oos"]
+                parts.append(f"{mode}: N={f.get('n',0)} win={f.get('win_rate','-')} mean={f.get('mean_r','-')} dd={f.get('max_dd_r','-')} oos={o.get('mean_r','-')}")
+            print(f"{c['symbol']} {c['level']:<4} {c['entry']:<8} | " + " | ".join(parts))
+        return 0
     res = run()
     print(f"verdict: {res['verdict']}")
     for c in res["cells"]:

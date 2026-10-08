@@ -54,3 +54,24 @@ def test_no_trade_when_the_stop_is_inside_the_spread():
     df["spread"] = 2.0  # risk 2.7 < 2 x spread -> untradeable, skipped
     trades = p.backtest("NQ", "M5", df)
     assert not [x for x in trades if x.level == "OR" and x.entry_model == "RECLAIM"]
+
+
+def test_partial_then_breakeven_and_partial_then_target():
+    import numpy as np
+    # long 100, stop 98 (risk 2), partial at 102 (1R), target 104 (2R)
+    o = np.array([100.0, 100.0, 101.0, 100.5])
+    h = np.array([100.5, 102.2, 101.5, 101.0])  # bar 1 tags 1R
+    l = np.array([99.5, 99.9, 99.8, 99.0])      # bar 2 comes back to entry -> breakeven
+    gross, outcome, mkt = p._simulate_managed(h, l, o, 1, 4, +1, 100.0, 98.0, 102.0, None)
+    assert outcome == "partial+breakeven" and abs(gross - 0.5) < 1e-9 and mkt == 0.5
+
+    h2 = np.array([100.5, 102.2, 104.5, 101.0])  # bar 2 reaches 2R before touching entry
+    l2 = np.array([99.5, 101.0, 101.5, 99.0])
+    gross, outcome, mkt = p._simulate_managed(h2, l2, o, 1, 4, +1, 100.0, 98.0, 102.0, None)
+    assert outcome == "partial+target" and abs(gross - 1.5) < 1e-9 and mkt == 0.0
+
+    # a bar that touches the stop before the partial is a full -1R, even if it also tags 1R
+    h3 = np.array([100.5, 102.5, 101.0, 101.0])
+    l3 = np.array([99.5, 97.5, 99.8, 99.0])
+    gross, outcome, _ = p._simulate_managed(h3, l3, o, 1, 4, +1, 100.0, 98.0, 102.0, None)
+    assert outcome == "stop" and gross == -1.0

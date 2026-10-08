@@ -98,3 +98,43 @@ luck, and none held up out of sample with a CI above zero.
   Unlimited) and running `--fetch` would give longer 1- and 5-minute samples.
 - **Storage:** candles are cached in `.cache/phase101/` (git-ignored), never in
   the app database. Nothing here places or modifies orders.
+
+## Follow-up: partial profit + stop to breakeven (101b)
+
+Asked after the entry verdict: "take a partial at 1R or at a key level and
+move the stop to breakeven". The **same entries and stops**, with three exit
+plans fixed before running (`python -m phase101_ny_open_sweep --management`):
+
+| Plan | Rule |
+|---|---|
+| **A: full to 2R** | the original: the whole position to 2R |
+| **B: half at 1R** | close 50% at +1R, then stop → entry; the rest to 2R (flat at 12:00) |
+| **C: half at a key level** | close 50% at the nearest of the day's marked highs/lows (OR / overnight / London / previous day) that is ≥ 0.5R away and short of 2R, else at 1R; then stop → entry; the rest to 2R |
+
+The stop-to-breakeven applies from the bar after the partial. A bar touching
+the stop before the partial is a full −1R. Slippage is charged on each
+market exit, weighted by the size it closes.
+
+**All 16 setups pooled (1,985 trades on 5-minute bars):**
+
+| Plan | Win rate | Mean R / trade | Out-of-sample mean R | How trades ended |
+|---|---|---|---|---|
+| A: full to 2R | 36.9% | **−0.09** | −0.20 | 1,117 stopped · 498 hit 2R · 370 timed out |
+| B: half at 1R + BE | **48.6%** | **−0.10** | −0.20 | 924 stopped · 418 partial→2R · 366 partial→breakeven · 277 timed out |
+| C: half at key level + BE | **50.3%** | **−0.11** | −0.23 | 913 stopped · 406 partial→2R · 421 partial→breakeven · 245 timed out |
+
+- **The win rate goes up by 12–13 points but the money doesn't change.** About
+  190 trades that used to be full losses now bank +0.5R first. About 80 trades
+  that used to run to the full 2R now give back their second half at
+  breakeven. The two effects cancel.
+- **Per setup:** B beat A in 6 of 16 setups and C in 8 of 16, a coin flip. It
+  also cut the worst losing streak in some setups (e.g. NQ previous-day
+  reclaim: drawdown 41R → 26R), but **no setup became positive out of
+  sample** under B or C.
+- **Expected outcome:** trade management changes the *shape* of the results
+  (more frequent small wins, smoother equity). It can't create an edge the
+  entries don't have, and the placebo above showed these entries pick
+  direction no better than a coin.
+
+Partials + breakeven can still be a **psychological** tool (fewer full
+losers, so it's easier to stick to the plan), just not a profit tool here.
