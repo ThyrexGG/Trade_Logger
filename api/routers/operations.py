@@ -191,22 +191,12 @@ def get_journal() -> JournalResponse:
 # them apart. Still no execution path: this never touches an order, a
 # position, or a broker.
 
-def _recheck_loss_limits() -> None:
-    """A hand-logged trade changes today's P&L: re-evaluate the loss limits now, not at the next 2-minute pass."""
-    try:
-        from api import loss_limits
-        loss_limits.check(lambda _m: None)
-    except Exception:  # noqa: BLE001 - never fail a save because a notification could not be evaluated
-        pass
-
-
 @router.post("/journal/trades", response_model=JournalTradeItem)
 def create_manual_trade(payload: ManualTradeIn) -> JournalTradeItem:
     try:
         trade_id = database.add_manual_trade(payload.model_dump())
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    _recheck_loss_limits()
     row = _fetch_journal_row(trade_id)
     if row is None:  # pragma: no cover - save_closed_trades just wrote it
         raise HTTPException(status_code=500, detail="Trade was saved but could not be read back.")
@@ -229,7 +219,6 @@ def update_manual_trade(payload: ManualTradeIn, trade_id: str = Path(..., min_le
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     if not found:
         raise HTTPException(status_code=404, detail=f"Trade '{trade_id}' not found")
-    _recheck_loss_limits()
     row = _fetch_journal_row(trade_id)
     if row is None:  # pragma: no cover - just updated
         raise HTTPException(status_code=500, detail="Trade was saved but could not be read back.")

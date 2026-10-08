@@ -28,11 +28,9 @@ const AssetProfilePage = page(() => import('./pages/AssetProfilePage'), 'AssetPr
 const CryptoCarryPage = page(() => import('./pages/CryptoCarryPage'), 'CryptoCarryPage')
 const MacroIntelligencePage = page(() => import('./pages/MacroIntelligencePage'), 'MacroIntelligencePage')
 const PriceAlertsPage = page(() => import('./pages/PriceAlertsPage'), 'PriceAlertsPage')
-const LossLimitsPage = page(() => import('./pages/LossLimitsPage'), 'LossLimitsPage')
 const AnalyticsPage = page(() => import('./pages/AnalyticsPage'), 'AnalyticsPage')
 const AssistantPage = page(() => import('./pages/AssistantPage'), 'AssistantPage')
-const ChartAnalyzerPage = page(() => import('./pages/ChartAnalyzerPage'), 'ChartAnalyzerPage')
-const KillzoneScannerPage = page(() => import('./pages/KillzoneScannerPage'), 'KillzoneScannerPage')
+const TradePlannerPage = page(() => import('./pages/TradePlannerPage'), 'TradePlannerPage')
 const JournalPage = page(() => import('./pages/JournalPage'), 'JournalPage')
 const SystemHealthPage = page(() => import('./pages/SystemHealthPage'), 'SystemHealthPage')
 const ConnectionsPage = page(() => import('./pages/ConnectionsPage'), 'ConnectionsPage')
@@ -45,12 +43,10 @@ const LIVE_ITEM_PAGES: Record<string, ReactElement> = {
   'workspace.market': <MarketWorkspacePage />,
   'workspace.positions': <PositionsPage />,
   'workspace.risk': <RiskGatewayPage />,
-  'workspace.loss-limits': <LossLimitsPage />,
   'workspace.alerts': <PriceAlertsPage />,
   'workspace.analytics': <AnalyticsPage />,
   'workspace.assistant': <AssistantPage />,
-  'workspace.chart-analyzer': <ChartAnalyzerPage />,
-  'workspace.killzone-scanner': <KillzoneScannerPage />,
+  'workspace.trade-planner': <TradePlannerPage />,
   'workspace.journal': <JournalPage />,
   'research.intelligence': <IntelligencePage />,
   'research.crypto-carry': <CryptoCarryPage />,
@@ -117,6 +113,10 @@ export default function App() {
           />
           {/* Command Center was folded into Home — keep old links/bookmarks working. */}
           <Route path="workspace/command-center" element={<Navigate to={DEFAULT_LANDING} replace />} />
+          <Route path="workspace/loss-limits" element={<Navigate to={DEFAULT_LANDING} replace />} />
+          {/* Killzone Scanner + Chart Analyzer became the Trade Planner's tabs. */}
+          <Route path="workspace/killzone-scanner" element={<Navigate to="/workspace/trade-planner" replace />} />
+          <Route path="workspace/chart-analyzer" element={<Navigate to="/workspace/trade-planner?tab=chart" replace />} />
           {zoneIds.has('research') ? (
             <Route path="research/intelligence/asset/:symbol" element={<AssetProfilePage />} />
           ) : null}

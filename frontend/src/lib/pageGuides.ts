@@ -37,14 +37,6 @@ const GUIDES: Record<string, GuideContent> = {
       'This only calculates — it never places a trade.',
     ],
   },
-  '/workspace/loss-limits': {
-    title: 'Set a "stop for the day" rule so one bad day can’t wreck your account.',
-    steps: [
-      'Daily loss limit: how much you’re allowed to lose in one day before you stop trading.',
-      'Drawdown limit: how far your account may fall from its highest point in total.',
-      'You get a notification as you get close and when you hit a limit. It never closes trades for you.',
-    ],
-  },
   '/workspace/alerts': {
     title: 'Get told when a price reaches a level you care about.',
     steps: [
@@ -68,21 +60,14 @@ const GUIDES: Record<string, GuideContent> = {
       'It reads your TradeLogger data to answer. It can’t place trades, and its answers aren’t financial advice.',
     ],
   },
-  '/workspace/chart-analyzer': {
-    title: 'Get a second opinion on a chart before you trade it.',
+  '/workspace/trade-planner': {
+    title: 'Plan a trade before you take it — step by step.',
+    body: 'Most beginner losses come from jumping into trades without a plan. Work left to right through the tabs.',
     steps: [
-      'Upload a screenshot of your chart, or paste a TradingView link.',
-      'It reads your entry, stop loss and target, works out the risk-to-reward, and rates the setup.',
-      'Save it to your Journal to compare the plan with what actually happened later.',
-    ],
-  },
-  '/workspace/killzone-scanner': {
-    title: 'Find a specific setup during the busiest trading hours.',
-    body: 'The "killzones" are the London and New York sessions, when big moves are most likely. The scanner looks for price grabbing an obvious high or low and then turning around.',
-    steps: [
-      'Pick a market and run a scan; hits are marked on the chart.',
-      'A hit is a candidate to study, not a buy or sell signal — tested on its own it hasn’t been profitable.',
-      'Use the Plan tab to write down your entry, stop and reason before you trade.',
+      'Find setups: scan a market for price grabbing an obvious high or low during the busiest hours (the London and New York "killzones") and then turning around. A hit is something to study, not a buy or sell signal.',
+      'All my markets: run the same scan on every market you watch, side by side.',
+      'Check my chart: upload a screenshot of your own chart and get your entry, stop, target, risk-to-reward and a rating.',
+      'Write my plan: note your entry, stop loss, target and the reason — it saves to your Journal so you can compare it with what happened.',
     ],
   },
   '/workspace/journal': {

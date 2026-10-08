@@ -1544,7 +1544,7 @@ def get_all_price_alerts(limit=50, ttl_sec: float = 0.0):
     return df.copy()
 
 def user_ids_with_setting_key(key):
-    """Every user_id that has *any* value saved under ``user_settings[key]`` (e.g. anyone with loss limits)."""
+    """Every user_id that has *any* value saved under ``user_settings[key]`` (e.g. anyone with a given setting saved)."""
     try:
         conn = get_connection()
         cur = conn.cursor()

@@ -77,7 +77,6 @@ from api.routers import (
     challenge,
     scanner,
     push,
-    loss_limits,
     weekly_summary,
 )
 
@@ -349,7 +348,6 @@ app.include_router(referrals.router)
 app.include_router(challenge.router)
 app.include_router(scanner.router)
 app.include_router(push.router)
-app.include_router(loss_limits.router)
 app.include_router(weekly_summary.router)
 
 

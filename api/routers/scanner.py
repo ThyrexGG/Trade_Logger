@@ -81,7 +81,7 @@ def set_killzone_watch_config(body: KillzoneWatchConfig) -> KillzoneWatchConfig:
     """Save which symbols to watch and the confluence bar a candidate must
     clear before it pushes a notification. See api/killzone_alerts.py —
     checked from the same background loop that already evaluates price
-    alerts / loss limits / the weekly summary, so this adds no new
+    alerts / the weekly summary, so this adds no new
     always-on cost."""
     saved = killzone_alerts.set_config(body.symbols, body.min_confluence, body.enabled)
     return KillzoneWatchConfig(**saved)

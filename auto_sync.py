@@ -181,15 +181,7 @@ def run_sync_cycle(known_trade_ids: set, logfn=log, creds: dict | None = None,
         result["errors"].append(f"price_alerts: {price_alert_err}")
         logfn(f"Price alert check error: {price_alert_err}")
 
-    # 5. Loss limits (daily loss / drawdown) -> notification when a limit is approached or reached
-    try:
-        from api import loss_limits
-        loss_limits.check(logfn)
-    except Exception as limit_err:  # noqa: BLE001
-        result["errors"].append(f"loss_limits: {limit_err}")
-        logfn(f"Loss limit check error: {limit_err}")
-
-    # 6. Weekly performance summary (sends at most once a week per user, and only inside its send window)
+    # 5. Weekly performance summary (sends at most once a week per user, and only inside its send window)
     try:
         from api import weekly_summary
         weekly_summary.check(logfn)
@@ -197,7 +189,7 @@ def run_sync_cycle(known_trade_ids: set, logfn=log, creds: dict | None = None,
         result["errors"].append(f"weekly_summary: {summary_err}")
         logfn(f"Weekly summary check error: {summary_err}")
 
-    # 7. Killzone Scanner push alerts (opt-in; a no-op unless the user saved a watch config)
+    # 6. Killzone Scanner push alerts (opt-in; a no-op unless the user saved a watch config)
     try:
         from api import killzone_alerts
         killzone_alerts.check(logfn)

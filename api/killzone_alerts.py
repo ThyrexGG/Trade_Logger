@@ -9,7 +9,7 @@ recommendation, no execution path). Off by default; nothing is watched and
 nothing is ever sent until the user explicitly saves a config.
 
 Piggybacks on the existing per-user alert loop (api/sync_service.py's
-`_check_alerts_for`, alongside price alerts / loss limits / the weekly
+`_check_alerts_for`, alongside price alerts / the weekly
 summary) instead of starting a loop of its own. That loop already runs for
 exactly the users who could receive a push (anyone with a registered
 device — a prerequisite for a push to go anywhere), so this adds no new

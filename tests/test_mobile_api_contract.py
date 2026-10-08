@@ -214,18 +214,6 @@ def test_command_center_overview_matches_phone_type(db):
             assert_has(body[key], "commandCenter.ts", interface)
 
 
-def test_loss_limits_match_phone_type(db):
-    _manual(gross=-30.0, days_ago=0)
-    r = client.put("/api/loss-limits/OWN_MONEY", json={"daily_loss": 100, "drawdown_pct": 10})
-    assert r.status_code == 200, r.text
-    assert_has(r.json(), "lossLimits.ts", "LossLimitStatus")
-    body = client.get("/api/loss-limits").json()
-    assert_has(body, "lossLimits.ts", "LossLimitsResponse")
-    assert body["accounts"], "the account with trades should be listed"
-    for acct in body["accounts"]:
-        assert_has(acct, "lossLimits.ts", "LossLimitStatus")
-
-
 def test_challenge_status_matches_phone_type(db):
     _manual(gross=25.0, days_ago=1)
     empty = client.get("/api/challenge/status?account=OWN_MONEY").json()

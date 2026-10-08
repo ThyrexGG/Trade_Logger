@@ -10,7 +10,6 @@ import { TodayScreen } from '../screens/TodayScreen'
 import { ChallengeScreen } from '../screens/ChallengeScreen'
 import { ChartAnalyzerScreen } from '../screens/ChartAnalyzerScreen'
 import { ConnectionsScreen } from '../screens/ConnectionsScreen'
-import { LossLimitsScreen } from '../screens/LossLimitsScreen'
 import { SetupsScreen } from '../screens/SetupsScreen'
 import { WeeklySummaryScreen } from '../screens/WeeklySummaryScreen'
 import { PositionDetailScreen } from '../screens/PositionDetailScreen'
@@ -37,7 +36,6 @@ export type RootStackParamList = {
   Killzone: undefined
   Today: undefined
   Connections: undefined
-  LossLimits: undefined
   Challenge: undefined
   ChartAnalyzer: undefined
   Setups: undefined
@@ -75,7 +73,6 @@ export function RootStack() {
       <Stack.Screen name="Killzone" component={KillzoneScreen} options={{ title: 'Killzone scanner', headerBackTitle: 'Back' }} />
       <Stack.Screen name="Today" component={TodayScreen} options={{ title: 'Today', headerBackTitle: 'Back' }} />
       <Stack.Screen name="Connections" component={ConnectionsScreen} options={{ title: 'Broker connection', headerBackTitle: 'Back' }} />
-      <Stack.Screen name="LossLimits" component={LossLimitsScreen} options={{ title: 'Loss limits', headerBackTitle: 'Back' }} />
       <Stack.Screen name="Challenge" component={ChallengeScreen} options={{ title: 'Challenge tracker', headerBackTitle: 'Back' }} />
       <Stack.Screen name="ChartAnalyzer" component={ChartAnalyzerScreen} options={{ title: 'Chart analyzer', headerBackTitle: 'Back' }} />
       <Stack.Screen name="Setups" component={SetupsScreen} options={{ title: 'Setups', headerBackTitle: 'Back' }} />

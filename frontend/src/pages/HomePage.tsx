@@ -129,7 +129,7 @@ export function HomePage() {
   const now = new Date()
   const name = firstName(user?.display_name)
   const pf = view?.metrics.profit_factor ?? 0
-  const shortcuts = ['workspace.journal', 'workspace.killzone-scanner', 'workspace.chart-analyzer', 'workspace.analytics']
+  const shortcuts = ['workspace.journal', 'workspace.trade-planner', 'workspace.analytics', 'research.intelligence']
     .map((id) => ALL_NAV_ITEMS.find((n) => n.id === id))
     .filter((n): n is NonNullable<typeof n> => Boolean(n))
 

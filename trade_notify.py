@@ -198,19 +198,6 @@ def record_killzone_candidate(symbol: Any, candidate: Dict[str, Any]) -> Optiona
         return None
 
 
-def record_risk_alert(key: str, title: str, body: str, account: Any, pnl: Any = None) -> Optional[int]:
-    """A loss limit (daily loss / drawdown) was approached or reached. `key` makes the event unique per
-    account + limit + level + period, so it notifies once. Returns the event id, or None if duplicate."""
-    try:
-        acct = str(account or "")
-        if not key or not acct:
-            return None
-        return _record(key, "risk", title, body, "", "", None, None, _num(pnl), acct)
-    except Exception:  # noqa: BLE001
-        log.exception("record_risk_alert failed")
-        return None
-
-
 def record_summary(key: str, title: str, body: str, week: str, pnl: Any = None) -> Optional[int]:
     """The weekly performance summary. `key` is unique per user + week, so it is sent once.
     Returns the event id, or None if it was already recorded."""

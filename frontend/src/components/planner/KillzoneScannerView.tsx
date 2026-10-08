@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { PageContainer } from '../components/shell/PageContainer'
-import { SectionCard } from '../components/intelligence/primitives'
-import { DisclaimerNote } from '../components/shared/DisclaimerNote'
-import { PreTradeChecklistForm, type ChecklistPrefill } from '../components/journal/PreTradeChecklistForm'
-import { InfoTip } from '../components/common/InfoTip'
-import { getKillzoneWatchConfig, scanKillzone, scanKillzoneBoard, setKillzoneWatchConfig } from '../api/scanner'
-import type { KillzoneBoardResponse, KillzoneCandidate, KillzoneScanResponse, KillzoneWatchConfig } from '../types/scanner'
-import { TagRecord } from '../components/journal/TagRecord'
+import { SectionCard } from '../intelligence/primitives'
+import { PreTradeChecklistForm, type ChecklistPrefill } from '../journal/PreTradeChecklistForm'
+import { InfoTip } from '../common/InfoTip'
+import { getKillzoneWatchConfig, scanKillzone, scanKillzoneBoard, setKillzoneWatchConfig } from '../../api/scanner'
+import type { KillzoneBoardResponse, KillzoneCandidate, KillzoneScanResponse, KillzoneWatchConfig } from '../../types/scanner'
+import { TagRecord } from '../journal/TagRecord'
 
 /** The one setup tag every Killzone-sourced plan gets pre-selected with (see
  *  lib/setupPresets.ts) — tagging the eventual closed trade the same way is
@@ -36,7 +34,8 @@ const BOARD_REFRESH_MS = 5 * 60 * 1000
  *  saved their own list) — the same symbols the "Majors" + "Metals" presets cover. */
 const DEFAULT_BOARD_SYMBOLS = ['EURUSD', 'GBPUSD', 'USDJPY', 'XAUUSD']
 
-type Tab = 'scan' | 'board' | 'plan'
+export type KillzoneTab = 'scan' | 'board' | 'plan'
+type Tab = KillzoneTab
 
 function fmtTime(unixSec: number): string {
   return new Date(unixSec * 1000).toLocaleString(undefined, {
@@ -131,7 +130,9 @@ function buildMarkdown(data: KillzoneScanResponse, ltf: string): string {
 }
 
 /**
- * Killzone Scanner (`/workspace/killzone-scanner`). Two tabs sharing one
+ * Killzone scanner — the "Find setups / All my markets / Write my plan" tabs
+ * of the Trade Planner (`/workspace/trade-planner`). The planner owns the tab
+ * bar; this view renders whichever of its three tabs is active. Tabs sharing one
  * workflow: Scan flags candidate liquidity-sweep + market-structure-shift
  * events against the higher-timeframe bias and the active ICT killzone;
  * Plan is the pre-trade checklist, seedable straight from a candidate row
@@ -140,8 +141,7 @@ function buildMarkdown(data: KillzoneScanResponse, ltf: string): string {
  * execution path. Every threshold behind a flag is plain and disclosed (see
  * killzone_scanner.py) — this replaces staring at charts, not judgment.
  */
-export function KillzoneScannerPage() {
-  const [tab, setTab] = useState<Tab>('scan')
+export function KillzoneScannerView({ tab, onTabChange: setTab }: { tab: Tab; onTabChange: (t: Tab) => void }) {
   const [symbol, setSymbol] = useState(() => {
     try {
       return localStorage.getItem(SYMBOL_KEY) ?? 'USDJPY'
@@ -344,26 +344,7 @@ export function KillzoneScannerPage() {
   }
 
   return (
-    <PageContainer
-      title="Killzone Scanner"
-      description="Scan for candidate liquidity-sweep + structure-shift events, then log the plan before you enter. Pattern-flagging only — it replaces staring at charts, not your own judgment on whether a flagged event is actually worth trading."
-    >
-      <div className="space-y-4">
-        <DisclaimerNote />
-        <div className="flex w-fit rounded-xl border border-border p-1 text-xs">
-          {(['scan', 'board', 'plan'] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              className={`rounded-lg px-4 py-1.5 font-medium transition-colors ${tab === t ? 'shadow' : 'text-muted'}`}
-              style={tab === t ? { background: 'var(--tl-gradient-primary)', color: 'var(--tl-gradient-ink)' } : undefined}
-            >
-              {t === 'scan' ? 'Scan' : t === 'board' ? 'Board' : 'Plan'}
-            </button>
-          ))}
-        </div>
-
+    <div className="space-y-4">
         <p className="text-[11px]">
           <TagRecord tag={KILLZONE_SETUP_TAG} /> — tag a closed trade "{KILLZONE_SETUP_TAG}" in the Journal
           when it came from a candidate here, and this fills in with your own real numbers.
@@ -796,7 +777,6 @@ export function KillzoneScannerPage() {
         ) : (
           <PreTradeChecklistForm prefill={prefill} />
         )}
-      </div>
-    </PageContainer>
+    </div>
   )
 }

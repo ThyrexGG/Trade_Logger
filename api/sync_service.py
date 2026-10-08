@@ -29,7 +29,7 @@ module. It only reads broker state and writes rows to the local journal DB.
 **Why the interval matters more than it looks.** The DB is Neon serverless,
 which auto-suspends its compute after a few minutes of zero queries and
 bills only while it's awake. ``_loop`` starts the moment ANY user has
-auto-sync on, OR merely has a price alert / loss limit / registered phone
+auto-sync on, OR merely has a price alert / registered phone
 (``_alert_user_ids`` — true for nearly every real user of this app), and
 then runs forever for the life of the process. At the old 120s default that
 query lands well inside Neon's suspend window every single cycle, so the
@@ -48,7 +48,7 @@ allowance, just spread out instead of blown through in days. There is no
 interval that makes an unconditional perpetual loop cheap; the only real
 fix is to not run it unconditionally. So: a user who explicitly turned
 auto-sync on gets ``INTERVAL_SEC`` (fresh, they chose the tradeoff); a user
-who merely *has* an alert/loss-limit/phone but never asked for polling gets
+who merely *has* an alert/phone but never asked for polling gets
 the much longer ``ALERTS_ONLY_INTERVAL_SEC`` — alerts checked hourly is a
 non-issue for a personal trading journal, and keeps this path's compute
 cost (~8% duty cycle, ~60 hrs/month) safely inside the free tier even
@@ -120,11 +120,10 @@ def _auto_enabled_user_ids() -> List[str]:
 
 
 def _alert_user_ids() -> List[str]:
-    """Everyone the background watcher has something to evaluate for: an active price alert, a loss limit,
+    """Everyone the background watcher has something to evaluate for: an active price alert,
     or a registered phone (which gets the weekly summary)."""
     ids: set = set()
-    for getter in (database.user_ids_with_active_price_alerts, lambda: database.user_ids_with_setting_key("loss_limits"),
-                   database.user_ids_with_push_devices):
+    for getter in (database.user_ids_with_active_price_alerts, database.user_ids_with_push_devices):
         try:
             ids.update(getter())
         except Exception:
@@ -142,11 +141,6 @@ def _check_alerts_for(uids) -> None:
             with tenant.use(uid):
                 try:
                     auto_sync.check_price_alerts(logfn=lambda _m: None)
-                except Exception:
-                    pass
-                try:
-                    from api import loss_limits
-                    loss_limits.check(lambda _m: None)
                 except Exception:
                     pass
                 try:
@@ -334,7 +328,7 @@ def _loop() -> None:
             pass
         # Nobody explicitly asked for polling this cycle (no auto-sync toggle on
         # anywhere) -- this run only happened because someone merely *has* an
-        # alert/loss-limit/phone. Use the much longer interval for that case (see
+        # alert/phone. Use the much longer interval for that case (see
         # the module docstring) so an incidental trigger doesn't cost the same as
         # a deliberate one.
         _stop.wait(INTERVAL_SEC if have_auto_sync_users else ALERTS_ONLY_INTERVAL_SEC)

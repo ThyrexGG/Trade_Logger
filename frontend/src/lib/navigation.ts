@@ -12,7 +12,6 @@ import {
   LayersIcon,
   ReplayIcon,
   ScaleIcon,
-  SearchIcon,
   ShieldIcon,
 } from './icons'
 
@@ -104,15 +103,6 @@ const ALL_ZONES: Zone[] = [
         friendsVisible: true,
       },
       {
-        id: 'workspace.loss-limits',
-        label: 'Loss limits',
-        description: 'Set a maximum loss per day and overall — get warned before you hit it.',
-        path: '/workspace/loss-limits',
-        icon: ScaleIcon,
-        status: 'live',
-        friendsVisible: true,
-      },
-      {
         id: 'workspace.alerts',
         label: 'Price Alerts',
         description: 'Get a notification when a price reaches a level you choose.',
@@ -138,18 +128,10 @@ const ALL_ZONES: Zone[] = [
         status: 'live',
       },
       {
-        id: 'workspace.chart-analyzer',
-        label: 'Chart Analyzer',
-        description: 'Upload a chart and get your entry, stop, target and a rating of the setup.',
-        path: '/workspace/chart-analyzer',
-        icon: SearchIcon,
-        status: 'live',
-      },
-      {
-        id: 'workspace.killzone-scanner',
-        label: 'Killzone Scanner',
-        description: 'Spot a specific setup in the busiest trading hours, then write your plan before you trade.',
-        path: '/workspace/killzone-scanner',
+        id: 'workspace.trade-planner',
+        label: 'Trade Planner',
+        description: 'Everything before a trade: find a setup, check your chart, and write your plan.',
+        path: '/workspace/trade-planner',
         icon: FlaskIcon,
         status: 'live',
       },

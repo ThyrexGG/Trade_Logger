@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { PageContainer } from '../components/shell/PageContainer'
-import { DisclaimerNote } from '../components/shared/DisclaimerNote'
-import { getAIStatus } from '../api/ai'
-import { analyzeChartFile, analyzeChartUrl } from '../api/chartAnalysis'
-import { SaveToJournal } from '../components/journal/SaveToJournal'
-import { SectionCard } from '../components/intelligence/primitives'
-import type { ChartAnalysisResponse } from '../types/chartAnalysis'
+import { getAIStatus } from '../../api/ai'
+import { analyzeChartFile, analyzeChartUrl } from '../../api/chartAnalysis'
+import { SaveToJournal } from '../journal/SaveToJournal'
+import { SectionCard } from '../intelligence/primitives'
+import type { ChartAnalysisResponse } from '../../types/chartAnalysis'
 
 const ACCEPT = 'image/png,image/jpeg,image/webp'
 const MAX_MB = 6
@@ -53,13 +51,14 @@ function Stat({ label, value }: { label: string; value: string | number | null }
 }
 
 /**
- * Chart Analyzer (`/workspace/chart-analyzer`). Upload a chart screenshot — or
+ * Chart analyzer — the "Check my chart" tab of the Trade Planner
+ * (`/workspace/trade-planner?tab=chart`). Upload a chart screenshot — or
  * paste a tradingview.com/x/... share link — and Gemini vision reads what's
  * visibly plotted (entry / stop / target / R:R) plus gives an opinionated
  * setup-quality rating. Pure image-to-JSON extraction: nothing here is saved,
  * and it has no path to orders, positions, or any TradeLogger account data.
  */
-export function ChartAnalyzerPage() {
+export function ChartAnalyzerView() {
   const [configured, setConfigured] = useState<boolean | null>(null)
   const [mode, setMode] = useState<Mode>('upload')
   const [file, setFile] = useState<File | null>(null)
@@ -145,15 +144,10 @@ export function ChartAnalyzerPage() {
   }
 
   return (
-    <PageContainer
-      title="Chart Analyzer"
-      description="Upload a chart screenshot or paste a TradingView share link — Gemini vision reads the visible entry, stop, target and R:R, and gives an opinionated setup rating. Nothing is saved; it never touches orders, positions or account data."
-    >
-      <DisclaimerNote />
+    <div>
       {disabled ? (
         <div className="mb-4 rounded-lg border border-warning/30 bg-warning/10 p-4 text-xs text-warning">
-          The AI assistant isn't configured on this server — an operator needs to set{' '}
-          <code>GEMINI_API_KEY</code> in the backend environment.
+          Chart checking isn&rsquo;t available right now — the AI service it uses hasn&rsquo;t been set up. The other tabs still work.
         </div>
       ) : null}
 
@@ -369,6 +363,6 @@ export function ChartAnalyzerPage() {
           )}
         </SectionCard>
       </div>
-    </PageContainer>
+    </div>
   )
 }

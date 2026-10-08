@@ -13,7 +13,7 @@ export function isHandLogged(tradeId: string): boolean {
 
 /**
  * "Logged by hand" strip for one journal entry: correct its numbers or delete it. Renders nothing for a
- * broker-synced trade. Analytics, the calendar and the loss limits read the same table, so every cached page
+ * broker-synced trade. Analytics and the calendar read the same table, so every cached page
  * is dropped once a trade changes.
  */
 export function HandLoggedControls({

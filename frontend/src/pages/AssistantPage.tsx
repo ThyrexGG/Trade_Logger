@@ -118,9 +118,8 @@ export function AssistantPage() {
         <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
           {disabled ? (
             <div className="mx-auto max-w-md rounded-lg border border-warning/30 bg-warning/10 p-4 text-xs text-warning">
-              The assistant isn't configured on this server — an operator needs to set{' '}
-              <code>GEMINI_API_KEY</code> in the backend environment. Every other page works
-              without it.
+              The AI assistant isn&rsquo;t available right now — the AI service it uses hasn&rsquo;t been
+              set up. Every other page still works.
             </div>
           ) : empty ? (
             <div className="mx-auto flex max-w-lg flex-col items-center gap-4 pt-8 text-center">

@@ -4,7 +4,7 @@ Weekly performance summary: once a week, one notification with how the week went
 best and worst trade, and which setup tag earned or lost the most.
 
 Read-only over `closed_trades` (realized results). A "week" is Monday 00:00 to Sunday 24:00 UTC, the same
-server day the loss limits use. The summary goes out on Sunday from 12:00 UTC and covers Monday up to that
+server day the rest of the app uses. The summary goes out on Sunday from 12:00 UTC and covers Monday up to that
 moment; if the server was asleep then, the next sync (or the app opening) sends it as long as it is still
 inside a short grace window after the week ended. One event key per user + week means it can never repeat.
 
