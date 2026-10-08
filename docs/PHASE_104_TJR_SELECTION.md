@@ -14,27 +14,38 @@ plausible setup (more levels, flexible trigger timeframe, no hard bias rule),
 measures each setup's qualities, and lets a model learn **which ones to take**
 from past years only. The model is then graded on years it never saw.
 
-## Verdict
+## Verdict (corrected 2026-10-09 — see "Correction" below)
 
-**Not passed, but it's the first result where selection clearly mattered.**
+**Not passed. Learned selection does not reliably beat a random pick.**
 
 - **Taking every setup loses clearly:** −0.10R per trade over 4,080 test
   trades (95% CI −0.14 to −0.06).
-- **Learned selection brings it to break-even:** the gradient-boosted model's
-  picks average 0.00R (611 trades, CI −0.10 to +0.10). That is significantly
-  better than picking a random setup on the same days (−0.09R; placebo
-  p = 0.011). The simpler logistic model reached −0.02R (placebo p = 0.10).
-- **Not profitable, and not every year:** boosted model 2024 −0.07R ·
-  2025 −0.02R · 2026 +0.10R. Pass needed a positive pooled CI, placebo
-  p < 0.05 and every year positive.
-- **Costs decide it:** before costs the boosted picks are ≈ +0.07R; the CFD
-  spread (NQ ≈ 1.6 pts) takes it to 0.00R. At futures-like costs (1-tick
-  spread + slippage) it would be ≈ +0.02R. Still too small to call an edge.
+- **Learned selection:** logistic −0.02R (666 trades, CI −0.11 to +0.08;
+  vs random pick −0.07R, placebo p = 0.11). Gradient-boosted −0.05R (630,
+  CI −0.15 to +0.05; vs random −0.09R, p = 0.15).
+- **By year (boosted):** 2024 −0.09R · 2025 −0.15R · 2026 +0.11R. Logistic:
+  +0.01R · −0.11R · +0.05R. Not positive every year.
+- **By checklist count** (all NQ/ES candidates, descriptive): 0 items −0.39R ·
+  1–3 items −0.08 to −0.15R · 4–5 items −0.08 / −0.04R · 6 items −0.35R (43
+  setups). No count is profitable.
+
+### Correction
+
+The first run (preserved as `.cache/phase101/phase104_result_v1_leaky.json`)
+reported the boosted model at 0.00R with placebo p = 0.011. Two features
+used information from slightly *after* some entries:
+- the opening gap used the 09:30 open for 08:30–09:30 setups;
+- the 08:30 "news spike" used the full 08:30–08:35 range for setups inside it.
+
+Both now use only data available at the time (the gap to the session-start
+price; the spike up to the sweep minute), and the 1-hour bias is cut off at
+the session start. With the leak removed, the "selection beats random" result
+**no longer holds**.
 
 ## What the model found useful (largest logistic weights, last fold)
 
-The model favoured the same ingredients TJR teaches, which supports the idea
-that his checklist carries some information, just not enough on its own:
+The model still leans towards the ingredients TJR teaches, but the weights
+are small, and the corrected run shows they don't add up to a reliable edge:
 
 | Ingredient | Effect |
 |---|---|
@@ -81,11 +92,11 @@ overnight −0.15R, London −0.22R, 5-minute swings −0.12R, 15-minute swings
 
 ## What it means in practice
 
-- **Selection skill is real but small.** Choosing well moved results from
-  clearly losing to break-even, using exactly TJR's ingredients. A trader
-  with better judgment than this model (context, news, tape reading) could
-  plausibly do better. That's why recording your own taken *and skipped*
-  setups is the right next test.
+- **Selection skill wasn't demonstrated.** After the leak fix, picking by
+  TJR's ingredients didn't reliably beat picking at random. A trader with
+  better judgment than this model (context, news, tape reading) might still
+  do better, and the only way to know is recording your own taken *and
+  skipped* setups.
 - **As a checklist,** the data favours: equal highs/lows or a previous-day
   level being swept, a strong displacement candle, SMT, a fair value gap, room
   to the next level, and not a tight stop. It disfavours the first minutes of

@@ -244,3 +244,48 @@ to make the backtest look better, test the result on a different symbol or a
 different chunk of history before trusting it. Running this live is your own
 decision, entirely outside TradeLogger — there is no execution path from the
 web app to this script or back.
+
+---
+
+# TJR Sweep Checklist — `tjr_sweep_checklist.pine`
+
+An **indicator** (not a strategy) that shows, live and on past bars, the
+NY-open / London liquidity-sweep setups TradeLogger researched in Phases
+101–105 (`docs/PHASE_104_TJR_SELECTION.md`), with a checklist on every setup
+and a results table, so you can study which setups work on the market you trade.
+
+## Add it
+
+1. TradingView → **Pine Editor** → paste the whole file → **Add to chart**.
+2. Use a **1- to 5-minute** chart (NQ, ES, or a forex pair).
+3. Settings → Inputs:
+   - **Window:** NY open 08:30–11:00 (indices), London 02:00–05:00, or NY forex 08:00–11:00.
+   - **SMT sibling:** the market to compare with. NQ ↔ ES, GBPUSD ↔ EURUSD,
+     USDJPY ↔ EURJPY (default `CME_MINI:ES1!`; change it when you're on ES or forex).
+4. Optional alerts: Alerts → Create → condition **TJR Sweep Checklist** → *Any alert() function call*.
+
+## What you see
+
+- **Dotted lines:** live liquidity: previous day (orange), previous week
+  (purple), Asia / London / overnight / opening range (teal), swing points
+  (grey; **solid** = equal highs/lows). A level greys out once price trades through it.
+- **A label on each setup:** direction, score out of 7 and the checklist:
+  equal highs/lows · previous day/week level · strong reversal · SMT ·
+  fair value gap · room to target · not a tight stop, plus ⚠ warnings (first 5
+  minutes after 09:30, Asia level, many levels at once).
+- **Grey / red / green lines:** entry, stop, target, until the setup resolves.
+- **Table (top right):** every setup on the loaded chart: count, win rate,
+  average R, and average R for high vs low scores. It's **before**
+  spread/commission. Scroll back or load more history to grow the sample.
+
+## How to read it honestly
+
+On 3.5 years of NQ/ES 1-minute data, taking every setup lost about 0.10R per
+trade after costs, and **no score level was reliably profitable**. Treat the
+table as a study tool: if a pattern looks good on your market, log those
+setups (taken *and skipped*) in the TradeLogger Journal and let real results
+confirm it before sizing up.
+
+The research engine (`phase104_tjr_selection.py`) builds the same setups in
+Python with exact 1-minute fills. Pine uses your chart's bars, so the numbers
+won't match exactly.

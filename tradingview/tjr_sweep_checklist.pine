@@ -1,0 +1,361 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0
+// © TradeLogger
+
+//@version=6
+indicator("TJR Sweep Checklist (TradeLogger)", shorttitle = "TL Sweep", overlay = true,
+     max_lines_count = 500, max_labels_count = 500)
+
+// =============================================================================
+// What this draws (live and on past bars), following the TradeLogger research
+// in docs/PHASE_104_TJR_SELECTION.md and PHASE_105:
+//   1. Liquidity levels: previous day / week high-low, Asia, London, overnight,
+//      the 09:30 opening range, and swing highs/lows on the chart timeframe.
+//      A level is live until price trades through it once (then it greys out).
+//   2. A SWEEP inside your session window, then a REVERSAL: a close beyond the
+//      low (after a high sweep) / high (after a low sweep) of the 3 bars before
+//      the sweep, within N minutes. That is one setup; it fades the sweep.
+//   3. Entry (close of the reversal bar), stop (beyond the sweep wick) and a
+//      target at your R multiple, plus a label with the checklist:
+//      equal highs/lows · previous day/week level · strong reversal · SMT ·
+//      fair value gap · room to the next level · not a tight stop, and warnings.
+//   4. A results table for every setup on the loaded chart: count, win rate and
+//      average R, split by checklist score. Use it to LEARN which setups work on
+//      the instrument you trade. It ignores spread/commission.
+// Research result (3.5 years NQ/ES): taking every setup lost ~0.10R per trade
+// after costs, and no checklist score was reliably profitable. This is a study
+// and journaling aid, not a trading signal.
+// Best on 1- to 5-minute charts.
+// =============================================================================
+
+NY = "America/New_York"
+
+grpS = "Session (New York time)"
+preset      = input.string("NY open 08:30-11:00", "Window", options = ["NY open 08:30-11:00", "London 02:00-05:00", "NY forex 08:00-11:00"], group = grpS)
+confirmMins = input.int(15, "Minutes allowed from sweep to reversal", minval = 1, group = grpS)
+
+grpL = "Levels"
+showLevels  = input.bool(true, "Draw liquidity levels", group = grpL)
+swingLen    = input.int(3, "Swing strength (bars each side)", minval = 2, group = grpL)
+eqTolPct    = input.float(0.03, "Equal highs/lows tolerance (%)", minval = 0.0, step = 0.01, group = grpL)
+maxSwings   = input.int(40, "Max live swing levels kept", minval = 5, group = grpL)
+
+grpT = "Trade drawing"
+rr          = input.float(2.0, "Target (R multiple)", minval = 0.5, step = 0.5, group = grpT)
+bufTicks    = input.int(4, "Stop buffer beyond the wick (ticks)", minval = 0, group = grpT)
+
+grpC = "Checklist"
+otherSym    = input.symbol("CME_MINI:ES1!", "SMT sibling (NQ↔ES, GBPUSD↔EURUSD, USDJPY↔EURJPY)", group = grpC)
+dispThr     = input.float(0.16, "Strong reversal ≥ x daily ATR", step = 0.01, group = grpC,
+     tooltip = "0.16 = the median of 3.5 years of NQ/ES setups (TradeLogger Phase 104).")
+stopThr     = input.float(0.16, "Not a tight stop: risk ≥ x daily ATR", step = 0.01, group = grpC)
+roomR       = input.float(2.0, "Room: next opposite level ≥ x R away", step = 0.5, group = grpC)
+goodScore   = input.int(4, "Table: 'high score' means ≥", minval = 1, maxval = 7, group = grpC)
+
+// ---------------------------------------------------------------------------
+// time helpers
+// ---------------------------------------------------------------------------
+winStr  = preset == "London 02:00-05:00" ? "0200-0500" : preset == "NY forex 08:00-11:00" ? "0800-1100" : "0830-1100"
+flatMin = preset == "London 02:00-05:00" ? 7 * 60 : 12 * 60
+inWin   = not na(time(timeframe.period, winStr, NY))
+nyMin   = hour(time, NY) * 60 + minute(time, NY)
+newDay  = ta.change(time("D")) != 0
+newWeek = ta.change(time("W")) != 0
+barMins = timeframe.in_seconds() / 60.0
+n60     = math.max(1, int(math.round(60.0 / barMins)))
+
+// ---------------------------------------------------------------------------
+// data from higher timeframes / the sibling market
+// ---------------------------------------------------------------------------
+[pdh, pdl, dATR] = request.security(syminfo.tickerid, "D", [high[1], low[1], ta.atr(14)[1]], lookahead = barmerge.lookahead_on)
+[pwh, pwl]       = request.security(syminfo.tickerid, "W", [high[1], low[1]], lookahead = barmerge.lookahead_on)
+[oHigh, oLow, oHH, oLL] = request.security(otherSym, timeframe.period, [high, low, ta.highest(high, n60)[1], ta.lowest(low, n60)[1]])
+
+// ---------------------------------------------------------------------------
+// liquidity levels
+// ---------------------------------------------------------------------------
+type Lvl
+    float  price
+    bool   isHigh
+    string kind
+    bool   equal
+    int    born
+    line   ln
+
+var array<Lvl> levels = array.new<Lvl>()
+
+kindColor(string k) =>
+    k == "PDH" or k == "PDL" ? color.new(color.orange, 20) : k == "PWH" or k == "PWL" ? color.new(color.purple, 20) : k == "SWING" ? color.new(color.gray, 55) : color.new(color.teal, 30)
+
+purge(string kinds) =>
+    int n = array.size(levels)
+    if n > 0
+        for i = n - 1 to 0
+            Lvl lv = array.get(levels, i)
+            if str.contains(kinds, "|" + lv.kind + "|")
+                line.delete(lv.ln)
+                array.remove(levels, i)
+
+addLevel(float price, bool isHigh, string kind, int startBar) =>
+    if not na(price)
+        bool eq = false
+        if kind == "SWING" and array.size(levels) > 0
+            for lv in levels
+                if lv.kind == "SWING" and lv.isHigh == isHigh and math.abs(lv.price - price) <= price * eqTolPct / 100.0
+                    lv.equal := true
+                    eq := true
+                    if not na(lv.ln)
+                        line.set_style(lv.ln, line.style_solid)
+        line ln = showLevels ? line.new(startBar, price, bar_index, price, extend = extend.right, color = kindColor(kind), style = eq ? line.style_solid : line.style_dotted, width = 1) : na
+        array.push(levels, Lvl.new(price, isHigh, kind, eq, bar_index, ln))
+        // cap the number of live swing levels
+        int swings = 0
+        for lv in levels
+            if lv.kind == "SWING"
+                swings += 1
+        if swings > maxSwings
+            for i = 0 to array.size(levels) - 1
+                Lvl old = array.get(levels, i)
+                if old.kind == "SWING"
+                    line.delete(old.ln)
+                    array.remove(levels, i)
+                    break
+
+sessRange(bool inS) =>
+    var float sh = na
+    var float sl = na
+    bool ended = false
+    if inS and not inS[1]
+        sh := high
+        sl := low
+    else if inS
+        sh := math.max(sh, high)
+        sl := math.min(sl, low)
+    if not inS and inS[1]
+        ended := true
+    [sh, sl, ended]
+
+[asH, asL, asEnd] = sessRange(not na(time(timeframe.period, "2000-0000", NY)))
+[ldH, ldL, ldEnd] = sessRange(not na(time(timeframe.period, "0200-0500", NY)))
+[onH, onL, onEnd] = sessRange(not na(time(timeframe.period, "1800-0830", NY)))
+[orH, orL, orEnd] = sessRange(not na(time(timeframe.period, "0930-0935", NY)))
+
+if newDay
+    purge("|PDH|PDL|ASIA|LDN|ON|OR|")
+    addLevel(pdh, true, "PDH", bar_index)
+    addLevel(pdl, false, "PDL", bar_index)
+if newWeek
+    purge("|PWH|PWL|")
+    addLevel(pwh, true, "PWH", bar_index)
+    addLevel(pwl, false, "PWL", bar_index)
+if asEnd
+    addLevel(asH, true, "ASIA", bar_index)
+    addLevel(asL, false, "ASIA", bar_index)
+if ldEnd
+    addLevel(ldH, true, "LDN", bar_index)
+    addLevel(ldL, false, "LDN", bar_index)
+if onEnd
+    addLevel(onH, true, "ON", bar_index)
+    addLevel(onL, false, "ON", bar_index)
+if orEnd
+    addLevel(orH, true, "OR", bar_index)
+    addLevel(orL, false, "OR", bar_index)
+
+ph = ta.pivothigh(high, swingLen, swingLen)
+pl = ta.pivotlow(low, swingLen, swingLen)
+if not na(ph)
+    addLevel(ph, true, "SWING", bar_index - swingLen)
+if not na(pl)
+    addLevel(pl, false, "SWING", bar_index - swingLen)
+
+// ---------------------------------------------------------------------------
+// sweeps -> pending setups -> reversal confirmation
+// ---------------------------------------------------------------------------
+type Pending
+    bool   active = false
+    int    t
+    int    bar
+    float  ext
+    float  ref
+    string kinds = ""
+    bool   equal = false
+    int    count = 0
+    float  oRef
+    bool   smtBroken = false
+    bool   fvg = false
+
+var Pending pShort = Pending.new()   // a HIGH was swept -> short setup
+var Pending pLong  = Pending.new()   // a LOW was swept  -> long setup
+
+pre3High = ta.highest(high, 3)[1]
+pre3Low  = ta.lowest(low, 3)[1]
+
+bool   hiSwept = false
+bool   loSwept = false
+string hiKinds = ""
+string loKinds = ""
+bool   hiEq = false
+bool   loEq = false
+int    hiCnt = 0
+int    loCnt = 0
+int nLv = array.size(levels)
+if nLv > 0
+    for i = nLv - 1 to 0
+        Lvl lv = array.get(levels, i)
+        bool taken = lv.isHigh ? high > lv.price : low < lv.price
+        if taken and bar_index > lv.born
+            if lv.isHigh
+                hiSwept := true
+                hiKinds += lv.kind + " "
+                hiEq := hiEq or lv.equal
+                hiCnt += 1
+            else
+                loSwept := true
+                loKinds += lv.kind + " "
+                loEq := loEq or lv.equal
+                loCnt += 1
+            if not na(lv.ln)
+                line.set_extend(lv.ln, extend.none)
+                line.set_x2(lv.ln, bar_index)
+                line.set_color(lv.ln, color.new(color.gray, 80))
+            array.remove(levels, i)
+
+if inWin and hiSwept and not pShort.active
+    pShort := Pending.new(true, time, bar_index, high, pre3Low, hiKinds, hiEq, hiCnt, oHH, false, false)
+if inWin and loSwept and not pLong.active
+    pLong := Pending.new(true, time, bar_index, low, pre3High, loKinds, loEq, loCnt, oLL, false, false)
+
+// ---------------------------------------------------------------------------
+// setups, outcomes and the results table
+// ---------------------------------------------------------------------------
+type Setup
+    int   dir
+    float entry
+    float stop
+    float target
+    float risk
+    int   score
+    line  le
+    line  ls
+    line  lt
+
+var array<Setup> openSetups = array.new<Setup>()
+var int   nAll = 0
+var int   wAll = 0
+var float rAll = 0.0
+var int   nHi = 0
+var float rHi = 0.0
+var int   nLo = 0
+var float rLo = 0.0
+
+nearestRoom(int dir, float entry, float risk) =>
+    float best = na
+    for lv in levels
+        if dir < 0 and not lv.isHigh and lv.price < entry
+            best := na(best) ? lv.price : math.max(best, lv.price)
+        if dir > 0 and lv.isHigh and lv.price > entry
+            best := na(best) ? lv.price : math.min(best, lv.price)
+    na(best) ? 99.0 : math.abs(best - entry) / risk
+
+makeSetup(int dir, Pending p) =>
+    float buf   = bufTicks * syminfo.mintick
+    float entry = close
+    float stop  = dir < 0 ? p.ext + buf : p.ext - buf
+    float risk  = math.abs(entry - stop)
+    if risk > 0 and ((dir < 0 and stop > entry) or (dir > 0 and stop < entry))
+        float target = entry + dir * rr * risk
+        bool cEq   = p.equal
+        bool cPD   = str.contains(p.kinds, "PD") or str.contains(p.kinds, "PW")
+        bool cDisp = not na(dATR) and math.abs(entry - p.ext) / dATR >= dispThr
+        bool cSmt  = not p.smtBroken and not na(p.oRef)
+        bool cFvg  = p.fvg
+        bool cRoom = nearestRoom(dir, entry, risk) >= roomR
+        bool cStop = not na(dATR) and risk / dATR >= stopThr
+        int score = (cEq ? 1 : 0) + (cPD ? 1 : 0) + (cDisp ? 1 : 0) + (cSmt ? 1 : 0) + (cFvg ? 1 : 0) + (cRoom ? 1 : 0) + (cStop ? 1 : 0)
+        int sweepMin = hour(p.t, NY) * 60 + minute(p.t, NY)
+        bool wFirst = preset == "NY open 08:30-11:00" and sweepMin >= 570 and sweepMin < 575
+        bool wAsia  = str.contains(p.kinds, "ASIA")
+        bool wMany  = p.count >= 3
+        string txt = (dir < 0 ? "SHORT" : "LONG") + "  " + str.tostring(score) + "/7\n" + "swept: " + p.kinds + "\n"
+        txt += (cEq ? "✓" : "·") + " equal highs/lows\n"
+        txt += (cPD ? "✓" : "·") + " prev day/week level\n"
+        txt += (cDisp ? "✓" : "·") + " strong reversal\n"
+        txt += (cSmt ? "✓" : "·") + " SMT vs sibling\n"
+        txt += (cFvg ? "✓" : "·") + " fair value gap\n"
+        txt += (cRoom ? "✓" : "·") + " room to target\n"
+        txt += (cStop ? "✓" : "·") + " not a tight stop"
+        txt += wFirst ? "\n⚠ first 5 min of the open" : ""
+        txt += wAsia ? "\n⚠ Asia level" : ""
+        txt += wMany ? "\n⚠ many levels at once" : ""
+        color bg = score >= 5 ? color.new(color.teal, 10) : score >= 3 ? color.new(color.orange, 10) : color.new(color.gray, 10)
+        label.new(bar_index, dir < 0 ? high : low, txt, style = dir < 0 ? label.style_label_down : label.style_label_up,
+             color = bg, textcolor = color.white, size = size.small, textalign = text.align_left)
+        line le = line.new(bar_index, entry, bar_index + 1, entry, color = color.gray, width = 1)
+        line ls = line.new(bar_index, stop, bar_index + 1, stop, color = color.red, width = 1)
+        line lt = line.new(bar_index, target, bar_index + 1, target, color = color.green, width = 1)
+        array.push(openSetups, Setup.new(dir, entry, stop, target, risk, score, le, ls, lt))
+        alert((dir < 0 ? "SHORT" : "LONG") + " sweep setup " + syminfo.ticker + "  score " + str.tostring(score) + "/7  entry " +
+             str.tostring(entry, format.mintick) + "  stop " + str.tostring(stop, format.mintick) + "  target " + str.tostring(target, format.mintick),
+             alert.freq_once_per_bar_close)
+
+// pending -> confirm / expire (a HIGH sweep confirms on a close below the 3-bar low before it)
+if pShort.active
+    pShort.ext := math.max(pShort.ext, high)
+    pShort.smtBroken := pShort.smtBroken or (not na(pShort.oRef) and oHigh > pShort.oRef)
+    pShort.fvg := pShort.fvg or (bar_index >= pShort.bar + 2 and low[2] > high)
+    if close < pShort.ref and time - pShort.t <= confirmMins * 60000
+        makeSetup(-1, pShort)
+        pShort.active := false
+    else if time - pShort.t > confirmMins * 60000 or not inWin
+        pShort.active := false
+if pLong.active
+    pLong.ext := math.min(pLong.ext, low)
+    pLong.smtBroken := pLong.smtBroken or (not na(pLong.oRef) and oLow < pLong.oRef)
+    pLong.fvg := pLong.fvg or (bar_index >= pLong.bar + 2 and high[2] < low)
+    if close > pLong.ref and time - pLong.t <= confirmMins * 60000
+        makeSetup(1, pLong)
+        pLong.active := false
+    else if time - pLong.t > confirmMins * 60000 or not inWin
+        pLong.active := false
+
+// open setups -> stop / target / flat at the session's flat time
+int nOpen = array.size(openSetups)
+if nOpen > 0
+    for i = nOpen - 1 to 0
+        Setup s = array.get(openSetups, i)
+        float res = na
+        if s.dir < 0
+            res := high >= s.stop ? -1.0 : low <= s.target ? rr : na
+        else
+            res := low <= s.stop ? -1.0 : high >= s.target ? rr : na
+        if na(res) and (nyMin >= flatMin or newDay)
+            res := s.dir * (close - s.entry) / s.risk
+        line.set_x2(s.le, bar_index)
+        line.set_x2(s.ls, bar_index)
+        line.set_x2(s.lt, bar_index)
+        if not na(res)
+            nAll += 1
+            wAll += res > 0 ? 1 : 0
+            rAll += res
+            if s.score >= goodScore
+                nHi += 1
+                rHi += res
+            else
+                nLo += 1
+                rLo += res
+            array.remove(openSetups, i)
+
+var table tb = table.new(position.top_right, 2, 6, bgcolor = color.new(color.black, 20), border_width = 1)
+if barstate.islast
+    table.cell(tb, 0, 0, "Setups on chart", text_color = color.white, text_size = size.small)
+    table.cell(tb, 1, 0, str.tostring(nAll), text_color = color.white, text_size = size.small)
+    table.cell(tb, 0, 1, "Win rate", text_color = color.white, text_size = size.small)
+    table.cell(tb, 1, 1, nAll > 0 ? str.tostring(100.0 * wAll / nAll, "#.0") + "%" : "-", text_color = color.white, text_size = size.small)
+    table.cell(tb, 0, 2, "Avg R (all)", text_color = color.white, text_size = size.small)
+    table.cell(tb, 1, 2, nAll > 0 ? str.tostring(rAll / nAll, "#.00") : "-", text_color = rAll >= 0 ? color.lime : color.red, text_size = size.small)
+    table.cell(tb, 0, 3, "Avg R score ≥ " + str.tostring(goodScore) + " (" + str.tostring(nHi) + ")", text_color = color.white, text_size = size.small)
+    table.cell(tb, 1, 3, nHi > 0 ? str.tostring(rHi / nHi, "#.00") : "-", text_color = rHi >= 0 ? color.lime : color.red, text_size = size.small)
+    table.cell(tb, 0, 4, "Avg R score < " + str.tostring(goodScore) + " (" + str.tostring(nLo) + ")", text_color = color.white, text_size = size.small)
+    table.cell(tb, 1, 4, nLo > 0 ? str.tostring(rLo / nLo, "#.00") : "-", text_color = rLo >= 0 ? color.lime : color.red, text_size = size.small)
+    table.cell(tb, 0, 5, "Before spread/commission", text_color = color.gray, text_size = size.tiny)
+
+bgcolor(inWin ? color.new(color.blue, 94) : na, title = "Session window")
