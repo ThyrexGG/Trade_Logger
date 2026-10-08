@@ -74,3 +74,50 @@ the one that counts.
   days to skip) is the part no code captures. Tag NQ/ES trades "TJR sweep" in
   the Journal; Analytics reports win rate and average R per tag after 30–50
   trades.
+
+## Update: full history unlocked (MT5 Max bars → Unlimited)
+
+After the bar cap was raised, the broker served history back to 2022-10; bars
+around the open are complete from **2023-04-19** (≈ 895 trading days per
+index). The month-by-month clock check confirms the 09:30 jump in every month
+with the NY+6 → NY+7 change applied.
+
+### 103b on 3.5 years of 1-minute bars (rules unchanged)
+
+| | NQ | ES | Pooled |
+|---|---|---|---|
+| days tested / with clear 1H bias | 905 / 543 | 905 / 543 | |
+| trades | 23 | 26 | **49** |
+| mean R after costs [95% CI] | +0.06 [−0.42, +0.55] | −0.10 [−0.55, +0.39] | **−0.03 [−0.35, +0.31]** |
+| before costs | +0.15 | +0.05 | |
+| by year (mean R) | 2023 +0.55 · 2024 −0.20 · 2025 −0.11 · 2026 +0.21 | 2023 +0.83 · 2024 +0.99 · 2025 −0.72 · 2026 −0.35 | |
+
+Outcomes: 21 full stops (−1.1R), 14 partial-then-stop (≈ −0.15R), 5
+partial-then-time (+1.4R), 9 full winners (+1.9R).
+
+**Read:** strictly by the written rules the model trades ~7 times a year per
+index and is **break-even** (−0.03R pooled). Years swing from +0.8R to −0.7R,
+which is what a coin with fat tails looks like. That doesn't show an edge,
+and it doesn't rule out a small one either; 49 trades can't separate the two.
+
+### 103c: every Phase 101/102 version on the unseen 2023-04 → 2025-05 window
+
+Phases 101–102 never saw this period. Re-running all 32 cells unchanged:
+
+- **No cell is positive with its 95% interval above zero.** Several are
+  negative with intervals wholly below zero: ES opening-range reclaim −0.22R,
+  every ES reclaim + filter variant −0.16R to −0.36R.
+- **ES TJR + SMT,** the "pocket worth watching" from Phase 102 (+0.13R on 16
+  trades), scored **−0.43R** on 15 fresh trades. It was luck.
+- **Mildly positive NQ TJR cells** (previous-day level +0.24R on 32 trades;
+  bias filter +0.23R on 45) were *negative* in 2025–26 (−0.32R, −0.28R).
+  Sign flips between periods mean noise.
+
+### Conclusion of Phases 101–103
+
+On ≈ 3.5 years of NQ and ES data, **no mechanical version of the
+NY-open liquidity sweep (simple, TJR-sequenced, filtered, or coded from
+TJR's written rules on 1-minute bars) shows a repeatable edge.** The strict
+version is rare and break-even. If the strategy makes money for someone, the
+edge is in discretionary judgment that these rules don't capture. The only
+way to measure that is a tagged record of real trades.
