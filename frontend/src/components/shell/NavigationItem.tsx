@@ -6,7 +6,7 @@ interface NavigationItemProps {
   onNavigate?: () => void
 }
 
-/** One sidebar row. The current page gets a solid surface and a gold icon — the only gold in the sidebar. */
+/** One sidebar row. The current page gets a solid surface and an accent icon — the only accent colour in the sidebar. */
 export function NavigationItem({ item, onNavigate }: NavigationItemProps) {
   const Icon = item.icon
   return (

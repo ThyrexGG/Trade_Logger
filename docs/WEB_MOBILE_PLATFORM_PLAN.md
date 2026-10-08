@@ -576,7 +576,7 @@ than a single planned workstream:
   `IsIconic()` on both source and the rebuilt `.exe`. (2) uninstalling only
   ever worked via a `--uninstall` CLI flag — added a real double-clickable
   `Uninstall TradeLogger Sync.bat`, self-healing on every run.
-- **Gold/black/gray rebrand, app icon pass** — the app UI's rebrand (tokens,
+- **Gold/black/gray rebrand, app icon pass** (superseded by W16, 2026-10-08) — the app UI's rebrand (tokens,
   fonts, WCAG-fixed buttons, restrained glow) happened earlier in the same
   session; this added the missing piece — `frontend/public/{favicon,
   icon-192,icon-512,icon-maskable-512,apple-touch-icon}.png` recolored from
@@ -736,6 +736,27 @@ than a single planned workstream:
   clean throughout this stretch of work).
 
 ---
+
+### W16 — "Precision" redesign + rebrand (SHIPPED 2026-10-08)
+
+Supersedes W11's gold/black look and candlestick icon. Full detail lives in
+two standing docs rather than here:
+
+- [`docs/DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md): why it looks the way it does,
+  colour/type tokens, the `kit.css` component classes, the Today / Plan /
+  Review / Learn navigation, the Overview command centre (Market strip,
+  Session Rail, Position Track, P&L heatmap), motion and click sounds, page
+  patterns, and the browser-QA recipe.
+- [`docs/BRAND.md`](BRAND.md): the stop → path → target mark, its
+  construction, colours, type, voice, and the inventory of every generated
+  icon/preview file (`python brand/build_brand_assets.py` rebuilds them all).
+
+Also in this workstream: Home → Overview, Command Center and Loss Limits
+removed, Killzone Scanner + Chart Analyzer merged into Trade Planner,
+plain-English guides on every page, the login/legal screens and the
+password-reset email restyled. The installed Windows app needs a rebuild for
+its taskbar icon; the Android app gets its new icon and splash on the next EAS
+build (its screens are not yet restyled).
 
 ### W8 — original plan (COMMITTED 2026-09-08)
 

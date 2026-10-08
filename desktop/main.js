@@ -96,7 +96,7 @@ function createWindow() {
     height: 860,
     minWidth: 960,
     minHeight: 640,
-    backgroundColor: '#0a0a0a', // matches the site's dark theme -- no white flash on load
+    backgroundColor: '#0b0f17', // matches the site's dark theme -- no white flash on load
     show: !startHidden,
     icon: ICON_PATH,
     autoHideMenuBar: true,

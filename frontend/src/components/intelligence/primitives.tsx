@@ -207,7 +207,7 @@ export function SectionCard({
   info?: string
   children: ReactNode
   className?: string
-  /** the one card on a page that matters most — gets the gold top rule */
+  /** the one card on a page that matters most — gets the accent edge */
   feature?: boolean
 }) {
   return (

@@ -12,7 +12,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#141414",
+        "backgroundColor": "#111826",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -24,7 +24,7 @@
       "favicon": "./assets/favicon.png"
     },
     "scheme": "tradelogger",
-    "backgroundColor": "#0a0a0a",
+    "backgroundColor": "#0b0f17",
     "plugins": [
       "expo-secure-store",
       "expo-font",
@@ -48,14 +48,14 @@
           "image": "./assets/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#0a0a0a"
+          "backgroundColor": "#0b0f17"
         }
       ],
       [
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
-          "color": "#f0b90b",
+          "color": "#5ad1f5",
           "defaultChannel": "trades"
         }
       ]

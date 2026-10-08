@@ -101,10 +101,39 @@ def send_password_reset(to: str, token: str) -> bool:
         "This link expires in 30 minutes and works once.\n\n"
         "If you didn't request this, ignore this email — your password won't change."
     )
-    html = (
-        "<p>Someone requested a password reset for your TradeLogger account.</p>"
-        f'<p><a href="{link}">Reset your password</a></p>'
-        '<p style="color:#888;font-size:12px">This link expires in 30 minutes and works once. '
+    body = (
+        '<p style="margin:0 0 16px">Someone requested a password reset for your TradeLogger account.</p>'
+        f'<p style="margin:0 0 20px"><a href="{link}" style="{_BUTTON}">Reset your password</a></p>'
+        '<p style="margin:0;color:#5b6779;font-size:12px">This link expires in 30 minutes and works once. '
         "If you didn't request this, ignore this email — your password won't change.</p>"
     )
-    return send_email(to, "Reset your TradeLogger password", text, html)
+    return send_email(to, "Reset your TradeLogger password", text, _branded(body, link))
+
+
+# Brand styling for HTML email (docs/BRAND.md). Email clients ignore <style>
+# blocks and CSS variables, so everything is inline and light-ground: dark
+# mode clients invert light emails reliably, but mangle dark ones.
+_BUTTON = (
+    "display:inline-block;background:#0a6f94;color:#ffffff;text-decoration:none;"
+    "font-weight:600;font-size:14px;padding:10px 18px;border-radius:8px"
+)
+
+
+def _branded(body_html: str, link: str) -> str:
+    """Wrap an email body in the TradeLogger header/footer."""
+    icon = f"{app_url()}/icon-192.png"
+    return (
+        '<div style="background:#f4f6fa;padding:32px 16px;'
+        "font-family:Geist,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0e1726\">"
+        '<div style="max-width:480px;margin:0 auto">'
+        '<p style="margin:0 0 16px;font-size:15px;font-weight:600;letter-spacing:-0.01em">'
+        f'<img src="{icon}" width="24" height="24" alt="" '
+        'style="vertical-align:middle;border-radius:6px;margin-right:8px">TradeLogger</p>'
+        '<div style="background:#ffffff;border:1px solid #dde3ec;border-radius:10px;padding:24px;'
+        'font-size:14px;line-height:1.55">'
+        f"{body_html}"
+        "</div>"
+        '<p style="margin:16px 0 0;color:#5b6779;font-size:11px;line-height:1.5">'
+        f'Button not working? Paste this into your browser:<br><span style="word-break:break-all">{link}</span></p>'
+        "</div></div>"
+    )

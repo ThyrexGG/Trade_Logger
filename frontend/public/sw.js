@@ -9,7 +9,7 @@
  *  - Static assets (Vite emits content-hashed filenames): stale-while-revalidate.
  *  - Bump CACHE to invalidate everything on a breaking change.
  */
-const CACHE = 'tl-shell-v1'
+const CACHE = 'tl-shell-v2' // v2: Precision rebrand (new icons under the same file names)
 const ASSET_RE = /\.(?:js|css|woff2?|png|svg|webp|ico|json|webmanifest)$/
 
 self.addEventListener('install', (event) => {

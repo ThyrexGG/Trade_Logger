@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { BrandLockup } from '../../components/shell/BrandMark'
 
 interface LegalPageLayoutProps {
   title: string
@@ -17,10 +18,15 @@ export function LegalPageLayout({ title, updated, children }: LegalPageLayoutPro
   return (
     <div className="min-h-screen bg-[var(--color-background)] px-4 py-10 text-primary">
       <div className="mx-auto max-w-2xl">
-        <Link to="/" className="text-xs text-muted underline hover:text-primary">
-          ← Back to TradeLogger
-        </Link>
-        <h1 className="mt-4 text-2xl font-semibold text-primary">{title}</h1>
+        <div className="flex items-center justify-between gap-4 border-b border-border-subtle pb-4">
+          <Link to="/" aria-label="TradeLogger home">
+            <BrandLockup compact />
+          </Link>
+          <Link to="/" className="text-xs text-muted hover:text-primary">
+            ← Back to the app
+          </Link>
+        </div>
+        <h1 className="mt-6 text-2xl font-semibold text-primary">{title}</h1>
         <p className="mt-1 text-xs text-muted">Last updated {updated}</p>
         <div className="legal-prose mt-6 space-y-4 text-sm leading-relaxed text-secondary">
           {children}

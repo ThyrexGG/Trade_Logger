@@ -441,7 +441,7 @@ textarea,
   }
 }
 
-/* Shortcut cards: a soft gold light follows the pointer across the card. */
+/* Shortcut cards: a soft accent light follows the pointer across the card. */
 .tl-spotlight {
   position: relative;
   display: block;
