@@ -61,7 +61,8 @@ def find_mss(bars: pd.DataFrame, tfmin: int, gup: bool, pc: float):
             broke = (c[k] < L and c[k] > pc) if gup else (c[k] > L and c[k] < pc)
             if broke:
                 leg = float(np.min(l[kH:k + 1])) if gup else float(np.max(h[kH:k + 1]))
-                return {"k": k, "t_end": ends[k], "e": float(c[k]), "H": float(H), "leg": leg}
+                same = [x[3] for x in sw if x[2] == ext_kind]
+                return {"k": k, "t_end": ends[k], "e": float(c[k]), "H": float(H), "leg": leg, "internal": float(same[-1]) if same else float(H)}
         if c[k - 1] > o[k - 1] and c[k] < o[k]:
             sw.append((k, k - 1, "H", max(h[k - 1], h[k])))
         if c[k - 1] < o[k - 1] and c[k] > o[k]:
