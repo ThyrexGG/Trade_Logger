@@ -329,3 +329,15 @@ This is **not proven**: about +0.05R per trade across NQ, ES, Dow and Russell ov
 the rule and to journal, not as a signal. The older `tjr_sweep_checklist.pine`
 ("TL Sweep") shows TJR's sweep setups, which lost money in every version tested.
 See `docs/PHASE_118_GAP_PLUS_TJR_AND_REPLICATION.md`.
+
+## Backtesting the gap fade in TradingView (`big_gap_fade_strategy.pine`)
+
+`big_gap_fade.pine` is an **indicator**, so it draws setups but TradingView's Strategy Tester ignores
+it. `big_gap_fade_strategy.pine` is the same rule as a **strategy**: paste it, add it to a 15-minute
+(or 5- / 1-minute) chart of NQ or ES, open the **Strategy Tester** tab under the chart, and you get
+the trade list, equity curve, win rate and drawdown. Same inputs as the indicator (gap size, entry
+and exit time, stop: wide / structure / medium / fixed / tight, target: yesterday's close or the
+nearest 5-minute swing) plus a risk-per-trade % for the position size. **Set commission and slippage
+in the Properties tab**: the defaults are zero, so results are before costs. There is no half-off
+option in the strategy (the indicator has it). How far back it tests depends on your TradingView plan
+and the data on that symbol. Research result: no confirmed edge; this is a way to look at it, not a signal.

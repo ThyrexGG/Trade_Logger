@@ -1,0 +1,203 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0
+// © TradeLogger
+
+//@version=6
+strategy("Big Gap Fade BACKTEST (TradeLogger)", shorttitle = "TL Gap BT", overlay = true, initial_capital = 6000, default_qty_type = strategy.fixed, default_qty_value = 1, pyramiding = 0, process_orders_on_close = true, calc_on_every_tick = false, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+
+// =============================================================================
+// THE BACKTEST VERSION of big_gap_fade.pine (that one is an indicator; TradingView's Strategy Tester
+// only works on a strategy). Same rule, placed as real orders so you get the Strategy Tester's trade list,
+// equity curve, win rate and drawdown:
+//   GAP     today's 09:30 open vs yesterday's 16:00 close. A setup = a gap of at least the first input x the
+//           average daily range of the last 14 sessions (0.2 = learning mode, 0.7 = the research threshold).
+//   ENTRY   at the close of the bar that ends at your entry time (09:45), only if the gap is still unfilled:
+//           trade TOWARD yesterday's close (gap up = short, gap down = long).
+//   STOP    your choice (wide / structure / medium / fixed / tight).  TARGET  yesterday's close or the nearest
+//           5-minute swing.   EXIT  target, stop, or the exit time (12:00) at the bar's close.
+// Use a 1-, 5- or 15-minute chart (the entry time must fall on a bar boundary).
+// SET COSTS in the Properties tab (slippage in ticks, commission): the defaults are zero, so a result here is
+// BEFORE costs. Research result: no confirmed edge (about +0.00 to +0.05R per trade); this is a way to LOOK at it.
+// How far back it can test depends on your TradingView plan and the data on this symbol.
+// No half-off option here (the indicator has it).
+// =============================================================================
+
+NY = "America/New_York"
+
+grpG = "Gap"
+thr = input.float(0.2, "Take a setup when the gap is at least x the average daily range", minval = 0.1, step = 0.1, group = grpG, tooltip = "0.2 = learning mode (about 3 setups a week per index). 0.7 = the research threshold (about 1 a week).")
+rangeDays = input.int(14, "Average range over the last N sessions", minval = 5, group = grpG)
+
+grpT = "Trade"
+entryAt = input.string("0945", "Enter at (New York time)", options = ["0935", "0940", "0945", "0950", "1000", "1015", "1030"], group = grpT)
+exitAt = input.string("1200", "Exit at (New York time)", options = ["1100", "1130", "1200", "1300", "1330", "1555"], group = grpT)
+stopMode = input.string("Wide: 1:1 with the target", "Stop", options = ["Wide: 1:1 with the target", "Structure: beyond the nearest 1-minute swing", "Structure: beyond the nearest 5-minute swing", "Medium: 0.25 x the average daily range", "Fixed: 0.21% of price (about 64 NQ points)", "Tight: beyond the 09:30-to-entry extreme"], group = grpT)
+targetMode = input.string("Yesterday's close", "Target", options = ["Yesterday's close", "Nearest 5-minute swing (1R or more away)"], group = grpT)
+
+grpR = "Position size"
+riskPct = input.float(1.0, "Risk per trade (% of equity)", minval = 0.1, step = 0.1, group = grpR, tooltip = "Quantity = equity x this % / (stop distance x point value). A wide stop means a small position.")
+minQty = input.float(0.01, "Smallest quantity allowed", minval = 0.0001, step = 0.01, group = grpR)
+
+grpD = "Display"
+showBoxes = input.bool(true, "Draw the target / stop boxes", group = grpD)
+
+minSess = 5
+minRiskAtr = 0.10
+
+// ---------------------------------------------------------------- session flags
+inRTH = not na(time(timeframe.period, "0930-1600", NY))
+rthStart = inRTH and not inRTH[1]
+closeMin = hour(time_close, NY) * 60 + minute(time_close, NY)
+entryMin = int(str.tonumber(str.substring(entryAt, 0, 2))) * 60 + int(str.tonumber(str.substring(entryAt, 2, 4)))
+exitMin = int(str.tonumber(str.substring(exitAt, 0, 2))) * 60 + int(str.tonumber(str.substring(exitAt, 2, 4)))
+
+// ---------------------------------------------------------------- state
+var float rthHi = na
+var float rthLo = na
+var float lastClose = na
+var float prevClose = na
+var float[] ranges = array.new_float()
+var float avgRange = na
+var float gap = na
+var float gapSize = na
+var bool dayBig = false
+var bool gapUp = false
+var bool touched = false
+var float preHi = na
+var float preLo = na
+var int state = 0 // 0 = no setup today, 1 = waiting for the entry time, 2 = trade open, 3 = finished / skipped
+var int entryIdx = 0
+var float stopPx = na
+var float tgtPx = na
+var float riskPts = na
+var box bTgt = na
+var box bRisk = na
+
+// ---------------------------------------------------------------- internal structure (1- and 5-minute swings)
+// A swing high = a bullish candle followed by a bearish one (price = the higher of the two highs); a swing low is the mirror.
+swingData() =>
+    bool sh = close[1] > open[1] and close < open
+    bool sl = close[1] < open[1] and close > open
+    float hp = math.max(high[1], high)
+    float lp = math.min(low[1], low)
+    [ta.valuewhen(sh, hp, 0), ta.valuewhen(sh, hp, 1), ta.valuewhen(sh, hp, 2), ta.valuewhen(sl, lp, 0), ta.valuewhen(sl, lp, 1), ta.valuewhen(sl, lp, 2)]
+
+// as of the close of the bar that ends at the entry time, which is when the order is placed
+[s1h0, s1h1, s1h2, s1l0, s1l1, s1l2] = request.security(syminfo.tickerid, "1", swingData())
+[s5h0, s5h1, s5h2, s5l0, s5l1, s5l2] = request.security(syminfo.tickerid, "5", swingData())
+
+nearAbove(float x1, float x2, float x3, float ref, float minGap) =>
+    float best = na
+    if not na(x1) and x1 > ref + minGap
+        best := x1
+    if not na(x2) and x2 > ref + minGap
+        best := na(best) ? x2 : math.min(best, x2)
+    if not na(x3) and x3 > ref + minGap
+        best := na(best) ? x3 : math.min(best, x3)
+    best
+
+nearBelow(float x1, float x2, float x3, float ref, float minGap) =>
+    float best = na
+    if not na(x1) and x1 < ref - minGap
+        best := x1
+    if not na(x2) and x2 < ref - minGap
+        best := na(best) ? x2 : math.max(best, x2)
+    if not na(x3) and x3 < ref - minGap
+        best := na(best) ? x3 : math.max(best, x3)
+    best
+
+// stop distance in points (ep = entry price, dist = distance to yesterday's close, far = the 09:30-to-entry extreme on the far side, up = the stop sits ABOVE the entry, i.e. a short)
+calcRisk(float ep, float dist, float far, bool up) =>
+    float r = na
+    if stopMode == "Wide: 1:1 with the target"
+        r := dist
+    else if stopMode == "Medium: 0.25 x the average daily range"
+        r := 0.25 * avgRange
+    else if stopMode == "Fixed: 0.21% of price (about 64 NQ points)"
+        r := 0.0021 * ep
+    else if stopMode == "Tight: beyond the 09:30-to-entry extreme"
+        r := math.max(math.abs(far - ep), minRiskAtr * avgRange)
+    else
+        bool oneMin = stopMode == "Structure: beyond the nearest 1-minute swing"
+        float sw = up ? (oneMin ? nearAbove(s1h0, s1h1, s1h2, ep, 0.05 * avgRange) : nearAbove(s5h0, s5h1, s5h2, ep, 0.05 * avgRange)) : (oneMin ? nearBelow(s1l0, s1l1, s1l2, ep, 0.05 * avgRange) : nearBelow(s5l0, s5l1, s5l2, ep, 0.05 * avgRange))
+        r := na(sw) ? dist : math.abs(sw - ep) + 2 * syminfo.mintick
+    r
+
+calcTarget(float ep, float risk, bool shortTrade) =>
+    float tgt = prevClose
+    if targetMode == "Nearest 5-minute swing (1R or more away)"
+        float sw = shortTrade ? nearBelow(s5l0, s5l1, s5l2, ep, risk) : nearAbove(s5h0, s5h1, s5h2, ep, risk)
+        tgt := na(sw) ? prevClose : sw
+    tgt
+
+// ---------------------------------------------------------------- the day
+if rthStart
+    dayBig := false
+    prevClose := lastClose
+    if not na(rthHi)
+        array.push(ranges, rthHi - rthLo)
+        if array.size(ranges) > rangeDays
+            array.shift(ranges)
+    avgRange := array.size(ranges) >= minSess ? array.avg(ranges) : na
+    rthHi := high
+    rthLo := low
+    gap := open - prevClose
+    gapSize := (na(avgRange) or na(prevClose)) ? na : math.abs(gap) / avgRange
+    dayBig := not na(gapSize) and gapSize >= thr
+    gapUp := gap > 0
+    touched := false
+    preHi := high
+    preLo := low
+    state := dayBig ? 1 : 0
+else if inRTH
+    rthHi := math.max(rthHi, high)
+    rthLo := math.min(rthLo, low)
+if inRTH
+    lastClose := close
+
+// before and at the entry time: has the gap filled? then, on the bar that closes at the entry time, place the trade
+if state == 1 and inRTH and closeMin <= entryMin
+    if gapUp ? low <= prevClose : high >= prevClose
+        touched := true
+    if rthStart
+        preHi := high
+        preLo := low
+    else
+        preHi := math.max(preHi, high)
+        preLo := math.min(preLo, low)
+    if closeMin == entryMin
+        float e = close
+        bool okSide = gapUp ? e > prevClose : e < prevClose
+        if not touched and okSide
+            int side = gapUp ? -1 : 1
+            float rp = calcRisk(e, math.abs(e - prevClose), gapUp ? preHi : preLo, gapUp)
+            float tg = calcTarget(e, rp, gapUp)
+            float sp = e - side * rp
+            float qty = math.max(minQty, strategy.equity * riskPct / 100.0 / (rp * syminfo.pointvalue))
+            riskPts := rp
+            tgtPx := tg
+            stopPx := sp
+            strategy.entry("GAP", side < 0 ? strategy.short : strategy.long, qty = qty, comment = (side < 0 ? "SHORT toward " : "LONG toward ") + str.tostring(prevClose, format.mintick))
+            strategy.exit("GAP exit", from_entry = "GAP", stop = sp, limit = tg)
+            entryIdx := bar_index
+            state := 2
+            if showBoxes
+                bTgt := box.new(bar_index, math.max(e, tg), bar_index + 1, math.min(e, tg), border_color = color.new(color.green, 30), bgcolor = color.new(color.green, 85), text = "TARGET " + str.tostring(tg, format.mintick) + "   (+" + str.tostring(math.abs(e - tg) / rp, "0.0") + "R)", text_color = color.green, text_size = size.small, text_halign = text.align_right, text_valign = side < 0 ? text.align_bottom : text.align_top)
+                bRisk := box.new(bar_index, math.max(e, sp), bar_index + 1, math.min(e, sp), border_color = color.new(color.red, 30), bgcolor = color.new(color.red, 85), text = "STOP " + str.tostring(sp, format.mintick) + "   (-1R)", text_color = color.red, text_size = size.small, text_halign = text.align_right, text_valign = side < 0 ? text.align_top : text.align_bottom)
+        else
+            state := 3
+
+// manage: the exit orders handle the stop and target; this closes at the exit time and keeps the boxes growing
+if state == 2 and bar_index > entryIdx
+    if showBoxes
+        box.set_right(bTgt, bar_index)
+        box.set_right(bRisk, bar_index)
+    if strategy.position_size == 0
+        state := 3
+    else if inRTH and closeMin >= exitMin
+        strategy.close("GAP", comment = "time exit " + exitAt)
+        state := 3
+    else if not inRTH
+        strategy.close("GAP", comment = "end of session")
+        state := 3
+
+bgcolor(dayBig and inRTH and closeMin <= exitMin ? color.new(color.blue, 96) : na)
