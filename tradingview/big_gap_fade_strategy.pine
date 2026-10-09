@@ -35,7 +35,7 @@ grpT = "Trade"
 entryAt = input.string("0945", "Enter at (New York time)", options = ["0935", "0940", "0945", "0950", "1000", "1015", "1030"], group = grpT)
 exitAt = input.string("Never: hold until the target, the stop or breakeven", "Close the trade at a set time (New York)", options = ["Never: hold until the target, the stop or breakeven", "1100", "1130", "1200", "1300", "1330", "1555"], group = grpT, tooltip = "Default: no time rule. The trade stays open (even overnight) until price reaches the target, the stop, or the breakeven stop after the half is taken. While a trade is open, a new setup is skipped.")
 stopMode = input.string("Wide: 1:1 with the target", "Stop", options = ["Wide: 1:1 with the target", "Structure: beyond the nearest 1-minute swing", "Structure: beyond the nearest 5-minute swing", "Medium: 0.25 x the average daily range", "Fixed: 0.21% of price (about 64 NQ points)", "Tight: beyond the 09:30-to-entry extreme"], group = grpT)
-targetMode = input.string("Half at the structure near +1R, stop to breakeven, rest at yesterday's close", "Target", options = ["Half at the structure near +1R, stop to breakeven, rest at yesterday's close", "Half at +1R, stop to breakeven, rest at yesterday's close", "Yesterday's close", "Nearest 5-minute swing (1R or more away)", "Half at the nearest 5-minute swing, rest at yesterday's close"], group = grpT)
+targetMode = input.string("Ladder: a third at each of two structure levels, the last third runs past yesterday's close", "Target", options = ["Ladder: a third at each of two structure levels, the last third runs past yesterday's close", "Half at the structure near +1R, stop to breakeven, rest at yesterday's close", "Half at +1R, stop to breakeven, rest at yesterday's close", "Yesterday's close", "Nearest 5-minute swing (1R or more away)", "Half at the nearest 5-minute swing, rest at yesterday's close"], group = grpT, tooltip = "Ladder = a third at the nearest marked high/low (1m/5m swing), a third at the next one, stop to breakeven after the first and behind the first level after the second; the last third is NOT closed at yesterday's close: its stop jumps to yesterday's close and then trails behind each new 5-minute swing.")
 
 grpR = "Position size"
 riskPct = input.float(1.0, "Risk per trade (% of equity)", minval = 0.1, step = 0.1, group = grpR, tooltip = "Quantity = equity x this % / (stop distance x point value). A wide stop means a small position.")
@@ -53,6 +53,7 @@ rthStart = inRTH and not inRTH[1]
 closeMin = hour(time_close, NY) * 60 + minute(time_close, NY)
 entryMin = int(str.tonumber(str.substring(entryAt, 0, 2))) * 60 + int(str.tonumber(str.substring(entryAt, 2, 4)))
 noTimeExit = exitAt == "Never: hold until the target, the stop or breakeven"
+ladderMode = targetMode == "Ladder: a third at each of two structure levels, the last third runs past yesterday's close"
 exitMin = noTimeExit ? 99999 : int(str.tonumber(str.substring(exitAt, 0, 2))) * 60 + int(str.tonumber(str.substring(exitAt, 2, 4)))
 
 // ---------------------------------------------------------------- state
@@ -81,6 +82,12 @@ var bool beMoved = false
 var int tradesAtEntry = 0
 var float riskUsdT = na
 var string howT = ""
+var float lvl1 = na
+var float lvl2 = na
+var float curStop = na
+var bool pcHit = false
+var line ln1 = na
+var line ln2 = na
 var box bTgt = na
 var box bRisk = na
 
@@ -155,6 +162,34 @@ nearOneR(float ep, float risk, bool shortTrade) =>
                 best := x
     na(best) ? one : best
 
+// the ladder: the two nearest marked highs (long) / lows (short) between 0.5R and yesterday's close, the second at least 0.5R beyond the first;
+// missing ones fall back to +1R / +2R (only if closer than yesterday's close). Returns the two PRICES (na = none).
+ladderLevels(float ep, float risk, bool shortTrade, float tdist) =>
+    float lim = tdist * 0.999
+    float[] cand = shortTrade ? array.from(s1l0, s1l1, s1l2, s5l0, s5l1, s5l2) : array.from(s1h0, s1h1, s1h2, s5h0, s5h1, s5h2)
+    float d1 = na
+    for i = 0 to 5
+        float x = array.get(cand, i)
+        if not na(x)
+            float d = shortTrade ? ep - x : x - ep
+            if d >= 0.5 * risk and d < lim and (na(d1) or d < d1)
+                d1 := d
+    float d2 = na
+    if not na(d1)
+        for i = 0 to 5
+            float x = array.get(cand, i)
+            if not na(x)
+                float d = shortTrade ? ep - x : x - ep
+                if d >= d1 + 0.5 * risk and d < lim and (na(d2) or d < d2)
+                    d2 := d
+    else if risk < lim
+        d1 := risk
+    if not na(d1) and na(d2)
+        d2 := math.max(2 * risk, d1 + 0.5 * risk)
+        if d2 >= lim
+            d2 := 0.5 * (d1 + tdist)
+    [na(d1) ? na : (shortTrade ? ep - d1 : ep + d1), na(d2) ? na : (shortTrade ? ep - d2 : ep + d2)]
+
 // optional half-off level
 calcHalf(float ep, float risk, bool shortTrade) =>
     float tp1 = na
@@ -177,7 +212,7 @@ showResult(int atBar, string how) =>
         string h = how
         if h == ""
             float tol = 2 * syminfo.mintick
-            h := math.abs(xp - tgtPx) <= tol ? "hit the target" : math.abs(xp - stopPx) <= tol ? "stopped out" : math.abs(xp - entryPx) <= tol ? "back to breakeven after taking half" : "closed"
+            h := math.abs(xp - tgtPx) <= tol ? "hit the target" : math.abs(xp - stopPx) <= tol ? "stopped out" : math.abs(xp - entryPx) <= tol ? "back to breakeven after taking half" : (ladderMode ? "trailing stop hit" : "closed")
         string cls = res >= 0.15 ? "WIN" : res <= -0.15 ? "LOSS" : "SCRATCH"
         color col = res >= 0.15 ? color.new(color.green, 15) : res <= -0.15 ? color.new(color.red, 15) : color.new(color.gray, 15)
         label.new(atBar, xp, cls + " " + (res >= 0 ? "+" : "") + str.tostring(res, "0.00") + "R  (" + (pnl >= 0 ? "+$" : "-$") + str.tostring(math.abs(pnl), "0") + ")  " + h, style = label.style_label_left, color = col, textcolor = color.white, size = size.normal)
@@ -242,8 +277,27 @@ if state == 1 and inRTH and closeMin <= entryMin
             strategy.entry("GAP", side < 0 ? strategy.short : strategy.long, qty = qty, comment = side < 0 ? "SHORT" : "LONG")
             riskUsdT := riskUsd
             tradesAtEntry := strategy.closedtrades
-            float t1 = calcHalf(e, rp, gapUp)
-            if na(t1)
+            float t1 = ladderMode ? na : calcHalf(e, rp, gapUp)
+            lvl1 := na
+            lvl2 := na
+            pcHit := false
+            curStop := sp
+            if ladderMode
+                [l1, l2] = ladderLevels(e, rp, gapUp, math.abs(e - prevClose))
+                lvl1 := l1
+                lvl2 := l2
+                if not na(l1)
+                    strategy.exit("GAP L1", from_entry = "GAP", qty_percent = 33.34, stop = sp, limit = l1)
+                if not na(l2)
+                    strategy.exit("GAP L2", from_entry = "GAP", qty_percent = 33.33, stop = sp, limit = l2)
+                strategy.exit("GAP run", from_entry = "GAP", stop = sp)
+                if showBoxes and not na(l1)
+                    ln1 := line.new(bar_index, l1, bar_index + 1, l1, color = color.new(color.aqua, 0), style = line.style_dashed, width = 2)
+                    label.new(bar_index, l1, "1/3 at " + str.tostring(l1, format.mintick), style = label.style_label_left, color = color.new(color.aqua, 25), textcolor = color.white, size = size.small)
+                if showBoxes and not na(l2)
+                    ln2 := line.new(bar_index, l2, bar_index + 1, l2, color = color.new(color.aqua, 0), style = line.style_dashed, width = 2)
+                    label.new(bar_index, l2, "1/3 at " + str.tostring(l2, format.mintick), style = label.style_label_left, color = color.new(color.aqua, 25), textcolor = color.white, size = size.small)
+            else if na(t1)
                 strategy.exit("GAP exit", from_entry = "GAP", stop = sp, limit = tg)
             else
                 strategy.exit("GAP half", from_entry = "GAP", qty_percent = 50, stop = sp, limit = t1)
@@ -265,6 +319,35 @@ if state == 2 and bar_index > entryIdx
     if showBoxes
         box.set_right(bTgt, bar_index)
         box.set_right(bRisk, bar_index)
+    if showBoxes and ladderMode
+        if not na(ln1)
+            line.set_x2(ln1, bar_index)
+        if not na(ln2)
+            line.set_x2(ln2, bar_index)
+    if ladderMode and strategy.position_size != 0
+        float q = math.abs(strategy.position_size)
+        bool d1 = not na(lvl1) and q < initQty * 0.8
+        bool d2 = not na(lvl2) and q < initQty * 0.45
+        if not pcHit and (gapUp ? low <= tgtPx : high >= tgtPx)
+            pcHit := true
+        float ns = stopPx
+        if d1
+            ns := entryPx
+        if d2
+            ns := lvl1
+        if pcHit
+            ns := gapUp ? math.min(ns, tgtPx) : math.max(ns, tgtPx)
+            float sw = gapUp ? s5h0 : s5l0
+            if not na(sw) and (gapUp ? sw < ns : sw > ns)
+                ns := sw
+        // the stop only ever moves in our favour; re-issue only the exits that are still open (a filled one would otherwise be placed again)
+        if (gapUp ? ns < curStop : ns > curStop)
+            curStop := ns
+            if not na(lvl1) and not d1
+                strategy.exit("GAP L1", from_entry = "GAP", qty_percent = 33.34, stop = curStop, limit = lvl1)
+            if not na(lvl2) and not d2
+                strategy.exit("GAP L2", from_entry = "GAP", qty_percent = 33.33, stop = curStop, limit = lvl2)
+            strategy.exit("GAP run", from_entry = "GAP", stop = curStop)
     if not na(tp1Px) and not beMoved and strategy.position_size != 0 and math.abs(strategy.position_size) < initQty * 0.75
         strategy.exit("GAP rest", from_entry = "GAP", stop = entryPx, limit = tgtPx)
         beMoved := true
