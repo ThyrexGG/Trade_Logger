@@ -13,7 +13,8 @@ strategy("Big Gap Fade BACKTEST (TradeLogger)", shorttitle = "TL Gap BT", overla
 //   ENTRY   at the close of the bar that ends at your entry time (09:45), only if the gap is still unfilled:
 //           trade TOWARD yesterday's close (gap up = short, gap down = long).
 //   STOP    your choice (wide / structure / medium / fixed / tight).  TARGET  yesterday's close or the nearest
-//           5-minute swing.   EXIT  target, stop, or the exit time (12:00) at the bar's close.
+//           5-minute swing; default = half at +1R, stop to breakeven, rest at yesterday's close.
+//   EXIT    target, stop or breakeven. NO time rule by default (optional: close at a set time).
 // Use a 1-, 5- or 15-minute chart (the entry time must fall on a bar boundary).
 // SET COSTS in the Properties tab (slippage in ticks, commission): the defaults are zero, so a result here is
 // BEFORE costs. Research result: no confirmed edge (about +0.00 to +0.05R per trade); this is a way to LOOK at it.
@@ -32,9 +33,9 @@ rangeDays = input.int(14, "Average range over the last N sessions", minval = 5, 
 
 grpT = "Trade"
 entryAt = input.string("0945", "Enter at (New York time)", options = ["0935", "0940", "0945", "0950", "1000", "1015", "1030"], group = grpT)
-exitAt = input.string("1200", "Exit at (New York time)", options = ["1100", "1130", "1200", "1300", "1330", "1555"], group = grpT)
+exitAt = input.string("Never: hold until the target, the stop or breakeven", "Close the trade at a set time (New York)", options = ["Never: hold until the target, the stop or breakeven", "1100", "1130", "1200", "1300", "1330", "1555"], group = grpT, tooltip = "Default: no time rule. The trade stays open (even overnight) until price reaches the target, the stop, or the breakeven stop after the half is taken. While a trade is open, a new setup is skipped.")
 stopMode = input.string("Wide: 1:1 with the target", "Stop", options = ["Wide: 1:1 with the target", "Structure: beyond the nearest 1-minute swing", "Structure: beyond the nearest 5-minute swing", "Medium: 0.25 x the average daily range", "Fixed: 0.21% of price (about 64 NQ points)", "Tight: beyond the 09:30-to-entry extreme"], group = grpT)
-targetMode = input.string("Yesterday's close", "Target", options = ["Yesterday's close", "Nearest 5-minute swing (1R or more away)", "Half at the nearest 5-minute swing, rest at yesterday's close", "Half at +1R, stop to breakeven, rest at yesterday's close"], group = grpT)
+targetMode = input.string("Half at +1R, stop to breakeven, rest at yesterday's close", "Target", options = ["Half at +1R, stop to breakeven, rest at yesterday's close", "Yesterday's close", "Nearest 5-minute swing (1R or more away)", "Half at the nearest 5-minute swing, rest at yesterday's close"], group = grpT)
 
 grpR = "Position size"
 riskPct = input.float(1.0, "Risk per trade (% of equity)", minval = 0.1, step = 0.1, group = grpR, tooltip = "Quantity = equity x this % / (stop distance x point value). A wide stop means a small position.")
@@ -51,7 +52,8 @@ inRTH = not na(time(timeframe.period, "0930-1600", NY))
 rthStart = inRTH and not inRTH[1]
 closeMin = hour(time_close, NY) * 60 + minute(time_close, NY)
 entryMin = int(str.tonumber(str.substring(entryAt, 0, 2))) * 60 + int(str.tonumber(str.substring(entryAt, 2, 4)))
-exitMin = int(str.tonumber(str.substring(exitAt, 0, 2))) * 60 + int(str.tonumber(str.substring(exitAt, 2, 4)))
+noTimeExit = exitAt == "Never: hold until the target, the stop or breakeven"
+exitMin = noTimeExit ? 99999 : int(str.tonumber(str.substring(exitAt, 0, 2))) * 60 + int(str.tonumber(str.substring(exitAt, 2, 4)))
 
 // ---------------------------------------------------------------- state
 var float rthHi = na
@@ -187,7 +189,7 @@ if rthStart
     touched := false
     preHi := high
     preLo := low
-    state := dayBig ? 1 : 0
+    state := state == 2 ? 2 : (dayBig ? 1 : 0) // a trade still open from an earlier day keeps being managed
 else if inRTH
     rthHi := math.max(rthHi, high)
     rthLo := math.min(rthLo, low)
@@ -253,11 +255,11 @@ if state == 2 and bar_index > entryIdx
     if strategy.position_size == 0
         state := 3
         showResult(bar_index, "")
-    else if inRTH and closeMin >= exitMin
+    else if not noTimeExit and inRTH and closeMin >= exitMin
         strategy.close("GAP", comment = "time exit")
         howT := "closed by the time rule at " + exitAt
         state := 4
-    else if not inRTH
+    else if not noTimeExit and not inRTH
         strategy.close("GAP", comment = "end of session")
         howT := "closed at the end of the session"
         state := 4
