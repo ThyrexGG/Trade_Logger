@@ -2,7 +2,7 @@
 // © TradeLogger
 
 //@version=6
-strategy("Big Gap Fade BACKTEST (TradeLogger)", shorttitle = "TL Gap BT", overlay = true, initial_capital = 6000, default_qty_type = strategy.fixed, default_qty_value = 1, pyramiding = 0, process_orders_on_close = true, calc_on_every_tick = false, margin_long = 0, margin_short = 0, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+strategy("Big Gap Fade BACKTEST (TradeLogger)", shorttitle = "TL Gap BT", overlay = true, initial_capital = 6000, default_qty_type = strategy.fixed, default_qty_value = 1, pyramiding = 0, process_orders_on_close = true, calc_on_every_tick = false, dynamic_requests = true, margin_long = 0, margin_short = 0, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // =============================================================================
 // THE BACKTEST VERSION of big_gap_fade.pine (that one is an indicator; TradingView's Strategy Tester
@@ -11,7 +11,7 @@ strategy("Big Gap Fade BACKTEST (TradeLogger)", shorttitle = "TL Gap BT", overla
 //   GAP     today's 09:30 open vs yesterday's 16:00 close. A setup = a gap of at least the first input x the
 //           average daily range of the last 14 sessions (0.2 = learning mode, 0.7 = the research threshold).
 //   ENTRY   default = a STRUCTURE SHIFT (MSS): the session extreme, then a close beyond the pullback level that launched it
-//           (09:35-11:00 New York, no fixed time; no shift = no trade). Option: the old fixed 09:45 entry. Always TOWARD
+//           (09:35-11:00 New York, no fixed time; no shift = no trade; read from 1-minute data even on a 5- or 15-minute chart). Option: the old fixed 09:45 entry. Always TOWARD
 //           yesterday's close (gap up = short, gap down = long), only while the gap is still unfilled.
 //   STOP    your choice (wide / structure / medium / fixed / tight).  TARGET  yesterday's close or the nearest
 //           5-minute swing; default = half at +1R, stop to breakeven, rest at yesterday's close.
@@ -33,7 +33,7 @@ thr = input.float(0.2, "Take a setup when the gap is at least x the average dail
 rangeDays = input.int(14, "Average range over the last N sessions", minval = 5, group = grpG)
 
 grpT = "Trade"
-entryMethod = input.string("Structure shift (MSS): enter at the break candle's close", "Entry method", options = ["Structure shift (MSS): enter at the break candle's close", "Structure shift (MSS): wait for a pullback to the 50% level", "Fixed time (the 'Enter at' time below)"], group = grpT, tooltip = "MSS = no fixed time: on a gap day wait for the session extreme (the extension), then for a candle to CLOSE beyond the pullback level that launched it (the market-structure shift), between 09:35 and 11:00 New York. No shift = no trade. Break enters at that candle's close. Retest waits for price to pull back to the 50% level of the move (in this tester it fills at the close of the first bar that reaches it, a little later than a true limit order). Fixed time is the old rule.")
+entryMethod = input.string("Structure shift (MSS): enter at the break candle's close", "Entry method", options = ["Structure shift (MSS): enter at the break candle's close", "Structure shift (MSS): wait for a pullback to the 50% level", "Fixed time (the 'Enter at' time below)"], group = grpT, tooltip = "MSS = no fixed time: on a gap day wait for the session extreme (the extension), then for a candle to CLOSE beyond the pullback level that launched it (the market-structure shift), between 09:35 and 11:00 New York. No shift = no trade. Break enters at the close of the CHART bar that contains the 1-minute break (the structure is read from 1-minute data on any chart timeframe). Retest waits for price to pull back to the 50% level of the move (in this tester it fills at the close of the first bar that reaches it, a little later than a true limit order). Fixed time is the old rule.")
 entryAt = input.string("0945", "Enter at (New York time; fixed-time method only)", options = ["0935", "0940", "0945", "0950", "1000", "1015", "1030"], group = grpT)
 exitAt = input.string("Never: hold until the target, the stop or breakeven", "Close the trade at a set time (New York)", options = ["Never: hold until the target, the stop or breakeven", "1100", "1130", "1200", "1300", "1330", "1555"], group = grpT, tooltip = "Default: no time rule. The trade stays open (even overnight) until price reaches the target, the stop, or the breakeven stop after the half is taken. While a trade is open, a new setup is skipped.")
 stopMode = input.string("MSS: just beyond the extension (the high/low the shift came from)", "Stop", options = ["MSS: just beyond the extension (the high/low the shift came from)", "Wide: 1:1 with the target", "Structure: beyond the nearest 1-minute swing", "Structure: beyond the nearest 5-minute swing", "Medium: 0.25 x the average daily range", "Fixed: 0.21% of price (about 64 NQ points)", "Tight: beyond the 09:30-to-entry extreme"], group = grpT, tooltip = "The MSS stop sits just beyond the extension. With the fixed-time entry it behaves like Wide.")
@@ -97,12 +97,20 @@ var line ln2 = na
 // swings since the open (A = latest, B = the one before) and the extension / break level for the MSS entry
 var float lowA = na
 var float lowB = na
-var int lowAbar = na
+var int lowAidx = na
 var float highA = na
 var float highB = na
-var int highAbar = na
+var int highAidx = na
 var float extLvl = na
 var int extBar = na
+var int extIdx = na
+var int subIdx = 0
+var float runHi1 = na
+var float runLo1 = na
+var float pO1 = na
+var float pC1 = na
+var float pH1 = na
+var float pL1 = na
 var float launch = na
 var float legExt = na
 var float retLvl = na
@@ -245,12 +253,6 @@ if state == 4
     state := 3
 
 // ---------------------------------------------------------------- the day
-float rhPrev = rthHi
-float rlPrev = rthLo
-bool swH = close[1] > open[1] and close < open
-bool swL = close[1] < open[1] and close > open
-float swHlvl = math.max(high[1], high)
-float swLlvl = math.min(low[1], low)
 if rthStart
     dayBig := false
     prevClose := lastClose
@@ -270,10 +272,18 @@ if rthStart
     preLo := low
     lowA := na
     lowB := na
-    lowAbar := na
+    lowAidx := na
     highA := na
     highB := na
-    highAbar := na
+    highAidx := na
+    extIdx := na
+    subIdx := 0
+    runHi1 := na
+    runLo1 := na
+    pO1 := na
+    pC1 := na
+    pH1 := na
+    pL1 := na
     extLvl := na
     extBar := na
     launch := na
@@ -284,6 +294,25 @@ else if inRTH
     rthLo := math.min(rthLo, low)
 if inRTH
     lastClose := close
+
+// ---------------------------------------------------------------- the 1-minute bars inside this chart bar
+// The structure is read from 1-minute data whatever the chart timeframe (a 5-minute chart would otherwise see far fewer shifts).
+bool lowerOK = timeframe.in_seconds(timeframe.period) > 60
+float[] m1o = array.new_float()
+float[] m1h = array.new_float()
+float[] m1l = array.new_float()
+float[] m1c = array.new_float()
+if mssMode
+    if lowerOK
+        m1o := request.security_lower_tf(syminfo.tickerid, "1", open)
+        m1h := request.security_lower_tf(syminfo.tickerid, "1", high)
+        m1l := request.security_lower_tf(syminfo.tickerid, "1", low)
+        m1c := request.security_lower_tf(syminfo.tickerid, "1", close)
+    else
+        array.push(m1o, open)
+        array.push(m1h, high)
+        array.push(m1l, low)
+        array.push(m1c, close)
 
 // ---------------------------------------------------------------- finding the entry
 bool doEnter = false
@@ -309,59 +338,105 @@ if state == 1 and inRTH and not mssMode and closeMin <= entryMin
         else
             state := 3
 
-// (b) structure shift: wait for the extension, then a close beyond the pullback level that launched it
-if state == 1 and inRTH and mssMode
-    if gapUp ? low <= prevClose : high >= prevClose
-        state := 3
-    else if closeMin > 660
-        state := 3
-    else
-        if not na(extLvl) and (gapUp ? rthHi > extLvl : rthLo < extLvl)
-            extLvl := na
-        if not na(extLvl) and bar_index > extBar
-            legExt := gapUp ? math.min(legExt, low) : math.max(legExt, high)
+// (b) structure shift, read bar by bar from the 1-minute data: the extension, then a close beyond the pullback level that launched it
+if state == 1 and inRTH and mssMode and array.size(m1h) > 0
+    int n = array.size(m1h)
+    for j = 0 to n - 1
+        if state != 1
+            break
+        float o1 = array.get(m1o, j)
+        float h1 = array.get(m1h, j)
+        float l1 = array.get(m1l, j)
+        float c1 = array.get(m1c, j)
+        bool first1 = na(pO1)
+        float rhPrev1 = runHi1
+        float rlPrev1 = runLo1
+        runHi1 := na(runHi1) ? h1 : math.max(runHi1, h1)
+        runLo1 := na(runLo1) ? l1 : math.min(runLo1, l1)
+        bool sh1 = not first1 and pC1 > pO1 and c1 < o1
+        bool sl1 = not first1 and pC1 < pO1 and c1 > o1
+        float shL = math.max(nz(pH1), h1)
+        float slL = math.min(nz(pL1, 1.0e12), l1)
+        int subEnd = closeMin - (n - 1 - j)
         bool brk = false
-        if not na(extLvl) and not rthStart and closeMin >= 575 and bar_index > extBar
-            brk := gapUp ? (close < launch and close > prevClose) : (close > launch and close < prevClose)
-        if brk
-            if showStructure
-                line.new(extBar - 1, extLvl, bar_index, extLvl, color = color.new(color.orange, 10), style = line.style_dotted, width = 2)
-                label.new(extBar, extLvl, gapUp ? "extension high" : "extension low", style = gapUp ? label.style_label_down : label.style_label_up, color = color.new(color.orange, 30), textcolor = color.white, size = size.tiny)
-                line.new(extBar - 3, launch, bar_index, launch, color = color.new(color.purple, 10), style = line.style_dashed, width = 2)
-                label.new(bar_index, launch, "MSS: closed through " + str.tostring(launch, format.mintick), style = gapUp ? label.style_label_up : label.style_label_down, color = color.new(color.purple, 20), textcolor = color.white, size = size.small)
-            if retestMode
-                retLvl := extLvl + (legExt - extLvl) * 0.5
-                brkBar := bar_index
-                state := 5
+        if gapUp ? l1 <= prevClose : h1 >= prevClose
+            state := 3
+        else if subEnd > 660
+            state := 3
+        else
+            if not na(extLvl) and (gapUp ? runHi1 > extLvl : runLo1 < extLvl)
+                extLvl := na
+            if not na(extLvl) and subIdx > extIdx
+                legExt := gapUp ? math.min(legExt, l1) : math.max(legExt, h1)
+            if not na(extLvl) and not first1 and subEnd >= 575 and subIdx > extIdx
+                brk := gapUp ? (c1 < launch and c1 > prevClose) : (c1 > launch and c1 < prevClose)
+            if brk
                 if showStructure
-                    retLine := line.new(bar_index, retLvl, bar_index + 1, retLvl, color = color.new(color.aqua, 0), style = line.style_dashed, width = 2)
-            else
-                doEnter := true
-                eIn := close
-        if not rthStart and not brk
-            if gapUp and swH and swHlvl >= rthHi
-                extLvl := swHlvl
-                extBar := bar_index
-                launch := (not na(lowA) and lowAbar <= bar_index - 2) ? lowA : (not na(lowB) ? lowB : rlPrev)
-                legExt := low
-            if (not gapUp) and swL and swLlvl <= rthLo
-                extLvl := swLlvl
-                extBar := bar_index
-                launch := (not na(highA) and highAbar <= bar_index - 2) ? highA : (not na(highB) ? highB : rhPrev)
-                legExt := high
+                    line.new(extBar - 1, extLvl, bar_index, extLvl, color = color.new(color.orange, 10), style = line.style_dotted, width = 2)
+                    label.new(extBar, extLvl, gapUp ? "extension high" : "extension low", style = gapUp ? label.style_label_down : label.style_label_up, color = color.new(color.orange, 30), textcolor = color.white, size = size.tiny)
+                    line.new(extBar - 3, launch, bar_index, launch, color = color.new(color.purple, 10), style = line.style_dashed, width = 2)
+                    label.new(bar_index, launch, "MSS (1m): closed through " + str.tostring(launch, format.mintick), style = gapUp ? label.style_label_up : label.style_label_down, color = color.new(color.purple, 20), textcolor = color.white, size = size.small)
+                if retestMode
+                    retLvl := extLvl + (legExt - extLvl) * 0.5
+                    brkBar := bar_index
+                    state := 5
+                    if showStructure
+                        retLine := line.new(bar_index, retLvl, bar_index + 1, retLvl, color = color.new(color.aqua, 0), style = line.style_dashed, width = 2)
+                else
+                    doEnter := true
+                    eIn := close
+                    state := 6
+            if not brk
+                if gapUp and sh1 and shL >= runHi1
+                    extLvl := shL
+                    extBar := bar_index
+                    extIdx := subIdx
+                    launch := (not na(lowA) and lowAidx <= subIdx - 2) ? lowA : (not na(lowB) ? lowB : rlPrev1)
+                    legExt := l1
+                if (not gapUp) and sl1 and slL <= runLo1
+                    extLvl := slL
+                    extBar := bar_index
+                    extIdx := subIdx
+                    launch := (not na(highA) and highAidx <= subIdx - 2) ? highA : (not na(highB) ? highB : rhPrev1)
+                    legExt := h1
+        // remember this bar's swings (after the checks above used the older ones)
+        if sl1
+            lowB := lowA
+            lowA := slL
+            lowAidx := subIdx
+        if sh1
+            highB := highA
+            highA := shL
+            highAidx := subIdx
+        pO1 := o1
+        pC1 := c1
+        pH1 := h1
+        pL1 := l1
+        subIdx += 1
+    if state == 6
+        state := 1  // handed to the placement code below
 
-// (c) waiting for the retest of the 50% level
-if state == 5 and bar_index > brkBar and inRTH
+// (c) waiting for the retest of the 50% level, checked 1-minute bar by 1-minute bar from the next chart bar on
+if state == 5 and bar_index > brkBar and inRTH and array.size(m1h) > 0
+    int n5 = array.size(m1h)
     bool cancel = false
-    if gapUp ? high >= extLvl : low <= extLvl
-        cancel := true
-    else if gapUp ? low <= prevClose : high >= prevClose
-        cancel := true
-    else if closeMin > 720
-        cancel := true
-    else if gapUp ? high >= retLvl : low <= retLvl
-        doEnter := true
-        eIn := close
+    for j = 0 to n5 - 1
+        float h5 = array.get(m1h, j)
+        float l5 = array.get(m1l, j)
+        int subEnd5 = closeMin - (n5 - 1 - j)
+        if gapUp ? h5 >= extLvl : l5 <= extLvl
+            cancel := true
+            break
+        else if gapUp ? l5 <= prevClose : h5 >= prevClose
+            cancel := true
+            break
+        else if subEnd5 > 720
+            cancel := true
+            break
+        else if gapUp ? h5 >= retLvl : l5 <= retLvl
+            doEnter := true
+            eIn := close
+            break
     if cancel
         state := 3
         if not na(retLine)
@@ -482,16 +557,5 @@ if state == 2 and bar_index > entryIdx
         strategy.close("GAP", comment = "end of session")
         howT := "closed at the end of the session"
         state := 4
-
-// remember this bar's swings (after everything above has used the older ones)
-if inRTH and not rthStart
-    if swL
-        lowB := lowA
-        lowA := swLlvl
-        lowAbar := bar_index
-    if swH
-        highB := highA
-        highA := swHlvl
-        highAbar := bar_index
 
 bgcolor(dayBig and inRTH and closeMin <= exitMin ? color.new(color.blue, 96) : na)
