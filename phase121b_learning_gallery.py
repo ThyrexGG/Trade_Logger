@@ -79,9 +79,7 @@ def main(argv=None) -> int:  # pragma: no cover
         if ln.startswith("| NQ") or ln.startswith("| ES"):
             c = [x.strip() for x in ln.strip("|").split("|")]
             quiz.append(f"| {c[0]} | {c[1]} |  |  |  |")
-    open(os.path.join(OUT, "QUIZ.md"), "w", encoding="utf-8").write("
-".join(quiz) + "
-")
+    open(os.path.join(OUT, "QUIZ.md"), "w", encoding="utf-8").write(chr(10).join(quiz) + chr(10))
     open(os.path.join(OUT, "INDEX.md"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
     print(counts)
     for r in ls[2:]:
