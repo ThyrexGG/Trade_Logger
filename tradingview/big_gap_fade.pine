@@ -121,8 +121,7 @@ if rthStart
     if not na(prevClose)
         pcLine := line.new(bar_index, prevClose, bar_index, prevClose, color = color.new(color.orange, 0), style = line.style_dashed, width = 1)
     string gtxt = na(gapSize) ? "Gap (warming up: needs " + str.tostring(rangeDays) + " sessions)" :
-         "Gap " + (gap > 0 ? "+" : "") + str.tostring(gap, format.mintick) + "  (" + str.tostring(gapSize, "0.00") + "x range)" + (dayBig ? "  BIG
-PLAN: " + (gap > 0 ? "SHORT" : "LONG") + " toward " + str.tostring(prevClose, format.mintick) + " at " + entryAt + " if still unfilled" : "")
+         "Gap " + (gap > 0 ? "+" : "") + str.tostring(gap, format.mintick) + "  (" + str.tostring(gapSize, "0.00") + "x range)" + (dayBig ? "  BIG\nPLAN: " + (gap > 0 ? "SHORT" : "LONG") + " toward " + str.tostring(prevClose, format.mintick) + " at " + entryAt + " if still unfilled" : "")
     if dayBig or (showSmall and not na(gapSize))
         label.new(bar_index, high, gtxt, style = label.style_label_down, color = dayBig ? color.new(color.orange, 15) : color.new(color.gray, 40),
              textcolor = color.white, size = size.small,
