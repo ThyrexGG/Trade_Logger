@@ -13,3 +13,4 @@ breakeven, rest to yesterday's close, up to 10 sessions). Stop before target wit
 - **Gap >= 0.7 (315 trades):** Medium +0.08R, Tight +0.10R with the half, intervals include 0; positive mostly in 2025.
 - With no time rule, big-gap trades with the Wide stop run a median 20 hours and 42% last past one session.
 - The Pine strategy now defaults to this management (target "half at +1R", exit time "Never").
+- **Half at the chart structure near +1R** (HOLD_HSTR: the 1m/5m swing, of the last 3 each, closest to +1R and 0.7R-1.5R away, else exactly +1R) is the same as a fixed +1R: Medium +0.04R vs +0.03R (gap >= 0.2), +0.08R vs +0.08R (gap >= 0.7). Reading structure for the half changes nothing measurable.

@@ -35,7 +35,7 @@ grpT = "Trade"
 entryAt = input.string("0945", "Enter at (New York time)", options = ["0935", "0940", "0945", "0950", "1000", "1015", "1030"], group = grpT)
 exitAt = input.string("Never: hold until the target, the stop or breakeven", "Close the trade at a set time (New York)", options = ["Never: hold until the target, the stop or breakeven", "1100", "1130", "1200", "1300", "1330", "1555"], group = grpT, tooltip = "Default: no time rule. The trade stays open (even overnight) until price reaches the target, the stop, or the breakeven stop after the half is taken. While a trade is open, a new setup is skipped.")
 stopMode = input.string("Wide: 1:1 with the target", "Stop", options = ["Wide: 1:1 with the target", "Structure: beyond the nearest 1-minute swing", "Structure: beyond the nearest 5-minute swing", "Medium: 0.25 x the average daily range", "Fixed: 0.21% of price (about 64 NQ points)", "Tight: beyond the 09:30-to-entry extreme"], group = grpT)
-targetMode = input.string("Half at +1R, stop to breakeven, rest at yesterday's close", "Target", options = ["Half at +1R, stop to breakeven, rest at yesterday's close", "Yesterday's close", "Nearest 5-minute swing (1R or more away)", "Half at the nearest 5-minute swing, rest at yesterday's close"], group = grpT)
+targetMode = input.string("Half at the structure near +1R, stop to breakeven, rest at yesterday's close", "Target", options = ["Half at the structure near +1R, stop to breakeven, rest at yesterday's close", "Half at +1R, stop to breakeven, rest at yesterday's close", "Yesterday's close", "Nearest 5-minute swing (1R or more away)", "Half at the nearest 5-minute swing, rest at yesterday's close"], group = grpT)
 
 grpR = "Position size"
 riskPct = input.float(1.0, "Risk per trade (% of equity)", minval = 0.1, step = 0.1, group = grpR, tooltip = "Quantity = equity x this % / (stop distance x point value). A wide stop means a small position.")
@@ -141,10 +141,26 @@ calcTarget(float ep, float risk, bool shortTrade) =>
         tgt := na(sw) ? prevClose : sw
     tgt
 
+// the half-off level taken from the chart: the 1- or 5-minute swing in the profit direction that sits closest to +1R,
+// but only between 0.7R and 1.5R away; if there is none, exactly +1R
+nearOneR(float ep, float risk, bool shortTrade) =>
+    float one = shortTrade ? ep - risk : ep + risk
+    float best = na
+    float[] cand = shortTrade ? array.from(s1l0, s1l1, s1l2, s5l0, s5l1, s5l2) : array.from(s1h0, s1h1, s1h2, s5h0, s5h1, s5h2)
+    for i = 0 to 5
+        float x = array.get(cand, i)
+        if not na(x)
+            float d = shortTrade ? ep - x : x - ep
+            if d >= 0.7 * risk and d <= 1.5 * risk and (na(best) or math.abs(x - one) < math.abs(best - one))
+                best := x
+    na(best) ? one : best
+
 // optional half-off level
 calcHalf(float ep, float risk, bool shortTrade) =>
     float tp1 = na
-    if targetMode == "Half at +1R, stop to breakeven, rest at yesterday's close"
+    if targetMode == "Half at the structure near +1R, stop to breakeven, rest at yesterday's close"
+        tp1 := nearOneR(ep, risk, shortTrade)
+    else if targetMode == "Half at +1R, stop to breakeven, rest at yesterday's close"
         tp1 := shortTrade ? ep - risk : ep + risk
     else if targetMode == "Half at the nearest 5-minute swing, rest at yesterday's close"
         tp1 := shortTrade ? nearBelow(s5l0, s5l1, s5l2, ep, 0.5 * risk) : nearAbove(s5h0, s5h1, s5h2, ep, 0.5 * risk)

@@ -6,6 +6,7 @@ the SAME entries, per stop placement:
   TIME12   half at +1R / stop to BE, but closed at 12:00 (Phase 125's best management)
   HOLD     plain: stop or yesterday's close, held up to 10 sessions (no time rule)
   HOLD_H1R half at +1R then stop to BE, rest to yesterday's close, held up to 10 sessions
+  HOLD_HSTR same, but the half is taken at the 1m/5m swing nearest +1R (0.7R-1.5R away), else exactly +1R
 Within one 1-minute bar the stop is taken before the target. After 10 sessions an unresolved trade closes at market.
 Results in R (net of spread + slippage / stop distance). EXPLORATORY.
 
@@ -108,8 +109,13 @@ def run(thr: float) -> pd.DataFrame:
                 if nm != "Wide":
                     pnl = p24.simulate(post, side, e, stop, risk, pc, tp1, "HALF", spread, slip)
                     out.append({"market": mkt, "day": str(day.date()), "stop": nm, "mode": "TIME12", "r": pnl / risk, "hours": 2.25})
-                for mode, t1 in (("HOLD", None), ("HOLD_H1R", tp1)):
-                    if mode == "HOLD_H1R" and nm == "Wide":
+                # half taken at the chart structure nearest +1R (last 3 swings of each timeframe, 0.7R-1.5R away), else exactly +1R
+                pk = "L" if gup else "H"
+                cand = [x for evx in (ev1, ev5) for x in [q[2] for q in evx if q[1] == pk][-3:]]
+                cand = [x for x in cand if 0.7 * risk <= abs(x - e) <= 1.5 * risk and ((x < e) if gup else (x > e))]
+                tstr = min(cand, key=lambda x: abs(x - tp1)) if cand else tp1
+                for mode, t1 in (("HOLD", None), ("HOLD_H1R", tp1), ("HOLD_HSTR", tstr)):
+                    if mode != "HOLD" and nm == "Wide" and mode == "HOLD_H1R":
                         continue
                     pnl, k = hold(side, e, stop, risk, pc, t1, h, l, c, spread, slip)
                     out.append({"market": mkt, "day": str(day.date()), "stop": nm, "mode": mode, "r": pnl / risk, "hours": k / 60})
@@ -130,7 +136,7 @@ def main(argv=None) -> int:  # pragma: no cover
             print(f"{s:<9}{m:<10}{len(r):>5}{(r > 0).mean() * 100:>5.0f}%{r.mean():>+8.3f}   [{np.quantile(boot, .025):+.2f}, {np.quantile(boot, .975):+.2f}]{(r[r > 0].sum() / gl if gl else float('nan')):>6.2f}{r.sum():>+8.1f}{g.hours.median():>9.1f}{(g.hours > 24).mean() * 100:>7.0f}%")
         d["year"] = d.day.str[:4]
         print("\n-- per year, avgR (pooled) for the HOLD_H1R / HOLD modes --")
-        print(d[d["mode"].isin(["HOLD_H1R", "HOLD"])].groupby(["stop", "mode", "year"]).r.mean().unstack("year").round(3).to_string())
+        print(d[d["mode"].isin(["HOLD_HSTR", "HOLD_H1R", "HOLD"])].groupby(["stop", "mode", "year"]).r.mean().unstack("year").round(3).to_string())
     return 0
 
 
