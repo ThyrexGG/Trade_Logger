@@ -62,7 +62,7 @@ def find_entries(o, h, l, c, k, kh, pc, H, last_t):
                 if np.any(c[formed + 1:t] > top):   # a candle closed through the top: the zone is dead for a short
                     continue
                 if h[t] >= bot and c[t] < top and c[t] < o[t]:
-                    res[name] = (t, top)
+                    res[name] = (t, top, bot, formed)
                     break
         if len(res) == 2:
             break
@@ -105,7 +105,7 @@ def run(thr: float) -> pd.DataFrame:
             for kind in ("FVG", "IFVG"):
                 if kind not in ent:
                     continue
-                t, top_s = ent[kind]
+                t, top_s = ent[kind][:2]
                 e = sign * c[t]
                 t_in = w12.index[t] + pd.Timedelta(minutes=1)
                 fut = futall[futall.index >= t_in]
