@@ -71,3 +71,26 @@ not whether the setup makes money.
 (1R or more away), or half at the nearest 5-minute swing with the rest at yesterday's close (a dashed
 aqua line marks the half-off level; the stop moves to breakeven after it). Swings are read from the 1-
 and 5-minute data as of the end of the previous chart bar, so the entry bar only sees swings known before it.
+
+## Phase 125: half off at +1R, stop to breakeven
+
+Code: [`phase125_partial_1r.py`](../phase125_partial_1r.py). The user manages trades by taking half at
++1R and moving the stop to breakeven. The same setups were run twice per stop placement (the wide stop is
+skipped, its 1R is yesterday's close): plain, and half at +1R with the rest at yesterday's close or 12:00.
+Paired by day, NQ and ES, gap ≥ 0.2×:
+
+| Stop | Win rate plain → with half-off | Average P&L (% of range) plain → with half-off | Difference, 95% interval |
+|---|---|---|---|
+| NQ tight | 36% → 54% | +1.5 → +0.9 | −0.6 (−1.9 … +0.6) |
+| NQ medium | 45% → 53% | +1.8 → +0.9 | −0.9 (−2.1 … +0.3) |
+| NQ 5-min swing | 33% → 52% | +0.1 → +0.1 | 0.0 (−1.4 … +1.5) |
+| ES tight | 34% → 52% | +0.4 → −0.7 | −1.1 (−2.5 … +0.1) |
+| ES 5-min swing | 31% → 51% | −1.6 → −1.2 | +0.4 (−0.8 … +1.7) |
+
+(The other combinations and the ≥ 0.7× runs say the same: 10 of 10 win rates rise by 8–20 points, the
+average changes by −2.7 to +1.0, every interval includes zero.) **Half off at +1R lifts the win rate
+(fewer full losses) and leaves the average where it was, slightly lower on most stops.** It changes how the
+trades feel, not whether the setup makes money, the same finding as Phases 101b and 116b.
+
+Both the indicator and the strategy now offer *Half at +1R, stop to breakeven, rest at yesterday's close*
+as a Target option.

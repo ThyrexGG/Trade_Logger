@@ -33,7 +33,7 @@ grpT = "Trade"
 entryAt = input.string("0945", "Enter at (New York time)", options = ["0935", "0940", "0945", "0950", "1000", "1015", "1030"], group = grpT)
 exitAt = input.string("1200", "Exit at (New York time)", options = ["1100", "1130", "1200", "1300", "1330", "1555"], group = grpT)
 stopMode = input.string("Wide: 1:1 with the target", "Stop", options = ["Wide: 1:1 with the target", "Structure: beyond the nearest 1-minute swing", "Structure: beyond the nearest 5-minute swing", "Medium: 0.25 x the average daily range", "Fixed: 0.21% of price (about 64 NQ points)", "Tight: beyond the 09:30-to-entry extreme"], group = grpT, tooltip = "Structure = how you place stops: just beyond the nearest internal swing high (short) or low (long) on the 1-minute or 5-minute chart, using the two-candle swing definition (a bullish then a bearish candle makes a swing high). About 21 points on NQ for a 1-minute swing, 33 for a 5-minute swing, 4 to 6 points on ES.\nWide: as far from your entry as the target is (median about 140 points on NQ).\nMedium: a quarter of the average daily range. Fixed: 0.21% of the price (about 64 points on NQ). Tight: beyond the high or low made since 09:30.\nEvery option averaged about the same tiny result in testing (Phases 123 and 124), so pick the one that matches how you trade.")
-targetMode = input.string("Yesterday's close", "Target", options = ["Yesterday's close", "Nearest 5-minute swing (1R or more away)", "Half at the nearest 5-minute swing, rest at yesterday's close"], group = grpT, tooltip = "Yesterday's close is the research target. The 5-minute swing is the nearest internal low (short) or high (long) at least 1R away, else yesterday's close. Half off takes half at the nearest 5-minute swing at least 0.5R away, moves the stop to breakeven, and leaves the rest for yesterday's close.")
+targetMode = input.string("Yesterday's close", "Target", options = ["Yesterday's close", "Nearest 5-minute swing (1R or more away)", "Half at the nearest 5-minute swing, rest at yesterday's close", "Half at +1R, stop to breakeven, rest at yesterday's close"], group = grpT, tooltip = "Yesterday's close is the research target. The 5-minute swing is the nearest internal low (short) or high (long) at least 1R away, else yesterday's close. Half off takes half at the nearest 5-minute swing at least 0.5R away, moves the stop to breakeven, and leaves the rest for yesterday's close. Half at +1R does the same at one R of profit (your usual management).")
 
 grpD = "Display"
 showCard = input.bool(true, "Show the summary card (bottom-left)", group = grpD)
@@ -168,6 +168,8 @@ calcTargets(float ep, float risk, bool shortTrade) =>
         tgt := na(sw) ? prevClose : sw
     else if targetMode == "Half at the nearest 5-minute swing, rest at yesterday's close"
         tp1 := shortTrade ? nearBelow(s5l0, s5l1, s5l2, ep, 0.5 * risk) : nearAbove(s5h0, s5h1, s5h2, ep, 0.5 * risk)
+    else if targetMode == "Half at +1R, stop to breakeven, rest at yesterday's close"
+        tp1 := shortTrade ? ep - risk : ep + risk
     [tgt, tp1]
 
 bool newTrade = false

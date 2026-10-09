@@ -18,7 +18,7 @@ strategy("Big Gap Fade BACKTEST (TradeLogger)", shorttitle = "TL Gap BT", overla
 // SET COSTS in the Properties tab (slippage in ticks, commission): the defaults are zero, so a result here is
 // BEFORE costs. Research result: no confirmed edge (about +0.00 to +0.05R per trade); this is a way to LOOK at it.
 // How far back it can test depends on your TradingView plan and the data on this symbol.
-// No half-off option here (the indicator has it).
+// Half-off options: half at the nearest 5-minute swing or at +1R, then the stop moves to breakeven for the rest.
 // =============================================================================
 
 NY = "America/New_York"
@@ -31,7 +31,7 @@ grpT = "Trade"
 entryAt = input.string("0945", "Enter at (New York time)", options = ["0935", "0940", "0945", "0950", "1000", "1015", "1030"], group = grpT)
 exitAt = input.string("1200", "Exit at (New York time)", options = ["1100", "1130", "1200", "1300", "1330", "1555"], group = grpT)
 stopMode = input.string("Wide: 1:1 with the target", "Stop", options = ["Wide: 1:1 with the target", "Structure: beyond the nearest 1-minute swing", "Structure: beyond the nearest 5-minute swing", "Medium: 0.25 x the average daily range", "Fixed: 0.21% of price (about 64 NQ points)", "Tight: beyond the 09:30-to-entry extreme"], group = grpT)
-targetMode = input.string("Yesterday's close", "Target", options = ["Yesterday's close", "Nearest 5-minute swing (1R or more away)"], group = grpT)
+targetMode = input.string("Yesterday's close", "Target", options = ["Yesterday's close", "Nearest 5-minute swing (1R or more away)", "Half at the nearest 5-minute swing, rest at yesterday's close", "Half at +1R, stop to breakeven, rest at yesterday's close"], group = grpT)
 
 grpR = "Position size"
 riskPct = input.float(1.0, "Risk per trade (% of equity)", minval = 0.1, step = 0.1, group = grpR, tooltip = "Quantity = equity x this % / (stop distance x point value). A wide stop means a small position.")
@@ -69,6 +69,10 @@ var int entryIdx = 0
 var float stopPx = na
 var float tgtPx = na
 var float riskPts = na
+var float entryPx = na
+var float tp1Px = na
+var float initQty = na
+var bool beMoved = false
 var box bTgt = na
 var box bRisk = na
 
@@ -129,6 +133,15 @@ calcTarget(float ep, float risk, bool shortTrade) =>
         tgt := na(sw) ? prevClose : sw
     tgt
 
+// optional half-off level
+calcHalf(float ep, float risk, bool shortTrade) =>
+    float tp1 = na
+    if targetMode == "Half at +1R, stop to breakeven, rest at yesterday's close"
+        tp1 := shortTrade ? ep - risk : ep + risk
+    else if targetMode == "Half at the nearest 5-minute swing, rest at yesterday's close"
+        tp1 := shortTrade ? nearBelow(s5l0, s5l1, s5l2, ep, 0.5 * risk) : nearAbove(s5h0, s5h1, s5h2, ep, 0.5 * risk)
+    tp1
+
 // ---------------------------------------------------------------- the day
 if rthStart
     dayBig := false
@@ -177,7 +190,16 @@ if state == 1 and inRTH and closeMin <= entryMin
             tgtPx := tg
             stopPx := sp
             strategy.entry("GAP", side < 0 ? strategy.short : strategy.long, qty = qty, comment = (side < 0 ? "SHORT toward " : "LONG toward ") + str.tostring(prevClose, format.mintick))
-            strategy.exit("GAP exit", from_entry = "GAP", stop = sp, limit = tg)
+            float t1 = calcHalf(e, rp, gapUp)
+            if na(t1)
+                strategy.exit("GAP exit", from_entry = "GAP", stop = sp, limit = tg)
+            else
+                strategy.exit("GAP half", from_entry = "GAP", qty_percent = 50, stop = sp, limit = t1)
+                strategy.exit("GAP rest", from_entry = "GAP", stop = sp, limit = tg)
+            entryPx := e
+            tp1Px := t1
+            initQty := qty
+            beMoved := false
             entryIdx := bar_index
             state := 2
             if showBoxes
@@ -191,6 +213,9 @@ if state == 2 and bar_index > entryIdx
     if showBoxes
         box.set_right(bTgt, bar_index)
         box.set_right(bRisk, bar_index)
+    if not na(tp1Px) and not beMoved and strategy.position_size != 0 and math.abs(strategy.position_size) < initQty * 0.75
+        strategy.exit("GAP rest", from_entry = "GAP", stop = entryPx, limit = tgtPx)
+        beMoved := true
     if strategy.position_size == 0
         state := 3
     else if inRTH and closeMin >= exitMin
