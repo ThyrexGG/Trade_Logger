@@ -2,45 +2,42 @@
 // © TradeLogger
 
 //@version=6
-indicator("Big Gap Fade (TradeLogger)", shorttitle = "TL Gap", overlay = true,
-     max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+indicator("Big Gap Fade (TradeLogger)", shorttitle = "TL Gap", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // =============================================================================
-// The "big opening gap fade" from docs/PHASE_116_117_CONTEXT_PARTIALS_GAPS.md and
-// docs/PHASE_118_GAP_PLUS_TJR_AND_REPLICATION.md. One rule, fixed:
+// ONE RULE, from docs/PHASE_116_117_CONTEXT_PARTIALS_GAPS.md and PHASE_118:
+// "Fade a BIG opening gap back toward yesterday's close."
 //
-//   1. GAP     09:30 open vs the previous day's 16:00 close (cash session).
-//              BIG = at least 0.7 x the average daily range of the last 14 sessions.
-//   2. ENTRY   at 09:45, IF the gap is still unfilled (price has not touched the
-//              previous close since 09:30) and price is still on the gap side:
-//              trade TOWARD the previous close (gap up -> short, gap down -> long).
-//   3. TARGET  the previous close.
-//   4. STOP    "wide": the same distance as the target (1:1). "tight": beyond the
-//              09:30-to-entry extreme (at least 0.10 x the average range).
-//   5. EXIT    target, stop, or 12:00, whichever comes first.
+//   GAP     today's 09:30 open vs yesterday's 16:00 close.
+//           BIG = at least 0.7 x the average daily range of the last 14 sessions.
+//   ENTRY   09:45, only if the gap is still unfilled -> trade TOWARD yesterday's close
+//           (gap up = SHORT, gap down = LONG).
+//   TARGET  yesterday's close.   STOP  wide (1:1) or tight (beyond the 09:30-09:45 extreme).
+//   EXIT    target, stop, or 12:00 - whichever comes first.
 //
-// Research result (NQ / ES / Dow / Russell, 3.5 years, after costs): about +0.05R per
-// trade pooled; it worked in 2025-26 on NQ/ES (+0.13 to +0.18R) and not in 2023-24.
-// NOT proven: forward-track it before trusting it. Results in the table here are
-// BEFORE spread and commission, and only cover the bars loaded on your chart.
-// Use a 1- to 5-minute chart (5-minute loads more history).
+// Result over 3.5 years on NQ/ES/Dow/Russell: about +0.05R per trade, positive in 2025-26 on
+// NQ/ES and flat in 2023-24. NOT proven. Forward-track it. Past results here are before costs.
+// What you see on the chart: the SUMMARY CARD (bottom-left) tells you what to do today; on a big-gap
+// day an orange line marks the target and boxes mark the target (green) and stop (red).
+// Use a 1- to 15-minute chart.
 // =============================================================================
 
 NY = "America/New_York"
 
 grpG = "Gap"
-thr = input.float(0.7, "Big gap = at least x the average daily range", minval = 0.1, step = 0.1, group = grpG,
-     tooltip = "0.7 is the threshold from the research. 0.5 gives more days and a weaker effect; 1.0 fewer days and a stronger one.")
+thr = input.float(0.7, "Big gap = at least x the average daily range", minval = 0.1, step = 0.1, group = grpG, tooltip = "0.7 is the threshold from the research. 0.5 gives more days and a weaker effect; 1.0 fewer days and a stronger one.")
 rangeDays = input.int(14, "Average range over the last N sessions", minval = 5, group = grpG)
 
 grpT = "Trade"
 entryAt = input.string("0945", "Enter at (New York time)", options = ["0935", "0940", "0945", "0950", "1000", "1015", "1030"], group = grpT)
 exitAt = input.string("1200", "Exit at (New York time)", options = ["1100", "1130", "1200", "1300", "1330", "1555"], group = grpT)
-stopMode = input.string("Wide: 1:1 with the target", "Stop", options = ["Wide: 1:1 with the target", "Tight: beyond the 09:30-to-entry extreme"], group = grpT,
-     tooltip = "Wide: the stop is as far from your entry as the previous close is (about 257 points on NQ, 47 on ES), so use a SMALL position. It is rarely hit (5% of trades); most trades end at the time exit.\nTight: the stop is just beyond the opening-to-entry high (gap up) or low (gap down). Hit about 58% of the time, but bigger wins. More volatile; was flat before 2025.")
-showSmall = input.bool(true, "Also label gaps that are NOT big (grey)", group = grpT)
-showLegend = input.bool(true, "Show the 'how to read' box", group = grpT)
+stopMode = input.string("Wide: 1:1 with the target", "Stop", options = ["Wide: 1:1 with the target", "Tight: beyond the 09:30-to-entry extreme"], group = grpT, tooltip = "Wide: as far from your entry as the target is (about 257 points on NQ, 47 on ES), so use a SMALL position. Rarely hit (5% of trades); most trades end at the time exit.\nTight: just beyond the high (gap up) or low (gap down) made since 09:30. Hit about 58% of the time, but bigger wins. More volatile; was flat before 2025.")
 
+grpD = "Display"
+showCard = input.bool(true, "Show the summary card (bottom-left)", group = grpD)
+showAllGaps = input.bool(false, "Also label the small gaps on normal days (busy)", group = grpD)
+
+minSess = 5
 minRiskAtr = 0.10
 
 // ---------------------------------------------------------------- session flags
@@ -51,7 +48,7 @@ entryBar = afterEntry and not afterEntry[1]
 beforeExit = not na(time(timeframe.period, "0930-" + exitAt, NY))
 tfOk = timeframe.in_seconds() <= 900
 
-// ---------------------------------------------------------------- per-day state
+// ---------------------------------------------------------------- state
 var float rthHi = na
 var float rthLo = na
 var float lastClose = na
@@ -65,9 +62,9 @@ var bool gapUp = false
 var bool touched = false
 var float preHi = na
 var float preLo = na
-var int state = 0 // 0 = nothing to do today, 1 = waiting for the entry time, 2 = trade open, 3 = finished
-var string statusTxt = "-"
+var int state = 0 // 0 = no big gap today, 1 = waiting for the entry time, 2 = trade open, 3 = finished / skipped
 var line pcLine = na
+var int dayStartBar = 0
 
 var float entryPx = na
 var float stopPx = na
@@ -77,16 +74,17 @@ var float distPts = na
 var int side = 0
 var box bTgt = na
 var box bRisk = na
-var box pTgt = na   // PLAN boxes, drawn from 09:30 until the entry time on a big-gap day
+var box pTgt = na
 var box pRisk = na
-var int dayStartBar = 0
 
-var int nBig = 0
 var int nSess = 0
-var float maxGap = 0.0
 var int nTr = 0
 var int nWin = 0
 var float rSum = 0.0
+
+var string headline = "WARMING UP - scroll the chart left to load more history"
+var color hColor = color.gray
+var string detail = ""
 
 bool newTrade = false
 
@@ -102,7 +100,7 @@ if rthStart
         array.push(ranges, rthHi - rthLo)
         if array.size(ranges) > rangeDays
             array.shift(ranges)
-    avgRange := array.size(ranges) >= rangeDays ? array.avg(ranges) : na
+    avgRange := array.size(ranges) >= minSess ? array.avg(ranges) : na
     rthHi := high
     rthLo := low
     gap := open - prevClose
@@ -112,21 +110,23 @@ if rthStart
     touched := false
     preHi := high
     preLo := low
-    state := dayBig ? 1 : 0
     nSess += 1
-    if not na(gapSize)
-        maxGap := math.max(maxGap, gapSize)
+    state := dayBig ? 1 : 0
+    pcLine := na
+    detail := ""
     if dayBig
-        nBig += 1
-    if not na(prevClose)
-        pcLine := line.new(bar_index, prevClose, bar_index, prevClose, color = color.new(color.orange, 0), style = line.style_dashed, width = 1)
-    string gtxt = na(gapSize) ? "Gap (warming up: needs " + str.tostring(rangeDays) + " sessions)" :
-         "Gap " + (gap > 0 ? "+" : "") + str.tostring(gap, format.mintick) + "  (" + str.tostring(gapSize, "0.00") + "x range)" + (dayBig ? "  BIG\nPLAN: " + (gap > 0 ? "SHORT" : "LONG") + " toward " + str.tostring(prevClose, format.mintick) + " at " + entryAt + " if still unfilled" : "")
-    if dayBig or (showSmall and not na(gapSize))
-        label.new(bar_index, high, gtxt, style = label.style_label_down, color = dayBig ? color.new(color.orange, 15) : color.new(color.gray, 40),
-             textcolor = color.white, size = size.small,
-             tooltip = "Gap = 09:30 open minus the previous 16:00 close. BIG = at least " + str.tostring(thr) + " x the average of the last " + str.tostring(rangeDays) + " sessions' daily range.")
-    statusTxt := na(gapSize) ? "warming up" : dayBig ? "BIG gap -> waiting for " + entryAt : "no big gap today (" + str.tostring(gapSize, "0.00") + "x)"
+        pcLine := line.new(bar_index, prevClose, bar_index, prevClose, color = color.new(color.orange, 0), style = line.style_dashed, width = 2)
+        label.new(bar_index, high, "BIG GAP " + str.tostring(gapSize, "0.00") + "x", style = label.style_label_down, color = color.new(color.orange, 10), textcolor = color.white, size = size.normal, tooltip = "Gap = 09:30 open minus yesterday's 16:00 close = " + str.tostring(gap, format.mintick) + " points, " + str.tostring(gapSize, "0.00") + "x the normal daily range. Big = " + str.tostring(thr, "0.0") + "x or more.")
+        headline := "BIG GAP - plan: " + (gapUp ? "SHORT" : "LONG") + " toward " + str.tostring(prevClose, format.mintick) + " at " + entryAt + " if still unfilled"
+        hColor := color.orange
+    else if na(gapSize)
+        headline := "WARMING UP - scroll the chart left to load more history"
+        hColor := color.gray
+    else
+        headline := "NO TRADE - the gap is only " + str.tostring(gapSize, "0.00") + "x (needs " + str.tostring(thr, "0.0") + "x)"
+        hColor := color.gray
+        if showAllGaps
+            label.new(bar_index, high, "gap " + str.tostring(gapSize, "0.00") + "x", style = label.style_label_down, color = color.new(color.gray, 60), textcolor = color.white, size = size.tiny)
 else if inRTH
     rthHi := math.max(rthHi, high)
     rthLo := math.min(rthLo, low)
@@ -135,13 +135,17 @@ if inRTH
     if not na(pcLine)
         line.set_x2(pcLine, bar_index)
 
-// before the entry time: has the gap already filled?
+// before the entry time: watch for the gap filling, and draw the PLAN (dashed target + stop)
 if state == 1 and inRTH and not afterEntry
     if gapUp ? low <= prevClose : high >= prevClose
         touched := true
     preHi := math.max(preHi, high)
     preLo := math.min(preLo, low)
     if touched
+        state := 3
+        headline := "SKIPPED - the gap already filled before " + entryAt
+        hColor := color.gray
+        detail := ""
         if not na(pTgt)
             box.delete(pTgt)
             box.delete(pRisk)
@@ -152,13 +156,12 @@ if state == 1 and inRTH and not afterEntry
         float pDist = math.abs(close - prevClose)
         float pRiskPts = stopMode == "Wide: 1:1 with the target" ? pDist : math.max(math.abs((gapUp ? preHi : preLo) - close), minRiskAtr * avgRange)
         float pStop = close - pSide * pRiskPts
-        string tTxt = "PLAN target " + str.tostring(prevClose, format.mintick) + " (previous close)"
-        string rTxt = "PLAN stop " + str.tostring(pStop, format.mintick) + "  (moves until " + entryAt + ")"
+        detail := "Target " + str.tostring(prevClose, format.mintick) + " (yesterday's close)   |   Stop about " + str.tostring(pStop, format.mintick) + "   |   Exit by " + exitAt
+        string tTxt = "TARGET " + str.tostring(prevClose, format.mintick)
+        string rTxt = "STOP about " + str.tostring(pStop, format.mintick)
         if na(pTgt)
-            pTgt := box.new(dayStartBar, math.max(close, prevClose), bar_index + 1, math.min(close, prevClose), border_color = color.new(color.green, 30), border_style = line.style_dashed,
-                 bgcolor = color.new(color.green, 92), text = tTxt, text_color = color.green, text_size = size.tiny, text_halign = text.align_right, text_valign = pSide < 0 ? text.align_bottom : text.align_top)
-            pRisk := box.new(dayStartBar, math.max(close, pStop), bar_index + 1, math.min(close, pStop), border_color = color.new(color.red, 30), border_style = line.style_dashed,
-                 bgcolor = color.new(color.red, 92), text = rTxt, text_color = color.red, text_size = size.tiny, text_halign = text.align_right, text_valign = pSide < 0 ? text.align_top : text.align_bottom)
+            pTgt := box.new(dayStartBar, math.max(close, prevClose), bar_index + 1, math.min(close, prevClose), border_color = color.new(color.green, 30), border_style = line.style_dashed, bgcolor = color.new(color.green, 92), text = tTxt, text_color = color.green, text_size = size.small, text_halign = text.align_right, text_valign = pSide < 0 ? text.align_bottom : text.align_top)
+            pRisk := box.new(dayStartBar, math.max(close, pStop), bar_index + 1, math.min(close, pStop), border_color = color.new(color.red, 30), border_style = line.style_dashed, bgcolor = color.new(color.red, 92), text = rTxt, text_color = color.red, text_size = size.small, text_halign = text.align_right, text_valign = pSide < 0 ? text.align_top : text.align_bottom)
         else
             box.set_top(pTgt, math.max(close, prevClose))
             box.set_bottom(pTgt, math.min(close, prevClose))
@@ -187,16 +190,17 @@ if entryBar and state == 1
         stopPx := e - side * riskPts
         state := 2
         newTrade := true
-        statusTxt := (side < 0 ? "SHORT" : "LONG") + " open toward " + str.tostring(prevClose, format.mintick)
-        bTgt := box.new(bar_index, math.max(e, tgtPx), bar_index + 1, math.min(e, tgtPx), border_color = color.new(color.green, 40), bgcolor = color.new(color.green, 88))
-        bRisk := box.new(bar_index, math.max(e, stopPx), bar_index + 1, math.min(e, stopPx), border_color = color.new(color.red, 40), bgcolor = color.new(color.red, 88))
-        label.new(bar_index, e, (side < 0 ? "FADE ▼ " : "FADE ▲ ") + str.tostring(gapSize, "0.00") + "x", style = side < 0 ? label.style_label_down : label.style_label_up,
-             color = side < 0 ? color.new(color.red, 10) : color.new(color.green, 10), textcolor = color.white, size = size.small,
-             tooltip = (side < 0 ? "SHORT" : "LONG") + " toward the previous close\nEntry " + str.tostring(e, format.mintick) + "\nTarget " + str.tostring(tgtPx, format.mintick) +
-             "\nStop " + str.tostring(stopPx, format.mintick) + "\nRisk " + str.tostring(riskPts, format.mintick) + " points\nExit at " + exitAt + " if neither is hit.")
+        headline := (side < 0 ? "SHORT" : "LONG") + " IS ON - entered at " + str.tostring(e, format.mintick)
+        hColor := color.aqua
+        detail := "Target " + str.tostring(tgtPx, format.mintick) + "   |   Stop " + str.tostring(stopPx, format.mintick) + "   |   Exit by " + exitAt + " if neither is hit"
+        bTgt := box.new(bar_index, math.max(e, tgtPx), bar_index + 1, math.min(e, tgtPx), border_color = color.new(color.green, 30), bgcolor = color.new(color.green, 82), text = "TARGET " + str.tostring(tgtPx, format.mintick), text_color = color.green, text_size = size.small, text_halign = text.align_right, text_valign = side < 0 ? text.align_bottom : text.align_top)
+        bRisk := box.new(bar_index, math.max(e, stopPx), bar_index + 1, math.min(e, stopPx), border_color = color.new(color.red, 30), bgcolor = color.new(color.red, 82), text = "STOP " + str.tostring(stopPx, format.mintick), text_color = color.red, text_size = size.small, text_halign = text.align_right, text_valign = side < 0 ? text.align_top : text.align_bottom)
+        label.new(bar_index, e, side < 0 ? "SELL" : "BUY", style = side < 0 ? label.style_label_down : label.style_label_up, color = side < 0 ? color.new(color.red, 10) : color.new(color.green, 10), textcolor = color.white, size = size.normal, tooltip = "Entry " + str.tostring(e, format.mintick) + "\nTarget " + str.tostring(tgtPx, format.mintick) + "\nStop " + str.tostring(stopPx, format.mintick) + "\nExit at " + exitAt + " if neither is hit.")
     else
         state := 3
-        statusTxt := touched ? "skipped: gap already filled by " + entryAt : "skipped: price already past the previous close"
+        headline := "SKIPPED - price is already past yesterday's close"
+        hColor := color.gray
+        detail := ""
 
 // manage the open trade
 if state == 2
@@ -205,13 +209,13 @@ if state == 2
     string how = ""
     if timeUp
         res := side * (open - entryPx) / riskPts
-        how := "time"
+        how := "time exit"
     else if (side > 0 ? low <= stopPx : high >= stopPx)
         res := -1.0
-        how := "stop"
+        how := "stop hit"
     else if (side > 0 ? high >= tgtPx : low <= tgtPx)
         res := distPts / riskPts
-        how := "target"
+        how := "target hit"
     box.set_right(bTgt, bar_index)
     box.set_right(bRisk, bar_index)
     if not na(res)
@@ -220,44 +224,21 @@ if state == 2
         if res > 0
             nWin += 1
         state := 3
-        statusTxt := "finished: " + (res >= 0 ? "+" : "") + str.tostring(res, "0.00") + "R (" + how + ")"
-        label.new(bar_index, how == "stop" ? stopPx : how == "target" ? tgtPx : open, (res > 0 ? "✓ +" : "✗ ") + str.tostring(res, "0.00") + "R", style = label.style_label_left,
-             color = res > 0 ? color.new(color.green, 20) : color.new(color.red, 20), textcolor = color.white, size = size.tiny,
-             tooltip = "Ended by " + how + ". Before spread and commission.")
+        headline := "TRADE DONE - " + (res >= 0 ? "+" : "") + str.tostring(res, "0.00") + "R (" + how + ")"
+        hColor := res > 0 ? color.lime : color.red
+        label.new(bar_index, how == "stop hit" ? stopPx : how == "target hit" ? tgtPx : open, (res > 0 ? "WIN +" : "LOSS ") + str.tostring(res, "0.00") + "R", style = label.style_label_left, color = res > 0 ? color.new(color.green, 20) : color.new(color.red, 20), textcolor = color.white, size = size.small, tooltip = "Ended by " + how + ". Before spread and commission.")
 
-bgcolor(dayBig and beforeExit ? color.new(color.orange, 93) : na)
+bgcolor(dayBig and beforeExit ? color.new(color.orange, 94) : na)
 
-alertcondition(newTrade, "Big gap fade setup", "Big gap fade: entry time reached with an unfilled big gap. Trade toward the previous close.")
+alertcondition(newTrade, "Big gap fade setup", "Big gap fade: entry time reached with an unfilled big gap. Trade toward yesterday's close.")
 
-// ---------------------------------------------------------------- tables
-var table tb = table.new(position.middle_right, 2, 10, bgcolor = color.new(color.black, 20), border_width = 1)
-if barstate.islast
-    table.cell(tb, 0, 0, "Big gap fade", text_color = color.white, text_size = size.small)
-    table.cell(tb, 1, 0, "today: " + statusTxt, text_color = color.orange, text_size = size.small)
-    table.cell(tb, 0, 1, "Big-gap days on chart", text_color = color.white, text_size = size.small)
-    table.cell(tb, 1, 1, str.tostring(nBig), text_color = color.white, text_size = size.small)
-    table.cell(tb, 0, 2, "Trades taken", text_color = color.white, text_size = size.small)
-    table.cell(tb, 1, 2, str.tostring(nTr), text_color = color.white, text_size = size.small)
-    table.cell(tb, 0, 3, "Win rate", text_color = color.white, text_size = size.small)
-    table.cell(tb, 1, 3, nTr > 0 ? str.tostring(100.0 * nWin / nTr, "#.0") + "%" : "-", text_color = color.white, text_size = size.small)
-    table.cell(tb, 0, 4, "Average R", text_color = color.white, text_size = size.small)
-    table.cell(tb, 1, 4, nTr > 0 ? str.tostring(rSum / nTr, "#.00") : "-", text_color = rSum >= 0 ? color.lime : color.red, text_size = size.small)
-    table.cell(tb, 0, 5, "Total R", text_color = color.white, text_size = size.small)
-    table.cell(tb, 1, 5, str.tostring(rSum, "#.0"), text_color = rSum >= 0 ? color.lime : color.red, text_size = size.small)
-    table.cell(tb, 0, 6, "Before spread/commission", text_color = color.gray, text_size = size.tiny)
-    table.cell(tb, 1, 6, "only the bars loaded", text_color = color.gray, text_size = size.tiny)
-    table.cell(tb, 0, 7, "Sessions loaded", text_color = color.white, text_size = size.small)
-    table.cell(tb, 1, 7, str.tostring(nSess) + "  (gaps count after " + str.tostring(rangeDays) + ")", text_color = nSess > rangeDays ? color.white : color.orange, text_size = size.small)
-    table.cell(tb, 0, 8, "Biggest gap seen", text_color = color.white, text_size = size.small)
-    table.cell(tb, 1, 8, nSess > rangeDays ? str.tostring(maxGap, "0.00") + "x range  (big = " + str.tostring(thr, "0.0") + "x)" : "-", text_color = color.white, text_size = size.small)
-    table.cell(tb, 0, 9, tfOk ? "" : "Use a 1-15 minute chart", text_color = color.red, text_size = size.small)
-    table.cell(tb, 1, 9, "", text_size = size.tiny)
-
-var table legend = table.new(position.bottom_right, 1, 6, bgcolor = color.new(color.black, 25))
-if barstate.islast and showLegend
-    table.cell(legend, 0, 0, "How to read  ·  one rule: fade a BIG opening gap toward the previous close", text_color = color.white, text_size = size.small, text_halign = text.align_left)
-    table.cell(legend, 0, 1, "Orange line = previous day's 16:00 close (the target)", text_color = color.white, text_size = size.tiny, text_halign = text.align_left)
-    table.cell(legend, 0, 2, "Orange shading + 'Gap ... BIG' = a gap worth fading today", text_color = color.white, text_size = size.tiny, text_halign = text.align_left)
-    table.cell(legend, 0, 3, "FADE ▼ / ▲ = entry at " + entryAt + " if the gap is still unfilled", text_color = color.white, text_size = size.tiny, text_halign = text.align_left)
-    table.cell(legend, 0, 4, "Dashed boxes = the PLAN before entry · solid green box = target zone · solid red box = stop zone", text_color = color.white, text_size = size.tiny, text_halign = text.align_left)
-    table.cell(legend, 0, 5, "✓ / ✗ = how it ended, in R (exit by target, stop, or " + exitAt + ")", text_color = color.white, text_size = size.tiny, text_halign = text.align_left)
+// ---------------------------------------------------------------- summary card
+var table card = table.new(position.bottom_left, 1, 5, bgcolor = color.new(color.black, 12), border_width = 1, border_color = color.new(color.gray, 50))
+if barstate.islast and showCard
+    string prefix = inRTH ? "TODAY: " : "LAST SESSION: "
+    int used = array.size(ranges)
+    table.cell(card, 0, 0, prefix + headline, text_color = hColor, text_size = size.large, text_halign = text.align_left)
+    table.cell(card, 0, 1, detail, text_color = color.white, text_size = size.normal, text_halign = text.align_left)
+    table.cell(card, 0, 2, na(gapSize) ? "" : "Gap " + (gap > 0 ? "+" : "") + str.tostring(gap, format.mintick) + " points = " + str.tostring(gapSize, "0.00") + "x the normal daily range  (a big gap is " + str.tostring(thr, "0.0") + "x or more)", text_color = color.silver, text_size = size.small, text_halign = text.align_left)
+    table.cell(card, 0, 3, nTr > 0 ? "Past trades on this chart: " + str.tostring(nTr) + "  |  won " + str.tostring(100.0 * nWin / nTr, "#") + "%  |  average " + str.tostring(rSum / nTr, "0.00") + "R  (before costs)" : "No trades on the loaded history yet (about 1 day in 5 has a big gap)", text_color = color.silver, text_size = size.small, text_halign = text.align_left)
+    table.cell(card, 0, 4, not tfOk ? "Switch to a 1- to 15-minute chart" : used < rangeDays ? "Normal range is averaged from only " + str.tostring(used) + " of " + str.tostring(rangeDays) + " sessions - scroll the chart left to load more" : "", text_color = color.orange, text_size = size.small, text_halign = text.align_left)
