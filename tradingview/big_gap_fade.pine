@@ -334,9 +334,12 @@ if state == 2
             nScr += 1
         state := 3
         string cls = res >= 0.15 ? "WIN" : res <= -0.15 ? "LOSS" : "SCRATCH"
+        if how == "time exit"
+            line.new(bar_index, math.min(entryPx, stopPx, tgtPx), bar_index, math.max(entryPx, stopPx, tgtPx), color = color.new(color.gray, 20), style = line.style_dotted, width = 2)
+            label.new(bar_index, math.max(entryPx, stopPx, tgtPx), exitAt + " exit", style = label.style_label_down, color = color.new(color.gray, 30), textcolor = color.white, size = size.tiny, tooltip = "The rule closes the trade at " + exitAt + " (New York) if neither the target nor the stop was hit. What price does after this point is not part of the trade.")
         headline := "TRADE DONE - " + cls + " " + (res >= 0 ? "+" : "") + str.tostring(res, "0.00") + "R (" + how + ")"
         hColor := res >= 0.15 ? color.lime : res <= -0.15 ? color.red : color.silver
-        label.new(bar_index, how == "stop hit" ? stopPx : how == "target hit" ? tgtPx : open, cls + " " + (res >= 0 ? "+" : "") + str.tostring(res, "0.00") + "R", style = label.style_label_left, color = res >= 0.15 ? color.new(color.green, 20) : res <= -0.15 ? color.new(color.red, 20) : color.new(color.gray, 20), textcolor = color.white, size = size.small, tooltip = "Ended by " + how + ". Before spread and commission.")
+        label.new(bar_index, how == "stop hit" ? stopPx : how == "target hit" ? tgtPx : open, cls + " " + (res >= 0 ? "+" : "") + str.tostring(res, "0.00") + "R  (" + how + ")", style = label.style_label_left, color = res >= 0.15 ? color.new(color.green, 20) : res <= -0.15 ? color.new(color.red, 20) : color.new(color.gray, 20), textcolor = color.white, size = size.small, tooltip = "Ended by " + how + ". Before spread and commission.")
 
 bgcolor(dayBig and beforeExit ? (isBig ? color.new(color.orange, 94) : color.new(color.blue, 96)) : na)
 
