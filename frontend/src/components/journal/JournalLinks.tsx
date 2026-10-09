@@ -1,5 +1,7 @@
 import type { JournalLink } from '../../types/operations'
 import { CloseIcon, ExternalIcon, LinkIcon } from '../../lib/icons'
+import { resolveChartImage } from '../../lib/tradingview'
+import { ChartSnapshot } from './ChartSnapshot'
 
 /**
  * Web links on a trade or a note: a TradingView idea or chart, a news
@@ -111,6 +113,32 @@ export function JournalLinkChips({ links, className = '' }: { links: JournalLink
         </li>
       ))}
     </ul>
+  )
+}
+
+/**
+ * Pictures for the saved links that ARE pictures: a TradingView snapshot link
+ * (tradingview.com/x/...) or a direct image URL shows inline, the same way a
+ * trade's chart link does. A TradingView *chart* link (tradingview.com/chart/...)
+ * is a live page that needs a login, so it can't become an image: say how to get one.
+ */
+export function LinkPreviews({ links, className = '' }: { links: JournalLink[] | null | undefined; className?: string }) {
+  const all = links ?? []
+  const shots = all.filter((l) => resolveChartImage(l.url))
+  const chartOnly = shots.length === 0 && all.some((l) => /tradingview\.com\/chart\//i.test(l.url))
+  if (!shots.length && !chartOnly) return null
+  return (
+    <div className={`space-y-2 ${className}`}>
+      {shots.map((l, i) => (
+        <ChartSnapshot key={`${l.url}-${i}`} url={l.url} large />
+      ))}
+      {chartOnly ? (
+        <p className="text-[11px] text-muted">
+          A TradingView chart link can't show a picture here. On TradingView use the camera icon, choose "Copy link to the image", and add that link
+          (it looks like tradingview.com/x/…), or paste a screenshot into the image box.
+        </p>
+      ) : null}
+    </div>
   )
 }
 

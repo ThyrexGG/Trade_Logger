@@ -8,7 +8,7 @@ import {
 } from '../../api/operations'
 import { SectionCard } from '../operations/primitives'
 import { ScreenshotStrip } from './ScreenshotStrip'
-import { cleanLinks, JournalLinkChips, JournalLinksEditor, toDrafts, type LinkDraft } from './JournalLinks'
+import { cleanLinks, JournalLinkChips, JournalLinksEditor, LinkPreviews, toDrafts, type LinkDraft } from './JournalLinks'
 
 const KINDS: { id: JournalEntryKind; label: string }[] = [
   { id: 'idea', label: 'Idea' },
@@ -178,6 +178,7 @@ function EntryCard({
         <>
           {entry.body ? <p className="mt-1.5 whitespace-pre-wrap text-xs text-secondary">{entry.body}</p> : null}
           <JournalLinkChips links={entry.links} className="mt-2" />
+          <LinkPreviews links={entry.links} className="mt-2" />
         </>
       )}
 

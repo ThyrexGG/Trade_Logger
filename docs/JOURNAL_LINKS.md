@@ -27,6 +27,23 @@ Up to **10 links** per trade or note, each with an optional name (up to 80
 characters). Without a name, the chip shows the site ("TradingView",
 "Forex Factory", "YouTube"…).
 
+## Pictures from links (2026-10-09)
+
+A link that **is a picture** now also shows **inline**, on notes and on trade cards, the way a
+trade's chart link does:
+
+- a TradingView **snapshot** link (`tradingview.com/x/...`, from the camera icon → "Copy link to
+  the image"), and
+- a direct image URL (`.png`, `.jpg`, `.webp`, `.gif`).
+
+Click the picture for the full-size view. A TradingView **chart** link
+(`tradingview.com/chart/...`) is a live page that needs a login, so it can't become an image: the
+note shows the usual link chip plus a one-line hint on how to get a snapshot link (or to paste a
+screenshot into the image box). Code: `LinkPreviews` in
+`frontend/src/components/journal/JournalLinks.tsx`, reusing `ChartSnapshot` and
+`resolveChartImage` (`frontend/src/lib/tradingview.ts`). The image itself comes from TradingView
+(`s3.tradingview.com`); it isn't copied into the database.
+
 ## Rules
 
 - Only **web addresses** (`http://` / `https://`). A pasted

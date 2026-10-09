@@ -6,7 +6,7 @@ import { patchJournalEntry } from '../../api/operations'
 import { ChartSnapshot } from './ChartSnapshot'
 import { HandLoggedControls } from './HandLoggedControls'
 import { ScreenshotStrip, type ScreenshotStripHandle } from './ScreenshotStrip'
-import { cleanLinks, JournalLinksEditor, linksKey, toDrafts, type LinkDraft } from './JournalLinks'
+import { cleanLinks, JournalLinksEditor, LinkPreviews, linksKey, toDrafts, type LinkDraft } from './JournalLinks'
 import { StarRating } from './StarRating'
 import { EXIT_REASONS, STOP_PLACEMENTS } from './reviewOptions'
 import { ExitsBadge, TradeLegs } from './TradeLegs'
@@ -228,6 +228,8 @@ function FeedCard({
           </select>
         </label>
       </div>
+
+      <LinkPreviews links={entry.links} />
 
       <div className="flex flex-wrap items-center gap-3">
         <input
