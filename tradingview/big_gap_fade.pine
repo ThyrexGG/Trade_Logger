@@ -25,7 +25,7 @@ indicator("Big Gap Fade (TradeLogger)", shorttitle = "TL Gap", overlay = true, m
 NY = "America/New_York"
 
 grpG = "Gap"
-thr = input.float(0.7, "Big gap = at least x the average daily range", minval = 0.1, step = 0.1, group = grpG, tooltip = "0.7 is the threshold from the research. 0.5 gives more days and a weaker effect; 1.0 fewer days and a stronger one.")
+thr = input.float(0.7, "Big gap = at least x the average daily range", minval = 0.1, step = 0.1, group = grpG, tooltip = "0.7 is the threshold from the research. 0.5 gives more days and a weaker effect; 1.0 fewer days and a stronger one.\nPRACTICE: set this to 0.1 to see a long/short setup on almost every day, to learn how the boxes behave.")
 rangeDays = input.int(14, "Average range over the last N sessions", minval = 5, group = grpG)
 
 grpT = "Trade"
@@ -76,6 +76,7 @@ var box bTgt = na
 var box bRisk = na
 var box pTgt = na
 var box pRisk = na
+var line eLine = na // the entry line of the open trade (like TradingView's long/short position tool)
 
 var int nSess = 0
 var int nTr = 0
@@ -157,8 +158,8 @@ if state == 1 and inRTH and not afterEntry
         float pRiskPts = stopMode == "Wide: 1:1 with the target" ? pDist : math.max(math.abs((gapUp ? preHi : preLo) - close), minRiskAtr * avgRange)
         float pStop = close - pSide * pRiskPts
         detail := "Target " + str.tostring(prevClose, format.mintick) + " (yesterday's close)   |   Stop about " + str.tostring(pStop, format.mintick) + "   |   Exit by " + exitAt
-        string tTxt = "TARGET " + str.tostring(prevClose, format.mintick)
-        string rTxt = "STOP about " + str.tostring(pStop, format.mintick)
+        string tTxt = "TARGET " + str.tostring(prevClose, format.mintick) + "   (+" + str.tostring(pDist / pRiskPts, "0.0") + "R)"
+        string rTxt = "STOP about " + str.tostring(pStop, format.mintick) + "   (-1R)"
         if na(pTgt)
             pTgt := box.new(dayStartBar, math.max(close, prevClose), bar_index + 1, math.min(close, prevClose), border_color = color.new(color.green, 30), border_style = line.style_dashed, bgcolor = color.new(color.green, 92), text = tTxt, text_color = color.green, text_size = size.small, text_halign = text.align_right, text_valign = pSide < 0 ? text.align_bottom : text.align_top)
             pRisk := box.new(dayStartBar, math.max(close, pStop), bar_index + 1, math.min(close, pStop), border_color = color.new(color.red, 30), border_style = line.style_dashed, bgcolor = color.new(color.red, 92), text = rTxt, text_color = color.red, text_size = size.small, text_halign = text.align_right, text_valign = pSide < 0 ? text.align_top : text.align_bottom)
@@ -193,9 +194,10 @@ if entryBar and state == 1
         headline := (side < 0 ? "SHORT" : "LONG") + " IS ON - entered at " + str.tostring(e, format.mintick)
         hColor := color.aqua
         detail := "Target " + str.tostring(tgtPx, format.mintick) + "   |   Stop " + str.tostring(stopPx, format.mintick) + "   |   Exit by " + exitAt + " if neither is hit"
-        bTgt := box.new(bar_index, math.max(e, tgtPx), bar_index + 1, math.min(e, tgtPx), border_color = color.new(color.green, 30), bgcolor = color.new(color.green, 82), text = "TARGET " + str.tostring(tgtPx, format.mintick), text_color = color.green, text_size = size.small, text_halign = text.align_right, text_valign = side < 0 ? text.align_bottom : text.align_top)
-        bRisk := box.new(bar_index, math.max(e, stopPx), bar_index + 1, math.min(e, stopPx), border_color = color.new(color.red, 30), bgcolor = color.new(color.red, 82), text = "STOP " + str.tostring(stopPx, format.mintick), text_color = color.red, text_size = size.small, text_halign = text.align_right, text_valign = side < 0 ? text.align_top : text.align_bottom)
-        label.new(bar_index, e, side < 0 ? "SELL" : "BUY", style = side < 0 ? label.style_label_down : label.style_label_up, color = side < 0 ? color.new(color.red, 10) : color.new(color.green, 10), textcolor = color.white, size = size.normal, tooltip = "Entry " + str.tostring(e, format.mintick) + "\nTarget " + str.tostring(tgtPx, format.mintick) + "\nStop " + str.tostring(stopPx, format.mintick) + "\nExit at " + exitAt + " if neither is hit.")
+        bTgt := box.new(bar_index, math.max(e, tgtPx), bar_index + 1, math.min(e, tgtPx), border_color = color.new(color.green, 30), bgcolor = color.new(color.green, 82), text = "TARGET " + str.tostring(tgtPx, format.mintick) + "   (+" + str.tostring(distPts / riskPts, "0.0") + "R)", text_color = color.green, text_size = size.small, text_halign = text.align_right, text_valign = side < 0 ? text.align_bottom : text.align_top)
+        bRisk := box.new(bar_index, math.max(e, stopPx), bar_index + 1, math.min(e, stopPx), border_color = color.new(color.red, 30), bgcolor = color.new(color.red, 82), text = "STOP " + str.tostring(stopPx, format.mintick) + "   (-1R)", text_color = color.red, text_size = size.small, text_halign = text.align_right, text_valign = side < 0 ? text.align_top : text.align_bottom)
+        eLine := line.new(bar_index, e, bar_index + 1, e, color = color.new(color.gray, 0), width = 2)
+        label.new(bar_index, e, (side < 0 ? "SHORT ▼  " : "LONG ▲  ") + str.tostring(e, format.mintick), style = side < 0 ? label.style_label_down : label.style_label_up, color = side < 0 ? color.new(color.red, 10) : color.new(color.green, 10), textcolor = color.white, size = size.normal, tooltip = "Entry " + str.tostring(e, format.mintick) + "\nTarget " + str.tostring(tgtPx, format.mintick) + "\nStop " + str.tostring(stopPx, format.mintick) + "\nExit at " + exitAt + " if neither is hit.")
     else
         state := 3
         headline := "SKIPPED - price is already past yesterday's close"
@@ -218,6 +220,8 @@ if state == 2
         how := "target hit"
     box.set_right(bTgt, bar_index)
     box.set_right(bRisk, bar_index)
+    if not na(eLine)
+        line.set_x2(eLine, bar_index)
     if not na(res)
         nTr += 1
         rSum += res
