@@ -44,6 +44,8 @@ stopMode = input.string("Tight: beyond the 09:30-to-entry extreme", "Stop", opti
 skipLow = input.bool(true, "MSS entries: skip when the reward is under 1R", group = grpT, tooltip = "Reward = distance to yesterday's close; 1R = the distance from the entry to the stop.")
 targetMode = input.string("Yesterday's close", "Target", options = ["Ladder: a third at each of two structure levels, the last third runs past yesterday's close", "Half at the structure near +1R, stop to breakeven, rest at yesterday's close", "Half at +1R, stop to breakeven, rest at yesterday's close", "Yesterday's close", "Nearest 5-minute swing (1R or more away)", "Half at the nearest 5-minute swing, rest at yesterday's close"], group = grpT, tooltip = "Ladder = a third at the nearest marked high/low (1m/5m swing), a third at the next one, stop to breakeven after the first and behind the first level after the second; the last third is NOT closed at yesterday's close: its stop jumps to yesterday's close and then trails behind each new 5-minute swing.")
 
+maxEntries = input.int(2, "MSS entries: max attempts per day", minval = 1, maxval = 3, group = grpT, tooltip = "After a stop-out the strategy keeps looking: a NEW extension has to confirm and a NEW structure shift has to print before it enters again (until 11:00, while yesterday's close is untouched). Research (Phase 134): the second attempt averaged about -0.1R and the third was worse, so more attempts did not help on average; 1 = one trade a day.")
+
 grpR = "Position size"
 riskPct = input.float(1.0, "Risk per trade (% of equity)", minval = 0.1, step = 0.1, group = grpR, tooltip = "Quantity = equity x this % / (stop distance x point value). A wide stop means a small position.")
 minQty = input.float(0.01, "Smallest quantity allowed", minval = 0.0001, step = 0.01, group = grpR, tooltip = "Never trades less than the symbol's smallest step (often 1 contract). If one contract risks more than your risk %, it trades one contract anyway, so the real risk is shown in each trade's comment.")
@@ -106,6 +108,7 @@ var int lowAidx = na
 var float highA = na
 var float highB = na
 var int highAidx = na
+var int entriesToday = 0
 var float extLvl = na
 var float intLvl = na
 var int extBar = na
@@ -293,6 +296,7 @@ if rthStart
     pC1 := na
     pH1 := na
     pL1 := na
+    entriesToday := 0
     extLvl := na
     intLvl := na
     extBar := na
@@ -477,6 +481,7 @@ if doEnter
     float rawQty = strategy.equity * riskPct / 100.0 / (rp * syminfo.pointvalue)
     float qty = math.max(math.floor(rawQty / step) * step, math.max(step, minQty))
     float riskUsd = qty * rp * syminfo.pointvalue
+    entriesToday += 1
     riskPts := rp
     tgtPx := tg
     stopPx := sp
@@ -560,6 +565,14 @@ if state == 2 and bar_index > entryIdx
     if strategy.position_size == 0
         state := 3
         showResult(bar_index, "")
+        // stopped out with attempts left, still inside the hunting window: look for a fresh structure shift
+        if mssMode and entriesToday < maxEntries and strategy.closedtrades > tradesAtEntry and closeMin < 660
+            float pnlNow = 0.0
+            for i = tradesAtEntry to strategy.closedtrades - 1
+                pnlNow += strategy.closedtrades.profit(i)
+            if pnlNow < 0
+                state := 1
+                extLvl := na
     else if not noTimeExit and inRTH and closeMin >= exitMin
         strategy.close("GAP", comment = "time exit")
         howT := "closed by the time rule at " + exitAt

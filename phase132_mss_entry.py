@@ -34,7 +34,7 @@ import phase127_hold_no_time_exit as p27
 AGG = {"open": "first", "high": "max", "low": "min", "close": "last"}
 
 
-def find_mss(bars: pd.DataFrame, tfmin: int, gup: bool, pc: float):
+def find_mss(bars: pd.DataFrame, tfmin: int, gup: bool, pc: float, after=None):
     """Returns dict(k, t_end, e, H, leg_extreme) or None. H = the extension extreme (high for a short)."""
     o, h, l, c = (bars[x].to_numpy() for x in ("open", "high", "low", "close"))
     ends = bars.index + pd.Timedelta(minutes=tfmin)
@@ -50,7 +50,7 @@ def find_mss(bars: pd.DataFrame, tfmin: int, gup: bool, pc: float):
             return None
         ext_kind, ext_run = ("H", run_hi) if gup else ("L", run_lo)
         cands = [s for s in sw if s[2] == ext_kind and abs(s[3] - ext_run) < 1e-9 and s[0] < k]
-        if cands and ends[k] >= t_min:
+        if cands and ends[k] >= t_min and (after is None or ends[k] > after):
             kH, fH, _, H = cands[-1]
             other = "L" if gup else "H"
             prior = [s for s in sw if s[2] == other and s[0] < fH]
