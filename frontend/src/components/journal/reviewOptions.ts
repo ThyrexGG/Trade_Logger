@@ -19,3 +19,13 @@ export const EXIT_REASONS: { value: ExitReason; label: string }[] = [
   { value: 'time', label: 'Out of time (end of my window)' },
   { value: 'other', label: 'Other' },
 ]
+
+/**
+ * The ONE tap per trade. Stored as the trade's setup tag, so the existing tag record ("which kind of trade pays") works with no new plumbing.
+ * Wording is the user's own rule: no blind or rushed entries.
+ */
+export const QUICK_TAGS: { value: string; label: string; hint: string }[] = [
+  { value: 'By my rules', label: 'By my rules', hint: 'I waited for my confirmation and followed my plan' },
+  { value: 'Bent my rules', label: 'Bent my rules', hint: 'Mostly my plan, but I changed something' },
+  { value: 'Rushed', label: 'Rushed / off-plan', hint: 'I jumped in without my confirmation' },
+]

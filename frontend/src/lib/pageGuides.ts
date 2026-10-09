@@ -74,7 +74,7 @@ const GUIDES: Record<string, GuideContent> = {
     title: 'Your trading diary — every closed trade, plus your notes on it.',
     steps: [
       'Pick an account at the top so different accounts stay separate.',
-      'Open a trade to tag the setup, rate how well you followed your plan, and add notes or a screenshot.',
+      'Under each trade, tap how it was: By my rules, Bent my rules, or Rushed. That one tap is all the journal needs; notes, screenshots and the rest are optional.',
       'Reviewing your journal every week is the fastest way to stop repeating the same mistakes.',
     ],
   },

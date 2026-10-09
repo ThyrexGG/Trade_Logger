@@ -8,7 +8,8 @@ import { HandLoggedControls } from './HandLoggedControls'
 import { ScreenshotStrip, type ScreenshotStripHandle } from './ScreenshotStrip'
 import { cleanLinks, JournalLinksEditor, LinkPreviews, linksKey, toDrafts, type LinkDraft } from './JournalLinks'
 import { StarRating } from './StarRating'
-import { EXIT_REASONS, STOP_PLACEMENTS } from './reviewOptions'
+import { EXIT_REASONS, QUICK_TAGS, STOP_PLACEMENTS } from './reviewOptions'
+import { MoreDetails } from '../shared/PageGuide'
 import { ExitsBadge, TradeLegs } from './TradeLegs'
 import { AccountBadge } from '../common/AccountBadge'
 import { invalidateTagRecord } from './TagRecord'
@@ -49,6 +50,8 @@ function FeedCard({
   const [linkDrafts, setLinkDrafts] = useState<LinkDraft[]>(toDrafts(entry.links))
   const [showLinks, setShowLinks] = useState(Boolean(entry.links?.length))
   const [shotCount, setShotCount] = useState(0)
+  // the extra section starts open only when something in it is already filled in
+  const moreOpen = Boolean(entry.stop_placement || entry.exit_reason || entry.links?.length || entry.chart_snapshot_url || (entry.setup_tag && !QUICK_TAGS.some((t) => t.value === entry.setup_tag)))
   const baseline = useRef({
     notes: entry.notes ?? '',
     setupTag: entry.setup_tag ?? '',
@@ -148,6 +151,34 @@ function FeedCard({
 
       <TradeLegs entry={entry} />
 
+      <div role="group" aria-label="How was this trade?">
+        <p className="mb-1.5 text-xs text-muted">
+          How was this trade? <span className="text-[11px]">One tap is enough. It is how the journal later shows which kind of trade pays you.</span>
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          {QUICK_TAGS.map((t) => {
+            const on = setupTag === t.value
+            return (
+              <button
+                key={t.value}
+                type="button"
+                title={t.hint}
+                aria-pressed={on}
+                onClick={() => setSetupTag(on ? '' : t.value)}
+                className={`rounded-md border px-3 py-2 text-xs transition-colors ${
+                  on ? 'border-accent bg-surface-hover font-semibold text-accent' : 'border-border text-primary hover:bg-surface-hover'
+                }`}
+              >
+                {t.label}
+              </button>
+            )
+          })}
+          <span className="ml-auto text-[10px] text-muted" aria-live="polite">
+            {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : status === 'error' ? 'Save failed — check your connection' : ''}
+          </span>
+        </div>
+      </div>
+
       {chartUrl.trim() ? <ChartSnapshot url={chartUrl} large /> : null}
       <ScreenshotStrip
         ref={stripRef}
@@ -160,90 +191,85 @@ function FeedCard({
       <textarea
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
-        placeholder="What happened — bias, structure, entry, how it played out… (paste a screenshot with Ctrl+V anywhere in this card)"
-        rows={4}
+        placeholder="Optional: one line on what you saw and why you took it. Ctrl+V pastes a screenshot."
+        rows={2}
         maxLength={20_000}
         className="w-full resize-y rounded border border-border bg-background px-3 py-2 text-sm text-primary placeholder:text-muted focus:border-accent focus:outline-none"
       />
 
-      {showLinkField ? (
-        <label className="block text-[11px] text-muted">
-          Chart link (TradingView snapshot or any image URL)
+      <MoreDetails summary="More details" hint="stop, how it ended, stars, links (optional)" defaultOpen={moreOpen}>
+        {showLinkField ? (
+          <label className="block text-[11px] text-muted">
+            Chart link (TradingView snapshot or any image URL)
+            <input
+              value={chartUrl}
+              onChange={(e) => setChartUrl(e.target.value)}
+              placeholder="https://www.tradingview.com/x/…"
+              maxLength={3_000}
+              className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-xs text-primary placeholder:text-muted focus:border-accent focus:outline-none"
+            />
+          </label>
+        ) : (
+          <button type="button" onClick={() => setShowLinkField(true)} className="text-[11px] text-accent hover:underline">
+            + add a chart link instead of a screenshot
+          </button>
+        )}
+
+        {showLinks ? (
+          <fieldset>
+            <legend className="mb-1.5 text-[11px] text-muted">Links (TradingView idea, news, video…)</legend>
+            <JournalLinksEditor value={linkDrafts} onChange={setLinkDrafts} idPrefix={`trade-${entry.trade_id}`} />
+          </fieldset>
+        ) : (
+          <button type="button" onClick={() => setShowLinks(true)} className="block text-[11px] text-accent hover:underline">
+            + add a link (TradingView idea, news, video…)
+          </button>
+        )}
+
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="block text-[11px] text-muted" htmlFor={`stop-${entry.trade_id}`}>
+            Where was your stop?
+            <select
+              id={`stop-${entry.trade_id}`}
+              value={stopPlacement}
+              onChange={(e) => setStopPlacement(e.target.value as StopPlacement | '')}
+              className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+            >
+              <option value="">Not answered</option>
+              {STOP_PLACEMENTS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-[11px] text-muted" htmlFor={`exit-${entry.trade_id}`}>
+            How did the trade end?
+            <select
+              id={`exit-${entry.trade_id}`}
+              value={exitReason}
+              onChange={(e) => setExitReason(e.target.value as ExitReason | '')}
+              className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+            >
+              <option value="">Not answered</option>
+              {EXIT_REASONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <LinkPreviews links={entry.links} />
+
+        <div className="flex flex-wrap items-center gap-3">
           <input
-            value={chartUrl}
-            onChange={(e) => setChartUrl(e.target.value)}
-            placeholder="https://www.tradingview.com/x/…"
-            maxLength={3_000}
-            className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-xs text-primary placeholder:text-muted focus:border-accent focus:outline-none"
+            value={QUICK_TAGS.some((t) => t.value === setupTag) ? '' : setupTag}
+            onChange={(e) => setSetupTag(e.target.value)}
+            placeholder="your own tag (optional)"
+            maxLength={120}
+            className="w-48 rounded border border-border bg-background px-2 py-1 text-xs text-primary placeholder:text-muted focus:border-accent focus:outline-none"
           />
-        </label>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setShowLinkField(true)}
-          className="text-[11px] text-accent hover:underline"
-        >
-          + add a chart link instead of a screenshot
-        </button>
-      )}
-
-      {showLinks ? (
-        <fieldset>
-          <legend className="mb-1.5 text-[11px] text-muted">Links (TradingView idea, news, video…)</legend>
-          <JournalLinksEditor value={linkDrafts} onChange={setLinkDrafts} idPrefix={`trade-${entry.trade_id}`} />
-        </fieldset>
-      ) : (
-        <button type="button" onClick={() => setShowLinks(true)} className="block text-[11px] text-accent hover:underline">
-          + add a link (TradingView idea, news, video…)
-        </button>
-      )}
-
-      <div className="grid gap-2 sm:grid-cols-2">
-        <label className="block text-[11px] text-muted" htmlFor={`stop-${entry.trade_id}`}>
-          Where was your stop?
-          <select
-            id={`stop-${entry.trade_id}`}
-            value={stopPlacement}
-            onChange={(e) => setStopPlacement(e.target.value as StopPlacement | '')}
-            className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
-          >
-            <option value="">Not answered</option>
-            {STOP_PLACEMENTS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </label>
-        <label className="block text-[11px] text-muted" htmlFor={`exit-${entry.trade_id}`}>
-          How did the trade end?
-          <select
-            id={`exit-${entry.trade_id}`}
-            value={exitReason}
-            onChange={(e) => setExitReason(e.target.value as ExitReason | '')}
-            className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
-          >
-            <option value="">Not answered</option>
-            {EXIT_REASONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      <LinkPreviews links={entry.links} />
-
-      <div className="flex flex-wrap items-center gap-3">
-        <input
-          value={setupTag}
-          onChange={(e) => setSetupTag(e.target.value)}
-          placeholder="setup tag (e.g. NY-AM-OB)"
-          maxLength={120}
-          className="w-48 rounded border border-border bg-background px-2 py-1 text-xs text-primary placeholder:text-muted focus:border-accent focus:outline-none"
-        />
-        <StarRating value={rating} onChange={setRating} />
-        <span className="ml-auto text-[10px] text-muted" aria-live="polite">
-          {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : status === 'error' ? 'Save failed — check your connection' : ''}
-        </span>
-      </div>
+          <StarRating value={rating} onChange={setRating} />
+        </div>
+      </MoreDetails>
 
       <HandLoggedControls entry={entry} knownAccounts={knownAccounts} onUpdated={onHandEdited} onDeleted={onDeleted} />
     </article>
