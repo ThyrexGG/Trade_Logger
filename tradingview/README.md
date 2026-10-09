@@ -354,3 +354,5 @@ An **indicator** that marks the Phase 132 rule: on a gap day, wait for the sessi
 **Defaults (restored):** the strategy opens with the original rule: fixed 09:45 entry, wide stop, target yesterday's close, 12:00 time exit. The MSS entry, the MSS stop, the ladder/half options and 'no time exit' are all still there as inputs. Over Mar 2023 - Sep 2026 on NQ + ES the original averages about 0.00R and the MSS + ladder combination about -0.05R (about -0.1R on a 5-minute chart, because the entry waits for the chart bar to close; use the 1-minute chart for MSS).
 
 **Default stop:** beyond the high (gap up) / low (gap down) of the move since the 09:30 open, i.e. above/below the structure the setup is fading; the stop box says why it sits where it does. The old 'Wide' stop (same distance as the target) is only a measurement, not structure, and is still an option.
+
+**Defaults (your management):** fixed 09:45 entry, stop beyond the gap move's high/low, half off at the structure near +1R then the stop to breakeven, the rest to yesterday's close, no time exit. If the Target input is left on 'Yesterday's close' the strategy takes NO partial by design.
