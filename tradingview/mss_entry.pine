@@ -1,0 +1,291 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0
+// © TradeLogger
+
+//@version=6
+indicator("MSS Entry on gap days (TradeLogger)", shorttitle = "TL MSS", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+
+// =============================================================================
+// WAIT FOR THE STRUCTURE TO SHIFT, THEN ENTER (no fixed time). Same rule as research Phase 132; it marks what that test did.
+//   DAY       a gap at least thr x the average daily range between yesterday's 16:00 close and today's 09:30 open. Fade it: gap up =
+//             look for a SHORT, gap down = look for a LONG. Target = yesterday's close.
+//   EXTENSION the session high (gap up) / low (gap down) since the open, once a two-candle swing confirms it
+//             (bullish then bearish candle = swing high; bearish then bullish = swing low).
+//   BREAK     the swing low that LAUNCHED that last push (the pullback low before the extension). A candle that CLOSES below it
+//             (gap up) / above the pullback high (gap down) = the market-structure shift (MSS). Needs yesterday's close untouched,
+//             and happens between 09:35 and 11:00 New York. If it never prints, there is no trade that day.
+//   ENTRY     "Break": the close of the break candle.  "Retest": a limit at the 50% level of the move from the extension to the
+//             break candle's extreme; cancelled if the extension is exceeded, yesterday's close is touched, or it is 12:00.
+//   STOP      just beyond the extension.  TARGET  yesterday's close.  Optional: half at +1R, stop to breakeven.
+//   There is no time exit: a trade stays open until the target or the stop (a new setup is skipped while one is open).
+// Use the 1- or 5-minute chart of NQ / ES (Capital.com's US100 / US500 work too). Research result: no confirmed edge
+// (average about -0.1R to +0.16R per trade, never distinguishable from zero); this marks the setup so you can compare it with
+// how YOU read structure. See docs/PHASE_131_132_STRUCTURE_ENTRY.md.
+// =============================================================================
+
+NY = "America/New_York"
+
+grpG = "Gap day"
+thr = input.float(0.2, "Look for a setup when the gap is at least x the average daily range", minval = 0.1, step = 0.1, group = grpG, tooltip = "0.2 = learning mode (many setups). 0.7 = the research 'big gap' threshold (about 1 a week).")
+rangeDays = input.int(14, "Average range over the last N sessions", minval = 5, group = grpG)
+
+grpE = "Entry"
+entryMode = input.string("Break: enter at the close of the break candle", "Entry", options = ["Break: enter at the close of the break candle", "Retest: wait for a pullback to the 50% level"], group = grpE)
+skipLow = input.bool(true, "Skip when the reward is less than 1R", group = grpE, tooltip = "Reward = distance to yesterday's close. 1R = the distance from the entry to the stop.")
+
+grpM = "Management"
+halfMode = input.bool(true, "Take half at +1R and move the stop to breakeven", group = grpM)
+
+grpD = "Display"
+showStructure = input.bool(true, "Draw the extension and the break level", group = grpD)
+showBoxes = input.bool(true, "Draw the target / stop boxes", group = grpD)
+showCard = input.bool(true, "Show the status card (top right)", group = grpD)
+
+minSess = 5
+
+// ---------------------------------------------------------------- session flags
+inRTH = not na(time(timeframe.period, "0930-1600", NY))
+rthStart = inRTH and not inRTH[1]
+closeMin = hour(time_close, NY) * 60 + minute(time_close, NY)
+retestMode = str.startswith(entryMode, "Retest")
+
+// ---------------------------------------------------------------- state
+var float rthHi = na
+var float rthLo = na
+var float lastClose = na
+var float prevClose = na
+var float[] ranges = array.new_float()
+var float avgRange = na
+var float gap = na
+var float gapSize = na
+var bool dayBig = false
+var bool gapUp = false
+var int state = 0 // 0 = no setup today, 1 = waiting for the structure shift, 2 = waiting for the retest, 3 = trade open, 4 = finished / skipped
+var string status = "Waiting for the first session"
+// swings since the open (A = latest, B = the one before)
+var float lowA = na
+var float lowB = na
+var int lowAbar = na
+var float highA = na
+var float highB = na
+var int highAbar = na
+// the extension (session extreme confirmed by a swing) and the level that launched it
+var float extLvl = na
+var int extBar = na
+var float launch = na
+var float legExt = na
+var float retLvl = na
+var int brkBar = na
+var line retLine = na
+// the open trade
+var int tSide = 0
+var float tEntry = na
+var float tRisk = na
+var float tStop = na
+var float tTgt = na
+var float tp1 = na
+var float curStop = na
+var bool halfDone = false
+var float bankedR = 0.0
+var int entryBar = 0
+var box bTgt = na
+var box bRisk = na
+
+float rhPrev = rthHi
+float rlPrev = rthLo
+bool swH = close[1] > open[1] and close < open
+bool swL = close[1] < open[1] and close > open
+float swHlvl = math.max(high[1], high)
+float swLlvl = math.min(low[1], low)
+bool newEntry = false
+
+// ---------------------------------------------------------------- the day
+if rthStart
+    prevClose := lastClose
+    if not na(rthHi)
+        array.push(ranges, rthHi - rthLo)
+        if array.size(ranges) > rangeDays
+            array.shift(ranges)
+    avgRange := array.size(ranges) >= minSess ? array.avg(ranges) : na
+    rthHi := high
+    rthLo := low
+    gap := open - prevClose
+    gapSize := (na(avgRange) or na(prevClose)) ? na : math.abs(gap) / avgRange
+    dayBig := not na(gapSize) and gapSize >= thr
+    gapUp := gap > 0
+    lowA := na
+    lowB := na
+    lowAbar := na
+    highA := na
+    highB := na
+    highAbar := na
+    extLvl := na
+    extBar := na
+    launch := na
+    legExt := na
+    state := state == 3 ? 3 : (dayBig ? 1 : 0)
+    if state == 1
+        status := "Gap day (" + (gapUp ? "up " : "down ") + str.tostring(gapSize, "0.00") + "x range): waiting for the structure to shift. No entry until it does."
+    else if state == 0
+        status := na(gapSize) ? "Not enough history yet" : "No setup today: the gap is only " + str.tostring(gapSize, "0.00") + "x the average range"
+else if inRTH
+    rthHi := math.max(rthHi, high)
+    rthLo := math.min(rthLo, low)
+if inRTH
+    lastClose := close
+
+// ---------------------------------------------------------------- hunting for the structure shift
+bool doEnter = false
+float eIn = na
+if state == 1 and inRTH
+    if gapUp ? low <= prevClose : high >= prevClose
+        state := 4
+        status := "Yesterday's close was reached before any structure shift: no trade today"
+    else if closeMin > 660
+        state := 4
+        status := "No structure shift by 11:00: no trade today"
+    else
+        // a new session extreme cancels the stored extension until a swing confirms it again
+        if not na(extLvl) and (gapUp ? rthHi > extLvl : rthLo < extLvl)
+            extLvl := na
+        if not na(extLvl) and bar_index > extBar
+            legExt := gapUp ? math.min(legExt, low) : math.max(legExt, high)
+        bool brk = false
+        if not na(extLvl) and not rthStart and closeMin >= 575 and bar_index > extBar
+            brk := gapUp ? (close < launch and close > prevClose) : (close > launch and close < prevClose)
+        if brk
+            if showStructure
+                line.new(extBar - 1, extLvl, bar_index, extLvl, color = color.new(color.orange, 10), style = line.style_dotted, width = 2)
+                label.new(extBar, extLvl, gapUp ? "extension high" : "extension low", style = gapUp ? label.style_label_down : label.style_label_up, color = color.new(color.orange, 30), textcolor = color.white, size = size.tiny)
+                line.new(extBar - 3, launch, bar_index, launch, color = color.new(color.purple, 10), style = line.style_dashed, width = 2)
+                label.new(bar_index, launch, "MSS: closed through " + str.tostring(launch, format.mintick), style = gapUp ? label.style_label_up : label.style_label_down, color = color.new(color.purple, 20), textcolor = color.white, size = size.small, tooltip = "The structure shift: the candle closed beyond the pullback level that launched the last push to the extension.")
+            if retestMode
+                retLvl := extLvl + (legExt - extLvl) * 0.5
+                brkBar := bar_index
+                state := 2
+                status := "Structure shifted. Waiting for a pullback to " + str.tostring(retLvl, format.mintick) + " (cancelled if the extension is exceeded or yesterday's close is touched)"
+                if showStructure
+                    retLine := line.new(bar_index, retLvl, bar_index + 1, retLvl, color = color.new(color.aqua, 0), style = line.style_dashed, width = 2)
+            else
+                doEnter := true
+                eIn := close
+        // confirm the extension with this bar (a swing is known when its second candle closes)
+        if not rthStart and not brk
+            if gapUp and swH and swHlvl >= rthHi
+                extLvl := swHlvl
+                extBar := bar_index
+                launch := (not na(lowA) and lowAbar <= bar_index - 2) ? lowA : (not na(lowB) ? lowB : rlPrev)
+                legExt := low
+            if (not gapUp) and swL and swLlvl <= rthLo
+                extLvl := swLlvl
+                extBar := bar_index
+                launch := (not na(highA) and highAbar <= bar_index - 2) ? highA : (not na(highB) ? highB : rhPrev)
+                legExt := high
+
+// ---------------------------------------------------------------- waiting for the retest
+if state == 2 and bar_index > brkBar and inRTH
+    bool cancel = false
+    string why = ""
+    if gapUp ? high >= extLvl : low <= extLvl
+        cancel := true
+        why := "extension exceeded"
+    else if gapUp ? low <= prevClose : high >= prevClose
+        cancel := true
+        why := "yesterday's close reached first"
+    else if closeMin > 720
+        cancel := true
+        why := "12:00 passed"
+    else if gapUp ? high >= retLvl : low <= retLvl
+        doEnter := true
+        eIn := retLvl
+    if cancel
+        state := 4
+        status := "Retest never came (" + why + "): no trade today"
+        if not na(retLine)
+            line.set_x2(retLine, bar_index)
+            label.new(bar_index, retLvl, "cancelled: " + why, style = label.style_label_left, color = color.new(color.gray, 20), textcolor = color.white, size = size.tiny)
+
+// ---------------------------------------------------------------- place the trade (marked on the chart; this is an indicator, nothing is sent)
+if doEnter
+    float risk = math.max(math.abs(extLvl - eIn) + 2 * syminfo.mintick, 0.05 * avgRange)
+    bool bad = gapUp ? extLvl <= eIn : extLvl >= eIn
+    float tdist = math.abs(eIn - prevClose)
+    if bad or (skipLow and tdist < risk)
+        state := 4
+        status := "Structure shifted but the reward to yesterday's close is under 1R: skipped"
+        if not na(retLine)
+            line.set_x2(retLine, bar_index)
+    else
+        tSide := gapUp ? -1 : 1
+        tEntry := eIn
+        tRisk := risk
+        tStop := eIn - tSide * risk
+        tTgt := prevClose
+        tp1 := eIn + tSide * risk
+        curStop := tStop
+        halfDone := false
+        bankedR := 0.0
+        entryBar := bar_index
+        state := 3
+        newEntry := true
+        status := (tSide < 0 ? "SHORT " : "LONG ") + str.tostring(tEntry, format.mintick) + " | stop " + str.tostring(tStop, format.mintick) + " | target " + str.tostring(tTgt, format.mintick) + " (+" + str.tostring(tdist / risk, "0.0") + "R)"
+        label.new(bar_index, tEntry, (tSide < 0 ? "SHORT " : "LONG ") + str.tostring(tEntry, format.mintick), style = tSide < 0 ? label.style_label_down : label.style_label_up, color = tSide < 0 ? color.new(color.red, 10) : color.new(color.green, 10), textcolor = color.white, size = size.normal)
+        if not na(retLine)
+            line.set_x2(retLine, bar_index)
+        if showBoxes
+            bTgt := box.new(bar_index, math.max(tEntry, tTgt), bar_index + 1, math.min(tEntry, tTgt), border_color = color.new(color.green, 30), bgcolor = color.new(color.green, 85), text = "TARGET " + str.tostring(tTgt, format.mintick) + "   (+" + str.tostring(tdist / risk, "0.0") + "R)", text_color = color.green, text_size = size.small, text_halign = text.align_right, text_valign = tSide < 0 ? text.align_bottom : text.align_top)
+            bRisk := box.new(bar_index, math.max(tEntry, tStop), bar_index + 1, math.min(tEntry, tStop), border_color = color.new(color.red, 30), bgcolor = color.new(color.red, 85), text = "STOP " + str.tostring(tStop, format.mintick) + "   (-1R)", text_color = color.red, text_size = size.small, text_halign = text.align_right, text_valign = tSide < 0 ? text.align_top : text.align_bottom)
+
+// ---------------------------------------------------------------- manage the open trade (stop first, then the half, then the target)
+if state == 3 and bar_index > entryBar
+    if showBoxes
+        box.set_right(bTgt, bar_index)
+        box.set_right(bRisk, bar_index)
+    bool stopHit = tSide < 0 ? high >= curStop : low <= curStop
+    bool halfHit = halfMode and not halfDone and (tSide < 0 ? low <= tp1 : high >= tp1)
+    bool tgtHit = tSide < 0 ? low <= tTgt : high >= tTgt
+    float rem = halfDone ? 0.5 : 1.0
+    bool done = false
+    float res = 0.0
+    float xp = na
+    string how = ""
+    if stopHit
+        done := true
+        xp := curStop
+        res := bankedR + rem * ((curStop - tEntry) * tSide / tRisk)
+        how := halfDone ? "back to breakeven after the half" : "stopped out"
+    else
+        if halfHit
+            halfDone := true
+            bankedR := 0.5
+            curStop := tEntry
+            label.new(bar_index, tp1, "HALF OFF +1R, stop to breakeven", style = label.style_label_left, color = color.new(color.aqua, 20), textcolor = color.white, size = size.tiny)
+        if tgtHit
+            done := true
+            xp := tTgt
+            res := bankedR + (halfDone ? 0.5 : 1.0) * (math.abs(tTgt - tEntry) / tRisk)
+            how := "reached yesterday's close"
+    if done
+        state := 4
+        string cls = res >= 0.15 ? "WIN" : res <= -0.15 ? "LOSS" : "SCRATCH"
+        color col = res >= 0.15 ? color.new(color.green, 15) : res <= -0.15 ? color.new(color.red, 15) : color.new(color.gray, 15)
+        label.new(bar_index, xp, cls + " " + (res >= 0 ? "+" : "") + str.tostring(res, "0.00") + "R  (" + how + ")", style = label.style_label_left, color = col, textcolor = color.white, size = size.normal)
+        status := "Last trade: " + cls + " " + (res >= 0 ? "+" : "") + str.tostring(res, "0.00") + "R (" + how + ")"
+
+// ---------------------------------------------------------------- remember this bar's swings (after everything above has used the older ones)
+if inRTH and not rthStart
+    if swL
+        lowB := lowA
+        lowA := swLlvl
+        lowAbar := bar_index
+    if swH
+        highB := highA
+        highA := swHlvl
+        highAbar := bar_index
+
+bgcolor(dayBig and inRTH ? color.new(color.blue, 96) : na)
+alertcondition(newEntry, "MSS entry", "Structure shift entry on {{ticker}}: see the chart for the stop and target")
+
+// ---------------------------------------------------------------- status card
+var table card = table.new(position.top_right, 1, 1, bgcolor = color.new(color.black, 15), border_width = 0, frame_width = 0)
+if showCard and barstate.islast
+    table.cell(card, 0, 0, status, text_color = color.white, text_halign = text.align_left, text_size = size.small)

@@ -342,3 +342,7 @@ in the Properties tab**: the defaults are zero, so results are before costs. Def
 Each trade ends with a label on the chart, e.g. `LOSS -0.28R (-$18)  closed by the time rule at 1200`, and the boxes show the dollars at stake (`STOP ... -1R = -$66`).
 TradingView's own `+0.9` / `-0.9` marks are the position size, not profit; hide them in Settings > Style > uncheck Signal labels. How far back it tests depends on your TradingView plan
 and the data on that symbol. Research result: no confirmed edge; this is a way to look at it, not a signal.
+
+## Structure-shift entry on gap days (`mss_entry.pine`)
+
+An **indicator** that marks the Phase 132 rule: on a gap day, wait for the session extreme (the extension), then for a candle to close beyond the pullback level that launched it (the market-structure shift). It draws the extension, the break level, the entry (at the break, or a limit at the 50% retest), the stop beyond the extension, the target at yesterday's close, an optional half at +1R, and a WIN/LOSS label. No fixed time and no trade if the shift never prints (a status card top right says why). Use the 1- or 5-minute chart. Research result: no confirmed edge (`docs/PHASE_131_132_STRUCTURE_ENTRY.md`); it is there to compare with how you read structure.
