@@ -40,3 +40,34 @@ the same trade with a smaller stop is simply a bigger position for the same doll
 
 `tradingview/big_gap_fade.pine` now offers all four (Wide / Medium / Fixed / Tight) in the "Stop"
 setting, through one function (`calcRisk`) used by both the dashed plan and the live trade.
+
+## Phase 124: stops and targets from internal structure (the user's own method)
+
+Code: [`phase124_structure_stops.py`](../phase124_structure_stops.py). The user places stops and targets
+on internal 1- and 5-minute swing highs and lows. Same setups, swings = TJR's two-candle definition,
+all known at the 09:44 close (bars from 08:30). Stop = just beyond the NEAREST swing on the far side
+(1-minute S1 or 5-minute S5; one closer than 0.05 × the range is skipped). Targets: yesterday's close
+(PC), the nearest 5-minute swing at least 1R away (STR), or half off at the nearest 5-minute swing at
+least 0.5R away with the stop to breakeven and the rest at yesterday's close (HALF). Average P&L per
+trade as a % of the average daily range (gap ≥ 0.2×; the ≥0.7× runs say the same):
+
+| Mkt | Stop (median size) | Target | n | Win rate | Avg P&L | 95% interval |
+|---|---|---|---|---|---|---|
+| NQ | Wide (140 pts) | yesterday's close | 526 | 50% | +0.8% | −2.7 … +4.3 |
+| NQ | 1-min swing (21 pts) | close / 5m swing / half | 411 | 23% / 33% / 38% | +0.1 / −0.5 / +0.2% | all include 0 |
+| NQ | 5-min swing (33 pts) | close / 5m swing / half | 368 | 33% / 43% / 48% | +0.1 / −0.2 / 0.0% | all include 0 |
+| ES | Wide (25 pts) | yesterday's close | 543 | 49% | +0.6% | −2.6 … +3.9 |
+| ES | 1-min swing (4 pts) | close / 5m swing / half | 422 | 22% / 34% / 39% | −1.3 / −0.7 / −0.9% | all include 0 |
+| ES | 5-min swing (6 pts) | close / 5m swing / half | 387 | 31% / 39% / 47% | −1.6 / −1.9 / −1.4% | all include 0 |
+
+**Reading it:** structure stops are small (about 21–33 NQ points, 4–6 ES points) and every combination
+averages about zero. Taking half off at the first 5-minute level lifts the win rate to 38–51% without
+moving the average, the same pattern as Phase 116b. On ES the very small stops cost a bit more in
+spread and slippage relative to their size. Stop and target placement changes the shape of the results,
+not whether the setup makes money.
+
+**Indicator:** the "Stop" setting now also offers *Structure: beyond the nearest 1-minute swing* and
+*… 5-minute swing*, and a new "Target" setting offers yesterday's close, the nearest 5-minute swing
+(1R or more away), or half at the nearest 5-minute swing with the rest at yesterday's close (a dashed
+aqua line marks the half-off level; the stop moves to breakeven after it). Swings are read from the 1-
+and 5-minute data as of the end of the previous chart bar, so the entry bar only sees swings known before it.

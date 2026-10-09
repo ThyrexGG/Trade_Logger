@@ -32,7 +32,8 @@ rangeDays = input.int(14, "Average range over the last N sessions", minval = 5, 
 grpT = "Trade"
 entryAt = input.string("0945", "Enter at (New York time)", options = ["0935", "0940", "0945", "0950", "1000", "1015", "1030"], group = grpT)
 exitAt = input.string("1200", "Exit at (New York time)", options = ["1100", "1130", "1200", "1300", "1330", "1555"], group = grpT)
-stopMode = input.string("Wide: 1:1 with the target", "Stop", options = ["Wide: 1:1 with the target", "Medium: 0.25 x the average daily range", "Fixed: 0.21% of price (about 64 NQ points)", "Tight: beyond the 09:30-to-entry extreme"], group = grpT, tooltip = "Wide: as far from your entry as the target is, so its size is whatever is left of the gap (median about 140 points on NQ, 25 on ES). Hit about 20% of the time.\nMedium: a quarter of the average daily range (about 60 points on NQ). Hit about 47% of the time.\nFixed: 0.21% of the price, about 64 points on NQ at 31,000, your usual stop. Hit about 60% of the time.\nTight: just beyond the high (gap up) or low (gap down) made since 09:30, about 38 points on NQ. Hit about 61% of the time.\nEvery option averaged about the same tiny result in testing (Phase 123), so pick the one that fits your risk. A smaller stop means a bigger position for the same dollar risk and more small losses.")
+stopMode = input.string("Wide: 1:1 with the target", "Stop", options = ["Wide: 1:1 with the target", "Structure: beyond the nearest 1-minute swing", "Structure: beyond the nearest 5-minute swing", "Medium: 0.25 x the average daily range", "Fixed: 0.21% of price (about 64 NQ points)", "Tight: beyond the 09:30-to-entry extreme"], group = grpT, tooltip = "Structure = how you place stops: just beyond the nearest internal swing high (short) or low (long) on the 1-minute or 5-minute chart, using the two-candle swing definition (a bullish then a bearish candle makes a swing high). About 21 points on NQ for a 1-minute swing, 33 for a 5-minute swing, 4 to 6 points on ES.\nWide: as far from your entry as the target is (median about 140 points on NQ).\nMedium: a quarter of the average daily range. Fixed: 0.21% of the price (about 64 points on NQ). Tight: beyond the high or low made since 09:30.\nEvery option averaged about the same tiny result in testing (Phases 123 and 124), so pick the one that matches how you trade.")
+targetMode = input.string("Yesterday's close", "Target", options = ["Yesterday's close", "Nearest 5-minute swing (1R or more away)", "Half at the nearest 5-minute swing, rest at yesterday's close"], group = grpT, tooltip = "Yesterday's close is the research target. The 5-minute swing is the nearest internal low (short) or high (long) at least 1R away, else yesterday's close. Half off takes half at the nearest 5-minute swing at least 0.5R away, moves the stop to breakeven, and leaves the rest for yesterday's close.")
 
 grpD = "Display"
 showCard = input.bool(true, "Show the summary card (bottom-left)", group = grpD)
@@ -40,10 +41,6 @@ showAllGaps = input.bool(false, "Also label the small gaps on normal days (busy)
 
 minSess = 5
 minRiskAtr = 0.10
-
-// stop distance in points for the chosen option (ep = entry price, dist = distance to the target, far = the 09:30-to-entry extreme on the far side)
-calcRisk(float ep, float dist, float far) =>
-    stopMode == "Wide: 1:1 with the target" ? dist : stopMode == "Medium: 0.25 x the average daily range" ? 0.25 * avgRange : stopMode == "Fixed: 0.21% of price (about 64 NQ points)" ? 0.0021 * ep : math.max(math.abs(far - ep), minRiskAtr * avgRange)
 
 // ---------------------------------------------------------------- session flags
 inRTH = not na(time(timeframe.period, "0930-1600", NY))
@@ -80,6 +77,11 @@ var float distPts = na
 var int side = 0
 var box bTgt = na
 var box bRisk = na
+var float tp1Px = na // optional half-off level
+var float bankedR = 0.0
+var float sizeLeft = 1.0
+var bool halfDone = false
+var line tpLine = na
 var box pTgt = na
 var box pRisk = na
 var line eLine = na // the entry line of the open trade (like TradingView's long/short position tool)
@@ -94,6 +96,79 @@ var float rSum = 0.0
 var string headline = "WARMING UP - scroll the chart left to load more history"
 var color hColor = color.gray
 var string detail = ""
+
+// ---------------------------------------------------------------- internal structure (1- and 5-minute swings)
+// A swing high = a bullish candle followed by a bearish one (price = the higher of the two highs); a swing low is the mirror.
+swingData() =>
+    bool sh = close[1] > open[1] and close < open
+    bool sl = close[1] < open[1] and close > open
+    float hp = math.max(high[1], high)
+    float lp = math.min(low[1], low)
+    [ta.valuewhen(sh, hp, 0), ta.valuewhen(sh, hp, 1), ta.valuewhen(sh, hp, 2), ta.valuewhen(sl, lp, 0), ta.valuewhen(sl, lp, 1), ta.valuewhen(sl, lp, 2)]
+
+[m1h0, m1h1, m1h2, m1l0, m1l1, m1l2] = request.security(syminfo.tickerid, "1", swingData())
+[m5h0, m5h1, m5h2, m5l0, m5l1, m5l2] = request.security(syminfo.tickerid, "5", swingData())
+// the values as of the END OF THE PREVIOUS chart bar, so the entry bar only sees swings known before it opened
+float s1h0 = m1h0[1]
+float s1h1 = m1h1[1]
+float s1h2 = m1h2[1]
+float s1l0 = m1l0[1]
+float s1l1 = m1l1[1]
+float s1l2 = m1l2[1]
+float s5h0 = m5h0[1]
+float s5h1 = m5h1[1]
+float s5h2 = m5h2[1]
+float s5l0 = m5l0[1]
+float s5l1 = m5l1[1]
+float s5l2 = m5l2[1]
+
+nearAbove(float x1, float x2, float x3, float ref, float minGap) =>
+    float best = na
+    if not na(x1) and x1 > ref + minGap
+        best := x1
+    if not na(x2) and x2 > ref + minGap
+        best := na(best) ? x2 : math.min(best, x2)
+    if not na(x3) and x3 > ref + minGap
+        best := na(best) ? x3 : math.min(best, x3)
+    best
+
+nearBelow(float x1, float x2, float x3, float ref, float minGap) =>
+    float best = na
+    if not na(x1) and x1 < ref - minGap
+        best := x1
+    if not na(x2) and x2 < ref - minGap
+        best := na(best) ? x2 : math.max(best, x2)
+    if not na(x3) and x3 < ref - minGap
+        best := na(best) ? x3 : math.max(best, x3)
+    best
+
+// stop distance in points for the chosen option (ep = entry price, dist = distance to yesterday's close, far = the 09:30-to-entry extreme on the far side, up = the stop sits ABOVE the entry, i.e. a short)
+calcRisk(float ep, float dist, float far, bool up) =>
+    float r = na
+    if stopMode == "Wide: 1:1 with the target"
+        r := dist
+    else if stopMode == "Medium: 0.25 x the average daily range"
+        r := 0.25 * avgRange
+    else if stopMode == "Fixed: 0.21% of price (about 64 NQ points)"
+        r := 0.0021 * ep
+    else if stopMode == "Tight: beyond the 09:30-to-entry extreme"
+        r := math.max(math.abs(far - ep), minRiskAtr * avgRange)
+    else
+        bool oneMin = stopMode == "Structure: beyond the nearest 1-minute swing"
+        float sw = up ? (oneMin ? nearAbove(s1h0, s1h1, s1h2, ep, 0.05 * avgRange) : nearAbove(s5h0, s5h1, s5h2, ep, 0.05 * avgRange)) : (oneMin ? nearBelow(s1l0, s1l1, s1l2, ep, 0.05 * avgRange) : nearBelow(s5l0, s5l1, s5l2, ep, 0.05 * avgRange))
+        r := na(sw) ? dist : math.abs(sw - ep) + 2 * syminfo.mintick
+    r
+
+// target (and optional half-off level) for the chosen option; shortTrade = a short
+calcTargets(float ep, float risk, bool shortTrade) =>
+    float tgt = prevClose
+    float tp1 = na
+    if targetMode == "Nearest 5-minute swing (1R or more away)"
+        float sw = shortTrade ? nearBelow(s5l0, s5l1, s5l2, ep, risk) : nearAbove(s5h0, s5h1, s5h2, ep, risk)
+        tgt := na(sw) ? prevClose : sw
+    else if targetMode == "Half at the nearest 5-minute swing, rest at yesterday's close"
+        tp1 := shortTrade ? nearBelow(s5l0, s5l1, s5l2, ep, 0.5 * risk) : nearAbove(s5h0, s5h1, s5h2, ep, 0.5 * risk)
+    [tgt, tp1]
 
 bool newTrade = false
 
@@ -164,17 +239,18 @@ if state == 1 and inRTH and not afterEntry
     else
         int pSide = gapUp ? -1 : 1
         float pDist = math.abs(close - prevClose)
-        float pRiskPts = calcRisk(close, pDist, gapUp ? preHi : preLo)
+        float pRiskPts = calcRisk(close, pDist, gapUp ? preHi : preLo, gapUp)
         float pStop = close - pSide * pRiskPts
-        detail := "Target " + str.tostring(prevClose, format.mintick) + " (yesterday's close)   |   Stop about " + str.tostring(pStop, format.mintick) + "   |   Exit by " + exitAt
-        string tTxt = "TARGET " + str.tostring(prevClose, format.mintick) + "   (+" + str.tostring(pDist / pRiskPts, "0.0") + "R)"
+        [pTargetPx, pTp1Px] = calcTargets(close, pRiskPts, gapUp)
+        detail := "Target " + str.tostring(pTargetPx, format.mintick) + (pTargetPx == prevClose ? " (yesterday's close)" : " (nearest 5-minute swing)") + (na(pTp1Px) ? "" : "   |   Half off " + str.tostring(pTp1Px, format.mintick)) + "   |   Stop about " + str.tostring(pStop, format.mintick) + "   |   Exit by " + exitAt
+        string tTxt = "TARGET " + str.tostring(pTargetPx, format.mintick) + "   (+" + str.tostring(math.abs(close - pTargetPx) / pRiskPts, "0.0") + "R)"
         string rTxt = "STOP about " + str.tostring(pStop, format.mintick) + "   (-1R)"
         if na(pTgt)
-            pTgt := box.new(dayStartBar, math.max(close, prevClose), bar_index + 1, math.min(close, prevClose), border_color = color.new(color.green, 30), border_style = line.style_dashed, bgcolor = color.new(color.green, 92), text = tTxt, text_color = color.green, text_size = size.small, text_halign = text.align_right, text_valign = pSide < 0 ? text.align_bottom : text.align_top)
+            pTgt := box.new(dayStartBar, math.max(close, pTargetPx), bar_index + 1, math.min(close, pTargetPx), border_color = color.new(color.green, 30), border_style = line.style_dashed, bgcolor = color.new(color.green, 92), text = tTxt, text_color = color.green, text_size = size.small, text_halign = text.align_right, text_valign = pSide < 0 ? text.align_bottom : text.align_top)
             pRisk := box.new(dayStartBar, math.max(close, pStop), bar_index + 1, math.min(close, pStop), border_color = color.new(color.red, 30), border_style = line.style_dashed, bgcolor = color.new(color.red, 92), text = rTxt, text_color = color.red, text_size = size.small, text_halign = text.align_right, text_valign = pSide < 0 ? text.align_top : text.align_bottom)
         else
-            box.set_top(pTgt, math.max(close, prevClose))
-            box.set_bottom(pTgt, math.min(close, prevClose))
+            box.set_top(pTgt, math.max(close, pTargetPx))
+            box.set_bottom(pTgt, math.min(close, pTargetPx))
             box.set_right(pTgt, bar_index + 1)
             box.set_text(pTgt, tTxt)
             box.set_top(pRisk, math.max(close, pStop))
@@ -194,18 +270,26 @@ if entryBar and state == 1
     if not touched and okSide
         side := gapUp ? -1 : 1
         entryPx := e
-        tgtPx := prevClose
-        distPts := math.abs(e - prevClose)
-        riskPts := calcRisk(e, distPts, gapUp ? preHi : preLo)
+        riskPts := calcRisk(e, math.abs(e - prevClose), gapUp ? preHi : preLo, gapUp)
+        [tgNew, tp1New] = calcTargets(e, riskPts, gapUp)
+        tgtPx := tgNew
+        tp1Px := tp1New
+        distPts := math.abs(e - tgtPx)
+        bankedR := 0.0
+        sizeLeft := 1.0
+        halfDone := false
         stopPx := e - side * riskPts
         state := 2
         newTrade := true
         headline := (side < 0 ? "SHORT" : "LONG") + " IS ON - entered at " + str.tostring(e, format.mintick)
         hColor := color.aqua
-        detail := "Target " + str.tostring(tgtPx, format.mintick) + "   |   Stop " + str.tostring(stopPx, format.mintick) + "   |   Exit by " + exitAt + " if neither is hit"
+        detail := "Target " + str.tostring(tgtPx, format.mintick) + (na(tp1Px) ? "" : "   |   Half off " + str.tostring(tp1Px, format.mintick)) + "   |   Stop " + str.tostring(stopPx, format.mintick) + "   |   Exit by " + exitAt + " if neither is hit"
         bTgt := box.new(bar_index, math.max(e, tgtPx), bar_index + 1, math.min(e, tgtPx), border_color = color.new(color.green, 30), bgcolor = color.new(color.green, 82), text = "TARGET " + str.tostring(tgtPx, format.mintick) + "   (+" + str.tostring(distPts / riskPts, "0.0") + "R)", text_color = color.green, text_size = size.small, text_halign = text.align_right, text_valign = side < 0 ? text.align_bottom : text.align_top)
         bRisk := box.new(bar_index, math.max(e, stopPx), bar_index + 1, math.min(e, stopPx), border_color = color.new(color.red, 30), bgcolor = color.new(color.red, 82), text = "STOP " + str.tostring(stopPx, format.mintick) + "   (-1R)", text_color = color.red, text_size = size.small, text_halign = text.align_right, text_valign = side < 0 ? text.align_top : text.align_bottom)
         eLine := line.new(bar_index, e, bar_index + 1, e, color = color.new(color.gray, 0), width = 2)
+        tpLine := na(tp1Px) ? na : line.new(bar_index, tp1Px, bar_index + 1, tp1Px, color = color.new(color.aqua, 0), style = line.style_dashed, width = 2)
+        if not na(tp1Px)
+            label.new(bar_index, tp1Px, "HALF OFF " + str.tostring(tp1Px, format.mintick), style = label.style_label_left, color = color.new(color.aqua, 20), textcolor = color.black, size = size.small)
         label.new(bar_index, e, (side < 0 ? "SHORT ▼  " : "LONG ▲  ") + str.tostring(e, format.mintick), style = side < 0 ? label.style_label_down : label.style_label_up, color = side < 0 ? color.new(color.red, 10) : color.new(color.green, 10), textcolor = color.white, size = size.normal, tooltip = "Entry " + str.tostring(e, format.mintick) + "\nTarget " + str.tostring(tgtPx, format.mintick) + "\nStop " + str.tostring(stopPx, format.mintick) + "\nExit at " + exitAt + " if neither is hit.")
     else
         state := 3
@@ -219,18 +303,26 @@ if state == 2
     float res = na
     string how = ""
     if timeUp
-        res := side * (open - entryPx) / riskPts
+        res := bankedR + sizeLeft * side * (open - entryPx) / riskPts
         how := "time exit"
     else if (side > 0 ? low <= stopPx : high >= stopPx)
-        res := -1.0
-        how := "stop hit"
-    else if (side > 0 ? high >= tgtPx : low <= tgtPx)
-        res := distPts / riskPts
-        how := "target hit"
+        res := bankedR + sizeLeft * side * (stopPx - entryPx) / riskPts
+        how := halfDone ? "breakeven after half" : "stop hit"
+    else
+        if not na(tp1Px) and not halfDone and (side > 0 ? high >= tp1Px : low <= tp1Px)
+            bankedR := 0.5 * math.abs(tp1Px - entryPx) / riskPts
+            sizeLeft := 0.5
+            halfDone := true
+            stopPx := entryPx
+        if (side > 0 ? high >= tgtPx : low <= tgtPx)
+            res := bankedR + sizeLeft * distPts / riskPts
+            how := "target hit"
     box.set_right(bTgt, bar_index)
     box.set_right(bRisk, bar_index)
     if not na(eLine)
         line.set_x2(eLine, bar_index)
+    if not na(tpLine)
+        line.set_x2(tpLine, bar_index)
     if not na(res)
         nTr += 1
         rSum += res
