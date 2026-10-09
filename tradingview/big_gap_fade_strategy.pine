@@ -35,7 +35,7 @@ targetMode = input.string("Yesterday's close", "Target", options = ["Yesterday's
 
 grpR = "Position size"
 riskPct = input.float(1.0, "Risk per trade (% of equity)", minval = 0.1, step = 0.1, group = grpR, tooltip = "Quantity = equity x this % / (stop distance x point value). A wide stop means a small position.")
-minQty = input.float(0.01, "Smallest quantity allowed", minval = 0.0001, step = 0.01, group = grpR)
+minQty = input.float(0.01, "Smallest quantity allowed", minval = 0.0001, step = 0.01, group = grpR, tooltip = "Never trades less than the symbol's smallest step (often 1 contract). If one contract risks more than your risk %, it trades one contract anyway, so the real risk is shown in each trade's comment.")
 
 grpD = "Display"
 showBoxes = input.bool(true, "Draw the target / stop boxes", group = grpD)
@@ -185,11 +185,16 @@ if state == 1 and inRTH and closeMin <= entryMin
             float rp = calcRisk(e, math.abs(e - prevClose), gapUp ? preHi : preLo, gapUp)
             float tg = calcTarget(e, rp, gapUp)
             float sp = e - side * rp
-            float qty = math.max(minQty, strategy.equity * riskPct / 100.0 / (rp * syminfo.pointvalue))
+            // TradingView rounds an order down to the symbol's smallest step; a fraction of a contract becomes ZERO and nothing trades.
+            // So round down to the step, and never go below one step (or your own minimum).
+            float step = (na(syminfo.mincontract) or syminfo.mincontract <= 0) ? 1.0 : syminfo.mincontract
+            float rawQty = strategy.equity * riskPct / 100.0 / (rp * syminfo.pointvalue)
+            float qty = math.max(math.floor(rawQty / step) * step, math.max(step, minQty))
+            float riskUsd = qty * rp * syminfo.pointvalue
             riskPts := rp
             tgtPx := tg
             stopPx := sp
-            strategy.entry("GAP", side < 0 ? strategy.short : strategy.long, qty = qty, comment = (side < 0 ? "SHORT toward " : "LONG toward ") + str.tostring(prevClose, format.mintick))
+            strategy.entry("GAP", side < 0 ? strategy.short : strategy.long, qty = qty, comment = (side < 0 ? "SHORT toward " : "LONG toward ") + str.tostring(prevClose, format.mintick) + "  qty " + str.tostring(qty) + "  risk $" + str.tostring(riskUsd, "0"))
             float t1 = calcHalf(e, rp, gapUp)
             if na(t1)
                 strategy.exit("GAP exit", from_entry = "GAP", stop = sp, limit = tg)
