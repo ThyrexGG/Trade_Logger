@@ -38,12 +38,12 @@ thr = input.float(0.2, "Take a setup when the gap is at least x the average dail
 rangeDays = input.int(14, "Average range over the last N sessions", minval = 5, group = grpG)
 
 grpT = "Trade"
-entryMethod = input.string("Structure shift (MSS): enter at the break candle's close", "Entry method", options = ["Structure shift (MSS): enter at the break candle's close", "Structure shift (MSS): wait for a pullback to the 50% level", "Fixed time (the 'Enter at' time below)"], group = grpT, tooltip = "MSS = no fixed time: on a gap day wait for the session extreme (the extension), then for a candle to CLOSE beyond the pullback level that launched it (the market-structure shift), between 09:35 and 11:00 New York. No shift = no trade. Break enters at the close of the CHART bar that contains the 1-minute break (the structure is read from 1-minute data on any chart timeframe). Retest waits for price to pull back to the 50% level of the move (in this tester it fills at the close of the first bar that reaches it, a little later than a true limit order). Fixed time is the old rule.")
+entryMethod = input.string("MSS + FVG: enter when price retests a fair value gap and rejects it (or an inverse FVG)", "Entry method", options = ["MSS + FVG: enter when price retests a fair value gap and rejects it (or an inverse FVG)", "Structure shift (MSS): enter at the break candle's close", "Structure shift (MSS): wait for a pullback to the 50% level", "Fixed time (the 'Enter at' time below)"], group = grpT, tooltip = "MSS + FVG = after the structure shift, wait for a fair value gap (a 3-candle gap in the trade direction formed after the extension) to be retested and respected, or for an INVERSE gap (a gap formed on the way to the extension that the break closed through) to be retested; enter on the rejection candle. MSS = no fixed time: on a gap day wait for the session extreme (the extension), then for a candle to CLOSE beyond the pullback level that launched it (the market-structure shift), between 09:35 and 11:00 New York. No shift = no trade. Break enters at the close of the CHART bar that contains the 1-minute break (the structure is read from 1-minute data on any chart timeframe). Retest waits for price to pull back to the 50% level of the move (in this tester it fills at the close of the first bar that reaches it, a little later than a true limit order). Fixed time is the old rule.")
 entryAt = input.string("0945", "Enter at (New York time; fixed-time method only)", options = ["0935", "0940", "0945", "0950", "1000", "1015", "1030"], group = grpT)
 huntEnd = input.string("1100", "Entry window ends (New York): stop looking for a structure shift", options = ["1000", "1030", "1100", "1130", "1200"], group = grpT, tooltip = "The window is when a setup may be TAKEN (it opens at 09:35). It never closes a trade.")
 beAt = input.string("1200", "From this time, move the stop to breakeven once the trade is in profit", options = ["Off", "1100", "1130", "1200", "1300", "1330"], group = grpT, tooltip = "Instead of closing at a set time: once this time has passed and the trade is in profit, the stop moves to the entry price (all of the position left); a trade that is not in profit is simply left alone.")
 exitAt = input.string("Never: hold until the target, the stop or breakeven", "Close the trade at a set time (New York)", options = ["Never: hold until the target, the stop or breakeven", "1100", "1130", "1200", "1300", "1330", "1555"], group = grpT, tooltip = "Default: no time rule. The trade stays open (even overnight) until price reaches the target, the stop, or the breakeven stop after the half is taken. While a trade is open, a new setup is skipped.")
-stopMode = input.string("MSS: beyond the internal 1-minute swing (the nearest swing against the trade)", "Stop", options = ["MSS: just beyond the extension (the high/low the shift came from)", "MSS: beyond the internal 1-minute swing (the nearest swing against the trade)", "Wide: 1:1 with the target", "Structure: beyond the nearest 1-minute swing", "Structure: beyond the nearest 5-minute swing", "Medium: 0.25 x the average daily range", "Fixed: 0.21% of price (about 64 NQ points)", "Tight: beyond the 09:30-to-entry extreme"], group = grpT, tooltip = "The MSS stop sits just beyond the extension. With the fixed-time entry it behaves like Wide.")
+stopMode = input.string("MSS: beyond the internal 1-minute swing (the nearest swing against the trade)", "Stop", options = ["MSS: just beyond the extension (the high/low the shift came from)", "MSS: beyond the internal 1-minute swing (the nearest swing against the trade)", "FVG: just beyond the gap zone that was respected", "Wide: 1:1 with the target", "Structure: beyond the nearest 1-minute swing", "Structure: beyond the nearest 5-minute swing", "Medium: 0.25 x the average daily range", "Fixed: 0.21% of price (about 64 NQ points)", "Tight: beyond the 09:30-to-entry extreme"], group = grpT, tooltip = "The MSS stop sits just beyond the extension. With the fixed-time entry it behaves like Wide.")
 skipLow = input.bool(true, "MSS entries: skip when the reward is under 1R", group = grpT, tooltip = "Reward = distance to yesterday's close; 1R = the distance from the entry to the stop.")
 targetMode = input.string("Half at the structure near +1R, stop to breakeven, rest at yesterday's close", "Target", options = ["Ladder: a third at each of two structure levels, the last third runs past yesterday's close", "Half at the structure near +1R, stop to breakeven, rest at yesterday's close", "Half at +1R, stop to breakeven, rest at yesterday's close", "Yesterday's close", "Nearest 5-minute swing (1R or more away)", "Half at the nearest 5-minute swing, rest at yesterday's close"], group = grpT, tooltip = "Ladder = a third at the nearest marked high/low (1m/5m swing), a third at the next one, stop to breakeven after the first and behind the first level after the second; the last third is NOT closed at yesterday's close: its stop jumps to yesterday's close and then trails behind each new 5-minute swing.")
 
@@ -67,8 +67,9 @@ closeMin = hour(time_close, NY) * 60 + minute(time_close, NY)
 entryMin = int(str.tonumber(str.substring(entryAt, 0, 2))) * 60 + int(str.tonumber(str.substring(entryAt, 2, 4)))
 noTimeExit = exitAt == "Never: hold until the target, the stop or breakeven"
 mssMode = entryMethod != "Fixed time (the 'Enter at' time below)"
+fvgMode = entryMethod == "MSS + FVG: enter when price retests a fair value gap and rejects it (or an inverse FVG)"
 retestMode = entryMethod == "Structure shift (MSS): wait for a pullback to the 50% level"
-stopWhy = stopMode == "Wide: 1:1 with the target" ? "  = same distance as the target (NOT structure)" : stopMode == "Tight: beyond the 09:30-to-entry extreme" ? "  beyond the high/low of the gap move" : stopMode == "MSS: beyond the internal 1-minute swing (the nearest swing against the trade)" ? "  beyond the internal 1-minute swing" : str.startswith(stopMode, "MSS") ? "  beyond the extension" : str.startswith(stopMode, "Structure") ? "  beyond the nearest swing" : "  fixed size (NOT structure)"
+stopWhy = stopMode == "Wide: 1:1 with the target" ? "  = same distance as the target (NOT structure)" : stopMode == "Tight: beyond the 09:30-to-entry extreme" ? "  beyond the high/low of the gap move" : stopMode == "FVG: just beyond the gap zone that was respected" ? "  beyond the gap zone" : stopMode == "MSS: beyond the internal 1-minute swing (the nearest swing against the trade)" ? "  beyond the internal 1-minute swing" : str.startswith(stopMode, "MSS") ? "  beyond the extension" : str.startswith(stopMode, "Structure") ? "  beyond the nearest swing" : "  fixed size (NOT structure)"
 ladderMode = targetMode == "Ladder: a third at each of two structure levels, the last third runs past yesterday's close"
 huntEndMin = int(str.tonumber(str.substring(huntEnd, 0, 2))) * 60 + int(str.tonumber(str.substring(huntEnd, 2, 4)))
 beOff = beAt == "Off"
@@ -116,6 +117,14 @@ var float highA = na
 var float highB = na
 var int highAidx = na
 var int entriesToday = 0
+var float[] dO = array.new_float()
+var float[] dH = array.new_float()
+var float[] dL = array.new_float()
+var float[] dC = array.new_float()
+var int brkArr = na
+var int khArr = na
+var float fvgH = na
+var float zoneFar = na
 var float extLvl = na
 var float intLvl = na
 var int extBar = na
@@ -171,7 +180,10 @@ nearBelow(float x1, float x2, float x3, float ref, float minGap) =>
 // stop distance in points (ep = entry price, dist = distance to yesterday's close, far = the 09:30-to-entry extreme on the far side, up = the stop sits ABOVE the entry, i.e. a short)
 calcRisk(float ep, float dist, float far, bool up) =>
     float r = na
-    if stopMode == "MSS: beyond the internal 1-minute swing (the nearest swing against the trade)"
+    if stopMode == "FVG: just beyond the gap zone that was respected"
+        float lz = (na(zoneFar) or (up ? zoneFar <= ep : zoneFar >= ep)) ? extLvl : zoneFar
+        r := (na(lz) or (up ? lz <= ep : lz >= ep)) ? dist : math.max(math.abs(lz - ep) + 2 * syminfo.mintick, 0.05 * avgRange)
+    else if stopMode == "MSS: beyond the internal 1-minute swing (the nearest swing against the trade)"
         float lv = (na(intLvl) or (up ? intLvl <= ep : intLvl >= ep)) ? extLvl : intLvl
         r := (na(lv) or (up ? lv <= ep : lv >= ep)) ? dist : math.max(math.abs(lv - ep) + 2 * syminfo.mintick, 0.05 * avgRange)
     else if stopMode == "MSS: just beyond the extension (the high/low the shift came from)"
@@ -239,6 +251,66 @@ ladderLevels(float ep, float risk, bool shortTrade, float tdist) =>
             d2 := 0.5 * (d1 + tdist)
     [na(d1) ? na : (shortTrade ? ep - d1 : ep + d1), na(d2) ? na : (shortTrade ? ep - d2 : ep + d2)]
 
+// fair value gap helpers. s = +1 for a short, -1 for a long: the long case is the short case with prices negated (highs and lows swap)
+fO(int i, float sg) => sg * array.get(dO, i)
+fC(int i, float sg) => sg * array.get(dC, i)
+fH(int i, float sg) => sg > 0 ? array.get(dH, i) : -array.get(dL, i)
+fL(int i, float sg) => sg > 0 ? array.get(dL, i) : -array.get(dH, i)
+
+// Does 1-minute bar t (after the structure break at bar k, extension bar kh) retest and REJECT a fair value gap or an inverse one?
+// Returns [code, zone bottom, zone top] in flipped space; code 1 = FVG respected, 2 = inverse FVG respected, -1 = setup dead (extension taken or yesterday's close touched), 0 = nothing yet.
+checkFvg(int t, int k, int kh, float sg, float pcS, float hS) =>
+    int code = 0
+    float zb = na
+    float zt = na
+    float ht = fH(t, sg)
+    float lt = fL(t, sg)
+    float ct = fC(t, sg)
+    float ot = fO(t, sg)
+    if ht >= hS or lt <= pcS
+        code := -1
+    else
+        // (1) a gap in the trade direction formed after the extension, newest first
+        int span = (t - 1) - (kh + 2) + 1
+        if span > 0
+            for q = 0 to span - 1
+                int j = t - 1 - q
+                if code == 0 and fH(j, sg) < fL(j - 2, sg)
+                    float bot = fH(j, sg)
+                    float top = fL(j - 2, sg)
+                    bool dead = false
+                    if t - 1 >= j + 1
+                        for u = j + 1 to t - 1
+                            if fC(u, sg) > top
+                                dead := true
+                    if not dead and ht >= bot and ct < top and ct < ot
+                        code := 1
+                        zb := bot
+                        zt := top
+        // (2) an inverse gap: a gap AGAINST the trade formed before the break that a candle then closed through
+        if code == 0 and k >= 2
+            for q = 0 to k - 2
+                int j = k - q
+                if code == 0 and fL(j, sg) > fH(j - 2, sg)
+                    float bot = fH(j - 2, sg)
+                    float top = fL(j, sg)
+                    int inv = -1
+                    if k >= j + 1
+                        for u = j + 1 to k
+                            if inv < 0 and fC(u, sg) < bot
+                                inv := u
+                    if inv >= 0
+                        bool dead = false
+                        if t - 1 >= inv + 1
+                            for u = inv + 1 to t - 1
+                                if fC(u, sg) > top
+                                    dead := true
+                        if not dead and ht >= bot and ct < top and ct < ot
+                            code := 2
+                            zb := bot
+                            zt := top
+    [code, zb, zt]
+
 // optional half-off level
 calcHalf(float ep, float risk, bool shortTrade) =>
     float tp1 = na
@@ -304,6 +376,11 @@ if rthStart
     pH1 := na
     pL1 := na
     entriesToday := 0
+    array.clear(dO)
+    array.clear(dH)
+    array.clear(dL)
+    array.clear(dC)
+    zoneFar := na
     extLvl := na
     intLvl := na
     extBar := na
@@ -334,6 +411,14 @@ if mssMode
         array.push(m1h, high)
         array.push(m1l, low)
         array.push(m1c, close)
+
+int arrBefore = array.size(dO)
+if mssMode and inRTH and array.size(m1h) > 0
+    for jp = 0 to array.size(m1h) - 1
+        array.push(dO, array.get(m1o, jp))
+        array.push(dH, array.get(m1h, jp))
+        array.push(dL, array.get(m1l, jp))
+        array.push(dC, array.get(m1c, jp))
 
 // ---------------------------------------------------------------- finding the entry
 bool doEnter = false
@@ -398,7 +483,21 @@ if state == 1 and inRTH and mssMode and array.size(m1h) > 0
                     label.new(extBar, extLvl, gapUp ? "extension high" : "extension low", style = gapUp ? label.style_label_down : label.style_label_up, color = color.new(color.orange, 30), textcolor = color.white, size = size.tiny)
                     line.new(extBar - 3, launch, bar_index, launch, color = color.new(color.purple, 10), style = line.style_dashed, width = 2)
                     label.new(bar_index, launch, "MSS (1m): closed through " + str.tostring(launch, format.mintick), style = gapUp ? label.style_label_up : label.style_label_down, color = color.new(color.purple, 20), textcolor = color.white, size = size.small)
-                if retestMode
+                if fvgMode
+                    brkArr := arrBefore + j
+                    float sg0 = gapUp ? 1.0 : -1.0
+                    int khx = 0
+                    float bestH = na
+                    for qq = 0 to brkArr
+                        float vv = fH(qq, sg0)
+                        if na(bestH) or vv > bestH
+                            bestH := vv
+                            khx := qq
+                    khArr := khx
+                    fvgH := extLvl
+                    brkBar := bar_index
+                    state := 7
+                else if retestMode
                     retLvl := extLvl + (legExt - extLvl) * 0.5
                     brkBar := bar_index
                     state := 5
@@ -437,6 +536,27 @@ if state == 1 and inRTH and mssMode and array.size(m1h) > 0
         subIdx += 1
     if state == 6
         state := 1  // handed to the placement code below
+
+// (b2) after the structure shift: wait for a fair value gap to be retested and respected (or an inverse one), 1-minute bar by 1-minute bar
+if state == 7 and inRTH
+    float sS = gapUp ? 1.0 : -1.0
+    int nTot = array.size(dO)
+    int tStart = math.max(arrBefore, brkArr + 1)
+    if closeMin > huntEndMin + 60
+        state := 3
+    else if tStart <= nTot - 1
+        for t = tStart to nTot - 1
+            [code, zb, zt] = checkFvg(t, brkArr, khArr, sS, sS * prevClose, sS * fvgH)
+            if code < 0
+                state := 3
+                break
+            if code > 0
+                doEnter := true
+                eIn := close
+                zoneFar := sS * zt
+                if showStructure
+                    box.new(bar_index - 3, math.max(sS * zb, sS * zt), bar_index + 1, math.min(sS * zb, sS * zt), border_color = color.new(color.teal, 20), bgcolor = color.new(color.teal, 85), text = code == 1 ? "FVG respected" : "inverse FVG respected", text_color = color.teal, text_size = size.tiny)
+                break
 
 // (c) waiting for the retest of the 50% level, checked 1-minute bar by 1-minute bar from the next chart bar on
 if state == 5 and bar_index > brkBar and inRTH and array.size(m1h) > 0
