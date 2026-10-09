@@ -218,7 +218,7 @@ export function RiskGatewayScreen() {
           </View>
 
           <Pressable onPress={() => void calculate()} disabled={busy} style={[styles.primary, busy && { opacity: 0.6 }]} accessibilityRole="button">
-            {busy ? <ActivityIndicator color="#000" /> : <Text style={styles.primaryText}>Calculate risk</Text>}
+            {busy ? <ActivityIndicator color={colors.accentInk} /> : <Text style={styles.primaryText}>Calculate risk</Text>}
           </Pressable>
 
           {error ? (
@@ -288,7 +288,7 @@ export function RiskGatewayScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl * 2 },
-  lock: { borderColor: 'rgba(239,68,68,0.3)', borderWidth: 1, backgroundColor: 'rgba(239,68,68,0.08)', borderRadius: radius.md, padding: spacing.md },
+  lock: { borderColor: colors.negativeLine, borderWidth: 1, backgroundColor: colors.negativeSoft, borderRadius: radius.md, padding: spacing.md },
   lockText: { color: colors.negative, fontSize: 12 },
   field: { gap: 4 },
   row: { flexDirection: 'row', gap: spacing.md },
@@ -306,18 +306,18 @@ const styles = StyleSheet.create({
   fieldError: { color: colors.negative, fontSize: 11 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   chip: { borderColor: colors.border, borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
-  chipOn: { borderColor: 'rgba(240,185,11,0.5)', backgroundColor: 'rgba(240,185,11,0.12)' },
+  chipOn: { borderColor: colors.accentLine, backgroundColor: colors.accentSoft },
   chipText: { color: colors.textSecondary, fontSize: 12 },
   chipTextOn: { color: colors.accent },
   sideRow: { flexDirection: 'row', gap: spacing.sm },
   side: { flex: 1, alignItems: 'center', paddingVertical: spacing.md, borderRadius: radius.md, borderWidth: 1 },
   sideText: { fontWeight: '700', fontSize: 14 },
   primary: { backgroundColor: colors.accent, borderRadius: radius.md, alignItems: 'center', paddingVertical: spacing.md + 2 },
-  primaryText: { color: '#000', fontWeight: '700', fontSize: 16 },
+  primaryText: { color: colors.accentInk, fontWeight: '700', fontSize: 16 },
   box: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.sm },
   muted: { color: colors.textMuted, fontSize: 13 },
   stale: { color: colors.warning, fontSize: 12 },
-  errBox: { backgroundColor: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.4)', borderWidth: 1, borderRadius: radius.md, padding: spacing.md, gap: 2 },
+  errBox: { backgroundColor: colors.negativeSoft, borderColor: colors.negativeLine, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, gap: 2 },
   errorTitle: { color: colors.negative, fontWeight: '700', fontSize: 13 },
   errorLine: { color: colors.negative, fontSize: 13 },
   lots: { color: colors.textPrimary, fontSize: 34, fontWeight: '800', fontVariant: ['tabular-nums'] },
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
   metric: { width: '47%' },
   metricValue: { color: colors.textPrimary, fontSize: 16, fontWeight: '600', fontVariant: ['tabular-nums'], marginTop: 2 },
   metricSub: { color: colors.textMuted, fontSize: 11 },
-  warnBox: { backgroundColor: 'rgba(245,158,11,0.1)', borderColor: 'rgba(245,158,11,0.3)', borderWidth: 1, borderRadius: radius.md, padding: spacing.md, gap: 2 },
+  warnBox: { backgroundColor: colors.warningSoft, borderColor: colors.warningLine, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, gap: 2 },
   warnTitle: { color: colors.warning, fontWeight: '700', fontSize: 12 },
   warnLine: { color: colors.warning, fontSize: 13 },
 })

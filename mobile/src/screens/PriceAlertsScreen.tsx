@@ -159,7 +159,7 @@ export function PriceAlertsScreen() {
             />
             {formError ? <Text style={styles.error}>{formError}</Text> : null}
             <Pressable onPress={() => void submit()} disabled={saving} style={[styles.primary, saving && { opacity: 0.6 }]} accessibilityRole="button">
-              {saving ? <ActivityIndicator color="#000" /> : <Text style={styles.primaryText}>Add alert</Text>}
+              {saving ? <ActivityIndicator color={colors.accentInk} /> : <Text style={styles.primaryText}>Add alert</Text>}
             </Pressable>
             <Text style={styles.note}>
               The server checks alerts about every 2 minutes against public market prices, which can differ slightly from your broker's. You get a notification when one is hit. This only notifies you — it never places a trade.
@@ -252,11 +252,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  condOn: { borderColor: 'rgba(240,185,11,0.5)', backgroundColor: 'rgba(240,185,11,0.12)' },
+  condOn: { borderColor: colors.accentLine, backgroundColor: colors.accentSoft },
   condText: { color: colors.textSecondary, fontSize: 13, fontWeight: '600' },
   condTextOn: { color: colors.accent },
   primary: { backgroundColor: colors.accent, borderRadius: radius.md, alignItems: 'center', paddingVertical: spacing.md },
-  primaryText: { color: '#000', fontWeight: '700', fontSize: 15 },
+  primaryText: { color: colors.accentInk, fontWeight: '700', fontSize: 15 },
   note: { color: colors.textMuted, fontSize: 11 },
   error: { color: colors.negative, fontSize: 13 },
   section: { color: colors.textSecondary, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginTop: spacing.md },

@@ -150,8 +150,8 @@ const styles = StyleSheet.create({
   syncBtn: {
     minWidth: 92,
     alignItems: 'center',
-    borderColor: 'rgba(240,185,11,0.4)',
-    backgroundColor: 'rgba(240,185,11,0.1)',
+    borderColor: colors.accentLine,
+    backgroundColor: colors.accentSoft,
     borderWidth: 1,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
@@ -175,8 +175,8 @@ const styles = StyleSheet.create({
   totalValue: { fontSize: 24, fontWeight: '700', fontVariant: ['tabular-nums'] },
   warn: {
     color: colors.warning,
-    backgroundColor: 'rgba(245,158,11,0.1)',
-    borderColor: 'rgba(245,158,11,0.3)',
+    backgroundColor: colors.warningSoft,
+    borderColor: colors.warningLine,
     borderWidth: 1,
     borderRadius: radius.md,
     marginHorizontal: spacing.lg,
@@ -186,8 +186,8 @@ const styles = StyleSheet.create({
   },
   err: {
     color: colors.negative,
-    backgroundColor: 'rgba(239,68,68,0.1)',
-    borderColor: 'rgba(239,68,68,0.3)',
+    backgroundColor: colors.negativeSoft,
+    borderColor: colors.negativeLine,
     borderWidth: 1,
     borderRadius: radius.md,
     marginHorizontal: spacing.lg,
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
   centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   card: {
     backgroundColor: colors.surface,
-    borderColor: 'rgba(240,185,11,0.3)',
+    borderColor: colors.accentLine,
     borderWidth: 1,
     borderRadius: radius.lg,
     padding: spacing.lg,

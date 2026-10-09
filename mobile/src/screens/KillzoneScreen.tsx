@@ -206,7 +206,7 @@ export function KillzoneScreen() {
             ))}
           </View>
           <Pressable onPress={() => scan(symbol, ltf)} disabled={loading} style={[styles.primary, loading && { opacity: 0.6 }]} accessibilityRole="button">
-            {loading ? <ActivityIndicator color="#000" /> : <Text style={styles.primaryText}>Scan now</Text>}
+            {loading ? <ActivityIndicator color={colors.accentInk} /> : <Text style={styles.primaryText}>Scan now</Text>}
           </Pressable>
           {data ? (
             <Text style={styles.muted}>
@@ -387,16 +387,16 @@ const styles = StyleSheet.create({
   },
   chips: { gap: spacing.sm, paddingRight: spacing.lg },
   chip: { borderColor: colors.border, borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
-  chipOn: { borderColor: 'rgba(240,185,11,0.5)', backgroundColor: 'rgba(240,185,11,0.12)' },
+  chipOn: { borderColor: colors.accentLine, backgroundColor: colors.accentSoft },
   chipText: { color: colors.textSecondary, fontSize: 12, fontWeight: '600' },
   chipTextOn: { color: colors.accent },
   ltfRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
   label: { color: colors.textMuted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6, marginRight: spacing.xs },
   primary: { backgroundColor: colors.accent, borderRadius: radius.md, alignItems: 'center', paddingVertical: spacing.md },
-  primaryText: { color: '#000', fontWeight: '700', fontSize: 15 },
+  primaryText: { color: colors.accentInk, fontWeight: '700', fontSize: 15 },
   muted: { color: colors.textMuted, fontSize: 12 },
   body: { color: colors.textPrimary, fontSize: 14, lineHeight: 20 },
-  errBox: { backgroundColor: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.4)', borderWidth: 1, borderRadius: radius.md, padding: spacing.md },
+  errBox: { backgroundColor: colors.negativeSoft, borderColor: colors.negativeLine, borderWidth: 1, borderRadius: radius.md, padding: spacing.md },
   errText: { color: colors.negative, fontSize: 13 },
   rowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, alignItems: 'center' },
   pill: { borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: 7, paddingVertical: 2 },
@@ -410,9 +410,9 @@ const styles = StyleSheet.create({
   plan: { color: colors.textPrimary, fontSize: 13, fontVariant: ['tabular-nums'] },
   stars: { fontSize: 16, letterSpacing: 2 },
   factor: { fontSize: 12 },
-  planBtn: { alignSelf: 'flex-start', borderColor: 'rgba(240,185,11,0.5)', backgroundColor: 'rgba(240,185,11,0.1)', borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
-  planBtnOn: { backgroundColor: 'rgba(240,185,11,0.28)' },
-  shareBtn: { alignSelf: 'flex-start', borderColor: 'rgba(240,185,11,0.5)', backgroundColor: 'rgba(240,185,11,0.1)', borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
+  planBtn: { alignSelf: 'flex-start', borderColor: colors.accentLine, backgroundColor: colors.accentSoft, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
+  planBtnOn: { backgroundColor: colors.accentSoftStrong },
+  shareBtn: { alignSelf: 'flex-start', borderColor: colors.accentLine, backgroundColor: colors.accentSoft, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
   planBtnText: { color: colors.accent, fontWeight: '700', fontSize: 13 },
   disclaimer: { color: colors.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'center' },
 })

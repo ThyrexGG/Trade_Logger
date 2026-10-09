@@ -278,7 +278,7 @@ export function ManualTradeScreen() {
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
           <Pressable onPress={() => void submit()} disabled={busy} style={[styles.primary, busy && { opacity: 0.6 }]} accessibilityRole="button">
-            {busy ? <ActivityIndicator color="#000" /> : <Text style={styles.primaryText}>{editing ? 'Save changes' : 'Save trade'}</Text>}
+            {busy ? <ActivityIndicator color={colors.accentInk} /> : <Text style={styles.primaryText}>{editing ? 'Save changes' : 'Save trade'}</Text>}
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
   inputText: { color: colors.textPrimary, fontSize: 15 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   chip: { borderColor: colors.border, borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
-  chipOn: { borderColor: 'rgba(240,185,11,0.5)', backgroundColor: 'rgba(240,185,11,0.12)' },
+  chipOn: { borderColor: colors.accentLine, backgroundColor: colors.accentSoft },
   chipText: { color: colors.textSecondary, fontSize: 12 },
   chipTextOn: { color: colors.accent },
   dirRow: { flexDirection: 'row', gap: spacing.sm },
@@ -314,5 +314,5 @@ const styles = StyleSheet.create({
   net: { fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
   error: { color: colors.negative, fontSize: 13 },
   primary: { backgroundColor: colors.accent, borderRadius: radius.md, alignItems: 'center', paddingVertical: spacing.md + 2 },
-  primaryText: { color: '#000', fontWeight: '700', fontSize: 16 },
+  primaryText: { color: colors.accentInk, fontWeight: '700', fontSize: 16 },
 })

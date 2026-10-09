@@ -109,8 +109,8 @@ export function MonthCalendar({ daily, onDayPress }: { daily: DailyPnl[]; onDayP
                 v === undefined || v === 0
                   ? undefined
                   : v > 0
-                    ? `rgba(16,185,129,${0.14 + 0.4 * (v / maxAbs)})`
-                    : `rgba(239,68,68,${0.14 + 0.4 * (Math.abs(v) / maxAbs)})`
+                    ? `rgba(61,220,151,${0.14 + 0.4 * (v / maxAbs)})`
+                    : `rgba(248,113,113,${0.14 + 0.4 * (Math.abs(v) / maxAbs)})`
               const inner = (
                 <View style={[styles.cell, tint ? { backgroundColor: tint } : null]}>
                   <Text style={styles.dayNum}>{c.day}</Text>

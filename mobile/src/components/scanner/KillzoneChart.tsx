@@ -119,16 +119,16 @@ export function KillzoneChart({
     const add = (l: LevelLine) => {
       if (Number.isFinite(l.price)) out.push(l)
     }
-    ;(liquidity?.bsl ?? []).forEach((p, i) => add({ key: `bsl${i}`, price: p.price, color: rgba('239,68,68', 0.7), dash: '5,4', width: 1, tag: 'BSL' }))
-    ;(liquidity?.ssl ?? []).forEach((p, i) => add({ key: `ssl${i}`, price: p.price, color: rgba('34,197,94', 0.7), dash: '5,4', width: 1, tag: 'SSL' }))
+    ;(liquidity?.bsl ?? []).forEach((p, i) => add({ key: `bsl${i}`, price: p.price, color: rgba('248,113,113', 0.7), dash: '5,4', width: 1, tag: 'BSL' }))
+    ;(liquidity?.ssl ?? []).forEach((p, i) => add({ key: `ssl${i}`, price: p.price, color: rgba('61,220,151', 0.7), dash: '5,4', width: 1, tag: 'SSL' }))
     fvgs.forEach((f, i) => {
-      const c = f.type === 'Bullish' ? rgba('34,197,94', 0.55) : rgba('239,68,68', 0.55)
+      const c = f.type === 'Bullish' ? rgba('61,220,151', 0.55) : rgba('248,113,113', 0.55)
       add({ key: `fvgt${i}`, price: f.top, color: c, dash: '2,3', width: 1, tag: 'FVG' })
       add({ key: `fvgb${i}`, price: f.bottom, color: c, dash: '2,3', width: 1, tag: 'FVG' })
     })
     if (levels.prevDay) {
-      add({ key: 'pdh', price: levels.prevDay.high, color: rgba('59,130,246', 0.85), dash: '2,3', width: 1, tag: 'PDH' })
-      add({ key: 'pdl', price: levels.prevDay.low, color: rgba('59,130,246', 0.85), dash: '2,3', width: 1, tag: 'PDL' })
+      add({ key: 'pdh', price: levels.prevDay.high, color: rgba('139,156,255', 0.85), dash: '2,3', width: 1, tag: 'PDH' })
+      add({ key: 'pdl', price: levels.prevDay.low, color: rgba('139,156,255', 0.85), dash: '2,3', width: 1, tag: 'PDL' })
     }
     if (levels.prevWeek) {
       add({ key: 'pwh', price: levels.prevWeek.high, color: rgba('168,85,247', 0.85), dash: '2,3', width: 1, tag: 'PWH' })
@@ -349,7 +349,7 @@ export function KillzoneChart({
             })}
             {lines.map((l, i) => (
               <G key={l.key}>
-                <Rect x={1} y={tagYs[i] - TAG_H / 2} width={AXIS_W - 2} height={TAG_H} rx={3} fill="#0a0a0a" stroke={l.color} strokeWidth={1} />
+                <Rect x={1} y={tagYs[i] - TAG_H / 2} width={AXIS_W - 2} height={TAG_H} rx={3} fill={colors.background} stroke={l.color} strokeWidth={1} />
                 <SvgText x={AXIS_W - 5} y={tagYs[i] + 3} fontSize={8.5} fill={colors.textPrimary} textAnchor="end">
                   {`${l.tag} ${formatPrice(l.price)}`}
                 </SvgText>
@@ -373,12 +373,12 @@ const styles = StyleSheet.create({
   controlRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
   label: { color: colors.textMuted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6, marginRight: spacing.xs, width: 52 },
   chip: { borderColor: colors.border, borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 5 },
-  chipOn: { borderColor: 'rgba(240,185,11,0.5)', backgroundColor: 'rgba(240,185,11,0.12)' },
+  chipOn: { borderColor: colors.accentLine, backgroundColor: colors.accentSoft },
   chipText: { color: colors.textSecondary, fontSize: 12, fontWeight: '600' },
   chipTextOn: { color: colors.accent },
   readout: { color: colors.textSecondary, fontSize: 11, fontVariant: ['tabular-nums'] },
-  plot: { flexDirection: 'row', backgroundColor: '#0d0d0d', borderColor: colors.borderSubtle, borderWidth: 1, borderRadius: radius.md, overflow: 'hidden' },
-  axis: { backgroundColor: '#0d0d0d', borderLeftColor: colors.borderSubtle, borderLeftWidth: 1 },
+  plot: { flexDirection: 'row', backgroundColor: colors.surface, borderColor: colors.borderSubtle, borderWidth: 1, borderRadius: radius.md, overflow: 'hidden' },
+  axis: { backgroundColor: colors.surface, borderLeftColor: colors.borderSubtle, borderLeftWidth: 1 },
   empty: { alignItems: 'center', justifyContent: 'center' },
   muted: { color: colors.textMuted, fontSize: 11, lineHeight: 16 },
   error: { color: colors.negative, fontSize: 13 },

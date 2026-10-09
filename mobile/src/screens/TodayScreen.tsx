@@ -246,9 +246,9 @@ const styles = StyleSheet.create({
   line: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md },
   lineLabel: { color: colors.textPrimary, fontSize: 14, flexShrink: 1 },
   lineValue: { color: colors.textPrimary, fontSize: 14, fontVariant: ['tabular-nums'] },
-  linkBtn: { alignSelf: 'flex-start', borderColor: 'rgba(240,185,11,0.5)', backgroundColor: 'rgba(240,185,11,0.1)', borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
+  linkBtn: { alignSelf: 'flex-start', borderColor: colors.accentLine, backgroundColor: colors.accentSoft, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
   linkText: { color: colors.accent, fontWeight: '700', fontSize: 13 },
-  errBox: { backgroundColor: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.4)', borderWidth: 1, borderRadius: radius.md, padding: spacing.md },
+  errBox: { backgroundColor: colors.negativeSoft, borderColor: colors.negativeLine, borderWidth: 1, borderRadius: radius.md, padding: spacing.md },
   errText: { color: colors.negative, fontSize: 13 },
   disclaimer: { color: colors.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'center' },
 })

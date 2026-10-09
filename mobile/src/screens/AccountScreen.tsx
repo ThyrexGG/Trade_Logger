@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
   lockText: { flex: 1, gap: 2 },
   lockTitle: { color: colors.textPrimary, fontSize: 15, fontWeight: '600' },
   lockSub: { color: colors.textMuted, fontSize: 12 },
-  testBtn: { borderColor: 'rgba(240,185,11,0.4)', borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm + 2 },
+  testBtn: { borderColor: colors.accentLine, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm + 2 },
   testText: { color: colors.accent, fontSize: 13, fontWeight: '600' },
   lockError: { color: colors.negative, fontSize: 12, marginTop: -spacing.sm },
   pill: {

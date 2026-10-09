@@ -131,8 +131,8 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   err: {
     color: colors.negative,
-    backgroundColor: 'rgba(239,68,68,0.1)',
-    borderColor: 'rgba(239,68,68,0.3)',
+    backgroundColor: colors.negativeSoft,
+    borderColor: colors.negativeLine,
     borderWidth: 1,
     borderRadius: radius.md,
     margin: spacing.lg,
@@ -142,8 +142,8 @@ const styles = StyleSheet.create({
   list: { padding: spacing.lg, gap: spacing.md, flexGrow: 1 },
   newBtn: {
     alignItems: 'center',
-    borderColor: 'rgba(240,185,11,0.4)',
-    backgroundColor: 'rgba(240,185,11,0.1)',
+    borderColor: colors.accentLine,
+    backgroundColor: colors.accentSoft,
     borderWidth: 1,
     borderRadius: radius.md,
     paddingVertical: spacing.md,

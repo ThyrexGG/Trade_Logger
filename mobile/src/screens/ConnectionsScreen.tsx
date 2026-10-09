@@ -178,7 +178,7 @@ export function ConnectionsScreen() {
                 <Field label="API password" value={password} onChangeText={setPassword} secure />
                 <View style={styles.switchRow}>
                   <Text style={styles.body}>Demo account</Text>
-                  <Switch value={isDemo} onValueChange={setIsDemo} trackColor={{ true: 'rgba(240,185,11,0.5)', false: colors.border }} thumbColor={isDemo ? colors.accent : colors.textMuted} />
+                  <Switch value={isDemo} onValueChange={setIsDemo} trackColor={{ true: colors.accentLine, false: colors.border }} thumbColor={isDemo ? colors.accent : colors.textMuted} />
                 </View>
                 {formError ? <Text style={styles.error}>{formError}</Text> : null}
                 <Button label="Add connection" busy={adding} onPress={() => void add()} />

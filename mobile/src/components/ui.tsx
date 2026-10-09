@@ -59,9 +59,9 @@ export function Button({
       style={[styles.btn, kind === 'primary' ? styles.btnPrimary : kind === 'danger' ? styles.btnDanger : styles.btnSecondary, off && { opacity: 0.55 }]}
     >
       {busy ? (
-        <ActivityIndicator color={kind === 'primary' ? '#000' : kind === 'danger' ? colors.negative : colors.accent} />
+        <ActivityIndicator color={kind === 'primary' ? colors.accentInk : kind === 'danger' ? colors.negative : colors.accent} />
       ) : (
-        <Text style={[styles.btnText, kind === 'primary' ? { color: '#000' } : kind === 'danger' ? { color: colors.negative } : { color: colors.accent }]}>{label}</Text>
+        <Text style={[styles.btnText, kind === 'primary' ? { color: colors.accentInk } : kind === 'danger' ? { color: colors.negative } : { color: colors.accent }]}>{label}</Text>
       )}
     </Pressable>
   )
@@ -127,8 +127,8 @@ const styles = StyleSheet.create({
   barFill: { height: 8, borderRadius: radius.pill },
   btn: { borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.md, paddingHorizontal: spacing.lg, borderWidth: 1 },
   btnPrimary: { backgroundColor: colors.accent, borderColor: colors.accent },
-  btnSecondary: { backgroundColor: 'rgba(240,185,11,0.1)', borderColor: 'rgba(240,185,11,0.5)' },
-  btnDanger: { backgroundColor: 'rgba(239,68,68,0.08)', borderColor: 'rgba(239,68,68,0.5)' },
+  btnSecondary: { backgroundColor: colors.accentSoft, borderColor: colors.accentLine },
+  btnDanger: { backgroundColor: colors.negativeSoft, borderColor: colors.negativeLine },
   btnText: { fontWeight: '700', fontSize: 14 },
   field: { gap: 4 },
   label: { color: colors.textMuted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6 },

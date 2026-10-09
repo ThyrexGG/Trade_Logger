@@ -30,7 +30,7 @@ async function acquireToken(): Promise<string> {
       name: 'Trades',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 200, 100, 200],
-      lightColor: '#f0b90b',
+      lightColor: '#5ad1f5',
     })
   }
 

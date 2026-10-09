@@ -168,8 +168,8 @@ const styles = StyleSheet.create({
   addBtn: {
     minWidth: 64,
     alignItems: 'center',
-    borderColor: 'rgba(240,185,11,0.4)',
-    backgroundColor: 'rgba(240,185,11,0.1)',
+    borderColor: colors.accentLine,
+    backgroundColor: colors.accentSoft,
     borderWidth: 1,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,

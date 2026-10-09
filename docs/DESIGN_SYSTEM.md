@@ -287,3 +287,7 @@ Don't run the full `pytest` suite at the same time: its fixtures delete
 | 2026-10-08 | `1fede99` | Precision system, trader's-day navigation, Overview command centre |
 | 2026-10-08 | `230c301` | New logo and all brand assets, login and legal screens, branded reset email; see [BRAND.md](BRAND.md) |
 | 2026-10-08 | (this change) | Link chips + link editor on notes and trade cards; see [JOURNAL_LINKS.md](JOURNAL_LINKS.md) |
+
+## Phone app
+
+`mobile/src/theme.ts` mirrors the dark tokens above (navy ground, ice-cyan accent `#5ad1f5`, green `#3ddc97` / red `#f87171` / amber `#f5b23d`, radii 5/8/10), so the phone matches the desktop app. Selected chips and outlined buttons use `colors.accentSoft` / `colors.accentLine`; text on the accent fill uses `colors.accentInk`. The phone is dark-only and still uses the system font (Geist is not bundled). Change the tokens in `theme.ts`, never hard-code gold or old reds in a screen.

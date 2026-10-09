@@ -15,8 +15,8 @@ export function ConnectionBanner() {
 
 const styles = StyleSheet.create({
   banner: {
-    backgroundColor: 'rgba(239,68,68,0.12)',
-    borderColor: 'rgba(239,68,68,0.35)',
+    backgroundColor: colors.negativeSoft,
+    borderColor: colors.negativeLine,
     borderWidth: 1,
     borderRadius: radius.md,
     marginHorizontal: spacing.lg,

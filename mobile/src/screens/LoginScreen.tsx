@@ -109,8 +109,8 @@ const styles = StyleSheet.create({
   subtitle: { color: colors.textSecondary, fontSize: 15, textAlign: 'center', marginBottom: spacing.xl },
   notice: {
     color: colors.warning,
-    backgroundColor: 'rgba(245,158,11,0.1)',
-    borderColor: 'rgba(245,158,11,0.3)',
+    backgroundColor: colors.warningSoft,
+    borderColor: colors.warningLine,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
@@ -119,8 +119,8 @@ const styles = StyleSheet.create({
   },
   error: {
     color: colors.negative,
-    backgroundColor: 'rgba(239,68,68,0.1)',
-    borderColor: 'rgba(239,68,68,0.3)',
+    backgroundColor: colors.negativeSoft,
+    borderColor: colors.negativeLine,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,

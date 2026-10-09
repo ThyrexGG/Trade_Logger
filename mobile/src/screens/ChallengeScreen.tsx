@@ -316,11 +316,11 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: spacing.md },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   chip: { borderColor: colors.border, borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
-  chipOn: { borderColor: 'rgba(240,185,11,0.5)', backgroundColor: 'rgba(240,185,11,0.12)' },
+  chipOn: { borderColor: colors.accentLine, backgroundColor: colors.accentSoft },
   chipText: { color: colors.textSecondary, fontSize: 12 },
   chipTextOn: { color: colors.accent },
   label: { color: colors.textMuted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6 },
   mode: { flex: 1, alignItems: 'center', paddingVertical: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.sm },
-  modeOn: { borderColor: 'rgba(240,185,11,0.5)', backgroundColor: 'rgba(240,185,11,0.12)' },
+  modeOn: { borderColor: colors.accentLine, backgroundColor: colors.accentSoft },
   modeText: { color: colors.textSecondary, fontSize: 12, fontWeight: '600', textAlign: 'center' },
 })
