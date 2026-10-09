@@ -2,7 +2,7 @@
 // © TradeLogger
 
 //@version=6
-strategy("Big Gap Fade BACKTEST (TradeLogger)", shorttitle = "TL Gap BT", overlay = true, initial_capital = 6000, default_qty_type = strategy.fixed, default_qty_value = 1, pyramiding = 0, process_orders_on_close = true, calc_on_every_tick = false, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+strategy("Big Gap Fade BACKTEST (TradeLogger)", shorttitle = "TL Gap BT", overlay = true, initial_capital = 6000, default_qty_type = strategy.fixed, default_qty_value = 1, pyramiding = 0, process_orders_on_close = true, calc_on_every_tick = false, margin_long = 0, margin_short = 0, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // =============================================================================
 // THE BACKTEST VERSION of big_gap_fade.pine (that one is an indicator; TradingView's Strategy Tester
@@ -19,6 +19,9 @@ strategy("Big Gap Fade BACKTEST (TradeLogger)", shorttitle = "TL Gap BT", overla
 // BEFORE costs. Research result: no confirmed edge (about +0.00 to +0.05R per trade); this is a way to LOOK at it.
 // How far back it can test depends on your TradingView plan and the data on this symbol.
 // Half-off options: half at the nearest 5-minute swing or at +1R, then the stop moves to breakeven for the rest.
+// MARGIN IS TURNED OFF (margin_long/margin_short = 0): one NAS100 / US30 contract is worth $30,000+, far more than a
+// small account holds, and with TradingView's default 100% margin it silently refuses every order ("requires trade data").
+// Risk is still capped by the stop and the Risk % input; this only stops the tester from rejecting the order.
 // =============================================================================
 
 NY = "America/New_York"
