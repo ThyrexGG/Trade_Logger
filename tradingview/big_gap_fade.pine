@@ -32,7 +32,7 @@ rangeDays = input.int(14, "Average range over the last N sessions", minval = 5, 
 grpT = "Trade"
 entryAt = input.string("0945", "Enter at (New York time)", options = ["0935", "0940", "0945", "0950", "1000", "1015", "1030"], group = grpT)
 exitAt = input.string("1200", "Exit at (New York time)", options = ["1100", "1130", "1200", "1300", "1330", "1555"], group = grpT)
-stopMode = input.string("Wide: 1:1 with the target", "Stop", options = ["Wide: 1:1 with the target", "Tight: beyond the 09:30-to-entry extreme"], group = grpT, tooltip = "Wide: as far from your entry as the target is (about 257 points on NQ, 47 on ES), so use a SMALL position. Rarely hit (5% of trades); most trades end at the time exit.\nTight: just beyond the high (gap up) or low (gap down) made since 09:30. Hit about 58% of the time, but bigger wins. More volatile; was flat before 2025.")
+stopMode = input.string("Wide: 1:1 with the target", "Stop", options = ["Wide: 1:1 with the target", "Medium: 0.25 x the average daily range", "Fixed: 0.21% of price (about 64 NQ points)", "Tight: beyond the 09:30-to-entry extreme"], group = grpT, tooltip = "Wide: as far from your entry as the target is, so its size is whatever is left of the gap (median about 140 points on NQ, 25 on ES). Hit about 20% of the time.\nMedium: a quarter of the average daily range (about 60 points on NQ). Hit about 47% of the time.\nFixed: 0.21% of the price, about 64 points on NQ at 31,000, your usual stop. Hit about 60% of the time.\nTight: just beyond the high (gap up) or low (gap down) made since 09:30, about 38 points on NQ. Hit about 61% of the time.\nEvery option averaged about the same tiny result in testing (Phase 123), so pick the one that fits your risk. A smaller stop means a bigger position for the same dollar risk and more small losses.")
 
 grpD = "Display"
 showCard = input.bool(true, "Show the summary card (bottom-left)", group = grpD)
@@ -40,6 +40,10 @@ showAllGaps = input.bool(false, "Also label the small gaps on normal days (busy)
 
 minSess = 5
 minRiskAtr = 0.10
+
+// stop distance in points for the chosen option (ep = entry price, dist = distance to the target, far = the 09:30-to-entry extreme on the far side)
+calcRisk(float ep, float dist, float far) =>
+    stopMode == "Wide: 1:1 with the target" ? dist : stopMode == "Medium: 0.25 x the average daily range" ? 0.25 * avgRange : stopMode == "Fixed: 0.21% of price (about 64 NQ points)" ? 0.0021 * ep : math.max(math.abs(far - ep), minRiskAtr * avgRange)
 
 // ---------------------------------------------------------------- session flags
 inRTH = not na(time(timeframe.period, "0930-1600", NY))
@@ -160,7 +164,7 @@ if state == 1 and inRTH and not afterEntry
     else
         int pSide = gapUp ? -1 : 1
         float pDist = math.abs(close - prevClose)
-        float pRiskPts = stopMode == "Wide: 1:1 with the target" ? pDist : math.max(math.abs((gapUp ? preHi : preLo) - close), minRiskAtr * avgRange)
+        float pRiskPts = calcRisk(close, pDist, gapUp ? preHi : preLo)
         float pStop = close - pSide * pRiskPts
         detail := "Target " + str.tostring(prevClose, format.mintick) + " (yesterday's close)   |   Stop about " + str.tostring(pStop, format.mintick) + "   |   Exit by " + exitAt
         string tTxt = "TARGET " + str.tostring(prevClose, format.mintick) + "   (+" + str.tostring(pDist / pRiskPts, "0.0") + "R)"
@@ -192,7 +196,7 @@ if entryBar and state == 1
         entryPx := e
         tgtPx := prevClose
         distPts := math.abs(e - prevClose)
-        riskPts := stopMode == "Wide: 1:1 with the target" ? distPts : math.max(math.abs((gapUp ? preHi : preLo) - e), minRiskAtr * avgRange)
+        riskPts := calcRisk(e, distPts, gapUp ? preHi : preLo)
         stopPx := e - side * riskPts
         state := 2
         newTrade := true
