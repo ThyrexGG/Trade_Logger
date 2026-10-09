@@ -41,7 +41,7 @@ def _font(path: str, size: int):
         return ImageFont.load_default()
 
 
-def setups(mkt: str, df: pd.DataFrame) -> List[dict]:
+def setups(mkt: str, df: pd.DataFrame, thr: float = THR) -> List[dict]:
     rth = df[(df.index.time >= dt.time(9, 30)) & (df.index.time < dt.time(16, 0))]
     gb = rth.groupby(rth.index.normalize())
     atr = (gb["high"].max() - gb["low"].min()).shift(1).rolling(14).mean()
@@ -54,7 +54,7 @@ def setups(mkt: str, df: pd.DataFrame) -> List[dict]:
         pc, a = float(pcl[day]), float(atr[day])
         gap = float(g["open"].iloc[0]) - pc
         size = abs(gap) / a
-        if size < THR:
+        if size < thr:
             continue
         gup = gap > 0
         t0 = day + pd.Timedelta(hours=9, minutes=45)
@@ -89,12 +89,14 @@ def setups(mkt: str, df: pd.DataFrame) -> List[dict]:
     return out
 
 
-def chart(s: dict, df: pd.DataFrame) -> str:
+def chart(s: dict, df: pd.DataFrame, out_dir: str = OUT, blind: bool = False) -> str:
     d = s["day"]
     w5 = df.loc[d + pd.Timedelta(hours=9): d + pd.Timedelta(hours=13)].resample("5min", label="left", closed="left").agg(
         {"open": "first", "high": "max", "low": "min", "close": "last"}).dropna()
-    lo = min(w5["low"].min(), s["stop"], s["target"], s["tight"])
-    hi = max(w5["high"].max(), s["stop"], s["target"], s["tight"], s["pc"], s["open"])
+    t_entry = d + pd.Timedelta(hours=9, minutes=45)
+    seen = w5[w5.index < t_entry] if blind else w5   # blind: the price scale must not hint at what happened after the entry
+    lo = min(seen["low"].min(), s["stop"], s["target"], s["tight"])
+    hi = max(seen["high"].max(), s["stop"], s["target"], s["tight"], s["pc"], s["open"])
     pad = (hi - lo) * 0.06
     lo, hi = lo - pad, hi + pad
     img = Image.new("RGB", (W, H), BG)
@@ -116,7 +118,7 @@ def chart(s: dict, df: pd.DataFrame) -> str:
     dr.rectangle([X(i0) - cw / 2, T, X(i1) - cw / 2, H - B], fill=(244, 240, 232))
     dr.text((X(i0), T + 4), "09:30-09:45: watch only", font=fs, fill=MUTE)
     ie = xt(d + pd.Timedelta(hours=9, minutes=45))
-    ix = xt(s["exit_t"])
+    ix = xt(d + pd.Timedelta(hours=12)) if blind else xt(s["exit_t"])
     # target and stop zones (from the entry to the exit)
     x_a, x_b = X(ie) - cw / 2, X(ix) + cw / 2
     dr.rectangle([x_a, Y(max(s["entry"], s["target"])), x_b, Y(min(s["entry"], s["target"]))], fill=(214, 238, 214), outline=GREEN)
@@ -133,6 +135,8 @@ def chart(s: dict, df: pd.DataFrame) -> str:
     dr.text((W - R + 8, Y(s["open"]) - 7), f"09:30 open {s['open']:,.1f}", font=fs, fill=NAVY)
     # candles
     for i, (_, r) in enumerate(w5.iterrows()):
+        if blind and w5.index[i] >= t_entry:
+            break
         col = UP if r["close"] >= r["open"] else DN
         dr.line([(X(i), Y(r["high"])), (X(i), Y(r["low"]))], fill=col)
         top, bot = Y(max(r["open"], r["close"])), Y(min(r["open"], r["close"]))
@@ -143,22 +147,27 @@ def chart(s: dict, df: pd.DataFrame) -> str:
     dr.polygon(tri, fill=NAVY)
     dr.text((x0 + 12, y0 + (6 if s["side"] < 0 else -22)), f"ENTRY 09:45  {'SHORT' if s['side'] < 0 else 'LONG'}  {s['entry']:,.1f}", font=fb, fill=NAVY)
     xe, ye = X(ix), Y(s["exit_px"])
-    dr.line([(xe - 7, ye - 7), (xe + 7, ye + 7)], fill=NAVY, width=4)
-    dr.line([(xe - 7, ye + 7), (xe + 7, ye - 7)], fill=NAVY, width=4)
-    dr.text((xe + 10, ye - 8), f"EXIT {s['exit_t']:%H:%M} ({s['how']})", font=fb, fill=NAVY)
+    if not blind:
+        dr.line([(xe - 7, ye - 7), (xe + 7, ye + 7)], fill=NAVY, width=4)
+        dr.line([(xe - 7, ye + 7), (xe + 7, ye - 7)], fill=NAVY, width=4)
+        dr.text((xe + 10, ye - 8), f"EXIT {s['exit_t']:%H:%M} ({s['how']})", font=fb, fill=NAVY)
     # header + verdict
     dow = d.strftime("%a %Y-%m-%d")
-    dr.text((L, 14), f"{s['market']} · {dow} · BIG GAP {'UP' if s['gap'] > 0 else 'DOWN'} {abs(s['gap']):,.1f} points = {s['size']:.2f}x the normal daily range", font=fh, fill=TXT)
-    plan = f"Rule: gap is {s['size']:.2f}x (needs 0.70x) and still unfilled at 09:45, so fade it: {'SHORT' if s['side'] < 0 else 'LONG'} toward yesterday's close {s['pc']:,.1f}."
+    dr.text((L, 14), f"{s['market']} · {dow} · GAP {'UP' if s['gap'] > 0 else 'DOWN'} {abs(s['gap']):,.1f} points = {s['size']:.2f}x the normal daily range", font=fh, fill=TXT)
+    plan = f"Rule: the gap is still unfilled at 09:45, so fade it: {'SHORT' if s['side'] < 0 else 'LONG'} toward yesterday's close {s['pc']:,.1f}."
     dr.text((L, 52), plan, font=f, fill=MUTE)
     win = s["r"] > 0
+    if blind:
+        dr.rectangle([L, 84, W - R, 118], fill=(232, 236, 246))
+        dr.text((L + 10, 91), "QUIZ: the candles stop at the 09:45 entry. Would you take this trade? Write down yes/no and why, then open the matching chart in WINS / LOSSES / SCRATCH.", font=fb, fill=NAVY)
     verdict = f"RESULT: {'WIN' if win else 'LOSS'} {s['r']:+.2f}R  ·  {s['how']}  ·  stopped out would have been -1.00R, full target {abs(s['target'] - s['entry']) / abs(s['entry'] - s['stop']):+.2f}R"
-    dr.rectangle([L, 84, W - R, 118], fill=(222, 242, 222) if win else (250, 222, 222))
-    dr.text((L + 10, 91), verdict, font=fb, fill=GREEN if win else RED)
+    if not blind:
+        dr.rectangle([L, 84, W - R, 118], fill=(222, 242, 222) if win else (250, 222, 222))
+        dr.text((L + 10, 91), verdict, font=fb, fill=GREEN if win else RED)
     dr.text((L, H - 28), "5-minute candles, New York time. Orange dashed = yesterday's 16:00 close (the target). Green box = target zone, red box = stop zone, "
                          "x = where the trade ended. Before spread and commission.", font=fs, fill=MUTE)
-    os.makedirs(OUT, exist_ok=True)
-    path = os.path.join(OUT, f"{s['market']}_{d:%Y-%m-%d}.png")
+    os.makedirs(out_dir, exist_ok=True)
+    path = os.path.join(out_dir, f"{s['market']}_{d:%Y-%m-%d}{'_quiz' if blind else ''}.png")
     img.save(path)
     return path
 
