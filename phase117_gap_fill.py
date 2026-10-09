@@ -41,6 +41,8 @@ OUT = os.path.join(p1.CACHE, "phase117")
 EXPLORE_END = "2024-12-31"
 BUCKETS = {"small": (0.10, 0.30), "mid": (0.30, 0.70), "big": (0.70, 99.0)}
 ENTRIES = {"0945": (9, 45), "1000": (10, 0)}
+MARKETS = ("NQ", "ES")
+TAG = ""  # file-name suffix for replications on other markets
 
 
 def _day_rows(mkt: str, m1: pd.DataFrame, rng_by_day: pd.Series, prev_close: pd.Series) -> List[dict]:
@@ -102,7 +104,7 @@ def run() -> Dict:
     rng = np.random.default_rng(117)
     res: Dict = {"phase": 117, "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "cells": []}
     allrows: List[dict] = []
-    for mkt in ("NQ", "ES"):
+    for mkt in MARKETS:
         m1 = p1.load(mkt, "M1")
         m1 = m1[m1.index >= pd.Timestamp("2023-03-01")]
         rth = m1[(m1.index.time >= dt.time(9, 30)) & (m1.index.time < dt.time(16, 0))]
@@ -112,7 +114,7 @@ def run() -> Dict:
         prev_close = gb["close"].last().shift(1)
         allrows += _day_rows(mkt, m1, atr, prev_close)
     df = pd.DataFrame(allrows)
-    df.to_csv(os.path.join(OUT, "phase117_trades.csv"), index=False)
+    df.to_csv(os.path.join(OUT, f"phase117_trades{TAG}.csv"), index=False)
     groups = list(df.groupby(["market", "bucket", "entry", "stop"]))
     k = len(groups)
     for (mkt, bucket, entry, stop), g in groups:
@@ -133,7 +135,7 @@ def run() -> Dict:
         })
     res["n_cells"] = k
     res["passes"] = [c for c in res["cells"] if c["pass"]]
-    with open(os.path.join(OUT, "phase117_result.json"), "w", encoding="utf-8") as fh:
+    with open(os.path.join(OUT, f"phase117_result{TAG}.json"), "w", encoding="utf-8") as fh:
         json.dump(res, fh, indent=1, default=str)
     return res
 

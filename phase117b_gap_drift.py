@@ -16,11 +16,13 @@ OUT = os.path.join(p1.CACHE, "phase117")
 THRESH = (0.5, 0.7, 1.0)
 ENTRIES = {"0945": (9, 45), "1000": (10, 0)}
 EXITS = {"11:00": (11, 0), "12:00": (12, 0), "13:30": (13, 30), "15:55": (15, 55)}
+MARKETS = ("NQ", "ES")
+TAG = ""  # file-name suffix, so a replication on other markets never overwrites the NQ/ES result
 
 
 def run():
     rows = []
-    for mkt in ("NQ", "ES"):
+    for mkt in MARKETS:
         m1 = p1.load(mkt, "M1"); m1 = m1[m1.index >= pd.Timestamp("2023-03-01")]
         rth = m1[(m1.index.time >= dt.time(9, 30)) & (m1.index.time < dt.time(16, 0))]
         gb = rth.groupby(rth.index.normalize())
@@ -44,7 +46,7 @@ def run():
                     rows.append({"market": mkt, "day": str(day.date()), "gap_atr": abs(gap) / a, "entry": en, "exit": xn,
                                  "drift": side * (float(seg["close"].iloc[-1]) - e) / a})
     d = pd.DataFrame(rows); d["yr"] = d.day.str[:4]
-    d.to_csv(os.path.join(OUT, "phase117b_drift.csv"), index=False)
+    d.to_csv(os.path.join(OUT, f"phase117b_drift{TAG}.csv"), index=False)
     out = []
     for th in THRESH:
         for (mkt, en, xn), g in d[d.gap_atr >= th].groupby(["market", "entry", "exit"]):
@@ -54,7 +56,7 @@ def run():
                 out.append({"thresh": th, "market": mkt, "entry": en, "exit": xn, "period": per, "n": len(x),
                             "mean_drift_atr": round(float(x.mean()), 4), "t": round(float(x.mean() / (x.std(ddof=1) / np.sqrt(len(x)))), 2),
                             "toward_fill_share": round(float((x > 0).mean()), 3)})
-    json.dump(out, open(os.path.join(OUT, "phase117b_result.json"), "w"), indent=1)
+    json.dump(out, open(os.path.join(OUT, f"phase117b_result{TAG}.json"), "w"), indent=1)
     return out
 
 
