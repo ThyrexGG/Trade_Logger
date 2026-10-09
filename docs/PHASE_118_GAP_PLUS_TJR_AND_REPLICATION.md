@@ -74,3 +74,10 @@ days.
 4. Exit at the previous close, the stop, or 12:00.
 5. Log it as a journal note ("Skipped setup" kind for the ones not taken) so the
    result can be scored after 25–50 trades.
+
+## TradingView
+
+`tradingview/big_gap_fade.pine` draws this rule live and on past bars (previous-close
+line, BIG-gap label and shading, entry marker with target/stop boxes, results table
+and an alert). It is separate from `tjr_sweep_checklist.pine`. See
+`tradingview/README.md`.

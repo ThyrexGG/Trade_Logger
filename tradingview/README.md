@@ -305,3 +305,27 @@ confirm it before sizing up.
 The research engine (`phase104_tjr_selection.py`) builds the same setups in
 Python with exact 1-minute fills. Pine uses your chart's bars, so the numbers
 won't match exactly.
+
+
+# Big Gap Fade (`big_gap_fade.pine`) — the gap-fade rule from Phases 116-118
+
+A separate indicator (Pine v6, **not compiled here: paste any red error back and it
+will be fixed**) for the one candidate that came out positive in the NY-open
+research: **fade a big 09:30 opening gap toward the previous close.**
+
+- Orange dashed line = the previous day's 16:00 close (the target).
+- Orange shading + a "Gap ... BIG" label = a gap of at least 0.7 x the average daily
+  range of the last 14 sessions.
+- At 09:45, if the gap is still unfilled, a `FADE ▼ / ▲` marker with green (target)
+  and red (stop) boxes. Exit at the previous close, the stop, or 12:00; `✓ / ✗`
+  shows the result in R.
+- Top-right table: today's status, big-gap days, trades, win rate, average R and
+  total R **for the bars loaded on your chart** (before spread/commission). Use a
+  5-minute chart for the longest history. An alert ("Big gap fade setup") is available.
+- Inputs: gap threshold, range lookback, entry/exit times, wide (1:1) or tight stop.
+
+This is **not proven**: about +0.05R per trade across NQ, ES, Dow and Russell over
+3.5 years, positive in 2025-26 on NQ/ES and flat in 2023-24. Use it to forward-track
+the rule and to journal, not as a signal. The older `tjr_sweep_checklist.pine`
+("TL Sweep") shows TJR's sweep setups, which lost money in every version tested.
+See `docs/PHASE_118_GAP_PLUS_TJR_AND_REPLICATION.md`.
