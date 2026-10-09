@@ -40,7 +40,7 @@ grpT = "Trade"
 entryMethod = input.string("Fixed time (the 'Enter at' time below)", "Entry method", options = ["Structure shift (MSS): enter at the break candle's close", "Structure shift (MSS): wait for a pullback to the 50% level", "Fixed time (the 'Enter at' time below)"], group = grpT, tooltip = "MSS = no fixed time: on a gap day wait for the session extreme (the extension), then for a candle to CLOSE beyond the pullback level that launched it (the market-structure shift), between 09:35 and 11:00 New York. No shift = no trade. Break enters at the close of the CHART bar that contains the 1-minute break (the structure is read from 1-minute data on any chart timeframe). Retest waits for price to pull back to the 50% level of the move (in this tester it fills at the close of the first bar that reaches it, a little later than a true limit order). Fixed time is the old rule.")
 entryAt = input.string("0945", "Enter at (New York time; fixed-time method only)", options = ["0935", "0940", "0945", "0950", "1000", "1015", "1030"], group = grpT)
 exitAt = input.string("1200", "Close the trade at a set time (New York)", options = ["Never: hold until the target, the stop or breakeven", "1100", "1130", "1200", "1300", "1330", "1555"], group = grpT, tooltip = "Default: no time rule. The trade stays open (even overnight) until price reaches the target, the stop, or the breakeven stop after the half is taken. While a trade is open, a new setup is skipped.")
-stopMode = input.string("Tight: beyond the 09:30-to-entry extreme", "Stop", options = ["MSS: just beyond the extension (the high/low the shift came from)", "Wide: 1:1 with the target", "Structure: beyond the nearest 1-minute swing", "Structure: beyond the nearest 5-minute swing", "Medium: 0.25 x the average daily range", "Fixed: 0.21% of price (about 64 NQ points)", "Tight: beyond the 09:30-to-entry extreme"], group = grpT, tooltip = "The MSS stop sits just beyond the extension. With the fixed-time entry it behaves like Wide.")
+stopMode = input.string("Tight: beyond the 09:30-to-entry extreme", "Stop", options = ["MSS: just beyond the extension (the high/low the shift came from)", "MSS: beyond the internal 1-minute swing (the nearest swing against the trade)", "Wide: 1:1 with the target", "Structure: beyond the nearest 1-minute swing", "Structure: beyond the nearest 5-minute swing", "Medium: 0.25 x the average daily range", "Fixed: 0.21% of price (about 64 NQ points)", "Tight: beyond the 09:30-to-entry extreme"], group = grpT, tooltip = "The MSS stop sits just beyond the extension. With the fixed-time entry it behaves like Wide.")
 skipLow = input.bool(true, "MSS entries: skip when the reward is under 1R", group = grpT, tooltip = "Reward = distance to yesterday's close; 1R = the distance from the entry to the stop.")
 targetMode = input.string("Yesterday's close", "Target", options = ["Ladder: a third at each of two structure levels, the last third runs past yesterday's close", "Half at the structure near +1R, stop to breakeven, rest at yesterday's close", "Half at +1R, stop to breakeven, rest at yesterday's close", "Yesterday's close", "Nearest 5-minute swing (1R or more away)", "Half at the nearest 5-minute swing, rest at yesterday's close"], group = grpT, tooltip = "Ladder = a third at the nearest marked high/low (1m/5m swing), a third at the next one, stop to breakeven after the first and behind the first level after the second; the last third is NOT closed at yesterday's close: its stop jumps to yesterday's close and then trails behind each new 5-minute swing.")
 
@@ -63,7 +63,7 @@ entryMin = int(str.tonumber(str.substring(entryAt, 0, 2))) * 60 + int(str.tonumb
 noTimeExit = exitAt == "Never: hold until the target, the stop or breakeven"
 mssMode = entryMethod != "Fixed time (the 'Enter at' time below)"
 retestMode = entryMethod == "Structure shift (MSS): wait for a pullback to the 50% level"
-stopWhy = stopMode == "Wide: 1:1 with the target" ? "  = same distance as the target (NOT structure)" : stopMode == "Tight: beyond the 09:30-to-entry extreme" ? "  beyond the high/low of the gap move" : str.startswith(stopMode, "MSS") ? "  beyond the extension" : str.startswith(stopMode, "Structure") ? "  beyond the nearest swing" : "  fixed size (NOT structure)"
+stopWhy = stopMode == "Wide: 1:1 with the target" ? "  = same distance as the target (NOT structure)" : stopMode == "Tight: beyond the 09:30-to-entry extreme" ? "  beyond the high/low of the gap move" : stopMode == "MSS: beyond the internal 1-minute swing (the nearest swing against the trade)" ? "  beyond the internal 1-minute swing" : str.startswith(stopMode, "MSS") ? "  beyond the extension" : str.startswith(stopMode, "Structure") ? "  beyond the nearest swing" : "  fixed size (NOT structure)"
 ladderMode = targetMode == "Ladder: a third at each of two structure levels, the last third runs past yesterday's close"
 exitMin = noTimeExit ? 99999 : int(str.tonumber(str.substring(exitAt, 0, 2))) * 60 + int(str.tonumber(str.substring(exitAt, 2, 4)))
 
@@ -107,6 +107,7 @@ var float highA = na
 var float highB = na
 var int highAidx = na
 var float extLvl = na
+var float intLvl = na
 var int extBar = na
 var int extIdx = na
 var int subIdx = 0
@@ -160,7 +161,10 @@ nearBelow(float x1, float x2, float x3, float ref, float minGap) =>
 // stop distance in points (ep = entry price, dist = distance to yesterday's close, far = the 09:30-to-entry extreme on the far side, up = the stop sits ABOVE the entry, i.e. a short)
 calcRisk(float ep, float dist, float far, bool up) =>
     float r = na
-    if stopMode == "MSS: just beyond the extension (the high/low the shift came from)"
+    if stopMode == "MSS: beyond the internal 1-minute swing (the nearest swing against the trade)"
+        float lv = (na(intLvl) or (up ? intLvl <= ep : intLvl >= ep)) ? extLvl : intLvl
+        r := (na(lv) or (up ? lv <= ep : lv >= ep)) ? dist : math.max(math.abs(lv - ep) + 2 * syminfo.mintick, 0.05 * avgRange)
+    else if stopMode == "MSS: just beyond the extension (the high/low the shift came from)"
         r := (na(extLvl) or (up ? extLvl <= ep : extLvl >= ep)) ? dist : math.max(math.abs(extLvl - ep) + 2 * syminfo.mintick, 0.05 * avgRange)
     else if stopMode == "Wide: 1:1 with the target"
         r := dist
@@ -290,6 +294,7 @@ if rthStart
     pH1 := na
     pL1 := na
     extLvl := na
+    intLvl := na
     extBar := na
     launch := na
     legExt := na
@@ -376,6 +381,7 @@ if state == 1 and inRTH and mssMode and array.size(m1h) > 0
             if not na(extLvl) and not first1 and subEnd >= 575 and subIdx > extIdx
                 brk := gapUp ? (c1 < launch and c1 > prevClose) : (c1 > launch and c1 < prevClose)
             if brk
+                intLvl := gapUp ? nz(highA, extLvl) : nz(lowA, extLvl)
                 if showStructure
                     line.new(extBar - 1, extLvl, bar_index, extLvl, color = color.new(color.orange, 10), style = line.style_dotted, width = 2)
                     label.new(extBar, extLvl, gapUp ? "extension high" : "extension low", style = gapUp ? label.style_label_down : label.style_label_up, color = color.new(color.orange, 30), textcolor = color.white, size = size.tiny)
