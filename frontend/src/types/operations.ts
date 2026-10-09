@@ -69,6 +69,10 @@ export interface JournalTradeItem {
   chart_snapshot_url: string | null
   screenshot_count?: number
   links?: JournalLink[]
+  /** where the stop went (code from STOP_PLACEMENTS), null when unanswered */
+  stop_placement?: StopPlacement | null
+  /** why the trade ended (code from EXIT_REASONS), null when unanswered */
+  exit_reason?: ExitReason | null
   /** Set when the position was closed in pieces: the P&L fields are then the whole position's totals. */
   legs?: TradeLeg[]
   /** some of the position is still open at the broker, so every leg so far is a partial */
@@ -104,7 +108,13 @@ export interface JournalUpdateRequest {
   rating?: number
   /** replaces the trade's whole link list ([] removes them all) */
   links?: JournalLink[]
+  /** '' clears the answer */
+  stop_placement?: StopPlacement | ''
+  exit_reason?: ExitReason | ''
 }
+
+export type StopPlacement = 'sweep' | 'second' | 'fvg' | 'structure' | 'fixed' | 'other'
+export type ExitReason = 'target' | 'partial_runner' | 'stopped' | 'breakeven' | 'cut_early' | 'time' | 'other'
 
 export type JournalEntryKind = 'idea' | 'review' | 'observation' | 'plan' | 'skipped'
 

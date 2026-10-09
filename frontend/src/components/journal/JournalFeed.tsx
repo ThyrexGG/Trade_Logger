@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import type { JournalResponse, JournalTradeItem, JournalUpdateRequest } from '../../types/operations'
+import type { ExitReason, JournalResponse, JournalTradeItem, JournalUpdateRequest, StopPlacement } from '../../types/operations'
 import { formatSignedAmount, formatDateTime } from '../../lib/format'
 import { patchJournalEntry } from '../../api/operations'
 import { ChartSnapshot } from './ChartSnapshot'
@@ -8,6 +8,7 @@ import { HandLoggedControls } from './HandLoggedControls'
 import { ScreenshotStrip, type ScreenshotStripHandle } from './ScreenshotStrip'
 import { cleanLinks, JournalLinksEditor, linksKey, toDrafts, type LinkDraft } from './JournalLinks'
 import { StarRating } from './StarRating'
+import { EXIT_REASONS, STOP_PLACEMENTS } from './reviewOptions'
 import { ExitsBadge, TradeLegs } from './TradeLegs'
 import { AccountBadge } from '../common/AccountBadge'
 import { invalidateTagRecord } from './TagRecord'
@@ -41,6 +42,8 @@ function FeedCard({
   const [setupTag, setSetupTag] = useState(entry.setup_tag ?? '')
   const [chartUrl, setChartUrl] = useState(entry.chart_snapshot_url ?? '')
   const [rating, setRating] = useState(entry.rating ?? 0)
+  const [stopPlacement, setStopPlacement] = useState<StopPlacement | ''>(entry.stop_placement ?? '')
+  const [exitReason, setExitReason] = useState<ExitReason | ''>(entry.exit_reason ?? '')
   const [status, setStatus] = useState<SaveStatus>('idle')
   const [showLinkField, setShowLinkField] = useState(Boolean(entry.chart_snapshot_url))
   const [linkDrafts, setLinkDrafts] = useState<LinkDraft[]>(toDrafts(entry.links))
@@ -52,6 +55,8 @@ function FeedCard({
     chartUrl: entry.chart_snapshot_url ?? '',
     rating: entry.rating ?? 0,
     links: linksKey(entry.links),
+    stopPlacement: entry.stop_placement ?? '',
+    exitReason: entry.exit_reason ?? '',
   })
   const stripRef = useRef<ScreenshotStripHandle>(null)
 
@@ -65,7 +70,8 @@ function FeedCard({
     // a half-typed link (not a web address yet) is simply not sent until it is
     const cleaned = cleanLinks(linkDrafts)
     const linksChanged = !cleaned.invalid && linksKey(cleaned.links) !== b.links
-    if (notes === b.notes && setupTag.trim() === b.setupTag && chartUrlTrim === b.chartUrl && rating === b.rating && !linksChanged) return
+    const reviewSame = stopPlacement === b.stopPlacement && exitReason === b.exitReason
+    if (notes === b.notes && setupTag.trim() === b.setupTag && chartUrlTrim === b.chartUrl && rating === b.rating && !linksChanged && reviewSame) return
     setStatus('saving')
     const t = setTimeout(async () => {
       const body: JournalUpdateRequest = {}
@@ -74,6 +80,8 @@ function FeedCard({
       if (chartUrlTrim !== b.chartUrl) body.chart_snapshot_url = chartUrlTrim
       if (rating !== b.rating) body.rating = rating
       if (linksChanged) body.links = cleaned.links
+      if (stopPlacement !== b.stopPlacement) body.stop_placement = stopPlacement
+      if (exitReason !== b.exitReason) body.exit_reason = exitReason
       if (Object.keys(body).length === 0) return
       try {
         const res = await patchJournalEntry(entry.trade_id, body)
@@ -83,6 +91,8 @@ function FeedCard({
           chartUrl: res.entry.chart_snapshot_url ?? '',
           rating: res.entry.rating ?? 0,
           links: linksKey(res.entry.links),
+          stopPlacement: res.entry.stop_placement ?? '',
+          exitReason: res.entry.exit_reason ?? '',
         }
         if ('setup_tag' in body) invalidateTagRecord()
         onSaved(res.entry)
@@ -93,7 +103,7 @@ function FeedCard({
     }, SAVE_DEBOUNCE_MS)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [notes, setupTag, chartUrl, rating, linkDrafts, entry.trade_id])
+  }, [notes, setupTag, chartUrl, rating, linkDrafts, stopPlacement, exitReason, entry.trade_id])
 
   const win = entry.net_profit > 0
   const loss = entry.net_profit < 0
@@ -187,6 +197,37 @@ function FeedCard({
           + add a link (TradingView idea, news, video…)
         </button>
       )}
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="block text-[11px] text-muted" htmlFor={`stop-${entry.trade_id}`}>
+          Where was your stop?
+          <select
+            id={`stop-${entry.trade_id}`}
+            value={stopPlacement}
+            onChange={(e) => setStopPlacement(e.target.value as StopPlacement | '')}
+            className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+          >
+            <option value="">Not answered</option>
+            {STOP_PLACEMENTS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-[11px] text-muted" htmlFor={`exit-${entry.trade_id}`}>
+          How did the trade end?
+          <select
+            id={`exit-${entry.trade_id}`}
+            value={exitReason}
+            onChange={(e) => setExitReason(e.target.value as ExitReason | '')}
+            className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+          >
+            <option value="">Not answered</option>
+            {EXIT_REASONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </label>
+      </div>
 
       <div className="flex flex-wrap items-center gap-3">
         <input

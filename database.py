@@ -900,6 +900,7 @@ def init_db(force: bool = False):
     _ensure_user_settings(cursor)
     # Journal links (TradingView/article links on trades and notes).
     _ensure_journal_links(cursor)
+    _ensure_journal_review(cursor)
 
     # --- multi-user tenant column (W8.4) ---------------------------------
     # Every journal-side table gets `user_id`. Single-user / passphrase / the
@@ -1169,6 +1170,8 @@ def delete_manual_trade(trade_id: str) -> bool:
             cur.execute(f"DELETE FROM journal_screenshots WHERE trade_id = {ph} AND user_id = {ph}", (str(trade_id), uid))
             _ensure_journal_links(cur)
             cur.execute(f"DELETE FROM journal_links WHERE trade_id = {ph} AND user_id = {ph}", (str(trade_id), uid))
+            _ensure_journal_review(cur)
+            cur.execute(f"DELETE FROM journal_review WHERE trade_id = {ph} AND user_id = {ph}", (str(trade_id), uid))
         conn.commit()
     finally:
         conn.close()
@@ -1829,6 +1832,89 @@ def journal_links_by_owner():
         for owner, url, label in cur.fetchall():
             out.setdefault(str(owner), []).append({"url": url, "label": label})
         return out
+    finally:
+        conn.close()
+
+
+# ----------------- Journal review fields -----------------
+# Per-trade "how did I manage it" answers: where the stop went and why the
+# trade ended. Short codes from a fixed list (the API schema owns the list),
+# so a journal can later be grouped by them. Off the closed_trades row for the
+# same reason as journal_links: a broker re-sync must never overwrite them.
+# Created on first use, like journal_links.
+JOURNAL_REVIEW_FIELDS = ("stop_placement", "exit_reason")
+_JOURNAL_REVIEW_READY = False
+
+
+def _ensure_journal_review(cursor):
+    global _JOURNAL_REVIEW_READY
+    if _JOURNAL_REVIEW_READY and not os.getenv("PYTEST_CURRENT_TEST"):
+        return
+    cursor.execute(
+        "CREATE TABLE IF NOT EXISTS journal_review ("
+        " trade_id TEXT NOT NULL, stop_placement TEXT, exit_reason TEXT,"
+        " updated_at TEXT NOT NULL, user_id TEXT NOT NULL DEFAULT 'local',"
+        " PRIMARY KEY (user_id, trade_id))"
+    )
+    _JOURNAL_REVIEW_READY = True
+
+
+def get_journal_review(owner_id):
+    """{"stop_placement", "exit_reason"} for one trade (current tenant); None values when unset."""
+    uid = tenant.current_user_id()
+    ph = "%s" if is_postgres() else "?"
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        _ensure_journal_review(cur)
+        cur.execute(
+            f"SELECT stop_placement, exit_reason FROM journal_review WHERE trade_id = {ph} AND user_id = {ph}",
+            (str(owner_id), uid),
+        )
+        row = cur.fetchone()
+        return {"stop_placement": row[0] if row else None, "exit_reason": row[1] if row else None}
+    finally:
+        conn.close()
+
+
+def update_journal_review(owner_id, **fields):
+    """Set any of JOURNAL_REVIEW_FIELDS on one trade (current tenant). "" clears a field;
+    a field left out keeps its saved value."""
+    uid = tenant.current_user_id()
+    ph = "%s" if is_postgres() else "?"
+    current = get_journal_review(owner_id)
+    for name in JOURNAL_REVIEW_FIELDS:
+        if fields.get(name) is not None:
+            current[name] = fields[name] or None
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        _ensure_journal_review(cur)
+        cur.execute(f"DELETE FROM journal_review WHERE trade_id = {ph} AND user_id = {ph}", (str(owner_id), uid))
+        if current["stop_placement"] or current["exit_reason"]:
+            cur.execute(
+                f"INSERT INTO journal_review (trade_id, stop_placement, exit_reason, updated_at, user_id) "
+                f"VALUES ({ph}, {ph}, {ph}, {ph}, {ph})",
+                (str(owner_id), current["stop_placement"], current["exit_reason"], _now_iso(), uid),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def journal_review_by_owner():
+    """{trade_id: {"stop_placement", "exit_reason"}} for the current tenant: one query for list views."""
+    uid = tenant.current_user_id()
+    ph = "%s" if is_postgres() else "?"
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        _ensure_journal_review(cur)
+        cur.execute(
+            f"SELECT trade_id, stop_placement, exit_reason FROM journal_review WHERE user_id = {ph}",
+            (uid,),
+        )
+        return {str(t): {"stop_placement": s, "exit_reason": e} for t, s, e in cur.fetchall()}
     finally:
         conn.close()
 

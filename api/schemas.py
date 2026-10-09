@@ -768,6 +768,8 @@ class JournalTradeItem(BaseModel):
     chart_snapshot_url: Optional[str] = None
     screenshot_count: int = 0
     links: List[JournalLink] = []
+    stop_placement: Optional[str] = None
+    exit_reason: Optional[str] = None
     # Set when the position was closed in pieces: net/gross/commission/swap are then the whole position's totals,
     # and `legs` breaks them down. `position_open` = some of it is still open at the broker.
     legs: List[TradeLeg] = []
@@ -902,6 +904,13 @@ class JournalResponse(BaseModel):
 # rejected as an unknown field by `extra="forbid"`.
 _JOURNAL_EDITABLE_FIELDS = ("setup_tag", "notes", "chart_snapshot_url", "rating")
 
+# Review answers stored in `journal_review` (off the closed_trades row). Fixed
+# codes so a journal can be grouped by them later; the app shows the labels.
+# "" clears the answer.
+_JOURNAL_REVIEW_FIELDS = ("stop_placement", "exit_reason")
+StopPlacement = Literal["sweep", "second", "fvg", "structure", "fixed", "other", ""]
+ExitReason = Literal["target", "partial_runner", "stopped", "breakeven", "cut_early", "time", "other", ""]
+
 
 class JournalUpdateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -914,13 +923,16 @@ class JournalUpdateRequest(BaseModel):
     # in `journal_links`, not on the closed_trades row, so a broker re-sync
     # can never touch them.
     links: Optional[List[JournalLink]] = Field(default=None, max_length=MAX_JOURNAL_LINKS)
+    stop_placement: Optional[StopPlacement] = None
+    exit_reason: Optional[ExitReason] = None
 
     @model_validator(mode="after")
     def _at_least_one_field(self) -> "JournalUpdateRequest":
-        if all(getattr(self, f) is None for f in _JOURNAL_EDITABLE_FIELDS) and self.links is None:
+        fields = _JOURNAL_EDITABLE_FIELDS + _JOURNAL_REVIEW_FIELDS
+        if all(getattr(self, f) is None for f in fields) and self.links is None:
             raise ValueError(
                 "provide at least one editable field: "
-                + ", ".join(_JOURNAL_EDITABLE_FIELDS + ("links",))
+                + ", ".join(fields + ("links",))
             )
         return self
 

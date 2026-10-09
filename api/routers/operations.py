@@ -49,6 +49,7 @@ from api.schemas import (
     SystemSafetyGate,
     ReconciliationHealth,
     _JOURNAL_EDITABLE_FIELDS,
+    _JOURNAL_REVIEW_FIELDS,
 )
 
 _SCREENSHOT_MAX_BYTES = 4 * 1024 * 1024
@@ -89,8 +90,15 @@ def _placeholder(conn: Any) -> str:
     return "?" if is_sq else "%s"
 
 
-def _journal_item(r: Mapping[str, Any], sc_count: int = 0, links: Optional[List[Dict[str, Any]]] = None) -> JournalTradeItem:
-    """Serialize one `closed_trades` row (dict or pandas row) into the schema."""
+def _journal_item(
+    r: Mapping[str, Any],
+    sc_count: int = 0,
+    links: Optional[List[Dict[str, Any]]] = None,
+    review: Optional[Mapping[str, Any]] = None,
+) -> JournalTradeItem:
+    """Serialize one `closed_trades` row (dict or pandas row) into the schema.
+    `review` = the trade's journal_review answers (stop placement, exit reason)."""
+    review = review or {}
     rating_raw = r.get("rating")
     try:
         rating = int(rating_raw) if rating_raw is not None and str(rating_raw) != "nan" else None
@@ -117,6 +125,8 @@ def _journal_item(r: Mapping[str, Any], sc_count: int = 0, links: Optional[List[
         chart_snapshot_url=_s(r.get("chart_snapshot_url")),
         screenshot_count=int(sc_count or 0),
         links=list(links or []),
+        stop_placement=review.get("stop_placement") or None,
+        exit_reason=review.get("exit_reason") or None,
         legs=r.get("legs") or [],
         position_open=bool(r.get("position_open")),
     )
@@ -159,6 +169,10 @@ def get_journal() -> JournalResponse:
         link_map = database.journal_links_by_owner()
     except Exception:
         link_map = {}
+    try:
+        review_map = database.journal_review_by_owner()
+    except Exception:
+        review_map = {}
     entries: List[JournalTradeItem] = []
     wins = losses = 0
     total_net = 0.0
@@ -175,7 +189,7 @@ def get_journal() -> JournalResponse:
         acc = _s(r.get("account_id")) or "UNKNOWN"
         accounts.add(acc)
         tid = _s(r.get("trade_id")) or ""
-        entries.append(_journal_item(r, sc_counts.get(tid, 0), link_map.get(tid)))
+        entries.append(_journal_item(r, sc_counts.get(tid, 0), link_map.get(tid), review_map.get(tid)))
 
     return JournalResponse(
         entries=entries,
@@ -235,7 +249,7 @@ def update_manual_trade(payload: ManualTradeIn, trade_id: str = Path(..., min_le
         sc_count = database.count_journal_screenshots().get(trade_id, 0)
     except Exception:
         sc_count = 0
-    return _journal_item(row, sc_count, _links_for(trade_id))
+    return _journal_item(row, sc_count, _links_for(trade_id), _review_for(trade_id))
 
 
 @router.delete("/journal/trades/{trade_id}")
@@ -288,6 +302,10 @@ def patch_journal(
     if payload.links is not None:
         database.replace_journal_links(trade_id, [link.model_dump() for link in payload.links])
         updated_fields.append("links")
+    review = {f: getattr(payload, f) for f in _JOURNAL_REVIEW_FIELDS if getattr(payload, f) is not None}
+    if review:
+        database.update_journal_review(trade_id, **review)
+        updated_fields.extend(review.keys())
 
     try:
         sc_count = len(database.list_journal_screenshots(trade_id))
@@ -298,7 +316,7 @@ def patch_journal(
     except Exception:  # noqa: BLE001 - the annotation is saved; never fail the reply over the breakdown
         pass
     return JournalUpdateResponse(
-        entry=_journal_item(updated, sc_count, _links_for(trade_id)),
+        entry=_journal_item(updated, sc_count, _links_for(trade_id), _review_for(trade_id)),
         updated_fields=updated_fields,
         timestamp=datetime.now(timezone.utc).isoformat(),
     )
@@ -432,6 +450,13 @@ def _links_for(owner_id: str) -> List[Dict[str, Any]]:
         return database.list_journal_links(owner_id)
     except Exception:
         return []
+
+
+def _review_for(trade_id: str) -> Dict[str, Any]:
+    try:
+        return database.get_journal_review(trade_id)
+    except Exception:
+        return {}
 
 
 def _entry_model(row: Mapping[str, Any], sc_count: int = 0, links: Optional[List[Dict[str, Any]]] = None) -> JournalEntry:
