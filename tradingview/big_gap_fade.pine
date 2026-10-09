@@ -124,7 +124,7 @@ if rthStart
         hColor := color.gray
     else
         headline := "NO TRADE - the gap is only " + str.tostring(gapSize, "0.00") + "x (needs " + str.tostring(thr, "0.0") + "x)"
-        hColor := color.gray
+        hColor := color.white
         if showAllGaps
             label.new(bar_index, high, "gap " + str.tostring(gapSize, "0.00") + "x", style = label.style_label_down, color = color.new(color.gray, 60), textcolor = color.white, size = size.tiny)
 else if inRTH
@@ -233,7 +233,7 @@ bgcolor(dayBig and beforeExit ? color.new(color.orange, 94) : na)
 alertcondition(newTrade, "Big gap fade setup", "Big gap fade: entry time reached with an unfilled big gap. Trade toward yesterday's close.")
 
 // ---------------------------------------------------------------- summary card
-var table card = table.new(position.bottom_left, 1, 5, bgcolor = color.new(color.black, 12), border_width = 1, border_color = color.new(color.gray, 50))
+var table card = table.new(position.bottom_left, 1, 5, bgcolor = color.new(color.black, 0), border_width = 1, border_color = color.new(color.gray, 50))
 if barstate.islast and showCard
     string prefix = inRTH ? "TODAY: " : "LAST SESSION: "
     int used = array.size(ranges)
