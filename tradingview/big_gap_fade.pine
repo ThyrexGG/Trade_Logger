@@ -77,6 +77,9 @@ var float distPts = na
 var int side = 0
 var box bTgt = na
 var box bRisk = na
+var box pTgt = na   // PLAN boxes, drawn from 09:30 until the entry time on a big-gap day
+var box pRisk = na
+var int dayStartBar = 0
 
 var int nBig = 0
 var int nSess = 0
@@ -88,6 +91,12 @@ var float rSum = 0.0
 bool newTrade = false
 
 if rthStart
+    if not na(pTgt)
+        box.delete(pTgt)
+        box.delete(pRisk)
+        pTgt := na
+        pRisk := na
+    dayStartBar := bar_index
     prevClose := lastClose
     if not na(rthHi)
         array.push(ranges, rthHi - rthLo)
@@ -112,7 +121,8 @@ if rthStart
     if not na(prevClose)
         pcLine := line.new(bar_index, prevClose, bar_index, prevClose, color = color.new(color.orange, 0), style = line.style_dashed, width = 1)
     string gtxt = na(gapSize) ? "Gap (warming up: needs " + str.tostring(rangeDays) + " sessions)" :
-         "Gap " + (gap > 0 ? "+" : "") + str.tostring(gap, format.mintick) + "  (" + str.tostring(gapSize, "0.00") + "x range)" + (dayBig ? "  BIG" : "")
+         "Gap " + (gap > 0 ? "+" : "") + str.tostring(gap, format.mintick) + "  (" + str.tostring(gapSize, "0.00") + "x range)" + (dayBig ? "  BIG
+PLAN: " + (gap > 0 ? "SHORT" : "LONG") + " toward " + str.tostring(prevClose, format.mintick) + " at " + entryAt + " if still unfilled" : "")
     if dayBig or (showSmall and not na(gapSize))
         label.new(bar_index, high, gtxt, style = label.style_label_down, color = dayBig ? color.new(color.orange, 15) : color.new(color.gray, 40),
              textcolor = color.white, size = size.small,
@@ -132,9 +142,41 @@ if state == 1 and inRTH and not afterEntry
         touched := true
     preHi := math.max(preHi, high)
     preLo := math.min(preLo, low)
+    if touched
+        if not na(pTgt)
+            box.delete(pTgt)
+            box.delete(pRisk)
+            pTgt := na
+            pRisk := na
+    else
+        int pSide = gapUp ? -1 : 1
+        float pDist = math.abs(close - prevClose)
+        float pRiskPts = stopMode == "Wide: 1:1 with the target" ? pDist : math.max(math.abs((gapUp ? preHi : preLo) - close), minRiskAtr * avgRange)
+        float pStop = close - pSide * pRiskPts
+        string tTxt = "PLAN target " + str.tostring(prevClose, format.mintick) + " (previous close)"
+        string rTxt = "PLAN stop " + str.tostring(pStop, format.mintick) + "  (moves until " + entryAt + ")"
+        if na(pTgt)
+            pTgt := box.new(dayStartBar, math.max(close, prevClose), bar_index + 1, math.min(close, prevClose), border_color = color.new(color.green, 30), border_style = line.style_dashed,
+                 bgcolor = color.new(color.green, 92), text = tTxt, text_color = color.green, text_size = size.tiny, text_halign = text.align_right, text_valign = pSide < 0 ? text.align_bottom : text.align_top)
+            pRisk := box.new(dayStartBar, math.max(close, pStop), bar_index + 1, math.min(close, pStop), border_color = color.new(color.red, 30), border_style = line.style_dashed,
+                 bgcolor = color.new(color.red, 92), text = rTxt, text_color = color.red, text_size = size.tiny, text_halign = text.align_right, text_valign = pSide < 0 ? text.align_top : text.align_bottom)
+        else
+            box.set_top(pTgt, math.max(close, prevClose))
+            box.set_bottom(pTgt, math.min(close, prevClose))
+            box.set_right(pTgt, bar_index + 1)
+            box.set_text(pTgt, tTxt)
+            box.set_top(pRisk, math.max(close, pStop))
+            box.set_bottom(pRisk, math.min(close, pStop))
+            box.set_right(pRisk, bar_index + 1)
+            box.set_text(pRisk, rTxt)
 
 // entry
 if entryBar and state == 1
+    if not na(pTgt)
+        box.delete(pTgt)
+        box.delete(pRisk)
+        pTgt := na
+        pRisk := na
     float e = open
     bool okSide = gapUp ? e > prevClose : e < prevClose
     if not touched and okSide
@@ -218,5 +260,5 @@ if barstate.islast and showLegend
     table.cell(legend, 0, 1, "Orange line = previous day's 16:00 close (the target)", text_color = color.white, text_size = size.tiny, text_halign = text.align_left)
     table.cell(legend, 0, 2, "Orange shading + 'Gap ... BIG' = a gap worth fading today", text_color = color.white, text_size = size.tiny, text_halign = text.align_left)
     table.cell(legend, 0, 3, "FADE ▼ / ▲ = entry at " + entryAt + " if the gap is still unfilled", text_color = color.white, text_size = size.tiny, text_halign = text.align_left)
-    table.cell(legend, 0, 4, "Green box = target zone · red box = stop zone", text_color = color.white, text_size = size.tiny, text_halign = text.align_left)
+    table.cell(legend, 0, 4, "Dashed boxes = the PLAN before entry · solid green box = target zone · solid red box = stop zone", text_color = color.white, text_size = size.tiny, text_halign = text.align_left)
     table.cell(legend, 0, 5, "✓ / ✗ = how it ended, in R (exit by target, stop, or " + exitAt + ")", text_color = color.white, text_size = size.tiny, text_halign = text.align_left)
