@@ -38,7 +38,7 @@ entryAt = input.string("0945", "Enter at (New York time)", options = ["0935", "0
 exitAt = input.string("1200", "Exit at (New York time)", options = ["1100", "1130", "1200", "1300", "1330", "1555"], group = grpT)
 stopMode = input.string("Wide: 1:1 with the target", "Stop", options = ["Wide: 1:1 with the target", "Tight: beyond the 09:30-to-entry extreme"], group = grpT,
      tooltip = "Wide: the stop is as far from your entry as the previous close is (about 257 points on NQ, 47 on ES), so use a SMALL position. It is rarely hit (5% of trades); most trades end at the time exit.\nTight: the stop is just beyond the opening-to-entry high (gap up) or low (gap down). Hit about 58% of the time, but bigger wins. More volatile; was flat before 2025.")
-showSmall = input.bool(false, "Also label gaps that are NOT big", group = grpT)
+showSmall = input.bool(true, "Also label gaps that are NOT big (grey)", group = grpT)
 showLegend = input.bool(true, "Show the 'how to read' box", group = grpT)
 
 minRiskAtr = 0.10
@@ -79,6 +79,8 @@ var box bTgt = na
 var box bRisk = na
 
 var int nBig = 0
+var int nSess = 0
+var float maxGap = 0.0
 var int nTr = 0
 var int nWin = 0
 var float rSum = 0.0
@@ -102,6 +104,9 @@ if rthStart
     preHi := high
     preLo := low
     state := dayBig ? 1 : 0
+    nSess += 1
+    if not na(gapSize)
+        maxGap := math.max(maxGap, gapSize)
     if dayBig
         nBig += 1
     if not na(prevClose)
@@ -184,7 +189,7 @@ bgcolor(dayBig and beforeExit ? color.new(color.orange, 93) : na)
 alertcondition(newTrade, "Big gap fade setup", "Big gap fade: entry time reached with an unfilled big gap. Trade toward the previous close.")
 
 // ---------------------------------------------------------------- tables
-var table tb = table.new(position.top_right, 2, 8, bgcolor = color.new(color.black, 20), border_width = 1)
+var table tb = table.new(position.middle_right, 2, 10, bgcolor = color.new(color.black, 20), border_width = 1)
 if barstate.islast
     table.cell(tb, 0, 0, "Big gap fade", text_color = color.white, text_size = size.small)
     table.cell(tb, 1, 0, "today: " + statusTxt, text_color = color.orange, text_size = size.small)
@@ -200,8 +205,12 @@ if barstate.islast
     table.cell(tb, 1, 5, str.tostring(rSum, "#.0"), text_color = rSum >= 0 ? color.lime : color.red, text_size = size.small)
     table.cell(tb, 0, 6, "Before spread/commission", text_color = color.gray, text_size = size.tiny)
     table.cell(tb, 1, 6, "only the bars loaded", text_color = color.gray, text_size = size.tiny)
-    table.cell(tb, 0, 7, tfOk ? "" : "Use a 1-15 minute chart", text_color = color.red, text_size = size.small)
-    table.cell(tb, 1, 7, "", text_size = size.tiny)
+    table.cell(tb, 0, 7, "Sessions loaded", text_color = color.white, text_size = size.small)
+    table.cell(tb, 1, 7, str.tostring(nSess) + "  (gaps count after " + str.tostring(rangeDays) + ")", text_color = nSess > rangeDays ? color.white : color.orange, text_size = size.small)
+    table.cell(tb, 0, 8, "Biggest gap seen", text_color = color.white, text_size = size.small)
+    table.cell(tb, 1, 8, nSess > rangeDays ? str.tostring(maxGap, "0.00") + "x range  (big = " + str.tostring(thr, "0.0") + "x)" : "-", text_color = color.white, text_size = size.small)
+    table.cell(tb, 0, 9, tfOk ? "" : "Use a 1-15 minute chart", text_color = color.red, text_size = size.small)
+    table.cell(tb, 1, 9, "", text_size = size.tiny)
 
 var table legend = table.new(position.bottom_right, 1, 6, bgcolor = color.new(color.black, 25))
 if barstate.islast and showLegend
