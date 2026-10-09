@@ -2,31 +2,25 @@
 // © TradeLogger
 
 //@version=6
-strategy("Big Gap Fade BACKTEST (TradeLogger)", shorttitle = "TL Gap BT", overlay = true, initial_capital = 6000, default_qty_type = strategy.fixed, default_qty_value = 1, pyramiding = 0, process_orders_on_close = true, calc_on_every_tick = false, dynamic_requests = true, margin_long = 0, margin_short = 0, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+strategy("Big Gap Fade BACKTEST (TradeLogger)", shorttitle = "TL Gap BT", overlay = true, initial_capital = 6000, default_qty_type = strategy.fixed, default_qty_value = 1, pyramiding = 0, process_orders_on_close = true, calc_on_every_tick = false, margin_long = 0, margin_short = 0, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // =============================================================================
+// SIMPLE VERSION: no partials, no breakeven moves, no re-entries. One entry, one stop, one target, a time exit.
+// This is the rule that showed +17.6% / 57% wins / profit factor 1.96 on NAS100 15m, Jul 1 - Oct 9 2026 (47 trades, a good NQ stretch; over
+// Mar 2023 - Sep 2026 on NQ + ES it averages about 0.00R). Everything fancier lives in big_gap_fade_strategy_experimental.pine.
 // THE BACKTEST VERSION of big_gap_fade.pine (that one is an indicator; TradingView's Strategy Tester
 // only works on a strategy). Same rule, placed as real orders so you get the Strategy Tester's trade list,
 // equity curve, win rate and drawdown:
 //   GAP     today's 09:30 open vs yesterday's 16:00 close. A setup = a gap of at least the first input x the
 //           average daily range of the last 14 sessions (0.2 = learning mode, 0.7 = the research threshold).
-//   ENTRY   default = fixed 09:45 (the original rule; option: a STRUCTURE SHIFT (MSS): the session extreme, then a close beyond the pullback level that launched it
-//           (09:35-11:00 New York, no fixed time; no shift = no trade; read from 1-minute data even on a 5- or 15-minute chart)). Option: the old fixed 09:45 entry. Always TOWARD
-//           yesterday's close (gap up = short, gap down = long), only while the gap is still unfilled.
+//   ENTRY   at the close of the bar that ends at your entry time (09:45), only if the gap is still unfilled:
+//           trade TOWARD yesterday's close (gap up = short, gap down = long).
 //   STOP    your choice (wide / structure / medium / fixed / tight).  TARGET  yesterday's close or the nearest
-//           5-minute swing; default = half at +1R, stop to breakeven, rest at yesterday's close.
-//   EXIT    target, stop or breakeven. NO time rule by default (optional: close at a set time).
+//           5-minute swing.   EXIT  target, stop, or the exit time (12:00) at the bar's close.
 // Use a 1-, 5- or 15-minute chart (the entry time must fall on a bar boundary).
 // SET COSTS in the Properties tab (slippage in ticks, commission): the defaults are zero, so a result here is
 // BEFORE costs. Research result: no confirmed edge (about +0.00 to +0.05R per trade); this is a way to LOOK at it.
 // How far back it can test depends on your TradingView plan and the data on this symbol.
-// DEFAULTS = the original rule again (the version that showed +17.6% on NAS100 Jul-Oct 2026): fixed 09:45 entry, wide stop, yesterday's close, 12:00 exit.
-// Everything else (MSS / FVG entries, structure stops, partials, ladder, re-entry, breakeven-after-a-time) is an OPTION. Previously: a structure-shift (MSS) entry anywhere in the 09:35-11:00 window, stop beyond the internal 1-minute swing, half off at the 1m/5m structure near +1R then the
-// stop to breakeven, the rest to yesterday's close, NO time exit (the old 'yesterday's close only + 12:00 exit' is still in the Target / time inputs). Over Mar 2023 - Sep 2026 on NQ + ES
-// the wide stop averaged about 0.00R and this structure stop about +0.08R (not statistically different from zero; fewer wins, bigger ones).
-// The MSS entry, the tight MSS stop and the ladder are OPTIONS; combined they tested slightly negative (about -0.05R, worse on a 5-minute chart
-// because the entry waits for the chart bar to close), see docs/PHASE_131_132_STRUCTURE_ENTRY.md and docs/PHASE_129_130_LADDER_AND_RUNNER.md.
-// Half-off options: half at the nearest 5-minute swing or at +1R, then the stop moves to breakeven for the rest.
 // MARGIN IS TURNED OFF (margin_long/margin_short = 0): one NAS100 / US30 contract is worth $30,000+, far more than a
 // small account holds, and with TradingView's default 100% margin it silently refuses every order ("requires trade data").
 // Risk is still capped by the stop and the Risk % input; this only stops the tester from rejecting the order.
@@ -39,16 +33,10 @@ thr = input.float(0.2, "Take a setup when the gap is at least x the average dail
 rangeDays = input.int(14, "Average range over the last N sessions", minval = 5, group = grpG)
 
 grpT = "Trade"
-entryMethod = input.string("Fixed time (the 'Enter at' time below)", "Entry method", options = ["MSS + FVG: enter when price retests a fair value gap and rejects it (or an inverse FVG)", "Structure shift (MSS): enter at the break candle's close", "Structure shift (MSS): wait for a pullback to the 50% level", "Fixed time (the 'Enter at' time below)"], group = grpT, tooltip = "MSS + FVG = after the structure shift, wait for a fair value gap (a 3-candle gap in the trade direction formed after the extension) to be retested and respected, or for an INVERSE gap (a gap formed on the way to the extension that the break closed through) to be retested; enter on the rejection candle. MSS = no fixed time: on a gap day wait for the session extreme (the extension), then for a candle to CLOSE beyond the pullback level that launched it (the market-structure shift), between 09:35 and 11:00 New York. No shift = no trade. Break enters at the close of the CHART bar that contains the 1-minute break (the structure is read from 1-minute data on any chart timeframe). Retest waits for price to pull back to the 50% level of the move (in this tester it fills at the close of the first bar that reaches it, a little later than a true limit order). Fixed time is the old rule.")
-entryAt = input.string("0945", "Enter at (New York time; fixed-time method only)", options = ["0935", "0940", "0945", "0950", "1000", "1015", "1030"], group = grpT)
-huntEnd = input.string("1100", "Entry window ends (New York): stop looking for a structure shift", options = ["1000", "1030", "1100", "1130", "1200"], group = grpT, tooltip = "The window is when a setup may be TAKEN (it opens at 09:35). It never closes a trade.")
-beAt = input.string("Off", "From this time, move the stop to breakeven once the trade is in profit", options = ["Off", "1100", "1130", "1200", "1300", "1330"], group = grpT, tooltip = "Instead of closing at a set time: once this time has passed and the trade is in profit, the stop moves to the entry price (all of the position left); a trade that is not in profit is simply left alone.")
-exitAt = input.string("1200", "Close the trade at a set time (New York)", options = ["Never: hold until the target, the stop or breakeven", "1100", "1130", "1200", "1300", "1330", "1555"], group = grpT, tooltip = "Default: no time rule. The trade stays open (even overnight) until price reaches the target, the stop, or the breakeven stop after the half is taken. While a trade is open, a new setup is skipped.")
-stopMode = input.string("Wide: 1:1 with the target", "Stop", options = ["MSS: just beyond the extension (the high/low the shift came from)", "MSS: beyond the internal 1-minute swing (the nearest swing against the trade)", "FVG: just beyond the gap zone that was respected", "Wide: 1:1 with the target", "Structure: beyond the nearest 1-minute swing", "Structure: beyond the nearest 5-minute swing", "Medium: 0.25 x the average daily range", "Fixed: 0.21% of price (about 64 NQ points)", "Tight: beyond the 09:30-to-entry extreme"], group = grpT, tooltip = "The MSS stop sits just beyond the extension. With the fixed-time entry it behaves like Wide.")
-skipLow = input.bool(true, "MSS entries: skip when the reward is under 1R", group = grpT, tooltip = "Reward = distance to yesterday's close; 1R = the distance from the entry to the stop.")
-targetMode = input.string("Yesterday's close", "Target", options = ["Ladder: a third at each of two structure levels, the last third runs past yesterday's close", "Half at the structure near +1R, stop to breakeven, rest at yesterday's close", "Half at +1R, stop to breakeven, rest at yesterday's close", "Yesterday's close", "Nearest 5-minute swing (1R or more away)", "Half at the nearest 5-minute swing, rest at yesterday's close"], group = grpT, tooltip = "Ladder = a third at the nearest marked high/low (1m/5m swing), a third at the next one, stop to breakeven after the first and behind the first level after the second; the last third is NOT closed at yesterday's close: its stop jumps to yesterday's close and then trails behind each new 5-minute swing.")
-
-maxEntries = input.int(2, "MSS entries: max attempts per day", minval = 1, maxval = 3, group = grpT, tooltip = "After a stop-out the strategy keeps looking: a NEW extension has to confirm and a NEW structure shift has to print before it enters again (until 11:00, while yesterday's close is untouched). Research (Phase 134): the second attempt averaged about -0.1R and the third was worse, so more attempts did not help on average; 1 = one trade a day.")
+entryAt = input.string("0945", "Enter at (New York time)", options = ["0935", "0940", "0945", "0950", "1000", "1015", "1030"], group = grpT)
+exitAt = input.string("1200", "Exit at (New York time)", options = ["1100", "1130", "1200", "1300", "1330", "1555"], group = grpT)
+stopMode = input.string("Wide: 1:1 with the target", "Stop", options = ["Wide: 1:1 with the target", "Structure: beyond the nearest 1-minute swing", "Structure: beyond the nearest 5-minute swing", "Medium: 0.25 x the average daily range", "Fixed: 0.21% of price (about 64 NQ points)", "Tight: beyond the 09:30-to-entry extreme"], group = grpT)
+targetMode = input.string("Yesterday's close", "Target", options = ["Yesterday's close", "Nearest 5-minute swing (1R or more away)"], group = grpT)
 
 grpR = "Position size"
 riskPct = input.float(1.0, "Risk per trade (% of equity)", minval = 0.1, step = 0.1, group = grpR, tooltip = "Quantity = equity x this % / (stop distance x point value). A wide stop means a small position.")
@@ -56,7 +44,6 @@ minQty = input.float(0.01, "Smallest quantity allowed", minval = 0.0001, step = 
 
 grpD = "Display"
 showBoxes = input.bool(true, "Draw the target / stop boxes", group = grpD)
-showStructure = input.bool(true, "Draw the extension and the break level (MSS entries)", group = grpD)
 
 minSess = 5
 minRiskAtr = 0.10
@@ -66,16 +53,7 @@ inRTH = not na(time(timeframe.period, "0930-1600", NY))
 rthStart = inRTH and not inRTH[1]
 closeMin = hour(time_close, NY) * 60 + minute(time_close, NY)
 entryMin = int(str.tonumber(str.substring(entryAt, 0, 2))) * 60 + int(str.tonumber(str.substring(entryAt, 2, 4)))
-noTimeExit = exitAt == "Never: hold until the target, the stop or breakeven"
-mssMode = entryMethod != "Fixed time (the 'Enter at' time below)"
-fvgMode = entryMethod == "MSS + FVG: enter when price retests a fair value gap and rejects it (or an inverse FVG)"
-retestMode = entryMethod == "Structure shift (MSS): wait for a pullback to the 50% level"
-stopWhy = stopMode == "Wide: 1:1 with the target" ? "  = same distance as the target (NOT structure)" : stopMode == "Tight: beyond the 09:30-to-entry extreme" ? "  beyond the high/low of the gap move" : stopMode == "FVG: just beyond the gap zone that was respected" ? "  beyond the gap zone" : stopMode == "MSS: beyond the internal 1-minute swing (the nearest swing against the trade)" ? "  beyond the internal 1-minute swing" : str.startswith(stopMode, "MSS") ? "  beyond the extension" : str.startswith(stopMode, "Structure") ? "  beyond the nearest swing" : "  fixed size (NOT structure)"
-ladderMode = targetMode == "Ladder: a third at each of two structure levels, the last third runs past yesterday's close"
-huntEndMin = int(str.tonumber(str.substring(huntEnd, 0, 2))) * 60 + int(str.tonumber(str.substring(huntEnd, 2, 4)))
-beOff = beAt == "Off"
-beMin = beOff ? 99999 : int(str.tonumber(str.substring(beAt, 0, 2))) * 60 + int(str.tonumber(str.substring(beAt, 2, 4)))
-exitMin = noTimeExit ? 99999 : int(str.tonumber(str.substring(exitAt, 0, 2))) * 60 + int(str.tonumber(str.substring(exitAt, 2, 4)))
+exitMin = int(str.tonumber(str.substring(exitAt, 0, 2))) * 60 + int(str.tonumber(str.substring(exitAt, 2, 4)))
 
 // ---------------------------------------------------------------- state
 var float rthHi = na
@@ -91,57 +69,12 @@ var bool gapUp = false
 var bool touched = false
 var float preHi = na
 var float preLo = na
-var int state = 0 // 0 = no setup today, 1 = waiting for the entry (time or structure shift), 2 = trade open, 3 = finished / skipped, 4 = result label pending, 5 = waiting for the retest
+var int state = 0 // 0 = no setup today, 1 = waiting for the entry time, 2 = trade open, 3 = finished / skipped
 var int entryIdx = 0
 var float stopPx = na
 var float tgtPx = na
 var float riskPts = na
 var float entryPx = na
-var float tp1Px = na
-var float initQty = na
-var bool beMoved = false
-var bool beTimeDone = false
-var int tradesAtEntry = 0
-var float riskUsdT = na
-var string howT = ""
-var float lvl1 = na
-var float lvl2 = na
-var float curStop = na
-var bool pcHit = false
-var line ln1 = na
-var line ln2 = na
-// swings since the open (A = latest, B = the one before) and the extension / break level for the MSS entry
-var float lowA = na
-var float lowB = na
-var int lowAidx = na
-var float highA = na
-var float highB = na
-var int highAidx = na
-var int entriesToday = 0
-var float[] dO = array.new_float()
-var float[] dH = array.new_float()
-var float[] dL = array.new_float()
-var float[] dC = array.new_float()
-var int brkArr = na
-var int khArr = na
-var float fvgH = na
-var float zoneFar = na
-var float extLvl = na
-var float intLvl = na
-var int extBar = na
-var int extIdx = na
-var int subIdx = 0
-var float runHi1 = na
-var float runLo1 = na
-var float pO1 = na
-var float pC1 = na
-var float pH1 = na
-var float pL1 = na
-var float launch = na
-var float legExt = na
-var float retLvl = na
-var int brkBar = na
-var line retLine = na
 var box bTgt = na
 var box bRisk = na
 
@@ -181,15 +114,7 @@ nearBelow(float x1, float x2, float x3, float ref, float minGap) =>
 // stop distance in points (ep = entry price, dist = distance to yesterday's close, far = the 09:30-to-entry extreme on the far side, up = the stop sits ABOVE the entry, i.e. a short)
 calcRisk(float ep, float dist, float far, bool up) =>
     float r = na
-    if stopMode == "FVG: just beyond the gap zone that was respected"
-        float lz = (na(zoneFar) or (up ? zoneFar <= ep : zoneFar >= ep)) ? extLvl : zoneFar
-        r := (na(lz) or (up ? lz <= ep : lz >= ep)) ? dist : math.max(math.abs(lz - ep) + 2 * syminfo.mintick, 0.05 * avgRange)
-    else if stopMode == "MSS: beyond the internal 1-minute swing (the nearest swing against the trade)"
-        float lv = (na(intLvl) or (up ? intLvl <= ep : intLvl >= ep)) ? extLvl : intLvl
-        r := (na(lv) or (up ? lv <= ep : lv >= ep)) ? dist : math.max(math.abs(lv - ep) + 2 * syminfo.mintick, 0.05 * avgRange)
-    else if stopMode == "MSS: just beyond the extension (the high/low the shift came from)"
-        r := (na(extLvl) or (up ? extLvl <= ep : extLvl >= ep)) ? dist : math.max(math.abs(extLvl - ep) + 2 * syminfo.mintick, 0.05 * avgRange)
-    else if stopMode == "Wide: 1:1 with the target"
+    if stopMode == "Wide: 1:1 with the target"
         r := dist
     else if stopMode == "Medium: 0.25 x the average daily range"
         r := 0.25 * avgRange
@@ -210,140 +135,6 @@ calcTarget(float ep, float risk, bool shortTrade) =>
         tgt := na(sw) ? prevClose : sw
     tgt
 
-// the half-off level taken from the chart: the 1- or 5-minute swing in the profit direction that sits closest to +1R,
-// but only between 0.7R and 1.5R away; if there is none, exactly +1R
-nearOneR(float ep, float risk, bool shortTrade) =>
-    float one = shortTrade ? ep - risk : ep + risk
-    float best = na
-    float[] cand = shortTrade ? array.from(s1l0, s1l1, s1l2, s5l0, s5l1, s5l2) : array.from(s1h0, s1h1, s1h2, s5h0, s5h1, s5h2)
-    for i = 0 to 5
-        float x = array.get(cand, i)
-        if not na(x)
-            float d = shortTrade ? ep - x : x - ep
-            if d >= 0.7 * risk and d <= 1.5 * risk and (na(best) or math.abs(x - one) < math.abs(best - one))
-                best := x
-    na(best) ? one : best
-
-// the ladder: the two nearest marked highs (long) / lows (short) between 0.5R and yesterday's close, the second at least 0.5R beyond the first;
-// missing ones fall back to +1R / +2R (only if closer than yesterday's close). Returns the two PRICES (na = none).
-ladderLevels(float ep, float risk, bool shortTrade, float tdist) =>
-    float lim = tdist * 0.999
-    float[] cand = shortTrade ? array.from(s1l0, s1l1, s1l2, s5l0, s5l1, s5l2) : array.from(s1h0, s1h1, s1h2, s5h0, s5h1, s5h2)
-    float d1 = na
-    for i = 0 to 5
-        float x = array.get(cand, i)
-        if not na(x)
-            float d = shortTrade ? ep - x : x - ep
-            if d >= 0.5 * risk and d < lim and (na(d1) or d < d1)
-                d1 := d
-    float d2 = na
-    if not na(d1)
-        for i = 0 to 5
-            float x = array.get(cand, i)
-            if not na(x)
-                float d = shortTrade ? ep - x : x - ep
-                if d >= d1 + 0.5 * risk and d < lim and (na(d2) or d < d2)
-                    d2 := d
-    else if risk < lim
-        d1 := risk
-    if not na(d1) and na(d2)
-        d2 := math.max(2 * risk, d1 + 0.5 * risk)
-        if d2 >= lim
-            d2 := 0.5 * (d1 + tdist)
-    [na(d1) ? na : (shortTrade ? ep - d1 : ep + d1), na(d2) ? na : (shortTrade ? ep - d2 : ep + d2)]
-
-// fair value gap helpers. s = +1 for a short, -1 for a long: the long case is the short case with prices negated (highs and lows swap)
-fO(int i, float sg) => sg * array.get(dO, i)
-fC(int i, float sg) => sg * array.get(dC, i)
-fH(int i, float sg) => sg > 0 ? array.get(dH, i) : -array.get(dL, i)
-fL(int i, float sg) => sg > 0 ? array.get(dL, i) : -array.get(dH, i)
-
-// Does 1-minute bar t (after the structure break at bar k, extension bar kh) retest and REJECT a fair value gap or an inverse one?
-// Returns [code, zone bottom, zone top] in flipped space; code 1 = FVG respected, 2 = inverse FVG respected, -1 = setup dead (extension taken or yesterday's close touched), 0 = nothing yet.
-checkFvg(int t, int k, int kh, float sg, float pcS, float hS) =>
-    int code = 0
-    float zb = na
-    float zt = na
-    float ht = fH(t, sg)
-    float lt = fL(t, sg)
-    float ct = fC(t, sg)
-    float ot = fO(t, sg)
-    if ht >= hS or lt <= pcS
-        code := -1
-    else
-        // (1) a gap in the trade direction formed after the extension, newest first
-        int span = (t - 1) - (kh + 2) + 1
-        if span > 0
-            for q = 0 to span - 1
-                int j = t - 1 - q
-                if code == 0 and fH(j, sg) < fL(j - 2, sg)
-                    float bot = fH(j, sg)
-                    float top = fL(j - 2, sg)
-                    bool dead = false
-                    if t - 1 >= j + 1
-                        for u = j + 1 to t - 1
-                            if fC(u, sg) > top
-                                dead := true
-                    if not dead and ht >= bot and ct < top and ct < ot
-                        code := 1
-                        zb := bot
-                        zt := top
-        // (2) an inverse gap: a gap AGAINST the trade formed before the break that a candle then closed through
-        if code == 0 and k >= 2
-            for q = 0 to k - 2
-                int j = k - q
-                if code == 0 and fL(j, sg) > fH(j - 2, sg)
-                    float bot = fH(j - 2, sg)
-                    float top = fL(j, sg)
-                    int inv = -1
-                    if k >= j + 1
-                        for u = j + 1 to k
-                            if inv < 0 and fC(u, sg) < bot
-                                inv := u
-                    if inv >= 0
-                        bool dead = false
-                        if t - 1 >= inv + 1
-                            for u = inv + 1 to t - 1
-                                if fC(u, sg) > top
-                                    dead := true
-                        if not dead and ht >= bot and ct < top and ct < ot
-                            code := 2
-                            zb := bot
-                            zt := top
-    [code, zb, zt]
-
-// optional half-off level
-calcHalf(float ep, float risk, bool shortTrade) =>
-    float tp1 = na
-    if targetMode == "Half at the structure near +1R, stop to breakeven, rest at yesterday's close"
-        tp1 := nearOneR(ep, risk, shortTrade)
-    else if targetMode == "Half at +1R, stop to breakeven, rest at yesterday's close"
-        tp1 := shortTrade ? ep - risk : ep + risk
-    else if targetMode == "Half at the nearest 5-minute swing, rest at yesterday's close"
-        tp1 := shortTrade ? nearBelow(s5l0, s5l1, s5l2, ep, 0.5 * risk) : nearAbove(s5h0, s5h1, s5h2, ep, 0.5 * risk)
-    tp1
-
-// the result of the trade that just ended, written on the chart where it ended: WIN / LOSS / SCRATCH, in R and in dollars
-showResult(int atBar, string how) =>
-    if strategy.closedtrades > tradesAtEntry
-        float pnl = 0.0
-        for i = tradesAtEntry to strategy.closedtrades - 1
-            pnl += strategy.closedtrades.profit(i)
-        float res = (na(riskUsdT) or riskUsdT == 0) ? 0.0 : pnl / riskUsdT
-        float xp = strategy.closedtrades.exit_price(strategy.closedtrades - 1)
-        string h = how
-        if h == ""
-            float tol = 2 * syminfo.mintick
-            h := math.abs(xp - tgtPx) <= tol ? "hit the target" : math.abs(xp - stopPx) <= tol ? "stopped out" : math.abs(xp - entryPx) <= tol ? "back to breakeven after taking half" : (ladderMode ? "trailing stop hit" : "closed")
-        string cls = res >= 0.15 ? "WIN" : res <= -0.15 ? "LOSS" : "SCRATCH"
-        color col = res >= 0.15 ? color.new(color.green, 15) : res <= -0.15 ? color.new(color.red, 15) : color.new(color.gray, 15)
-        label.new(atBar, xp, cls + " " + (res >= 0 ? "+" : "") + str.tostring(res, "0.00") + "R  (" + (pnl >= 0 ? "+$" : "-$") + str.tostring(math.abs(pnl), "0") + ")  " + h, style = label.style_label_left, color = col, textcolor = color.white, size = size.normal)
-
-// a trade closed at the last bar's close is only counted by TradingView on the next bar, so its label is written then
-if state == 4
-    showResult(bar_index - 1, howT)
-    state := 3
-
 // ---------------------------------------------------------------- the day
 if rthStart
     dayBig := false
@@ -362,73 +153,15 @@ if rthStart
     touched := false
     preHi := high
     preLo := low
-    lowA := na
-    lowB := na
-    lowAidx := na
-    highA := na
-    highB := na
-    highAidx := na
-    extIdx := na
-    subIdx := 0
-    runHi1 := na
-    runLo1 := na
-    pO1 := na
-    pC1 := na
-    pH1 := na
-    pL1 := na
-    entriesToday := 0
-    array.clear(dO)
-    array.clear(dH)
-    array.clear(dL)
-    array.clear(dC)
-    zoneFar := na
-    extLvl := na
-    intLvl := na
-    extBar := na
-    launch := na
-    legExt := na
-    state := state == 2 ? 2 : (dayBig ? 1 : 0) // a trade still open from an earlier day keeps being managed
+    state := dayBig ? 1 : 0
 else if inRTH
     rthHi := math.max(rthHi, high)
     rthLo := math.min(rthLo, low)
 if inRTH
     lastClose := close
 
-// ---------------------------------------------------------------- the 1-minute bars inside this chart bar
-// The structure is read from 1-minute data whatever the chart timeframe (a 5-minute chart would otherwise see far fewer shifts).
-bool lowerOK = timeframe.in_seconds(timeframe.period) > 60
-float[] m1o = array.new_float()
-float[] m1h = array.new_float()
-float[] m1l = array.new_float()
-float[] m1c = array.new_float()
-if mssMode
-    if lowerOK
-        m1o := request.security_lower_tf(syminfo.tickerid, "1", open)
-        m1h := request.security_lower_tf(syminfo.tickerid, "1", high)
-        m1l := request.security_lower_tf(syminfo.tickerid, "1", low)
-        m1c := request.security_lower_tf(syminfo.tickerid, "1", close)
-    else
-        array.push(m1o, open)
-        array.push(m1h, high)
-        array.push(m1l, low)
-        array.push(m1c, close)
-
-int arrBefore = array.size(dO)
-if mssMode and inRTH and array.size(m1h) > 0
-    for jp = 0 to array.size(m1h) - 1
-        array.push(dO, array.get(m1o, jp))
-        array.push(dH, array.get(m1h, jp))
-        array.push(dL, array.get(m1l, jp))
-        array.push(dC, array.get(m1c, jp))
-
-// ---------------------------------------------------------------- finding the entry
-bool doEnter = false
-float eIn = na
-float eE = na
-float rpE = na
-
-// (a) fixed time: has the gap filled? then, on the bar that closes at the entry time, place the trade
-if state == 1 and inRTH and not mssMode and closeMin <= entryMin
+// before and at the entry time: has the gap filled? then, on the bar that closes at the entry time, place the trade
+if state == 1 and inRTH and closeMin <= entryMin
     if gapUp ? low <= prevClose : high >= prevClose
         touched := true
     if rthStart
@@ -438,290 +171,44 @@ if state == 1 and inRTH and not mssMode and closeMin <= entryMin
         preHi := math.max(preHi, high)
         preLo := math.min(preLo, low)
     if closeMin == entryMin
-        bool okSide = gapUp ? close > prevClose : close < prevClose
+        float e = close
+        bool okSide = gapUp ? e > prevClose : e < prevClose
         if not touched and okSide
-            doEnter := true
-            eIn := close
+            int side = gapUp ? -1 : 1
+            float rp = calcRisk(e, math.abs(e - prevClose), gapUp ? preHi : preLo, gapUp)
+            float tg = calcTarget(e, rp, gapUp)
+            float sp = e - side * rp
+            // TradingView rounds an order down to the symbol's smallest step; a fraction of a contract becomes ZERO and nothing trades.
+            // So round down to the step, and never go below one step (or your own minimum).
+            float step = (na(syminfo.mincontract) or syminfo.mincontract <= 0) ? 1.0 : syminfo.mincontract
+            float rawQty = strategy.equity * riskPct / 100.0 / (rp * syminfo.pointvalue)
+            float qty = math.max(math.floor(rawQty / step) * step, math.max(step, minQty))
+            float riskUsd = qty * rp * syminfo.pointvalue
+            riskPts := rp
+            tgtPx := tg
+            stopPx := sp
+            strategy.entry("GAP", side < 0 ? strategy.short : strategy.long, qty = qty, comment = (side < 0 ? "SHORT toward " : "LONG toward ") + str.tostring(prevClose, format.mintick) + "  qty " + str.tostring(qty) + "  risk $" + str.tostring(riskUsd, "0"))
+            strategy.exit("GAP exit", from_entry = "GAP", stop = sp, limit = tg)
+            entryIdx := bar_index
+            state := 2
+            if showBoxes
+                bTgt := box.new(bar_index, math.max(e, tg), bar_index + 1, math.min(e, tg), border_color = color.new(color.green, 30), bgcolor = color.new(color.green, 85), text = "TARGET " + str.tostring(tg, format.mintick) + "   (+" + str.tostring(math.abs(e - tg) / rp, "0.0") + "R)", text_color = color.green, text_size = size.small, text_halign = text.align_right, text_valign = side < 0 ? text.align_bottom : text.align_top)
+                bRisk := box.new(bar_index, math.max(e, sp), bar_index + 1, math.min(e, sp), border_color = color.new(color.red, 30), bgcolor = color.new(color.red, 85), text = "STOP " + str.tostring(sp, format.mintick) + "   (-1R)", text_color = color.red, text_size = size.small, text_halign = text.align_right, text_valign = side < 0 ? text.align_top : text.align_bottom)
         else
             state := 3
 
-// (b) structure shift, read bar by bar from the 1-minute data: the extension, then a close beyond the pullback level that launched it
-if state == 1 and inRTH and mssMode and array.size(m1h) > 0
-    int n = array.size(m1h)
-    for j = 0 to n - 1
-        if state != 1
-            break
-        float o1 = array.get(m1o, j)
-        float h1 = array.get(m1h, j)
-        float l1 = array.get(m1l, j)
-        float c1 = array.get(m1c, j)
-        bool first1 = na(pO1)
-        float rhPrev1 = runHi1
-        float rlPrev1 = runLo1
-        runHi1 := na(runHi1) ? h1 : math.max(runHi1, h1)
-        runLo1 := na(runLo1) ? l1 : math.min(runLo1, l1)
-        bool sh1 = not first1 and pC1 > pO1 and c1 < o1
-        bool sl1 = not first1 and pC1 < pO1 and c1 > o1
-        float shL = math.max(nz(pH1), h1)
-        float slL = math.min(nz(pL1, 1.0e12), l1)
-        int subEnd = closeMin - (n - 1 - j)
-        bool brk = false
-        if gapUp ? l1 <= prevClose : h1 >= prevClose
-            state := 3
-        else if subEnd > huntEndMin
-            state := 3
-        else
-            if not na(extLvl) and (gapUp ? runHi1 > extLvl : runLo1 < extLvl)
-                extLvl := na
-            if not na(extLvl) and subIdx > extIdx
-                legExt := gapUp ? math.min(legExt, l1) : math.max(legExt, h1)
-            if not na(extLvl) and not first1 and subEnd >= 575 and subIdx > extIdx
-                brk := gapUp ? (c1 < launch and c1 > prevClose) : (c1 > launch and c1 < prevClose)
-            if brk
-                intLvl := gapUp ? nz(highA, extLvl) : nz(lowA, extLvl)
-                if showStructure
-                    line.new(extBar - 1, extLvl, bar_index, extLvl, color = color.new(color.orange, 10), style = line.style_dotted, width = 2)
-                    label.new(extBar, extLvl, gapUp ? "extension high" : "extension low", style = gapUp ? label.style_label_down : label.style_label_up, color = color.new(color.orange, 30), textcolor = color.white, size = size.tiny)
-                    line.new(extBar - 3, launch, bar_index, launch, color = color.new(color.purple, 10), style = line.style_dashed, width = 2)
-                    label.new(bar_index, launch, "MSS (1m): closed through " + str.tostring(launch, format.mintick), style = gapUp ? label.style_label_up : label.style_label_down, color = color.new(color.purple, 20), textcolor = color.white, size = size.small)
-                if fvgMode
-                    brkArr := arrBefore + j
-                    float sg0 = gapUp ? 1.0 : -1.0
-                    int khx = 0
-                    float bestH = na
-                    for qq = 0 to brkArr
-                        float vv = fH(qq, sg0)
-                        if na(bestH) or vv > bestH
-                            bestH := vv
-                            khx := qq
-                    khArr := khx
-                    fvgH := extLvl
-                    brkBar := bar_index
-                    state := 7
-                else if retestMode
-                    retLvl := extLvl + (legExt - extLvl) * 0.5
-                    brkBar := bar_index
-                    state := 5
-                    if showStructure
-                        retLine := line.new(bar_index, retLvl, bar_index + 1, retLvl, color = color.new(color.aqua, 0), style = line.style_dashed, width = 2)
-                else
-                    doEnter := true
-                    eIn := close
-                    state := 6
-            if not brk
-                if gapUp and sh1 and shL >= runHi1
-                    extLvl := shL
-                    extBar := bar_index
-                    extIdx := subIdx
-                    launch := (not na(lowA) and lowAidx <= subIdx - 2) ? lowA : (not na(lowB) ? lowB : rlPrev1)
-                    legExt := l1
-                if (not gapUp) and sl1 and slL <= runLo1
-                    extLvl := slL
-                    extBar := bar_index
-                    extIdx := subIdx
-                    launch := (not na(highA) and highAidx <= subIdx - 2) ? highA : (not na(highB) ? highB : rhPrev1)
-                    legExt := h1
-        // remember this bar's swings (after the checks above used the older ones)
-        if sl1
-            lowB := lowA
-            lowA := slL
-            lowAidx := subIdx
-        if sh1
-            highB := highA
-            highA := shL
-            highAidx := subIdx
-        pO1 := o1
-        pC1 := c1
-        pH1 := h1
-        pL1 := l1
-        subIdx += 1
-    if state == 6
-        state := 1  // handed to the placement code below
-
-// (b2) after the structure shift: wait for a fair value gap to be retested and respected (or an inverse one), 1-minute bar by 1-minute bar
-if state == 7 and inRTH
-    float sS = gapUp ? 1.0 : -1.0
-    int nTot = array.size(dO)
-    int tStart = math.max(arrBefore, brkArr + 1)
-    if closeMin > huntEndMin + 60
-        state := 3
-    else if tStart <= nTot - 1
-        for t = tStart to nTot - 1
-            [code, zb, zt] = checkFvg(t, brkArr, khArr, sS, sS * prevClose, sS * fvgH)
-            if code < 0
-                state := 3
-                break
-            if code > 0
-                doEnter := true
-                eIn := close
-                zoneFar := sS * zt
-                if showStructure
-                    box.new(bar_index - 3, math.max(sS * zb, sS * zt), bar_index + 1, math.min(sS * zb, sS * zt), border_color = color.new(color.teal, 20), bgcolor = color.new(color.teal, 85), text = code == 1 ? "FVG respected" : "inverse FVG respected", text_color = color.teal, text_size = size.tiny)
-                break
-
-// (c) waiting for the retest of the 50% level, checked 1-minute bar by 1-minute bar from the next chart bar on
-if state == 5 and bar_index > brkBar and inRTH and array.size(m1h) > 0
-    int n5 = array.size(m1h)
-    bool cancel = false
-    for j = 0 to n5 - 1
-        float h5 = array.get(m1h, j)
-        float l5 = array.get(m1l, j)
-        int subEnd5 = closeMin - (n5 - 1 - j)
-        if gapUp ? h5 >= extLvl : l5 <= extLvl
-            cancel := true
-            break
-        else if gapUp ? l5 <= prevClose : h5 >= prevClose
-            cancel := true
-            break
-        else if subEnd5 > huntEndMin + 60
-            cancel := true
-            break
-        else if gapUp ? h5 >= retLvl : l5 <= retLvl
-            doEnter := true
-            eIn := close
-            break
-    if cancel
-        state := 3
-        if not na(retLine)
-            line.set_x2(retLine, bar_index)
-            label.new(bar_index, retLvl, "retest cancelled", style = label.style_label_left, color = color.new(color.gray, 20), textcolor = color.white, size = size.tiny)
-
-// (d) size it; MSS entries can be skipped when the reward to yesterday's close is under 1R
-if doEnter
-    eE := eIn
-    rpE := calcRisk(eIn, math.abs(eIn - prevClose), mssMode ? (gapUp ? rthHi : rthLo) : (gapUp ? preHi : preLo), gapUp)
-    if mssMode and skipLow and math.abs(eIn - prevClose) < rpE
-        doEnter := false
-        state := 3
-        if not na(retLine)
-            line.set_x2(retLine, bar_index)
-
-// (e) place the trade
-if doEnter
-    float e = eE
-    float rp = rpE
-    int side = gapUp ? -1 : 1
-    float tg = calcTarget(e, rp, gapUp)
-    float sp = e - side * rp
-    // TradingView rounds an order down to the symbol's smallest step; a fraction of a contract becomes ZERO and nothing trades.
-    // So round down to the step, and never go below one step (or your own minimum).
-    float step = (na(syminfo.mincontract) or syminfo.mincontract <= 0) ? 1.0 : syminfo.mincontract
-    float rawQty = strategy.equity * riskPct / 100.0 / (rp * syminfo.pointvalue)
-    float qty = math.max(math.floor(rawQty / step) * step, math.max(step, minQty))
-    float riskUsd = qty * rp * syminfo.pointvalue
-    entriesToday += 1
-    riskPts := rp
-    tgtPx := tg
-    stopPx := sp
-    strategy.entry("GAP", side < 0 ? strategy.short : strategy.long, qty = qty, comment = side < 0 ? "SHORT" : "LONG")
-    riskUsdT := riskUsd
-    tradesAtEntry := strategy.closedtrades
-    float t1 = ladderMode ? na : calcHalf(e, rp, gapUp)
-    lvl1 := na
-    lvl2 := na
-    pcHit := false
-    curStop := sp
-    if ladderMode
-        [l1, l2] = ladderLevels(e, rp, gapUp, math.abs(e - prevClose))
-        lvl1 := l1
-        lvl2 := l2
-        if not na(l1)
-            strategy.exit("GAP L1", from_entry = "GAP", qty_percent = 33.34, stop = sp, limit = l1)
-        if not na(l2)
-            strategy.exit("GAP L2", from_entry = "GAP", qty_percent = 33.33, stop = sp, limit = l2)
-        strategy.exit("GAP run", from_entry = "GAP", stop = sp)
-        if showBoxes and not na(l1)
-            ln1 := line.new(bar_index, l1, bar_index + 1, l1, color = color.new(color.aqua, 0), style = line.style_dashed, width = 2)
-            label.new(bar_index, l1, "1/3 at " + str.tostring(l1, format.mintick), style = label.style_label_left, color = color.new(color.aqua, 25), textcolor = color.white, size = size.small)
-        if showBoxes and not na(l2)
-            ln2 := line.new(bar_index, l2, bar_index + 1, l2, color = color.new(color.aqua, 0), style = line.style_dashed, width = 2)
-            label.new(bar_index, l2, "1/3 at " + str.tostring(l2, format.mintick), style = label.style_label_left, color = color.new(color.aqua, 25), textcolor = color.white, size = size.small)
-    else if na(t1)
-        strategy.exit("GAP exit", from_entry = "GAP", stop = sp, limit = tg)
-    else
-        strategy.exit("GAP half", from_entry = "GAP", qty_percent = 50, stop = sp, limit = t1)
-        strategy.exit("GAP rest", from_entry = "GAP", stop = sp, limit = tg)
-    entryPx := e
-    tp1Px := t1
-    initQty := qty
-    beMoved := false
-    beTimeDone := false
-    entryIdx := bar_index
-    state := 2
-    if not na(retLine)
-        line.set_x2(retLine, bar_index)
-    if showBoxes
-        bTgt := box.new(bar_index, math.max(e, tg), bar_index + 1, math.min(e, tg), border_color = color.new(color.green, 30), bgcolor = color.new(color.green, 85), text = "TARGET " + str.tostring(tg, format.mintick) + "   (+" + str.tostring(math.abs(e - tg) / rp, "0.0") + "R = +$" + str.tostring(riskUsd * math.abs(e - tg) / rp, "0") + ")", text_color = color.green, text_size = size.small, text_halign = text.align_right, text_valign = side < 0 ? text.align_bottom : text.align_top)
-        bRisk := box.new(bar_index, math.max(e, sp), bar_index + 1, math.min(e, sp), border_color = color.new(color.red, 30), bgcolor = color.new(color.red, 85), text = "STOP " + str.tostring(sp, format.mintick) + "   (-1R = -$" + str.tostring(riskUsd, "0") + ")" + stopWhy, text_color = color.red, text_size = size.small, text_halign = text.align_right, text_valign = side < 0 ? text.align_top : text.align_bottom)
-
-// manage: the exit orders handle the stop and target; this closes at the exit time and keeps the boxes growing
+// manage: the exit order handles the stop and the target; this closes at the exit time and keeps the boxes growing
 if state == 2 and bar_index > entryIdx
     if showBoxes
         box.set_right(bTgt, bar_index)
         box.set_right(bRisk, bar_index)
-    // after the chosen time, a trade that is in profit gets its stop moved to breakeven (nothing is closed because of the time)
-    bool beTime = not beOff and (not inRTH or closeMin >= beMin) and (strategy.position_size < 0 ? close < entryPx : close > entryPx)
-    if beTime and not beTimeDone and not ladderMode and strategy.position_size != 0
-        beTimeDone := true
-        if na(tp1Px)
-            strategy.exit("GAP exit", from_entry = "GAP", stop = entryPx, limit = tgtPx)
-        else
-            if math.abs(strategy.position_size) >= initQty * 0.75
-                strategy.exit("GAP half", from_entry = "GAP", qty_percent = 50, stop = entryPx, limit = tp1Px)
-            strategy.exit("GAP rest", from_entry = "GAP", stop = entryPx, limit = tgtPx)
-            beMoved := true
-    if showBoxes and ladderMode
-        if not na(ln1)
-            line.set_x2(ln1, bar_index)
-        if not na(ln2)
-            line.set_x2(ln2, bar_index)
-    if ladderMode and strategy.position_size != 0
-        float q = math.abs(strategy.position_size)
-        bool d1 = not na(lvl1) and q < initQty * 0.8
-        bool d2 = not na(lvl2) and q < initQty * 0.45
-        if not pcHit and (gapUp ? low <= tgtPx : high >= tgtPx)
-            pcHit := true
-        float ns = stopPx
-        if d1
-            ns := entryPx
-        if d2
-            ns := lvl1
-        if beTime
-            ns := gapUp ? math.min(ns, entryPx) : math.max(ns, entryPx)
-        if pcHit
-            ns := gapUp ? math.min(ns, tgtPx) : math.max(ns, tgtPx)
-            float sw = gapUp ? s5h0 : s5l0
-            if not na(sw) and (gapUp ? sw < ns : sw > ns)
-                ns := sw
-        // the stop only ever moves in our favour; re-issue only the exits that are still open (a filled one would otherwise be placed again)
-        if (gapUp ? ns < curStop : ns > curStop)
-            curStop := ns
-            if not na(lvl1) and not d1
-                strategy.exit("GAP L1", from_entry = "GAP", qty_percent = 33.34, stop = curStop, limit = lvl1)
-            if not na(lvl2) and not d2
-                strategy.exit("GAP L2", from_entry = "GAP", qty_percent = 33.33, stop = curStop, limit = lvl2)
-            strategy.exit("GAP run", from_entry = "GAP", stop = curStop)
-    if not na(tp1Px) and not beMoved and strategy.position_size != 0 and math.abs(strategy.position_size) < initQty * 0.75
-        strategy.exit("GAP rest", from_entry = "GAP", stop = entryPx, limit = tgtPx)
-        beMoved := true
     if strategy.position_size == 0
         state := 3
-        showResult(bar_index, "")
-        // stopped out with attempts left, still inside the hunting window: look for a fresh structure shift
-        if mssMode and entriesToday < maxEntries and strategy.closedtrades > tradesAtEntry and closeMin < huntEndMin
-            float pnlNow = 0.0
-            for i = tradesAtEntry to strategy.closedtrades - 1
-                pnlNow += strategy.closedtrades.profit(i)
-            if pnlNow < 0
-                state := 1
-                extLvl := na
-    else if not noTimeExit and inRTH and closeMin >= exitMin
-        strategy.close("GAP", comment = "time exit")
-        howT := "closed by the time rule at " + exitAt
-        state := 4
-    else if not noTimeExit and not inRTH
+    else if inRTH and closeMin >= exitMin
+        strategy.close("GAP", comment = "time exit " + exitAt)
+        state := 3
+    else if not inRTH
         strategy.close("GAP", comment = "end of session")
-        howT := "closed at the end of the session"
-        state := 4
+        state := 3
 
 bgcolor(dayBig and inRTH and closeMin <= exitMin ? color.new(color.blue, 96) : na)
