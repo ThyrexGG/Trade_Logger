@@ -76,6 +76,9 @@ var float entryPx = na
 var float tp1Px = na
 var float initQty = na
 var bool beMoved = false
+var int tradesAtEntry = 0
+var float riskUsdT = na
+var string howT = ""
 var box bTgt = na
 var box bRisk = na
 
@@ -145,6 +148,27 @@ calcHalf(float ep, float risk, bool shortTrade) =>
         tp1 := shortTrade ? nearBelow(s5l0, s5l1, s5l2, ep, 0.5 * risk) : nearAbove(s5h0, s5h1, s5h2, ep, 0.5 * risk)
     tp1
 
+// the result of the trade that just ended, written on the chart where it ended: WIN / LOSS / SCRATCH, in R and in dollars
+showResult(int atBar, string how) =>
+    if strategy.closedtrades > tradesAtEntry
+        float pnl = 0.0
+        for i = tradesAtEntry to strategy.closedtrades - 1
+            pnl += strategy.closedtrades.profit(i)
+        float res = (na(riskUsdT) or riskUsdT == 0) ? 0.0 : pnl / riskUsdT
+        float xp = strategy.closedtrades.exit_price(strategy.closedtrades - 1)
+        string h = how
+        if h == ""
+            float tol = 2 * syminfo.mintick
+            h := math.abs(xp - tgtPx) <= tol ? "hit the target" : math.abs(xp - stopPx) <= tol ? "stopped out" : math.abs(xp - entryPx) <= tol ? "back to breakeven after taking half" : "closed"
+        string cls = res >= 0.15 ? "WIN" : res <= -0.15 ? "LOSS" : "SCRATCH"
+        color col = res >= 0.15 ? color.new(color.green, 15) : res <= -0.15 ? color.new(color.red, 15) : color.new(color.gray, 15)
+        label.new(atBar, xp, cls + " " + (res >= 0 ? "+" : "") + str.tostring(res, "0.00") + "R  (" + (pnl >= 0 ? "+$" : "-$") + str.tostring(math.abs(pnl), "0") + ")  " + h, style = label.style_label_left, color = col, textcolor = color.white, size = size.normal)
+
+// a trade closed at the last bar's close is only counted by TradingView on the next bar, so its label is written then
+if state == 4
+    showResult(bar_index - 1, howT)
+    state := 3
+
 // ---------------------------------------------------------------- the day
 if rthStart
     dayBig := false
@@ -197,7 +221,9 @@ if state == 1 and inRTH and closeMin <= entryMin
             riskPts := rp
             tgtPx := tg
             stopPx := sp
-            strategy.entry("GAP", side < 0 ? strategy.short : strategy.long, qty = qty, comment = (side < 0 ? "SHORT toward " : "LONG toward ") + str.tostring(prevClose, format.mintick) + "  qty " + str.tostring(qty) + "  risk $" + str.tostring(riskUsd, "0"))
+            strategy.entry("GAP", side < 0 ? strategy.short : strategy.long, qty = qty, comment = side < 0 ? "SHORT" : "LONG")
+            riskUsdT := riskUsd
+            tradesAtEntry := strategy.closedtrades
             float t1 = calcHalf(e, rp, gapUp)
             if na(t1)
                 strategy.exit("GAP exit", from_entry = "GAP", stop = sp, limit = tg)
@@ -211,8 +237,8 @@ if state == 1 and inRTH and closeMin <= entryMin
             entryIdx := bar_index
             state := 2
             if showBoxes
-                bTgt := box.new(bar_index, math.max(e, tg), bar_index + 1, math.min(e, tg), border_color = color.new(color.green, 30), bgcolor = color.new(color.green, 85), text = "TARGET " + str.tostring(tg, format.mintick) + "   (+" + str.tostring(math.abs(e - tg) / rp, "0.0") + "R)", text_color = color.green, text_size = size.small, text_halign = text.align_right, text_valign = side < 0 ? text.align_bottom : text.align_top)
-                bRisk := box.new(bar_index, math.max(e, sp), bar_index + 1, math.min(e, sp), border_color = color.new(color.red, 30), bgcolor = color.new(color.red, 85), text = "STOP " + str.tostring(sp, format.mintick) + "   (-1R)", text_color = color.red, text_size = size.small, text_halign = text.align_right, text_valign = side < 0 ? text.align_top : text.align_bottom)
+                bTgt := box.new(bar_index, math.max(e, tg), bar_index + 1, math.min(e, tg), border_color = color.new(color.green, 30), bgcolor = color.new(color.green, 85), text = "TARGET " + str.tostring(tg, format.mintick) + "   (+" + str.tostring(math.abs(e - tg) / rp, "0.0") + "R = +$" + str.tostring(riskUsd * math.abs(e - tg) / rp, "0") + ")", text_color = color.green, text_size = size.small, text_halign = text.align_right, text_valign = side < 0 ? text.align_bottom : text.align_top)
+                bRisk := box.new(bar_index, math.max(e, sp), bar_index + 1, math.min(e, sp), border_color = color.new(color.red, 30), bgcolor = color.new(color.red, 85), text = "STOP " + str.tostring(sp, format.mintick) + "   (-1R = -$" + str.tostring(riskUsd, "0") + ")", text_color = color.red, text_size = size.small, text_halign = text.align_right, text_valign = side < 0 ? text.align_top : text.align_bottom)
         else
             state := 3
 
@@ -226,11 +252,14 @@ if state == 2 and bar_index > entryIdx
         beMoved := true
     if strategy.position_size == 0
         state := 3
+        showResult(bar_index, "")
     else if inRTH and closeMin >= exitMin
-        strategy.close("GAP", comment = "time exit " + exitAt)
-        state := 3
+        strategy.close("GAP", comment = "time exit")
+        howT := "closed by the time rule at " + exitAt
+        state := 4
     else if not inRTH
         strategy.close("GAP", comment = "end of session")
-        state := 3
+        howT := "closed at the end of the session"
+        state := 4
 
 bgcolor(dayBig and inRTH and closeMin <= exitMin ? color.new(color.blue, 96) : na)

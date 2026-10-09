@@ -338,6 +338,7 @@ it. `big_gap_fade_strategy.pine` is the same rule as a **strategy**: paste it, a
 the trade list, equity curve, win rate and drawdown. Same inputs as the indicator (gap size, entry
 and exit time, stop: wide / structure / medium / fixed / tight, target: yesterday's close or the
 nearest 5-minute swing) plus a risk-per-trade % for the position size. **Set commission and slippage
-in the Properties tab**: the defaults are zero, so results are before costs. There is no half-off
-option in the strategy (the indicator has it). How far back it tests depends on your TradingView plan
+in the Properties tab**: the defaults are zero, so results are before costs. Half at +1R / at a 5-minute swing (stop to breakeven for the rest) is a Target option.
+Each trade ends with a label on the chart, e.g. `LOSS -0.28R (-$18)  closed by the time rule at 1200`, and the boxes show the dollars at stake (`STOP ... -1R = -$66`).
+TradingView's own `+0.9` / `-0.9` marks are the position size, not profit; hide them in Settings > Style > uncheck Signal labels. How far back it tests depends on your TradingView plan
 and the data on that symbol. Research result: no confirmed edge; this is a way to look at it, not a signal.
