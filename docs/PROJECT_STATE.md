@@ -1,4 +1,7 @@
 # PROJECT STATE & ARCHITECTURAL RECORD
+
+> **Newer summary:** see `docs/HANDOFF.md` for the current state (Phases 101–135, journal one-tap, phone theme). This file is the long history up to Phase 100 and the web/mobile platform.
+
 **TradeLogger Terminal - Living System Memory**
 *Last Updated: 14 September 2026 (§21 — web/mobile platform W8–W10 multi-tenant + native auth + MT5 push-agent shipped since this file's last sync, plus friends-tier nav rework, Partners/referral page, MT5 agent background-launch fix, gold/black/gray rebrand — see §21 and `docs/WEB_MOBILE_PLATFORM_PLAN.md` for the authoritative detail)*
 

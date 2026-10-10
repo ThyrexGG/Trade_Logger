@@ -1,5 +1,7 @@
 # TradeLogger — Current State
 
+> **Out of date (stops at Phase 74).** Current state: `docs/HANDOFF.md`.
+
 *Source-of-truth snapshot for future prompts. Written during the stabilization
 pass (after `534f574`). Pair with `CURRENT_ARCHITECTURE.md`.*
 

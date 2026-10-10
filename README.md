@@ -2,6 +2,8 @@
 
 TradeLogger is a personal trading journal, analytics, and research platform for tracking trades executed on MetaTrader 5 and Capital.com. It syncs closed trades and open positions from those brokers into its own database, then provides performance analytics, risk sizing, price alerts, a backtesting and strategy-discovery research lab, market/macro intelligence, and a read-only AI assistant (Gemini) for querying your own trading history. The application is intentionally read-only with respect to brokers: it never places, modifies, or cancels an order, and live trade automation is permanently disabled in code.
 
+**New session? Start with [docs/HANDOFF.md](docs/HANDOFF.md).**
+
 ## Tech stack
 
 **Backend**
