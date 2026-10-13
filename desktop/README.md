@@ -58,3 +58,12 @@ app is running it locks that folder — build elsewhere with
 certificate — those cost money), so Windows SmartScreen will show an "unknown
 publisher" warning on first run. Click "More info" → "Run anyway". This is
 expected for a personal/small-scale app and doesn't mean anything is wrong.
+
+## "Sync now" says "Python was not found"
+
+The desktop app runs the MT5 push agent (and the local fallback server) with Python on this PC.
+Plain `python` on Windows can be the Microsoft Store stub, which only prints "Python was not found;
+run without arguments to install from the Microsoft Store" — that text then shows on the Analytics
+page. Since v1.1.7 `main.js` (`pythonCommand()`) looks for a per-user install
+(`%LOCALAPPDATA%\Python\pythoncore-*\python.exe`), then the `py -3` launcher, and only then `python`.
+The 15-minute scheduled task was never affected: it is registered with the full interpreter path.

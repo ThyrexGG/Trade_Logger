@@ -312,6 +312,30 @@ function fallbackLog(msg) {
 // child.kill() ends only that wrapper and leaves python running, orphaned
 // (that's how a fallback server kept polling MT5 for 11+ hours). /T takes the
 // whole tree down.
+// Plain `python` on Windows can resolve to the Microsoft Store stub in WindowsApps, which
+// only prints "Python was not found; run without arguments to install from the Microsoft
+// Store" and exits -- that is the error "Sync now" showed on the Analytics page. Prefer the
+// real interpreter: a per-user install first (the same one the agent's scheduled task is
+// registered with), then the `py` launcher, and only then bare `python`.
+let cachedPythonCommand = null
+function pythonCommand() {
+  if (cachedPythonCommand) return cachedPythonCommand
+  try {
+    const root = path.join(process.env.LOCALAPPDATA || '', 'Python')
+    const dirs = fs.readdirSync(root).filter((d) => d.startsWith('pythoncore-')).sort().reverse()
+    for (const d of dirs) {
+      const exe = path.join(root, d, 'python.exe')
+      if (fs.existsSync(exe)) return (cachedPythonCommand = `"${exe}"`)
+    }
+  } catch {
+    /* no per-user install -- try the launcher */
+  }
+  if (fs.existsSync(path.join(process.env.SystemRoot || 'C:\\Windows', 'py.exe'))) {
+    return (cachedPythonCommand = 'py -3')
+  }
+  return (cachedPythonCommand = 'python')
+}
+
 function killTree(child) {
   if (!child) return
   if (process.platform === 'win32' && child.pid) {
@@ -349,7 +373,7 @@ async function startLocalFallback() {
     // app itself got launched from (Explorer, Start Menu, a scheduled task, ...).
     // --parent-pid: the server exits on its own if this app dies without
     // cleaning up (crash, force-close) -- will-quit never runs in that case.
-    localFallbackProcess = spawn('python', [FALLBACK_SCRIPT, '--sync-now', '--port', String(FALLBACK_PORT), '--parent-pid', String(process.pid)], {
+    localFallbackProcess = spawn(pythonCommand(), [FALLBACK_SCRIPT, '--sync-now', '--port', String(FALLBACK_PORT), '--parent-pid', String(process.pid)], {
       cwd: REPO_ROOT,
       windowsHide: true,
       shell: true,
@@ -406,7 +430,7 @@ function runMT5PushAgentOnce() {
     let child
     try {
       // shell: true for the same PATH-resolution reason as startLocalFallback.
-      child = spawn('python', [MT5_PUSH_AGENT, '--once'], {
+      child = spawn(pythonCommand(), [MT5_PUSH_AGENT, '--once'], {
         cwd: REPO_ROOT,
         windowsHide: true,
         shell: true,
