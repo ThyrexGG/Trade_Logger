@@ -138,11 +138,13 @@ def _normalise_position(
 def reconstruct_positions(
     position_ids: Iterable[str], account_id: str
 ) -> int:
-    """Group this tenant's raw deals by position id and (re)write the fully
-    closed ones into closed_trades. Returns the number written.
+    """Group this tenant's raw deals by position id and (re)write the closed
+    part of each into closed_trades. Returns the number written.
 
-    FIFO by position id: the first deal sets the direction; a position is only
-    emitted once its exit volume matches its entry volume.
+    FIFO by position id: the first deal sets the direction. A fully closed
+    position is written with its whole volume; a position that is only partly
+    closed is written with the lots closed so far (profit realised so far) and
+    is overwritten, same trade_id, when the rest closes.
     """
     position_ids = [p for p in dict.fromkeys(position_ids) if p]
     if not position_ids:
@@ -189,19 +191,34 @@ def reconstruct_positions(
         entries: List[tuple] = []
         exits: List[tuple] = []
         total_commission = total_swap = total_profit = 0.0
+        entry_commission = entry_swap = 0.0
         for deal_type, volume, price, commission, swap, profit, ts, _sym in deals:
             total_commission += commission
             total_swap += swap
             total_profit += profit
+            if deal_type == first_deal_type:
+                entry_commission += commission
+                entry_swap += swap
             (entries if deal_type == first_deal_type else exits).append(
                 (volume, price, ts)
             )
 
         total_entry_vol = sum(e[0] for e in entries)
         total_exit_vol = sum(x[0] for x in exits)
-        if total_entry_vol <= 0 or total_exit_vol < total_entry_vol * 0.999:
-            # still open — do not write a closed trade yet
+        if total_entry_vol <= 0 or total_exit_vol <= 0:
+            # nothing has been closed yet (or the entry deal is missing) -- no trade to write
             continue
+
+        volume = total_entry_vol
+        if total_exit_vol < total_entry_vol * 0.999:
+            # Partly closed, the rest is still open. Write the realised part now under the SAME
+            # trade_id the final row will use, so the closing sync overwrites it (no double count).
+            # The entry-side fees are carried in proportion to the lots closed so far, the same way
+            # api/trade_groups spreads them over the exit legs, so the two always agree.
+            carried = total_exit_vol / total_entry_vol
+            total_commission -= entry_commission * (1 - carried)
+            total_swap -= entry_swap * (1 - carried)
+            volume = total_exit_vol
 
         avg_entry = sum(v * p for v, p, _ in entries) / total_entry_vol
         avg_exit = sum(v * p for v, p, _ in exits) / total_exit_vol
@@ -215,7 +232,7 @@ def reconstruct_positions(
                 "account_id": account_id,
                 "symbol": symbol,
                 "direction": trade_direction,
-                "volume": total_entry_vol,
+                "volume": volume,
                 "entry_price": avg_entry,
                 "exit_price": avg_exit,
                 "commission": total_commission,

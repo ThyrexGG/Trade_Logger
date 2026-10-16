@@ -208,3 +208,37 @@ def test_ingest_module_pulls_in_no_execution_code():
     importlib.reload(mt5_ingest)
     assert "order_execution" not in sys.modules
     assert "broker_adapter" not in sys.modules
+
+
+# --- partial closes: the realised part shows up before the rest closes ------
+
+def test_partly_closed_position_is_written_with_the_profit_realised_so_far(clean):
+    with tenant.use("alice"):
+        deals = [
+            _deal(1, "950", "BUY", 2000.0, 1_700_000_000, volume=1.0),
+            _deal(2, "950", "SELL", 2010.0, 1_700_000_600, volume=0.4, profit=4.0),   # partial, 0.6 lots still open
+        ]
+        summary = mt5_ingest.ingest_mt5_payload("MT5_777", deals=deals)
+        assert summary["closed_trades"] == 1
+        row = database.get_closed_trades().iloc[0]
+        assert round(float(row["volume"]), 2) == 0.4                 # only the lots closed so far
+        assert round(float(row["exit_price"]), 2) == 2010.0
+        # 4.0 profit - 0.5 exit fee - (0.5 entry fee * 0.4 of the lots closed)
+        assert round(float(row["net_profit"]), 2) == 3.3
+
+
+def test_closing_the_rest_overwrites_the_partial_row_instead_of_adding_another(clean):
+    with tenant.use("alice"):
+        first = [
+            _deal(1, "951", "BUY", 2000.0, 1_700_000_000, volume=1.0),
+            _deal(2, "951", "SELL", 2010.0, 1_700_000_600, volume=0.4, profit=4.0),
+        ]
+        mt5_ingest.ingest_mt5_payload("MT5_777", deals=first)
+        mt5_ingest.ingest_mt5_payload(
+            "MT5_777", deals=[_deal(3, "951", "SELL", 2020.0, 1_700_001_200, volume=0.6, profit=12.0)]
+        )
+        df = database.get_closed_trades()
+        assert len(df) == 1                                          # same trade_id, replaced in place
+        row = df.iloc[0]
+        assert round(float(row["volume"]), 2) == 1.0
+        assert round(float(row["net_profit"]), 2) == 14.5            # 16 profit - 3 x 0.5 fees

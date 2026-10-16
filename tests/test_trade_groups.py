@@ -217,3 +217,20 @@ def test_ai_assistant_counts_one_trade_for_the_scaled_out_position(db):
     assert tags == [{"tag": "London", "n": 1, "wins": 1, "win_rate_pct": 100.0, "net_total_usd": 6.26, "expectancy_usd": 6.26}]
     period = ai_tools.tool_analytics_period("all")
     assert period["n"] == 1 and period["net_pnl_usd"] == 6.26
+
+
+def test_a_partly_closed_mt5_position_is_open_with_its_partial_listed(db):
+    def deal(i, typ, vol, price, profit, ts):
+        return {"deal_id": f"p{i}", "account_id": "MT5_1", "symbol": "EURUSD", "type": typ, "volume": vol, "price": price,
+                "commission": 0.0, "swap": 0.0, "profit": profit, "timestamp": ts, "position_id": "MT5_1_700"}
+    database.save_raw_deals([deal(1, "BUY", 1.0, 1.10, 0.0, 1), deal(2, "SELL", 0.4, 1.11, 40.0, 2)])
+    row = {**_row("MT5_1_700", 40.0, "2026-09-21T09:00:00", account="MT5_1"), "volume": 0.4}
+    # open_positions ids carry an extra "MT5_" before the ticket
+    open_ids = ["MT5_1_MT5_700"]
+    legs = tg.mt5_partial_legs(["MT5_1_700"], tg.mt5_open_trade_ids(open_ids))
+    out = tg.collapse_positions([row], open_ids, legs)[0]
+    assert out["position_open"] is True
+    assert [(l["kind"], l["volume"]) for l in out["legs"]] == [("partial", 0.4)]
+    # once the position is gone from open_positions it is a normal, fully closed trade again
+    assert tg.collapse_positions([row], [], {})[0]["position_open"] is False
+    assert tg.mt5_open_trade_ids(["u1:MT5_9_MT5_55", "CAP_" + DEAL, "junk"]) == {"u1:MT5_9_55"}

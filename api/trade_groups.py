@@ -131,7 +131,9 @@ def collapse_positions(
 ) -> List[Dict[str, Any]]:
     """One dict per position, in the order of the main rows in `rows`. Rows that are not partials come back
     unchanged apart from `legs` = [] and `position_open` = False."""
+    open_position_ids = list(open_position_ids)
     open_bases = _open_capital_bases(open_position_ids)
+    open_mt5 = mt5_open_trade_ids(open_position_ids)
     mt5_legs = mt5_legs or {}
     groups: Dict[tuple, List[Dict[str, Any]]] = {}
     for r in rows:
@@ -156,7 +158,7 @@ def collapse_positions(
             done.add(key)
             out.append(_fold_capital(group, is_open))
         else:
-            out.append({**r, "legs": mt5_legs.get(tid, []), "position_open": False})
+            out.append({**r, "legs": mt5_legs.get(tid, []), "position_open": tid in open_mt5})
     # rows were sorted newest-exit-first by the loader; a folded group is emitted at its FIRST-seen row, which is its
     # newest leg, so the order is preserved. A hand-built input order is respected as given.
     return out
@@ -165,10 +167,26 @@ def collapse_positions(
 # ---------------------------------------------------------------------------------------------------------------
 # MT5: the partials live in raw_deals
 # ---------------------------------------------------------------------------------------------------------------
-def mt5_partial_legs(trade_ids: Iterable[str]) -> Dict[str, List[Dict[str, Any]]]:
+MT5_OPEN_ID = re.compile(r"^(?P<prefix>.+)_MT5_(?P<ticket>\d+)$")
+
+
+def mt5_open_trade_ids(open_position_ids: Iterable[str]) -> Set[str]:
+    """The `closed_trades.trade_id`s of MT5 positions that are still open. `open_positions` ids carry an extra
+    "MT5_" before the ticket ("<user>:MT5_<account>_MT5_<ticket>"); the matching trade id does not."""
+    out: Set[str] = set()
+    for pid in open_position_ids:
+        m = MT5_OPEN_ID.match(str(pid or ""))
+        if m:
+            out.add(f"{m.group('prefix')}_{m.group('ticket')}")
+    return out
+
+
+def mt5_partial_legs(trade_ids: Iterable[str], open_trade_ids: Iterable[str] = ()) -> Dict[str, List[Dict[str, Any]]]:
     """{trade_id: legs} for the current tenant's MT5 trades that were closed in more than one piece. Only positions
-    with more than two deals can have been (entry + at least two exits), so the scan is one cheap GROUP BY."""
+    with more than two deals can have been (entry + at least two exits), so the scan is one cheap GROUP BY. A trade
+    that is still open (`open_trade_ids`) needs only one exit to count, and all its legs are partials."""
     wanted = {t for t in trade_ids if t and not capital_base(t)}
+    open_wanted = wanted & set(open_trade_ids)
     if not wanted:
         return {}
     uid = tenant.current_user_id()
@@ -178,6 +196,7 @@ def mt5_partial_legs(trade_ids: Iterable[str]) -> Dict[str, List[Dict[str, Any]]
         ph = database.get_sql_placeholder(conn)
         cur.execute(f"SELECT position_id FROM raw_deals WHERE user_id = {ph} GROUP BY position_id HAVING COUNT(*) > 2", (uid,))
         multi = [r[0] for r in cur.fetchall() if r[0] in wanted]
+        multi += [p for p in open_wanted if p not in multi]
         deals: Dict[str, List[tuple]] = {p: [] for p in multi}
         for i in range(0, len(multi), 500):
             batch = multi[i:i + 500]
@@ -191,19 +210,24 @@ def mt5_partial_legs(trade_ids: Iterable[str]) -> Dict[str, List[Dict[str, Any]]
                 deals[row[0]].append(row[1:])
     finally:
         conn.close()
-    return {pid: legs for pid, legs in ((p, _mt5_position_legs(d)) for p, d in deals.items()) if legs}
+    return {
+        pid: legs
+        for pid, legs in ((p, _mt5_position_legs(d, is_open=p in open_wanted)) for p, d in deals.items())
+        if legs
+    }
 
 
-def _mt5_position_legs(deals: List[tuple]) -> List[Dict[str, Any]]:
+def _mt5_position_legs(deals: List[tuple], is_open: bool = False) -> List[Dict[str, Any]]:
     """Exit legs of one position from its deals (type, volume, price, commission, swap, profit, timestamp), oldest
-    first. The entry side's fees are spread over the exits by volume so the legs add up to the trade's net."""
+    first. The entry side's fees are spread over the exits by volume so the legs add up to the trade's net. While
+    the position is still open every leg is a partial, and one exit is enough to list."""
     if not deals:
         return []
     entry_side = deals[0][0]
     entries = [d for d in deals if d[0] == entry_side]
     exits = [d for d in deals if d[0] != entry_side]
     entry_vol = sum(_num(d[1]) for d in entries)
-    if len(exits) < 2 or entry_vol <= 0:
+    if len(exits) < (1 if is_open else 2) or entry_vol <= 0:
         return []
     entry_fees = sum(_num(d[3]) + _num(d[4]) for d in entries)
     legs = []
@@ -212,7 +236,7 @@ def _mt5_position_legs(deals: List[tuple]) -> List[Dict[str, Any]]:
         legs.append({
             "trade_id": None,
             "n": i + 1,
-            "kind": "final" if i == len(exits) - 1 else "partial",
+            "kind": "final" if (i == len(exits) - 1 and not is_open) else "partial",
             "time": pd.Timestamp(int(ts), unit="s", tz="UTC").isoformat(),
             "volume": _num(vol),
             "price": _num(price),
@@ -239,11 +263,12 @@ def load_positions(df: Optional[pd.DataFrame]) -> List[Dict[str, Any]]:
     if df is None or df.empty:
         return []
     rows = df.to_dict("records")
+    open_ids = _open_ids()
     try:
-        legs = mt5_partial_legs(_text(r.get("trade_id")) for r in rows)
+        legs = mt5_partial_legs((_text(r.get("trade_id")) for r in rows), mt5_open_trade_ids(open_ids))
     except Exception:  # noqa: BLE001
         legs = {}
-    return collapse_positions(rows, _open_ids(), legs)
+    return collapse_positions(rows, open_ids, legs)
 
 
 def position_for(row: Dict[str, Any]) -> Dict[str, Any]:
@@ -252,7 +277,8 @@ def position_for(row: Dict[str, Any]) -> Dict[str, Any]:
     tid = _text(row.get("trade_id"))
     base = capital_base(tid)
     if not base:
-        return collapse_positions([row], (), mt5_partial_legs([tid]))[0]
+        open_ids = _open_ids()
+        return collapse_positions([row], open_ids, mt5_partial_legs([tid], mt5_open_trade_ids(open_ids)))[0]
     uid = tenant.current_user_id()
     conn = database.get_connection()
     try:

@@ -517,6 +517,18 @@ Supabase password grant (or the shared passphrase). Setup + a Task Scheduler
 installer (`register_task.ps1`) in `agent/README.md`. See `docs/DEPLOY.md` §11.
 Tests: `test_stage25_mt5_ingest.py`.
 
+**Partial closes (2026-10-16).** `reconstruct_positions` used to write a position to `closed_trades` only once
+every lot had closed, so profit banked by a partial close was invisible (Journal, Analytics, calendar) until the
+rest closed. Now a position with at least one exit and lots still open is written straight away under the SAME
+`trade_id` the final row will use: `volume` = lots closed so far, `net_profit` = profit realised so far, with the
+entry-side commission/swap carried in proportion to the lots closed (the same split `api/trade_groups` uses for
+its legs). The closing sync overwrites that row (`save_closed_trades` upserts on `trade_id`), so nothing is
+counted twice. `api/trade_groups.mt5_open_trade_ids` matches `open_positions` ids (`..._MT5_<ticket>`) to those
+trade ids, so the Journal shows the existing "N partials · open" pill and legs for it. Caveat: until the rest
+closes the trade counts as a finished trade in win rate and trade counts, and its win/loss can flip at close.
+No partial-close push notification yet (the agent notifies on full close only). Tests:
+`test_stage25_mt5_ingest.py`, `test_trade_groups.py`.
+
 ---
 
 ### W10 — native email + password auth (SHIPPED 2026-09-10)
