@@ -36,7 +36,9 @@ _MAX_OUTPUT_TOKENS = int(os.getenv("GEMINI_MAX_OUTPUT_TOKENS", "3000") or "3000"
 # final text answer. Each read tool is cheap; this only bounds a pathological loop.
 _MAX_TOOL_ROUNDS = int(os.getenv("GEMINI_MAX_TOOL_ROUNDS", "4") or "4")
 # Gemini's 5xx ("ServerError") are usually momentary; retry this many times before giving up.
-_SERVER_RETRIES = int(os.getenv("GEMINI_SERVER_RETRIES", "2") or "2")
+_SERVER_RETRIES = int(os.getenv("GEMINI_SERVER_RETRIES", "1") or "1")
+# Used once when the primary model keeps answering 5xx. Set GEMINI_FALLBACK_MODEL="" to disable.
+_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-flash-latest").strip()
 
 # The SDK logs an INFO nag about "automatic function calling" on every
 # generate_content call even when AFC is disabled — silence it.
@@ -95,6 +97,17 @@ def _generate_with_retry(client: Any, **kwargs: Any) -> Any:
             return client.models.generate_content(**kwargs)
         except Exception as exc:  # noqa: BLE001
             if type(exc).__name__ != "ServerError" or attempt >= _SERVER_RETRIES:
+                # The primary model is overloaded on Google's side (this lasted minutes on
+                # 2026-10-13 and left the chat on its loading dots). Try the fallback model
+                # once instead of failing, but only for the configured model, never twice.
+                if (
+                    type(exc).__name__ == "ServerError"
+                    and _FALLBACK_MODEL
+                    and kwargs.get("model") == _MODEL
+                    and _FALLBACK_MODEL != _MODEL
+                ):
+                    log.warning("Gemini %s still failing, trying fallback %s", _MODEL, _FALLBACK_MODEL)
+                    return client.models.generate_content(**{**kwargs, "model": _FALLBACK_MODEL})
                 raise
             log.warning("Gemini ServerError (attempt %d/%d), retrying", attempt + 1, _SERVER_RETRIES + 1)
             sleep(1.5 * (attempt + 1))

@@ -134,6 +134,10 @@ React chat (/workspace/assistant)
   `/api/ai/status` reports only a boolean + model name. Unset key →
   `/api/ai/chat` returns `ok:false, error_kind:"not_configured"` HTTP 200
   (graceful); every other page still works.
+- Google's 5xx "overloaded" errors: the client retries the primary model
+  (`GEMINI_MODEL`, default `gemini-flash-lite-latest`; `GEMINI_SERVER_RETRIES`, default 1 retry)
+  and then tries `GEMINI_FALLBACK_MODEL` (default `gemini-flash-latest`, `""` disables) once.
+  Added 2026-10-13 after the primary model failed for minutes and the chat sat on its loading dots.
 - Fixed **server-side** system instruction (read-only; "never claim to have
   executed"; "never invent data"; distinguish fact / metric / finding /
   interpretation / general knowledge; unavailable data → say so). The

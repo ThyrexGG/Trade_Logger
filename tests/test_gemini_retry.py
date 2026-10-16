@@ -51,3 +51,28 @@ def test_other_errors_are_not_retried():
     with pytest.raises(RuntimeError):
         gemini_client._generate_with_retry(c, model="m")
     assert c.models.calls == 1
+
+
+def test_falls_back_to_the_second_model_when_the_primary_keeps_failing(monkeypatch):
+    monkeypatch.setattr(gemini_client, "_MODEL", "primary")
+    monkeypatch.setattr(gemini_client, "_FALLBACK_MODEL", "backup")
+    seen = []
+
+    class _Rec(_Models):
+        def generate_content(self, **kwargs):
+            seen.append(kwargs["model"])
+            return super().generate_content(**kwargs)
+
+    c = _Client([])
+    c.models = _Rec([ServerError("503")] * 3 + ["ok"])
+    assert gemini_client._generate_with_retry(c, model="primary") == "ok"
+    assert seen == ["primary", "primary", "primary", "backup"]
+
+
+def test_fallback_is_tried_only_once(monkeypatch):
+    monkeypatch.setattr(gemini_client, "_MODEL", "primary")
+    monkeypatch.setattr(gemini_client, "_FALLBACK_MODEL", "backup")
+    c = _Client([ServerError("503")] * 4)
+    with pytest.raises(ServerError):
+        gemini_client._generate_with_retry(c, model="primary")
+    assert c.models.calls == 4
