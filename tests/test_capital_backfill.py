@@ -163,6 +163,19 @@ def test_a_failed_slice_saves_nothing_so_it_can_simply_be_retried(clean, monkeyp
         assert database.get_closed_trades().empty
 
 
+def test_closes_capital_lists_but_gives_no_details_for_are_counted_not_hidden(clean, monkeypatch):
+    fake = FakeCapital(
+        [_tx("OLD1", "2026-09-05T10:00:00", 7.0), _tx("D4", "2026-09-20T10:00:00", 5.0)],
+        _acts("D4", "2026-09-20T08:00:00", "2026-09-20T10:00:00"),     # nothing returned for OLD1
+    )
+    _use(monkeypatch, fake)
+    with tenant.use("alice"):
+        out = cb.backfill_step(CREDS, before="2026-10-01T00:00:00", now=NOW)
+        assert list(database.get_closed_trades()["trade_id"]) == ["D4"]
+    assert out["imported"] == 1 and out["skipped"] == 1
+    assert out["oldest_skipped"] == "2026-09-05T10:00:00"
+
+
 def test_repeating_a_slice_does_not_duplicate_trades(clean, monkeypatch):
     fake = FakeCapital(
         [_tx("D3", "2026-09-20T10:00:00", 5.0)],

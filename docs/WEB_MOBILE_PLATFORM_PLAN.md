@@ -542,7 +542,9 @@ full (500) is split in half and re-asked, since that endpoint has no paging. A s
 nothing, so repeating it is safe; writes upsert on `trade_id`. Imported old trades don't push-notify
 (`trade_notify` ignores anything not recent). Limits: a trade opened more than a day before it closed gets its
 entry time from the closing activity (duration shows 0); partial legs of one deal that straddle a window edge
-share an id and the later one wins. `capital_sync` now exposes `reconstruct_closed_trades` and
+share an id and the later one wins. Closes that Capital.com lists but returns no activity details for can't be rebuilt (direction/prices live
+there); each slice reports them as `skipped` / `oldest_skipped` and the page's final message says so, so a history that
+stops early is distinguishable from one Capital.com simply doesn't serve. `capital_sync` now exposes `reconstruct_closed_trades` and
 `sync_open_positions` so both paths share one implementation. Tests: `test_capital_backfill.py` (Capital faked).
 
 ---

@@ -74,6 +74,9 @@ export interface BackfillStepResult {
   empty_days: number
   done: boolean
   oldest_trade?: string | null
+  /** Closes Capital.com listed but returned no detail records for (not importable). */
+  skipped?: number
+  oldest_skipped?: string | null
 }
 
 export function backfillConnection(

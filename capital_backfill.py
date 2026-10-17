@@ -158,11 +158,19 @@ def backfill_step(
             database.save_raw_deals(raw_deals)
             database.save_closed_trades(trades)
 
+    # Closes Capital.com listed but whose detail records it did not return can't
+    # be rebuilt (direction / prices live there). Count them so the page can say so
+    # instead of silently looking like the history just ends.
+    saved_ids = {str(t["trade_id"]).split("_")[0] for t in trades}
+    skipped_dates = [str(t.get("dateUtc")) for t in closed if str(t.get("dealId")) not in saved_ids]
+
     span_days = max(1, (end - start).days)
     empty = 0 if closed else max(0, int(empty_days)) + span_days
     done = start <= HISTORY_FLOOR or empty >= STOP_AFTER_EMPTY_DAYS
     exits = [str(t["exit_time"]) for t in trades if t.get("exit_time")]
     return {
+        "skipped": len(skipped_dates),
+        "oldest_skipped": min(skipped_dates) if skipped_dates else None,
         "imported": len(trades),
         "next_before": _fmt(start),
         "empty_days": empty,

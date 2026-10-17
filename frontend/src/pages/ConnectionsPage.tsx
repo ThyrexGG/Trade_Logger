@@ -207,6 +207,8 @@ interface ImportCursor {
   before: string | null
   empty: number
   total: number
+  skipped?: number
+  oldestSkipped?: string | null
 }
 
 const cursorKey = (id: string) => `tl.backfill.${id}`
@@ -278,16 +280,27 @@ function HistoryImport({ connectionId }: { connectionId: string }) {
           setNote(`Stopped: ${r.detail ?? 'something went wrong'}. Press Continue to try again.`)
           break
         }
-        c = { before: r.next_before, empty: r.empty_days, total: c.total + r.imported }
+        const oldestSkipped = [c.oldestSkipped, r.oldest_skipped].filter(Boolean).sort()[0] ?? null
+        c = {
+          before: r.next_before,
+          empty: r.empty_days,
+          total: c.total + r.imported,
+          skipped: (c.skipped ?? 0) + (r.skipped ?? 0),
+          oldestSkipped,
+        }
         const reached = r.next_before ? new Date(r.next_before + 'Z').toLocaleDateString() : ''
         if (r.done) {
           saveCursor(connectionId, null)
           setResumable(false)
           setProgress(null)
+          const skipped = c.skipped ?? 0
+          const skippedNote = skipped > 0
+            ? ` ${skipped} older trade${skipped === 1 ? ' was' : 's were'} listed by Capital.com but couldn't be imported because it returned no details for ${skipped === 1 ? 'it' : 'them'} (back to ${new Date(`${c.oldestSkipped}Z`).toLocaleDateString()}).`
+            : ''
           setNote(
-            c.total > 0
+            (c.total > 0
               ? `Done — ${c.total} older trade${c.total === 1 ? '' : 's'} imported.`
-              : 'Done — no older trades were found.',
+              : 'Done — no older trades were found.') + skippedNote,
           )
           break
         }
