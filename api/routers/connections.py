@@ -12,6 +12,7 @@ no automation — execution stays permanently BLOCKED.
 """
 from __future__ import annotations
 
+import threading
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, HTTPException, Request
@@ -137,6 +138,55 @@ def sync_connection(conn_id: str, request: Request) -> Dict[str, Any]:
         ok, err = False, str(exc)[:300]
     bc.record_sync_result(conn_id, ok, err, uid)
     return _envelope({"ok": ok, "detail": err or "synced"})
+
+
+class BackfillStep(BaseModel):
+    model_config = {"extra": "forbid"}
+    before: Optional[str] = Field(default=None, max_length=40)
+    empty_days: int = Field(default=0, ge=0, le=100000)
+
+
+# Keep a big import from loading the server: at most this many slices run at
+# once across all users, and never two for the same connection.
+_MAX_CONCURRENT_BACKFILLS = 2
+_backfill_slots = threading.BoundedSemaphore(_MAX_CONCURRENT_BACKFILLS)
+_backfill_running: set = set()
+_backfill_guard = threading.Lock()
+
+
+@router.post("/{conn_id}/backfill")
+def backfill_connection(conn_id: str, body: BackfillStep, request: Request) -> Dict[str, Any]:
+    """Import ONE 30-day slice of older Capital.com history, walking backwards.
+    The browser calls this repeatedly (see ``capital_backfill``); stateless."""
+    uid = _uid(request)
+    try:
+        secret = bc.get_secret(conn_id, uid)
+    except bc.CredentialError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    key = (uid, conn_id)
+    with _backfill_guard:
+        if key in _backfill_running:
+            raise HTTPException(status_code=409, detail="an import for this connection is already running")
+        if not _backfill_slots.acquire(blocking=False):
+            raise HTTPException(status_code=429, detail="the server is busy importing for others — retrying")
+        _backfill_running.add(key)
+
+    import capital_backfill
+    try:
+        with tenant.use(uid):
+            result = capital_backfill.backfill_step(secret, body.before, body.empty_days)
+        return _envelope({"ok": True, **result})
+    except capital_backfill.BackfillError as exc:
+        return _envelope({"ok": False, "detail": str(exc), "next_before": body.before,
+                          "empty_days": body.empty_days, "done": False, "imported": 0})
+    except Exception as exc:  # noqa: BLE001
+        return _envelope({"ok": False, "detail": str(exc)[:300], "next_before": body.before,
+                          "empty_days": body.empty_days, "done": False, "imported": 0})
+    finally:
+        with _backfill_guard:
+            _backfill_running.discard(key)
+        _backfill_slots.release()
 
 
 def _probe(secret: Dict[str, str]) -> tuple[bool, str]:

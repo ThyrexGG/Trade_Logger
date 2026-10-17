@@ -63,3 +63,22 @@ export function testConnection(id: string): Promise<Envelope> {
 export function syncConnection(id: string): Promise<Envelope> {
   return apiPost<Envelope>(`/api/connections/${id}/sync`, {})
 }
+
+/** One 30-day slice of the older-history import. The caller hands back
+ *  `next_before` / `empty_days` to continue until `done`. */
+export interface BackfillStepResult {
+  ok: boolean
+  detail?: string
+  imported: number
+  next_before: string | null
+  empty_days: number
+  done: boolean
+  oldest_trade?: string | null
+}
+
+export function backfillConnection(
+  id: string,
+  body: { before: string | null; empty_days: number },
+): Promise<BackfillStepResult> {
+  return apiPost<BackfillStepResult>(`/api/connections/${id}/backfill`, body)
+}

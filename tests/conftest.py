@@ -59,4 +59,9 @@ def _auth_baseline():
     """Re-applies the wide-open baseline before every test -- see module
     docstring for why a single correction at import time isn't sufficient."""
     _reset_auth_env()
+    # broker_credentials remembers "my table exists" for the whole process, but some
+    # tests build a fresh DB; without this reset the next test that touches
+    # broker_connections fails with "no such table" depending on test order.
+    from api import broker_credentials
+    broker_credentials._table_ready = False
     yield

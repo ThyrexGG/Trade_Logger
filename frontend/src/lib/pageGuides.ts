@@ -104,6 +104,7 @@ const GUIDES: Record<string, GuideContent> = {
     steps: [
       'Your login details are encrypted before they’re stored.',
       'Once connected, trades sync on their own; "Sync now" pulls the latest immediately.',
+      'Syncing only reaches back 30 days — press "Import older trades" to bring in your earlier history (it can take a few minutes; you can pause it).',
     ],
   },
   '/operations/partners': {

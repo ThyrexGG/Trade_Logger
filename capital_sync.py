@@ -263,6 +263,23 @@ def sync_capital(creds: dict | None = None):
             print(f"Warning: Error fetching activity chunk: {e}")
 
     # Step 4: Reconstruct and save trades
+    trades_to_save, raw_deals_list = reconstruct_closed_trades(
+        account_id, closed_trade_txs, activities_by_deal
+    )
+
+    if trades_to_save:
+        database.save_raw_deals(raw_deals_list)
+        database.save_closed_trades(trades_to_save)
+        print(f"Reconstructed and saved {len(trades_to_save)} closed trades from Capital.com.")
+
+    sync_open_positions(base_url, headers, account_id)
+    return True
+
+
+def reconstruct_closed_trades(account_id, closed_trade_txs, activities_by_deal):
+    """Turn Capital.com "Trade closed" transactions + their activities into
+    ``(closed_trades, raw_deals)`` rows. Pure: nothing is written here, so the
+    normal sync and the full-history import (``capital_backfill``) share it."""
     trades_to_save = []
     raw_deals_list = []
     # A partial close reports its own "Trade closed" transaction per partial,
@@ -372,12 +389,11 @@ def sync_capital(creds: dict | None = None):
             print(f"Skipping deal {deal_id} due to a reconstruction error: {tx_err}")
             continue
 
-    if trades_to_save:
-        database.save_raw_deals(raw_deals_list)
-        database.save_closed_trades(trades_to_save)
-        print(f"Reconstructed and saved {len(trades_to_save)} closed trades from Capital.com.")
-        
-    # Sync active open positions from Capital.com
+    return trades_to_save, raw_deals_list
+
+
+def sync_open_positions(base_url, headers, account_id):
+    """Replace the stored open positions with Capital.com's current ones."""
     try:
         pos_resp = requests.get(f"{base_url}/positions", headers=headers)
         if pos_resp.status_code == 200:
@@ -407,8 +423,6 @@ def sync_capital(creds: dict | None = None):
             print(f"Synced {len(parsed_cap_open)} active open positions for Capital.com.")
     except Exception as cap_pos_err:
         print(f"Error syncing Capital.com open positions: {cap_pos_err}")
-        
-    return True
 
 if __name__ == "__main__":
     sync_capital()

@@ -529,6 +529,22 @@ closes the trade counts as a finished trade in win rate and trade counts, and it
 No partial-close push notification yet (the agent notifies on full close only). Tests:
 `test_stage25_mt5_ingest.py`, `test_trade_groups.py`.
 
+**Capital.com full-history import (2026-10-17).** A connection's first sync only reaches back 30 days
+(`capital_sync.sync_capital`), and Capital.com's `/history/activity` answers for one day per request, so a whole
+history is hundreds of calls. `capital_backfill.py` + `POST /api/connections/{id}/backfill` import it in slices:
+one call = one 30-day window walking backwards from today (1 transactions call, plus 1 activity call only for
+days that had a close and the day before it, calls ~0.15 s apart, well under Capital.com's 10 req/s). The
+server keeps no state: the browser (Connections page → "Import older trades") hands back `next_before` /
+`empty_days`, pauses 1.5 s between slices, can be paused, and resumes from a cursor in localStorage even after the
+tab closes. It stops itself after 180 days with no trades (or at 2012). Load limits: max 2 slices at once across all
+users, never 2 for the same connection (409/429, the page waits and retries). A transactions page that comes back
+full (500) is split in half and re-asked, since that endpoint has no paging. A slice that fails part-way saves
+nothing, so repeating it is safe; writes upsert on `trade_id`. Imported old trades don't push-notify
+(`trade_notify` ignores anything not recent). Limits: a trade opened more than a day before it closed gets its
+entry time from the closing activity (duration shows 0); partial legs of one deal that straddle a window edge
+share an id and the later one wins. `capital_sync` now exposes `reconstruct_closed_trades` and
+`sync_open_positions` so both paths share one implementation. Tests: `test_capital_backfill.py` (Capital faked).
+
 ---
 
 ### W10 — native email + password auth (SHIPPED 2026-09-10)

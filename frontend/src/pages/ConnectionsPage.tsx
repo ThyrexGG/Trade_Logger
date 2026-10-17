@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { PageContainer } from '../components/shell/PageContainer'
+import { ApiError } from '../api/client'
 import {
+  backfillConnection,
   createConnection,
   deleteConnection,
   listConnections,
@@ -178,6 +180,7 @@ export function ConnectionsPage() {
                       >
                         Delete
                       </button>
+                      <HistoryImport connectionId={r.id} />
                     </li>
                   ))}
                 </ul>
@@ -197,6 +200,141 @@ export function ConnectionsPage() {
         <AccountDataDangerZone />
       </div>
     </PageContainer>
+  )
+}
+
+interface ImportCursor {
+  before: string | null
+  empty: number
+  total: number
+}
+
+const cursorKey = (id: string) => `tl.backfill.${id}`
+
+function loadCursor(id: string): ImportCursor | null {
+  try {
+    const raw = localStorage.getItem(cursorKey(id))
+    return raw ? (JSON.parse(raw) as ImportCursor) : null
+  } catch {
+    return null
+  }
+}
+
+function saveCursor(id: string, c: ImportCursor | null) {
+  try {
+    if (c) localStorage.setItem(cursorKey(id), JSON.stringify(c))
+    else localStorage.removeItem(cursorKey(id))
+  } catch {
+    /* private window / blocked storage: the import still runs, it just can't resume later */
+  }
+}
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+/**
+ * "Import older trades" for one connection. The first sync only reaches back
+ * 30 days; this walks further back in 30-day slices, newest first, one slice
+ * per request (the server does a bounded amount of work each time — see
+ * `capital_backfill.py`) with a pause between slices. The browser holds the
+ * cursor, so it can be paused, and resumed later even after closing the tab.
+ */
+function HistoryImport({ connectionId }: { connectionId: string }) {
+  const toast = useToast()
+  const [running, setRunning] = useState(false)
+  const [progress, setProgress] = useState<string | null>(null)
+  const [note, setNote] = useState<string | null>(null)
+  const [resumable, setResumable] = useState(() => loadCursor(connectionId) !== null)
+  const stop = useRef(false)
+
+  useEffect(() => () => { stop.current = true }, [])
+
+  const run = async () => {
+    stop.current = false
+    setRunning(true)
+    setNote(null)
+    let c: ImportCursor = loadCursor(connectionId) ?? { before: null, empty: 0, total: 0 }
+    const startedWith = c.total
+    let busy = 0
+    try {
+      for (;;) {
+        if (stop.current) {
+          setNote('Paused — press Continue to pick up where it stopped.')
+          break
+        }
+        let r
+        try {
+          r = await backfillConnection(connectionId, { before: c.before, empty_days: c.empty })
+        } catch (e) {
+          // 409/429 = the server is busy with another import; wait and try the same slice again
+          if (e instanceof ApiError && (e.status === 409 || e.status === 429) && busy++ < 6) {
+            setProgress('The server is busy — waiting a moment…')
+            await wait(5000)
+            continue
+          }
+          throw e
+        }
+        busy = 0
+        if (!r.ok) {
+          setNote(`Stopped: ${r.detail ?? 'something went wrong'}. Press Continue to try again.`)
+          break
+        }
+        c = { before: r.next_before, empty: r.empty_days, total: c.total + r.imported }
+        const reached = r.next_before ? new Date(r.next_before + 'Z').toLocaleDateString() : ''
+        if (r.done) {
+          saveCursor(connectionId, null)
+          setResumable(false)
+          setProgress(null)
+          setNote(
+            c.total > 0
+              ? `Done — ${c.total} older trade${c.total === 1 ? '' : 's'} imported.`
+              : 'Done — no older trades were found.',
+          )
+          break
+        }
+        saveCursor(connectionId, c)
+        setResumable(true)
+        setProgress(`Looked back to ${reached} · ${c.total} trade${c.total === 1 ? '' : 's'} found so far`)
+        await wait(1500)
+      }
+    } catch (e) {
+      saveCursor(connectionId, c)
+      setNote(e instanceof Error ? `Stopped: ${e.message}. Press Continue to try again.` : 'Stopped. Press Continue to try again.')
+    } finally {
+      setRunning(false)
+      setProgress(null)
+      if (c.total > startedWith) {
+        const n = c.total - startedWith
+        toast.success(`Imported ${n} older trade${n === 1 ? '' : 's'}.`)
+        announceAccountDataChanged()
+      }
+    }
+  }
+
+  return (
+    <div className="basis-full border-t border-border-subtle pt-2">
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          disabled={running}
+          onClick={() => void run()}
+          className="tl-btn tl-btn--secondary tl-btn--sm"
+        >
+          {running ? 'Importing…' : resumable ? 'Continue importing older trades' : 'Import older trades'}
+        </button>
+        {running ? (
+          <button
+            type="button"
+            onClick={() => { stop.current = true }}
+            className="rounded border border-border px-2 py-1 text-xs text-secondary hover:bg-surface-hover"
+          >
+            Pause
+          </button>
+        ) : null}
+        <span className="text-[11px] text-muted">
+          {progress ?? note ?? 'Syncing only reaches back 30 days. This brings in your earlier trades, newest first — it can take a few minutes, so keep this tab open.'}
+        </span>
+      </div>
+    </div>
   )
 }
 
