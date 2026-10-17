@@ -20,7 +20,9 @@ Read-only toward the broker -- no order path.
 """
 from __future__ import annotations
 
+import hashlib
 import json
+import threading
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
@@ -39,9 +41,26 @@ HISTORY_FLOOR = datetime(2016, 1, 1, tzinfo=timezone.utc)
 REQUEST_GAP_SEC = 0.15
 _RETRIES = 3
 
+# Capital.com is strict about logins (POST /session is 1/s per API key and it
+# answers 429 well before that if you log in dozens of times in a few minutes),
+# and a session stays valid for 10 idle minutes -- so log in once and reuse the
+# tokens across slices instead of logging in per slice.
+_SESSION_TTL_SEC = 8 * 60
+_LOGIN_RETRY_WAITS = (2.0, 4.0, 8.0)
+_sessions: Dict[str, Dict[str, Any]] = {}
+_sessions_lock = threading.Lock()
+
 
 class BackfillError(Exception):
-    """A slice could not be completed; nothing from it was saved."""
+    """A slice could not be completed; nothing from it was saved.
+    ``retryable`` = Capital.com was rate-limiting / briefly down; trying the
+    same slice again after a wait is expected to work. ``status`` is Capital.com's
+    HTTP status when there was one."""
+
+    def __init__(self, message: str, *, status: Optional[int] = None, retryable: bool = False):
+        super().__init__(message)
+        self.status = status
+        self.retryable = retryable
 
 
 def _fmt(dt: datetime) -> str:
@@ -77,22 +96,51 @@ def _get(session: requests.Session, url: str, headers: Dict[str, str], params: D
         if res.status_code not in (429, 500, 502, 503, 504):
             break
         time.sleep(1.0 * (attempt + 1))
-    raise BackfillError(f"Capital.com answered {res.status_code} for {url.rsplit('/', 1)[-1]}")
+    raise BackfillError(
+        f"Capital.com answered {res.status_code} for {url.rsplit('/', 1)[-1]}",
+        status=res.status_code, retryable=res.status_code in (429, 500, 502, 503, 504),
+    )
 
 
 def _login(session: requests.Session, creds: Dict[str, Any]):
     base = capital_sync.DEMO_API_URL if creds.get("is_demo") else capital_sync.LIVE_API_URL
     headers = {"X-CAP-API-KEY": str(creds.get("api_key") or "").strip(), "Content-Type": "application/json"}
-    res = session.post(
-        f"{base}/session", headers=headers, timeout=30,
-        json={"identifier": str(creds.get("email") or "").strip(),
-              "password": str(creds.get("password") or "").strip()},
-    )
+    body = {"identifier": str(creds.get("email") or "").strip(),
+            "password": str(creds.get("password") or "").strip()}
+    res = None
+    for wait in (*_LOGIN_RETRY_WAITS, None):
+        res = session.post(f"{base}/session", headers=headers, json=body, timeout=30)
+        if res.status_code != 429 or wait is None:
+            break
+        time.sleep(wait)
     cst, token = res.headers.get("CST"), res.headers.get("X-SECURITY-TOKEN")
     if res.status_code != 200 or not cst or not token:
-        raise BackfillError(f"Capital.com login failed ({res.status_code})")
+        raise BackfillError(
+            f"Capital.com login failed ({res.status_code})",
+            status=res.status_code, retryable=res.status_code in (429, 500, 502, 503, 504),
+        )
     headers.update({"CST": cst, "X-SECURITY-TOKEN": token})
     return base, headers
+
+
+def _cache_key(creds: Dict[str, Any]) -> str:
+    raw = f"{creds.get('api_key')}|{creds.get('email')}|{bool(creds.get('is_demo'))}"
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def _auth(session: requests.Session, creds: Dict[str, Any], *, fresh: bool = False):
+    """(base, headers, reused) -- reuses a recent login unless ``fresh``."""
+    key = _cache_key(creds)
+    now = time.monotonic()
+    with _sessions_lock:
+        hit = _sessions.get(key)
+        if hit and not fresh and now - hit["at"] < _SESSION_TTL_SEC:
+            hit["at"] = now                      # Capital.com's 10 minutes are idle minutes
+            return hit["base"], hit["headers"], True
+    base, headers = _login(session, creds)
+    with _sessions_lock:
+        _sessions[key] = {"base": base, "headers": headers, "at": time.monotonic()}
+    return base, headers, False
 
 
 def _fetch_transactions(session, base, headers, start: datetime, end: datetime) -> List[dict]:
@@ -125,6 +173,23 @@ def _activity_days(closed: List[dict], now: datetime) -> List[datetime]:
     return sorted(d for d in days if d <= now)
 
 
+def _collect(session, base, headers, start: datetime, end: datetime, now: datetime):
+    """Everything Capital.com has for [start, end]: the closed-trade transactions
+    and, for the days that matter, their activity records. Nothing is written."""
+    txs = _fetch_transactions(session, base, headers, start, end)
+    closed = [t for t in txs if t.get("transactionType") == "TRADE" and t.get("note") == "Trade closed"]
+    activities: Dict[str, List[dict]] = {}
+    if closed:
+        for day in _activity_days(closed, now):
+            res = _get(session, f"{base}/history/activity", headers, {
+                "from": _fmt(day), "to": _fmt(min(day + timedelta(days=1), now)), "detailed": "true",
+            })
+            for act in res.json().get("activities", []) or []:
+                if act.get("dealId"):
+                    activities.setdefault(act["dealId"], []).append(act)
+    return closed, activities
+
+
 def backfill_step(
     creds: Dict[str, Any], before: Optional[str] = None, empty_days: int = 0,
     *, now: Optional[datetime] = None,
@@ -140,21 +205,18 @@ def backfill_step(
     start = max(HISTORY_FLOOR, end - timedelta(days=WINDOW_DAYS))
 
     session = requests.Session()
-    base, headers = _login(session, creds)
-
-    txs = _fetch_transactions(session, base, headers, start, end)
-    closed = [t for t in txs if t.get("transactionType") == "TRADE" and t.get("note") == "Trade closed"]
+    base, headers, reused = _auth(session, creds)
+    try:
+        closed, activities = _collect(session, base, headers, start, end, now)
+    except BackfillError as exc:
+        if not (reused and exc.status == 401):
+            raise
+        # the reused login had expired -- log in afresh and redo this slice once
+        base, headers, _ = _auth(session, creds, fresh=True)
+        closed, activities = _collect(session, base, headers, start, end, now)
 
     trades: List[dict] = []
     if closed:
-        activities: Dict[str, List[dict]] = {}
-        for day in _activity_days(closed, now):
-            res = _get(session, f"{base}/history/activity", headers, {
-                "from": _fmt(day), "to": _fmt(min(day + timedelta(days=1), now)), "detailed": "true",
-            })
-            for act in res.json().get("activities", []) or []:
-                if act.get("dealId"):
-                    activities.setdefault(act["dealId"], []).append(act)
         trades, raw_deals = capital_sync.reconstruct_closed_trades(account_id, closed, activities)
         if trades:
             database.save_raw_deals(raw_deals)

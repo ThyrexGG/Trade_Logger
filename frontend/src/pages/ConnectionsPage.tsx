@@ -257,6 +257,7 @@ function HistoryImport({ connectionId }: { connectionId: string }) {
     let c: ImportCursor = loadCursor(connectionId) ?? { before: null, empty: 0, total: 0 }
     const startedWith = c.total
     let busy = 0
+    let limited = 0
     try {
       for (;;) {
         if (stop.current) {
@@ -276,6 +277,13 @@ function HistoryImport({ connectionId }: { connectionId: string }) {
           throw e
         }
         busy = 0
+        if (!r.ok && r.retryable && limited++ < 8) {
+          // Capital.com asked us to slow down -- wait it out and redo the same slice
+          setProgress('Capital.com asked us to slow down — waiting a moment, then carrying on…')
+          await wait(20000)
+          continue
+        }
+        limited = 0
         if (!r.ok) {
           setNote(`Stopped: ${r.detail ?? 'something went wrong'}. Press Continue to try again.`)
           break

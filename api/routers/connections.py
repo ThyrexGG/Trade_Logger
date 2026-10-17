@@ -179,7 +179,8 @@ def backfill_connection(conn_id: str, body: BackfillStep, request: Request) -> D
         return _envelope({"ok": True, **result})
     except capital_backfill.BackfillError as exc:
         return _envelope({"ok": False, "detail": str(exc), "next_before": body.before,
-                          "empty_days": body.empty_days, "done": False, "imported": 0})
+                          "empty_days": body.empty_days, "done": False, "imported": 0,
+                          "retryable": exc.retryable})
     except Exception as exc:  # noqa: BLE001
         return _envelope({"ok": False, "detail": str(exc)[:300], "next_before": body.before,
                           "empty_days": body.empty_days, "done": False, "imported": 0})

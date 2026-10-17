@@ -74,6 +74,8 @@ export interface BackfillStepResult {
   empty_days: number
   done: boolean
   oldest_trade?: string | null
+  /** Capital.com was rate-limiting; the same slice is expected to work after a wait. */
+  retryable?: boolean
   /** Closes Capital.com listed but returned no detail records for (not importable). */
   skipped?: number
   oldest_skipped?: string | null

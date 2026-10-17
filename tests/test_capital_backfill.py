@@ -35,18 +35,27 @@ class _Resp:
 class FakeCapital:
     """Stands in for requests.Session. ``txs`` / ``acts`` are what the 'broker' holds."""
 
-    def __init__(self, txs, acts, activity_status=200):
+    def __init__(self, txs, acts, activity_status=200, login_statuses=None):
         self.txs, self.acts, self.activity_status = txs, acts, activity_status
         self.activity_days = []
         self.tx_calls = []
+        self.login_statuses = list(login_statuses or [])   # scripted answers, then 200
+        self.login_calls = 0
+        self.valid_token = None                            # None = any token works
 
     def __call__(self):                      # requests.Session()
         return self
 
     def post(self, url, **kw):
-        return _Resp(200, headers={"CST": "c", "X-SECURITY-TOKEN": "t"})
+        self.login_calls += 1
+        status = self.login_statuses.pop(0) if self.login_statuses else 200
+        if status != 200:
+            return _Resp(status)
+        return _Resp(200, headers={"CST": f"c{self.login_calls}", "X-SECURITY-TOKEN": "t"})
 
     def get(self, url, headers=None, params=None, timeout=None):
+        if self.valid_token is not None and (headers or {}).get("CST") != self.valid_token:
+            return _Resp(401)
         p = params or {}
         if url.endswith("/history/transactions"):
             self.tx_calls.append((p["from"], p["to"]))
@@ -87,6 +96,7 @@ def clean(monkeypatch):
     conn.close()
     database.invalidate_db_cache()
     monkeypatch.setattr(cb.time, "sleep", lambda _s: None)
+    cb._sessions.clear()                      # a reused login from another test must not leak in
     yield
     database.invalidate_db_cache()
 
@@ -176,6 +186,55 @@ def test_closes_capital_lists_but_gives_no_details_for_are_counted_not_hidden(cl
     assert out["oldest_skipped"] == "2026-09-05T10:00:00"
 
 
+def test_slices_reuse_one_login_instead_of_logging_in_every_time(clean, monkeypatch):
+    fake = FakeCapital([], [])
+    _use(monkeypatch, fake)
+    with tenant.use("alice"):
+        for _ in range(5):
+            cb.backfill_step(CREDS, before="2026-10-01T00:00:00", now=NOW)
+    assert fake.login_calls == 1              # 5 slices, 1 login (Capital.com 429s a login per slice)
+
+
+def test_a_refused_login_is_retried_after_a_wait(clean, monkeypatch):
+    fake = FakeCapital([], [], login_statuses=[429, 429])
+    _use(monkeypatch, fake)
+    with tenant.use("alice"):
+        out = cb.backfill_step(CREDS, before="2026-10-01T00:00:00", now=NOW)
+    assert fake.login_calls == 3 and out["done"] is False
+
+
+def test_a_login_that_stays_refused_is_reported_as_retryable(clean, monkeypatch):
+    fake = FakeCapital([], [], login_statuses=[429, 429, 429, 429])
+    _use(monkeypatch, fake)
+    with tenant.use("alice"):
+        with pytest.raises(cb.BackfillError) as err:
+            cb.backfill_step(CREDS, before="2026-10-01T00:00:00", now=NOW)
+    assert err.value.retryable is True and err.value.status == 429
+
+
+def test_a_wrong_password_is_not_retryable(clean, monkeypatch):
+    fake = FakeCapital([], [], login_statuses=[401])
+    _use(monkeypatch, fake)
+    with tenant.use("alice"):
+        with pytest.raises(cb.BackfillError) as err:
+            cb.backfill_step(CREDS, before="2026-10-01T00:00:00", now=NOW)
+    assert err.value.retryable is False
+
+
+def test_an_expired_reused_login_is_replaced_and_the_slice_redone(clean, monkeypatch):
+    fake = FakeCapital(
+        [_tx("D5", "2026-09-20T10:00:00", 5.0)],
+        _acts("D5", "2026-09-20T08:00:00", "2026-09-20T10:00:00"),
+    )
+    _use(monkeypatch, fake)
+    with tenant.use("alice"):
+        cb.backfill_step(CREDS, before="2026-10-15T00:00:00", now=NOW)       # logs in -> token c1
+        fake.valid_token = "c2"                                               # c1 has now expired
+        out = cb.backfill_step(CREDS, before="2026-10-01T00:00:00", now=NOW)
+        assert list(database.get_closed_trades()["trade_id"]) == ["D5"]
+    assert fake.login_calls == 2 and out["imported"] == 1
+
+
 def test_repeating_a_slice_does_not_duplicate_trades(clean, monkeypatch):
     fake = FakeCapital(
         [_tx("D3", "2026-09-20T10:00:00", 5.0)],
@@ -234,6 +293,14 @@ def test_route_reports_a_broker_failure_as_ok_false(conn_id, monkeypatch):
     assert r.status_code == 200
     assert r.json()["ok"] is False and "401" in r.json()["detail"]
     assert r.json()["next_before"] == "2026-09-01T00:00:00"      # caller can resume from here
+
+
+def test_route_tells_the_page_when_a_failure_is_worth_retrying(conn_id, monkeypatch):
+    def limited(creds, before, empty):
+        raise cb.BackfillError("Capital.com login failed (429)", status=429, retryable=True)
+    monkeypatch.setattr(cb, "backfill_step", limited)
+    r = TestClient(app).post(f"/api/connections/{conn_id}/backfill", json={})
+    assert r.json()["ok"] is False and r.json()["retryable"] is True
 
 
 def test_route_refuses_when_the_server_is_already_busy(conn_id, monkeypatch):

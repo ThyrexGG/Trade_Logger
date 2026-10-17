@@ -545,7 +545,7 @@ nothing, so repeating it is safe; writes upsert on `trade_id`. Imported old trad
 entry time from the closing activity (duration shows 0); partial legs of one deal that straddle a window edge
 share an id and the later one wins. Closes that Capital.com lists but returns no activity details for can't be rebuilt (direction/prices live
 there); each slice reports them as `skipped` / `oldest_skipped` and the page's final message says so, so a history that
-stops early is distinguishable from one Capital.com simply doesn't serve. `capital_sync` now exposes `reconstruct_closed_trades` and
+stops early is distinguishable from one Capital.com simply doesn't serve. Capital.com answers 429 to a login per slice (it is stricter than its documented 1/s), which stopped the first live import partway: the import now logs in once and reuses the session tokens for ~8 min (it renews itself on a 401), retries a refused login after 2/4/8 s, and marks a still-refused slice `retryable` so the page waits 20 s and redoes it (up to 8 times) instead of stopping. `capital_sync` now exposes `reconstruct_closed_trades` and
 `sync_open_positions` so both paths share one implementation. Tests: `test_capital_backfill.py` (Capital faked).
 
 ---
