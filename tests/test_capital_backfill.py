@@ -126,7 +126,7 @@ def test_quiet_windows_cost_no_activity_calls_and_the_walk_ends_by_itself(clean,
                 break
         assert database.get_closed_trades().empty
     assert fake.activity_days == []
-    assert steps == 6                      # 6 x 30 days = the 180-day stop rule
+    assert steps == 37                     # 37 x 30 days just passes the 3-year stop rule
 
 
 def test_a_full_page_of_transactions_is_split_not_truncated(clean, monkeypatch):
@@ -191,8 +191,8 @@ def test_repeating_a_slice_does_not_duplicate_trades(clean, monkeypatch):
 def test_the_walk_never_goes_past_the_history_floor(clean, monkeypatch):
     _use(monkeypatch, FakeCapital([], []))
     with tenant.use("alice"):
-        out = cb.backfill_step(CREDS, before="2012-01-10T00:00:00", now=NOW)
-    assert out["done"] is True and out["window_from"] == "2012-01-01T00:00:00"
+        out = cb.backfill_step(CREDS, before="2016-01-10T00:00:00", now=NOW)
+    assert out["done"] is True and out["window_from"] == "2016-01-01T00:00:00"
 
 
 def test_a_connection_without_an_account_id_is_refused(clean):

@@ -32,8 +32,10 @@ import database
 
 WINDOW_DAYS = 30
 TX_PAGE_LIMIT = 500                 # same cap the normal sync asks for
-STOP_AFTER_EMPTY_DAYS = 180         # this long with no trades at all = start of history
-HISTORY_FLOOR = datetime(2012, 1, 1, tzinfo=timezone.utc)
+STOP_AFTER_EMPTY_DAYS = 1095        # 3 years with no trades at all = start of history (a quiet
+                                    # patch of months must not end the walk early; an empty
+                                    # window costs one cheap call)
+HISTORY_FLOOR = datetime(2016, 1, 1, tzinfo=timezone.utc)
 REQUEST_GAP_SEC = 0.15
 _RETRIES = 3
 

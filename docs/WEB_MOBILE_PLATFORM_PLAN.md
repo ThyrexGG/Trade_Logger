@@ -536,7 +536,8 @@ one call = one 30-day window walking backwards from today (1 transactions call, 
 days that had a close and the day before it, calls ~0.15 s apart, well under Capital.com's 10 req/s). The
 server keeps no state: the browser (Connections page → "Import older trades") hands back `next_before` /
 `empty_days`, pauses 1.5 s between slices, can be paused, and resumes from a cursor in localStorage even after the
-tab closes. It stops itself after 180 days with no trades (or at 2012). Load limits: max 2 slices at once across all
+tab closes. It stops itself after 3 years with no trades (or at 2016, before Capital.com existed); an earlier 180-day rule ended
+the walk inside a 6-month trading break, so the rule is deliberately long — an empty window is one cheap call. Load limits: max 2 slices at once across all
 users, never 2 for the same connection (409/429, the page waits and retries). A transactions page that comes back
 full (500) is split in half and re-asked, since that endpoint has no paging. A slice that fails part-way saves
 nothing, so repeating it is safe; writes upsert on `trade_id`. Imported old trades don't push-notify
