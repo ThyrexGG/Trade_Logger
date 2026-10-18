@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getJournalTagStats, type JournalTagStat } from '../../api/operations'
+import { formatUsd } from '../../lib/format'
 
 // one shared fetch for the page — the stats change only when a trade is tagged
 let cache: JournalTagStat[] | null = null
@@ -51,7 +52,7 @@ export function TagRecord({ tag }: { tag: string }) {
       <span className="text-secondary">{wr}</span> win ·{' '}
       <span className={exp >= 0 ? 'text-positive' : 'text-negative'}>
         {exp >= 0 ? '+' : ''}
-        {exp.toFixed(2)}
+        {formatUsd(exp)}
       </span>{' '}
       avg
     </span>

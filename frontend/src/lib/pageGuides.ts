@@ -51,6 +51,9 @@ const GUIDES: Record<string, GuideContent> = {
       'Win rate is how often you win; profit factor is money won divided by money lost (above 1 means you’re making money overall).',
       'Look at which symbols and setups make or lose you the most — that’s where to focus.',
       'Click a day in the calendar to see the trades from that day. The “Week” box at the end of each row adds up that whole week.',
+      '“Your rules vs. your results” shows what breaking your own rules costs — it fills in as you tap By my rules, Bent my rules or Rushed under each trade in the Journal.',
+      '“When you trade best” shows which days, hours and holding times make or lose you money. Fewer than 3 trades in a group is too few to read much into.',
+      'Recording your screen? “Hide $” at the top (or in your account menu) hides every dollar amount and keeps the percentages.',
     ],
   },
   '/workspace/assistant': {

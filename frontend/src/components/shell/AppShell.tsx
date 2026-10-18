@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { installClickSounds } from '../../lib/sound'
+import { useAmountsHidden } from '../../lib/privacy'
 import { BottomNav } from './BottomNav'
 import { CommandPalette } from './CommandPalette'
 import { Sidebar } from './Sidebar'
@@ -17,6 +18,7 @@ export function AppShell() {
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const amountsHidden = useAmountsHidden()
 
   useEffect(() => installClickSounds(), [])
 
@@ -57,8 +59,11 @@ export function AppShell() {
 
         <main id="main-content" className="flex-1 pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-10">
           {/* Keyed by pathname (not full location) so it replays on a real page
-              change but not on a same-page filter/query update. */}
-          <div key={location.pathname} className="tl-page-in">
+              change but not on a same-page filter/query update. Privacy mode is
+              in the key too: every money figure is formatted at render time,
+              and route elements don't re-render on their own, so flipping it
+              remounts the page (data is module-cached, so it's instant). */}
+          <div key={`${location.pathname}|${amountsHidden ? 'hidden' : 'shown'}`} className="tl-page-in">
             <Outlet />
           </div>
         </main>

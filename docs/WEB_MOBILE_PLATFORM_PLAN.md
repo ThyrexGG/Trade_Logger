@@ -554,6 +554,20 @@ same `daily_pnl` the day cells use, counting only days inside the shown month, s
 P&L chip; no API change. From tablet width the card is an 8th grid column; on a phone it becomes a thin bar under each
 week row (the seven day cells already fill the width). Weeks are Monday–Sunday and numbered by position in the month.
 
+**Analytics insights + privacy mode (2026-10-18).** The first pass of the TradeZella gap list. `api/insights.py`
+(pure; `/api/analytics/performance` now returns an `insights` block computed from the same filtered, partial-folded
+population) adds: **rules vs. results**, trades grouped by the one-tap journal answer (By my rules / Bent my rules /
+Rushed, matched case-insensitively; anything else is "Not marked"), with net, win rate and average per trade;
+**streaks**, by trade in close order (break-even ends a streak) and by trading day, plus green/red day counts and
+best/worst day on the calendar's exit dates; **when you trade best**, net P&L by weekday and hour of the ENTRY time in
+the viewer's timezone (the page sends `tz`, an IANA name; unknown → UTC) and by holding time. Trades with no real
+holding time (Capital.com's older-history import records 0 for multi-day trades) are left out of the holding-time
+buckets and counted as `hold_unknown`. The page (`InsightsSection.tsx`) puts each card's plain-English sentence first;
+groups under 3 trades are left out of that sentence. **Privacy mode** (`lib/privacy.ts`) masks every amount that goes
+through `formatUsd`, and is switched from the account menu or the Analytics header; see DESIGN_SYSTEM.md §9. Not done
+yet from the gap list: playbooks, R-multiples, a day-level journal, shareable stats links, CSV import, customizable
+dashboard. Tests: `test_analytics_insights.py`.
+
 ---
 
 ### W10 — native email + password auth (SHIPPED 2026-09-10)

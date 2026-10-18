@@ -1,3 +1,5 @@
+import { HIDDEN_AMOUNT, amountsHidden } from './privacy'
+
 /** Price precision scaled to magnitude — FX pairs need more decimals than indices. */
 export function formatPrice(value: number): string {
   if (!Number.isFinite(value)) return '—'
@@ -68,6 +70,7 @@ export function formatDateTime(iso: string | null | undefined): string | null {
 export function formatUsd(value: number): string {
   if (!Number.isFinite(value)) return '—'
   const sign = value < 0 ? '-' : ''
+  if (amountsHidden()) return `${sign}$${HIDDEN_AMOUNT}`
   return `${sign}$${Math.abs(value).toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,

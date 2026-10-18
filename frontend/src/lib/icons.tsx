@@ -150,6 +150,18 @@ export function SoundIcon(props: IconProps & { muted?: boolean }) {
   )
 }
 
+/** An eye; `off` strikes it through (amounts hidden). */
+export function EyeIcon(props: IconProps & { off?: boolean }) {
+  const { off, ...rest } = props
+  return (
+    <Base {...rest}>
+      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
+      <circle cx="12" cy="12" r="3" />
+      {off ? <path d="M4 4l16 16" /> : null}
+    </Base>
+  )
+}
+
 export function LogoutIcon(props: IconProps) {
   return (
     <Base {...props}>

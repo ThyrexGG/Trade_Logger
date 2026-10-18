@@ -16,6 +16,13 @@ export function getAnalyticsPerformance(
   if (query.start) p.set('start', query.start)
   if (query.end) p.set('end', query.end)
   if (query.initial_balance != null) p.set('initial_balance', String(query.initial_balance))
+  // The day / hour insights are bucketed on the viewer's own clock.
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+    if (tz) p.set('tz', tz)
+  } catch {
+    /* very old browser — the server falls back to UTC */
+  }
   const qs = p.toString()
   return apiGet<AnalyticsPerformanceResponse>(
     `/api/analytics/performance${qs ? `?${qs}` : ''}`,

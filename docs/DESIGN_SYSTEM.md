@@ -230,6 +230,17 @@ is available for success moments. **On by default, toggle in the account
 menu**, remembered per device (`tl.sound`). Text fields never click; any
 element with `data-silent` (or inside one) is silent.
 
+**Privacy mode** ([`lib/privacy.ts`](../frontend/src/lib/privacy.ts)): "Hide
+dollar amounts" in the account menu (and the eye button in the Analytics
+header) turns every money figure into `$•••`, keeping the sign, the
+green/red colour, percentages, win rates and trade counts, so a screen can
+be recorded or shared. It hooks the one choke point, `formatUsd` (and
+`formatSignedAmount`, built on it), so **always format money with those**,
+never `toFixed` or your own `toLocaleString` currency, or it will leak.
+Flipping it remounts the routed page (`AppShell` keys the outlet on it);
+data is module-cached, so that's instant. Off by default, remembered per
+device (`tl.privacy`).
+
 ---
 
 ## 10. Page patterns
@@ -241,6 +252,12 @@ element with `data-silent` (or inside one) is silent.
 - **Results before settings:** e.g. Analytics shows your numbers first and
   the prop-challenge setup below them.
 - **Figure rows** (`.tl-figures`) instead of rows of stat cards.
+- **Insight cards lead with one sentence** (Analytics' `InsightsSection.tsx`):
+  "Breaking your rules has cost you $384.90 over 41 trades", then the numbers.
+  Their column chart diverges from a baseline (profit up, loss down, 4px
+  rounded data-ends, 2px gaps), the best group is pre-selected in a readout
+  line above it, and hover or tap swaps the readout; no floating tooltip, so
+  it works on touch.
 - **Expert detail** behind `MoreDetails`.
 - **Empty states** say what to do next ("Connect a broker", "No trades
   today yet").
@@ -287,6 +304,8 @@ Don't run the full `pytest` suite at the same time: its fixtures delete
 | 2026-10-08 | `1fede99` | Precision system, trader's-day navigation, Overview command centre |
 | 2026-10-08 | `230c301` | New logo and all brand assets, login and legal screens, branded reset email; see [BRAND.md](BRAND.md) |
 | 2026-10-08 | (this change) | Link chips + link editor on notes and trade cards; see [JOURNAL_LINKS.md](JOURNAL_LINKS.md) |
+| 2026-10-18 | `d121904` | Analytics calendar: a Week total card at the end of each row |
+| 2026-10-18 | (this change) | Analytics insights (rules vs. results, streaks & best days, when you trade best) + privacy mode |
 
 ## Phone app
 

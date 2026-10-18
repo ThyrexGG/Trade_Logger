@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom'
 import { useAnalytics } from '../lib/useAnalytics'
 import { useSyncControl } from '../lib/useSyncControl'
 import { describeAccount } from '../lib/accountLabel'
+import { setAmountsHidden, useAmountsHidden } from '../lib/privacy'
+import { EyeIcon } from '../lib/icons'
+import { Tooltip } from '../components/common/Tooltip'
 import type { AnalyticsQuery } from '../types/analytics'
 import { PageContainer } from '../components/shell/PageContainer'
 import { AnalyticsControls } from '../components/analytics/AnalyticsControls'
@@ -42,6 +45,7 @@ export function AnalyticsPage() {
   const { state, data, error, refreshing, refetch } = useAnalytics(query)
   const sync = useSyncControl(refetch)
   const syncing = sync.syncing || sync.status?.cycle_in_progress
+  const hidden = useAmountsHidden()
 
   const available = useMemo(
     () => data?.available ?? { accounts: [], symbols: [], date_min: null, date_max: null, suggested_initial_balance: null, saved_initial_balance: null },
@@ -79,6 +83,18 @@ export function AnalyticsPage() {
         <div className="flex flex-wrap items-center gap-2">
           {refreshing ? <span className="text-xs text-muted" aria-live="polite">Updating…</span> : null}
           {sync.error ? <span className="text-xs text-warning" aria-live="polite">{sync.error}</span> : null}
+          <Tooltip label={hidden ? 'Show dollar amounts' : 'Hide dollar amounts (for sharing or recording your screen)'}>
+            <button
+              type="button"
+              onClick={() => setAmountsHidden(!hidden)}
+              aria-pressed={hidden}
+              aria-label={hidden ? 'Show dollar amounts' : 'Hide dollar amounts'}
+              className="tl-btn tl-btn--ghost"
+            >
+              <EyeIcon off={hidden} className="h-4 w-4" />
+              <span className="hidden sm:inline">{hidden ? 'Show $' : 'Hide $'}</span>
+            </button>
+          </Tooltip>
           <Link to="/workspace/journal" className="tl-btn tl-btn--ghost">
             Open Journal
           </Link>

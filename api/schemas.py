@@ -1193,6 +1193,55 @@ class AnalyticsAvailable(BaseModel):
     saved_initial_balance: Optional[float] = None
 
 
+class InsightBucket(BaseModel):
+    """One group of trades (a weekday, an hour, a holding-time range)."""
+    key: str
+    label: str
+    trades: int
+    wins: int
+    net_profit: float
+
+
+class RulesRow(BaseModel):
+    """Trades grouped by the one-tap journal answer (By my rules / Bent my rules / Rushed / Not marked)."""
+    tag: str
+    trades: int
+    wins: int
+    net_profit: float
+    avg_per_trade: float
+
+
+class DayExtreme(BaseModel):
+    date: str
+    net_profit: float
+
+
+class StreakStats(BaseModel):
+    current_kind: str          # "win" | "loss" | "none" — the run the latest trade is on
+    current_count: int
+    longest_win: int
+    longest_loss: int
+    current_day_kind: str      # same, by trading day (days with no trades are skipped)
+    current_day_count: int
+    longest_green_days: int
+    longest_red_days: int
+    green_days: int
+    red_days: int
+    best_day: Optional[DayExtreme] = None
+    worst_day: Optional[DayExtreme] = None
+
+
+class TradeInsights(BaseModel):
+    """api/insights.py — when you trade best, the cost of breaking your rules, streaks."""
+    timezone: str
+    by_weekday: List[InsightBucket]
+    by_hour: List[InsightBucket]
+    by_hold: List[InsightBucket]
+    hold_unknown: int
+    rules: List[RulesRow]
+    streaks: StreakStats
+
+
 class AnalyticsPerformanceResponse(BaseModel):
     metrics: PerformanceMetrics
     equity_curve: List[EquityAnchor]
@@ -1201,6 +1250,7 @@ class AnalyticsPerformanceResponse(BaseModel):
     symbol_breakdown: List[SymbolBreakdownRow]
     tag_breakdown: List[TagBreakdownRow]
     period_returns: PeriodReturns
+    insights: Optional[TradeInsights] = None
     official_balance: Optional[float] = None
     filters_applied: AnalyticsFiltersEcho
     available: AnalyticsAvailable

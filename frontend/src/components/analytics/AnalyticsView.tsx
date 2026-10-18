@@ -4,6 +4,7 @@ import { OpsMetric, OpsUnavailable } from '../operations/primitives'
 import { ColorLegend } from '../common/Sentiment'
 import { InfoTip } from '../common/InfoTip'
 import { formatPercent, formatUsd } from '../../lib/format'
+import { InsightsSection } from './InsightsSection'
 import { MonthlyCalendar } from './MonthlyCalendar'
 import { RadarChart } from './RadarChart'
 import { SplitBar } from './SplitBar'
@@ -119,6 +120,8 @@ export function AnalyticsView({ data }: { data: AnalyticsPerformanceResponse }) 
           symbols={data.filters_applied.symbols}
         />
       </SectionCard>
+
+      {data.insights ? <InsightsSection insights={data.insights} /> : null}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <SectionCard

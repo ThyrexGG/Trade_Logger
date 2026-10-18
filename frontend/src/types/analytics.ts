@@ -102,6 +102,58 @@ export interface AnalyticsAvailable {
   saved_initial_balance: number | null
 }
 
+/** One group of trades — a weekday, an hour, a holding-time range (api/insights.py). */
+export interface InsightBucket {
+  key: string
+  label: string
+  trades: number
+  wins: number
+  net_profit: number
+}
+
+/** Trades grouped by the one-tap journal answer. */
+export interface RulesRow {
+  tag: string
+  trades: number
+  wins: number
+  net_profit: number
+  avg_per_trade: number
+}
+
+export interface DayExtreme {
+  date: string
+  net_profit: number
+}
+
+export type StreakKind = 'win' | 'loss' | 'none'
+
+export interface StreakStats {
+  current_kind: StreakKind
+  current_count: number
+  longest_win: number
+  longest_loss: number
+  current_day_kind: StreakKind
+  current_day_count: number
+  longest_green_days: number
+  longest_red_days: number
+  green_days: number
+  red_days: number
+  best_day: DayExtreme | null
+  worst_day: DayExtreme | null
+}
+
+export interface TradeInsights {
+  /** IANA zone the weekday/hour buckets were computed in. */
+  timezone: string
+  by_weekday: InsightBucket[]
+  by_hour: InsightBucket[]
+  by_hold: InsightBucket[]
+  /** trades with no recorded holding time, left out of `by_hold` */
+  hold_unknown: number
+  rules: RulesRow[]
+  streaks: StreakStats
+}
+
 export interface AnalyticsPerformanceResponse {
   metrics: PerformanceMetrics
   equity_curve: EquityAnchor[]
@@ -110,6 +162,7 @@ export interface AnalyticsPerformanceResponse {
   symbol_breakdown: SymbolBreakdownRow[]
   tag_breakdown: TagBreakdownRow[]
   period_returns: PeriodReturns
+  insights?: TradeInsights | null
   official_balance: number | null
   filters_applied: AnalyticsFiltersEcho
   available: AnalyticsAvailable

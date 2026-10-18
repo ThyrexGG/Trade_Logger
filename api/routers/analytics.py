@@ -30,7 +30,7 @@ from fastapi import APIRouter, HTTPException, Query
 import analytics
 import database
 import tenant
-from api import trade_groups
+from api import insights, trade_groups
 from api.schemas import (
     AnalyticsAvailable,
     AnalyticsDayTradesResponse,
@@ -167,6 +167,7 @@ def get_performance(
     start: Optional[str] = Query(default=None, description="ISO date, filters exit_time >= start"),
     end: Optional[str] = Query(default=None, description="ISO date, filters exit_time <= end (inclusive day)"),
     initial_balance: float = Query(default=10000.0, gt=0, description="starting balance for the equity curve"),
+    tz: Optional[str] = Query(default=None, max_length=64, description="viewer's IANA timezone for the day/hour insights; UTC if omitted or unknown"),
 ) -> AnalyticsPerformanceResponse:
     """
     Account / symbol / date-filtered trading performance for the closed-trade
@@ -256,6 +257,7 @@ def get_performance(
             equity_curve=[], equity_curve_sampled=False, daily_pnl=[],
             symbol_breakdown=[], tag_breakdown=[],
             period_returns=_period_returns(pd.DataFrame(), initial_balance),
+            insights=insights.build_insights(pd.DataFrame(), tz),
             official_balance=_official_balance(acc_label),
             filters_applied=filters_echo, available=available, matched_trades=0,
             source="closed_trades", timestamp=_now(),
@@ -307,6 +309,7 @@ def get_performance(
         symbol_breakdown=symbol_breakdown,
         tag_breakdown=tag_breakdown,
         period_returns=_period_returns(filtered, initial_balance),
+        insights=insights.build_insights(filtered, tz),
         official_balance=_official_balance(acc_label),
         filters_applied=filters_echo,
         available=available,

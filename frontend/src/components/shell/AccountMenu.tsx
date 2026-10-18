@@ -5,8 +5,9 @@ import { useHealth } from '../../lib/health'
 import { apiStatusView } from '../../lib/status'
 import { useTheme } from '../../lib/theme'
 import { setSoundEnabled, useSoundEnabled } from '../../lib/sound'
+import { setAmountsHidden, useAmountsHidden } from '../../lib/privacy'
 import { APP_VERSION } from '../../lib/appMeta'
-import { LogoutIcon, MonitorIcon, MoonIcon, SoundIcon, SunIcon } from '../../lib/icons'
+import { EyeIcon, LogoutIcon, MonitorIcon, MoonIcon, SoundIcon, SunIcon } from '../../lib/icons'
 
 function initials(email: string | undefined, name: string | null | undefined): string {
   const src = (name || email || '').trim()
@@ -25,6 +26,7 @@ export function AccountMenu() {
   const { state: authState, user, logout } = useAuth()
   const { choice, setChoice } = useTheme()
   const sound = useSoundEnabled()
+  const hidden = useAmountsHidden()
   const { state: health } = useHealth()
   const api = apiStatusView(health)
   const [open, setOpen] = useState(false)
@@ -110,6 +112,22 @@ export function AccountMenu() {
               </span>
               <span className={`relative h-5 w-9 rounded-full transition-colors ${sound ? 'bg-accent-fill' : 'bg-surface-hover'}`} aria-hidden="true">
                 <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-[left] ${sound ? 'left-[18px]' : 'left-0.5'}`} />
+              </span>
+            </button>
+            <button
+              type="button"
+              role="menuitemcheckbox"
+              aria-checked={hidden}
+              onClick={() => setAmountsHidden(!hidden)}
+              title="Hide dollar amounts so you can share or record your screen. Percentages stay visible."
+              className="flex h-9 w-full items-center justify-between rounded-[var(--tl-radius)] px-2 text-sm font-semibold text-secondary hover:bg-surface-elevated hover:text-primary"
+            >
+              <span className="flex items-center gap-2">
+                <EyeIcon off={hidden} className="h-4 w-4" />
+                Hide dollar amounts
+              </span>
+              <span className={`relative h-5 w-9 rounded-full transition-colors ${hidden ? 'bg-accent-fill' : 'bg-surface-hover'}`} aria-hidden="true">
+                <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-[left] ${hidden ? 'left-[18px]' : 'left-0.5'}`} />
               </span>
             </button>
           </div>

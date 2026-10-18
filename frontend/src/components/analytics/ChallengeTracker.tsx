@@ -10,9 +10,11 @@ import { SectionCard } from '../intelligence/primitives'
 import { DisclaimerNote } from '../shared/DisclaimerNote'
 import type { ChallengeConfig, ChallengeConfigInput, ChallengeStatus } from '../../types/challenge'
 import { describeAccount } from '../../lib/accountLabel'
+import { formatUsd } from '../../lib/format'
+import { amountsHidden } from '../../lib/privacy'
 
 const money = (n: number | null) =>
-  n === null ? '—' : n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+  n === null ? '—' : amountsHidden() ? formatUsd(n) : n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 
 // Not every linked account is a prop-firm challenge (a personal Capital.com account, say) — this hides the
 // "set up a challenge" invitation for one specific account without a server round-trip. Purely a display

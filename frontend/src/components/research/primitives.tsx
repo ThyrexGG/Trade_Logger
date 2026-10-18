@@ -1,5 +1,6 @@
 import { useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import { classifySentiment, toneArrow } from '../../lib/sentiment'
+import { formatUsd } from '../../lib/format'
 export { SectionCard, SectionError, SkeletonRows } from '../intelligence/primitives'
 export { HashChip } from '../evidence/primitives'
 
@@ -212,9 +213,7 @@ export function Sparkline({
           preserveAspectRatio="none"
           className="h-32 w-full"
           role="img"
-          aria-label={`Equity curve from ${first.toFixed(2)} to ${last.toFixed(
-            2,
-          )} over ${points.length} points`}
+          aria-label={`Equity curve from ${formatUsd(first)} to ${formatUsd(last)} over ${points.length} points`}
         >
           <line
             x1="0"
@@ -278,13 +277,13 @@ export function Sparkline({
                 {fmt?.time ? <span className="ml-1 opacity-70">{fmt.time}</span> : null}
               </div>
               <div className={`font-mono text-sm font-semibold ${up ? 'text-positive' : 'text-negative'}`}>
-                ${point.equity.toFixed(2)}
+                {formatUsd(point.equity)}
               </div>
               {point.netProfit !== undefined ? (
                 <div className="font-mono text-[10px] text-secondary">
                   {point.symbol ? `${point.symbol} · ` : ''}
                   {point.netProfit >= 0 ? '+' : ''}
-                  {point.netProfit.toFixed(2)}
+                  {formatUsd(point.netProfit)}
                 </div>
               ) : null}
             </div>

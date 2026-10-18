@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { formatSignedAmount } from '../../lib/format'
+import { HIDDEN_AMOUNT, amountsHidden } from '../../lib/privacy'
 import { intensity, prettyDate, type HeatCell, type HeatGrid } from './homeMath'
 
 const WEEKDAY_LABELS = ['Mon', '', 'Wed', '', 'Fri', '', 'Sun']
@@ -29,6 +30,7 @@ function useWidth<T extends HTMLElement>() {
 }
 
 function compactUsd(v: number): string {
+  if (v !== 0 && amountsHidden()) return `${v < 0 ? '-' : '+'}${HIDDEN_AMOUNT}`
   const a = Math.abs(v)
   const s = a >= 10_000 ? `${(a / 1000).toFixed(0)}k` : a >= 1000 ? `${(a / 1000).toFixed(1)}k` : a.toFixed(0)
   return `${v < 0 ? '-' : v > 0 ? '+' : ''}${s}`
