@@ -49,6 +49,15 @@ export function ageSeconds(iso: string | undefined, now: number = Date.now()): n
   return Math.max(0, (now - then) / 1000)
 }
 
+/** False when a closed trade's open was never seen: Capital.com's older-history import only gets the
+ * closing record, so it stores the close time as the open (and a 0 holding time). Show the open time
+ * and holding time as blank for those — never the close time dressed up as an open. */
+export function openTimeKnown(entry: string | null | undefined, exit: string | null | undefined): boolean {
+  const a = parseUtcMs(entry)
+  const b = parseUtcMs(exit)
+  return a != null && b != null && b > a
+}
+
 /** Treats a timestamp with no explicit timezone as UTC — matching how the backend stores every
  * trade/position timestamp (entry_time, exit_time, open_time). `Date.parse`/`new Date(iso)` on a
  * bare "2026-09-22T14:03:00" string reads it as browser-local time instead, which is wrong here. */

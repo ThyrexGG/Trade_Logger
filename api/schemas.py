@@ -1237,7 +1237,7 @@ class TradeInsights(BaseModel):
     by_weekday: List[InsightBucket]
     by_hour: List[InsightBucket]
     by_hold: List[InsightBucket]
-    hold_unknown: int
+    open_unknown: int          # trades whose open was never seen — left out of weekday / hour / holding time
     rules: List[RulesRow]
     streaks: StreakStats
 

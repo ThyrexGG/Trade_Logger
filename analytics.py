@@ -101,8 +101,15 @@ def calculate_performance_metrics(df_trades, initial_balance=10000.0):
     else:
         sqn = 0.0
 
-    # Duration
-    avg_duration = float(df["duration_minutes"].mean()) if "duration_minutes" in df.columns else 0.0
+    # Duration — only trades whose holding time is actually known. A duration of 0 (or less) means
+    # the open was never seen (Capital.com's older-history import only gets the closing record),
+    # and averaging those in as 0 would invent a shorter hold than reality. 0.0 = nothing known.
+    if "duration_minutes" in df.columns:
+        held = pd.to_numeric(df["duration_minutes"], errors="coerce")
+        held = held[held > 0]
+        avg_duration = float(held.mean()) if not held.empty else 0.0
+    else:
+        avg_duration = 0.0
 
     # Long vs Short
     longs = df[df["direction"].str.upper().str.contains("BUY|LONG", na=False)]

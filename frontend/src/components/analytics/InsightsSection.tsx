@@ -458,7 +458,10 @@ function WhenCard({ insights }: { insights: TradeInsights }) {
             ? `By the day you opened the trade, in your time (${tz}).`
             : mode === 'hour'
               ? `By the hour you opened the trade, in your time (${tz}). Hover or tap a bar for its numbers.`
-              : `From open to close.${insights.hold_unknown ? ` ${plural(insights.hold_unknown, 'trade')} with no recorded holding time ${insights.hold_unknown === 1 ? 'isn’t' : 'aren’t'} shown.` : ''}`}
+              : 'From open to close.'}
+          {insights.open_unknown
+            ? ` ${plural(insights.open_unknown, 'trade')} ${insights.open_unknown === 1 ? 'has' : 'have'} no recorded open time, so ${insights.open_unknown === 1 ? 'it’s' : 'they’re'} left out rather than guessed.`
+            : ''}
         </p>
       </div>
     </SectionCard>

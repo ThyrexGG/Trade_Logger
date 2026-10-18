@@ -27,21 +27,41 @@ TRADES = _df([
 ])
 
 
-def test_weekday_and_hour_buckets_cover_every_trade():
+def test_weekday_and_hour_buckets_cover_every_trade_with_a_known_open():
     out = insights.build_insights(TRADES, "UTC")
     assert [b.label for b in out.by_weekday] == list(insights.WEEKDAYS)
-    assert sum(b.trades for b in out.by_weekday) == len(TRADES)
+    assert sum(b.trades for b in out.by_weekday) == len(TRADES) - out.open_unknown
+    assert sum(b.trades for b in out.by_hour) == len(TRADES) - out.open_unknown
     mon = out.by_weekday[0]
     assert (mon.trades, mon.wins, mon.net_profit) == (2, 1, 6.0)
     assert len(out.by_hour) == 24 and out.by_hour[8].trades == 2
+
+
+def test_a_trade_whose_open_was_never_seen_is_left_out_not_guessed():
+    # the Thursday 09:00 trade has 0 holding time: its "open" is really its close
+    out = insights.build_insights(TRADES, "UTC")
+    assert out.open_unknown == 1
+    assert out.by_hour[9].trades == 0
+    assert out.by_weekday[3].trades == 1             # only the 10:00 Thursday trade
 
 
 def test_times_are_bucketed_on_the_viewers_clock():
     # 22:00 UTC Wednesday is 06:00 Thursday in Manila
     out = insights.build_insights(TRADES, "Asia/Manila")
     assert out.timezone == "Asia/Manila"
-    assert out.by_weekday[2].trades == 0 and out.by_weekday[3].trades == 3
+    # Thursday: the Wed 22:00 trade (06:00) + the 10:00 one (18:00); the 09:00 one has no known open
+    assert out.by_weekday[2].trades == 0 and out.by_weekday[3].trades == 2
     assert out.by_hour[6].trades == 1
+
+
+def test_average_holding_time_ignores_trades_with_no_known_hold():
+    import analytics
+    trades = TRADES.assign(direction="LONG", symbol="EURUSD")
+    m = analytics.calculate_performance_metrics(trades, 10000.0)
+    known = [3, 30, 90, 300, 2000]                   # the 0-minute trade is unknown, not "0 minutes"
+    assert m["avg_duration_minutes"] == round(sum(known) / len(known), 1)
+    none_known = trades.assign(duration_minutes=0.0)
+    assert analytics.calculate_performance_metrics(none_known, 10000.0)["avg_duration_minutes"] == 0.0
 
 
 def test_an_unknown_timezone_falls_back_to_utc():
@@ -53,7 +73,7 @@ def test_holding_time_buckets_leave_out_trades_with_no_time():
     out = insights.build_insights(TRADES, "UTC")
     by = {b.key: b.trades for b in out.by_hold}
     assert by == {"lt5m": 1, "5_15m": 0, "15_60m": 1, "1_4h": 1, "4_24h": 1, "gt1d": 1}
-    assert out.hold_unknown == 1
+    assert out.open_unknown == 1
 
 
 def test_rules_rows_split_the_one_tap_answers():
@@ -95,9 +115,9 @@ def test_route_returns_insights_that_reconcile_with_the_page():
     d = client.get("/api/analytics/performance?tz=Europe/London").json()
     ins = d["insights"]
     assert ins["timezone"] == "Europe/London"
-    assert sum(b["trades"] for b in ins["by_weekday"]) == d["matched_trades"]
+    assert sum(b["trades"] for b in ins["by_weekday"]) + ins["open_unknown"] == d["matched_trades"]
     assert sum(r["trades"] for r in ins["rules"]) == d["matched_trades"]
-    assert sum(b["trades"] for b in ins["by_hold"]) + ins["hold_unknown"] == d["matched_trades"]
+    assert sum(b["trades"] for b in ins["by_hold"]) + ins["open_unknown"] == d["matched_trades"]
     if d["daily_pnl"]:
         best = max(d["daily_pnl"], key=lambda x: x["net_profit"])
         assert ins["streaks"]["best_day"]["net_profit"] == best["net_profit"]

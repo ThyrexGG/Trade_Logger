@@ -131,7 +131,8 @@ export function TradeDetailScreen() {
             <Fact label="Volume" value={String(trade.volume)} />
             <Fact label="Entry" value={formatPrice(trade.entry_price)} />
             <Fact label="Exit" value={formatPrice(trade.exit_price)} />
-            <Fact label="Opened" value={formatUpdated(trade.entry_time)} />
+            {/* 0 holding time = the broker never sent the open (older-history import); blank, not the close time */}
+            <Fact label="Opened" value={trade.duration_minutes > 0 ? formatUpdated(trade.entry_time) : '—'} />
             <Fact label="Closed" value={formatUpdated(trade.exit_time)} />
             <Fact label="Duration" value={formatDuration(trade.duration_minutes)} />
             <Fact label="Gross P&L" value={formatMoney(trade.gross_profit)} />

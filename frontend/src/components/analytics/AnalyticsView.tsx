@@ -104,7 +104,11 @@ export function AnalyticsView({ data }: { data: AnalyticsPerformanceResponse }) 
         />
         <OpsMetric label={<InfoTip text="System Quality Number — expectancy ÷ std-dev of results, ×√N. <1 hard to trade, 1.6–2 good, 2.5+ excellent.">System quality (SQN)</InfoTip>} value={m.sqn.toFixed(2)} sub={m.sqn > 2.5 ? 'excellent' : m.sqn > 1.5 ? 'good' : m.sqn > 0 ? 'average' : 'negative edge'} tone={tone(m.sqn)} />
         <OpsMetric label={<InfoTip text="Average profit (or loss) per trade in account currency. Positive means the strategy makes money on average.">Expectancy / trade</InfoTip>} value={signedUsd(m.expectancy)} sub={`avg W ${formatUsd(m.avg_win)} · avg L ${formatUsd(m.avg_loss)}`} tone={tone(m.expectancy)} />
-        <OpsMetric label="Avg holding time" value={holdTime(m.avg_duration_minutes)} sub="per closed trade" />
+        <OpsMetric
+          label="Avg holding time"
+          value={holdTime(m.avg_duration_minutes)}
+          sub={data.insights?.open_unknown ? `${data.insights.open_unknown} without an open time left out` : 'per closed trade'}
+        />
         <OpsMetric
           label="Best / worst trade"
           value={`${signedUsd(m.best_trade)} / ${signedUsd(m.worst_trade)}`}

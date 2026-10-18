@@ -157,24 +157,26 @@ def build_insights(filtered: pd.DataFrame, tz_name: Optional[str] = None) -> Tra
             by_weekday=[_empty_bucket(str(i), w) for i, w in enumerate(WEEKDAYS)],
             by_hour=[_empty_bucket(str(h), f"{h:02d}:00") for h in range(24)],
             by_hold=[_empty_bucket(k, label) for k, label, _ in HOLD_BUCKETS],
-            hold_unknown=0,
+            open_unknown=0,
             rules=_rules(pd.DataFrame({"net_profit": pd.Series(dtype=float)})),
             streaks=_streaks(pd.DataFrame({"exit_time": pd.Series(dtype="datetime64[ns]"), "net_profit": pd.Series(dtype=float)})),
         )
 
     df = filtered.copy()
+
+    # A trade whose open was never seen (Capital.com's older-history import only gets the closing
+    # record, so it stores the close time as the open and a 0 holding time) has no real open hour,
+    # weekday or holding time. Don't guess: leave it out of all three and say how many.
+    mins = _hold_minutes(df)
+    known = mins.notna() & (mins > 0)
+
     local = _local_entry(df, tz)
     df["_dow"] = local.dt.dayofweek
     df["_hour"] = local.dt.hour
+    opened = df[known]
+    by_weekday = [_bucket(str(i), w, opened[opened["_dow"] == i]) for i, w in enumerate(WEEKDAYS)]
+    by_hour = [_bucket(str(h), f"{h:02d}:00", opened[opened["_hour"] == h]) for h in range(24)]
 
-    by_weekday = [_bucket(str(i), w, df[df["_dow"] == i]) for i, w in enumerate(WEEKDAYS)]
-    by_hour = [_bucket(str(h), f"{h:02d}:00", df[df["_hour"] == h]) for h in range(24)]
-
-    # A trade with no real holding time (Capital.com's older-history import can't see when a
-    # multi-day trade opened, so it records 0) would all pile into "Under 5 min" — leave them out
-    # and say how many.
-    mins = _hold_minutes(df)
-    known = mins.notna() & (mins > 0)
     by_hold = []
     lower = 0.0
     for key, label, upper in HOLD_BUCKETS:
@@ -186,7 +188,7 @@ def build_insights(filtered: pd.DataFrame, tz_name: Optional[str] = None) -> Tra
         by_weekday=by_weekday,
         by_hour=by_hour,
         by_hold=by_hold,
-        hold_unknown=int((~known).sum()),
+        open_unknown=int((~known).sum()),
         rules=_rules(df),
         streaks=_streaks(df),
     )

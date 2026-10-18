@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getDayTrades } from '../../api/analytics'
 import type { DayTrade } from '../../types/analytics'
-import { formatSignedAmount } from '../../lib/format'
+import { formatSignedAmount, openTimeKnown } from '../../lib/format'
 import { prettyDate } from './homeMath'
 import { isTradingView, siteName } from '../journal/JournalLinks'
 
@@ -71,7 +71,7 @@ export function DayTradesPanel({ iso, account, onClose }: { iso: string; account
                 {t.setup_tag ? <span className="ml-2 rounded bg-surface-elevated px-1.5 py-0.5 text-[10px] text-secondary">{t.setup_tag}</span> : null}
               </span>
               <span className="hidden font-mono text-xs text-muted sm:inline">
-                {fmtTime(t.entry_time)} → {fmtTime(t.exit_time)}
+                {openTimeKnown(t.entry_time, t.exit_time) ? `${fmtTime(t.entry_time)} → ${fmtTime(t.exit_time)}` : `closed ${fmtTime(t.exit_time)}`}
               </span>
               <span className={`w-24 text-right font-mono ${t.net_profit >= 0 ? 'text-positive' : 'text-negative'}`}>{formatSignedAmount(t.net_profit)}</span>
               {t.links?.length ? (

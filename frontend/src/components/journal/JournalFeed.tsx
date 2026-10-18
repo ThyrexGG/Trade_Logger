@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { ExitReason, JournalResponse, JournalTradeItem, JournalUpdateRequest, StopPlacement } from '../../types/operations'
-import { formatSignedAmount, formatDateTime } from '../../lib/format'
+import { formatSignedAmount, formatDateTime, openTimeKnown } from '../../lib/format'
 import { patchJournalEntry } from '../../api/operations'
 import { ChartSnapshot } from './ChartSnapshot'
 import { HandLoggedControls } from './HandLoggedControls'
@@ -138,7 +138,7 @@ function FeedCard({
             {entry.direction}
           </span>
           <span className="text-[11px] text-muted">
-            opened {formatDateTime(entry.entry_time) ?? entry.entry_time.slice(0, 16).replace('T', ' ')} · closed {formatDateTime(entry.exit_time) ?? entry.exit_time.slice(0, 16).replace('T', ' ')}
+            {openTimeKnown(entry.entry_time, entry.exit_time) ? <>opened {formatDateTime(entry.entry_time) ?? entry.entry_time.slice(0, 16).replace('T', ' ')} · </> : null}closed {formatDateTime(entry.exit_time) ?? entry.exit_time.slice(0, 16).replace('T', ' ')}
           </span>
           <ExitsBadge entry={entry} />
           {knownAccounts.length > 1 ? <AccountBadge accountId={entry.account_id} /> : null}

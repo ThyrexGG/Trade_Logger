@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { JournalResponse, JournalTradeItem, JournalUpdateRequest } from '../../types/operations'
 import { OpsMetric, OpsUnavailable, SectionCard } from './primitives'
-import { formatSignedAmount, formatDateTime } from '../../lib/format'
+import { formatSignedAmount, formatDateTime, openTimeKnown } from '../../lib/format'
 import { SETUP_PRESETS } from '../../lib/setupPresets'
 import { patchJournalEntry } from '../../api/operations'
 import { ChartSnapshot } from '../journal/ChartSnapshot'
@@ -353,7 +353,7 @@ export function JournalView({
                       isFocus ? 'bg-accent/5' : ''
                     }`}
                   >
-                    <td className="whitespace-nowrap px-2 py-1.5 font-mono text-muted">{formatDateTime(e.entry_time) ?? e.entry_time.slice(0, 16).replace('T', ' ')}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 font-mono text-muted" title={openTimeKnown(e.entry_time, e.exit_time) ? undefined : 'Open time not recorded by the broker'}>{openTimeKnown(e.entry_time, e.exit_time) ? (formatDateTime(e.entry_time) ?? e.entry_time.slice(0, 16).replace('T', ' ')) : '—'}</td>
                     <td className="whitespace-nowrap px-2 py-1.5 font-mono text-secondary">{formatDateTime(e.exit_time) ?? e.exit_time.slice(0, 16).replace('T', ' ')}</td>
                     <td className="px-2 py-1.5">
                       <Link to={`/workspace/market?symbol=${encodeURIComponent(e.symbol)}`} className="font-mono font-semibold text-primary hover:text-accent">

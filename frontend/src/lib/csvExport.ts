@@ -1,4 +1,5 @@
 import type { JournalTradeItem } from '../types/operations'
+import { openTimeKnown } from './format'
 
 /** RFC 4180 field escaping — wraps in quotes only when needed, doubles any
  * embedded quotes. Notes/setup tags can contain commas, quotes or newlines. */
@@ -20,9 +21,9 @@ const TRADE_CSV_COLUMNS: Array<[string, (t: JournalTradeItem) => string | number
   ['Swap', (t) => t.swap],
   ['Gross Profit', (t) => t.gross_profit],
   ['Net Profit', (t) => t.net_profit],
-  ['Entry Time', (t) => t.entry_time],
+  ['Entry Time', (t) => (openTimeKnown(t.entry_time, t.exit_time) ? t.entry_time : '')],
   ['Exit Time', (t) => t.exit_time],
-  ['Duration (min)', (t) => t.duration_minutes],
+  ['Duration (min)', (t) => (openTimeKnown(t.entry_time, t.exit_time) && t.duration_minutes > 0 ? t.duration_minutes : '')],
   ['Setup Tag', (t) => t.setup_tag],
   ['Rating', (t) => t.rating],
   ['Notes', (t) => t.notes],

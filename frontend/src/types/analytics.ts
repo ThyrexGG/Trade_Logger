@@ -148,8 +148,9 @@ export interface TradeInsights {
   by_weekday: InsightBucket[]
   by_hour: InsightBucket[]
   by_hold: InsightBucket[]
-  /** trades with no recorded holding time, left out of `by_hold` */
-  hold_unknown: number
+  /** trades whose open was never seen (no real open time / holding time) — left out of
+   *  `by_weekday`, `by_hour` and `by_hold` rather than guessed */
+  open_unknown: number
   rules: RulesRow[]
   streaks: StreakStats
 }
