@@ -49,28 +49,27 @@ const RULE_LABELS: Record<string, string> = {
   Rushed: 'Rushed / off-plan',
 }
 
-function RuleRow({ row, max }: { row: RulesRow; max: number }) {
-  const width = max > 0 ? (Math.abs(row.net_profit) / max) * 50 : 0
+function RulePanel({ row, max }: { row: RulesRow; max: number }) {
   return (
-    <div className="py-2">
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="text-[13px] font-medium text-primary">{RULE_LABELS[row.tag] ?? row.tag}</span>
-        {row.trades ? <Money v={row.net_profit} /> : <span className="text-[11px] text-muted">No trades yet</span>}
-      </div>
+    <div className="flex flex-col rounded border border-border-subtle bg-surface-elevated/30 p-3">
+      <span className="text-xs text-secondary">{RULE_LABELS[row.tag] ?? row.tag}</span>
       {row.trades ? (
-        <div className="mt-1.5 flex items-center gap-3">
-          <div className="relative h-1.5 flex-1 rounded-full bg-surface-elevated" aria-hidden="true">
-            <span className="absolute inset-y-[-3px] left-1/2 w-px bg-border" />
+        <>
+          <span className={`tl-figure mt-1 text-lg ${toneText(row.net_profit)}`}>{signedUsd(row.net_profit)}</span>
+          <span className="relative mt-2 h-1 rounded-full bg-surface-elevated" aria-hidden="true">
             <span
-              className={`absolute inset-y-0 ${row.net_profit >= 0 ? 'left-1/2 rounded-r-full bg-positive' : 'right-1/2 rounded-l-full bg-negative'}`}
-              style={{ width: `${width}%` }}
+              className={`absolute inset-y-0 left-0 rounded-full ${row.net_profit >= 0 ? 'bg-positive' : 'bg-negative'}`}
+              style={{ width: `${Math.max(3, (Math.abs(row.net_profit) / max) * 100)}%` }}
             />
-          </div>
-          <span className="shrink-0 font-mono text-[10px] text-muted">
-            {plural(row.trades, 'trade')} · {winPct(row.wins, row.trades)}% win · avg {signedUsd(row.avg_per_trade)}
           </span>
-        </div>
-      ) : null}
+          <span className="mt-2 font-mono text-[10px] text-muted">
+            {plural(row.trades, 'trade')} · {winPct(row.wins, row.trades)}% win
+          </span>
+          <span className="font-mono text-[10px] text-muted">avg {signedUsd(row.avg_per_trade)} a trade</span>
+        </>
+      ) : (
+        <span className="mt-1 text-xs text-muted">No trades yet</span>
+      )}
     </div>
   )
 }
@@ -87,11 +86,34 @@ function RulesCard({ rows }: { rows: RulesRow[] }) {
   const offN = bent.trades + rushed.trades
   const offNet = bent.net_profit + rushed.net_profit
   const max = Math.max(1e-9, ...[kept, bent, rushed].map((r) => Math.abs(r.net_profit)))
+  const info =
+    'Uses the one tap under each trade in the Journal: By my rules, Bent my rules or Rushed. Shows what each kind of trade made or lost, so you can see whether sticking to your plan pays.'
+
+  // Nothing marked yet: a slim one-row prompt instead of a half-empty card.
+  if (marked === 0) {
+    return (
+      <SectionCard title="Your rules vs. your results" feature info={info}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+          <div className="min-w-0 space-y-1">
+            <Headline>You haven’t marked any trades yet, so this can’t show what breaking your rules costs.</Headline>
+            <p className="text-xs text-secondary">
+              Under each trade in the Journal, tap <span className="text-primary">By my rules</span>,{' '}
+              <span className="text-primary">Bent my rules</span> or <span className="text-primary">Rushed</span>. One tap per trade.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
+            <span className="font-mono text-[11px] text-muted">0 of {plural(total, 'trade')} marked</span>
+            <Link to="/workspace/journal" className="tl-btn tl-btn--secondary">
+              Open the Journal
+            </Link>
+          </div>
+        </div>
+      </SectionCard>
+    )
+  }
 
   let headline: ReactNode
-  if (marked === 0) {
-    headline = <>You haven’t marked any trades yet.</>
-  } else if (offN === 0) {
+  if (offN === 0) {
     headline = (
       <>
         All {plural(marked, 'marked trade')} followed your rules — <Money v={kept.net_profit} strong /> so far.
@@ -113,44 +135,30 @@ function RulesCard({ rows }: { rows: RulesRow[] }) {
   }
 
   return (
-    <SectionCard
-      title="Your rules vs. your results"
-      feature
-      info="Uses the one tap under each trade in the Journal: By my rules, Bent my rules or Rushed. Shows what each kind of trade made or lost, so you can see whether sticking to your plan pays."
-    >
-      <div className="space-y-3">
-        <div className="space-y-1">
+    <SectionCard title="Your rules vs. your results" feature info={info}>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:gap-6">
+        <div className="flex flex-col gap-2">
           <Headline>{headline}</Headline>
-          {marked === 0 ? (
-            <p className="text-xs text-secondary">
-              Under each trade in the Journal, tap <span className="text-primary">By my rules</span>,{' '}
-              <span className="text-primary">Bent my rules</span> or <span className="text-primary">Rushed</span>. This card then shows what
-              breaking your rules costs you.
-            </p>
-          ) : kept.trades > 0 && offN > 0 ? (
+          {kept.trades > 0 && offN > 0 ? (
             <p className="text-xs text-secondary">
               A trade by your rules averages <Money v={kept.avg_per_trade} />; an off-plan one averages <Money v={offNet / offN} />.
             </p>
           ) : null}
-        </div>
-
-        {marked > 0 ? (
-          <div className="divide-y divide-border-subtle border-t border-border-subtle">
-            {[kept, bent, rushed].map((r, i) => (
-              <RuleRow key={r.tag || i} row={r} max={max} />
-            ))}
+          <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-1">
+            <span className="font-mono text-[11px] text-muted">
+              {marked} of {plural(total, 'trade')} marked
+            </span>
+            {unmarked.trades > 0 ? (
+              <Link to="/workspace/journal" className="text-xs font-medium text-accent hover:underline">
+                Mark the other {unmarked.trades} →
+              </Link>
+            ) : null}
           </div>
-        ) : null}
-
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border-subtle pt-2.5">
-          <span className="font-mono text-[11px] text-muted">
-            {marked} of {plural(total, 'trade')} marked
-          </span>
-          {unmarked.trades > 0 ? (
-            <Link to="/workspace/journal" className="text-xs font-medium text-accent hover:underline">
-              {marked === 0 ? 'Open the Journal' : `Mark the other ${unmarked.trades}`} →
-            </Link>
-          ) : null}
+        </div>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {[kept, bent, rushed].map((r, i) => (
+            <RulePanel key={r.tag || i} row={r} max={max} />
+          ))}
         </div>
       </div>
     </SectionCard>
@@ -198,8 +206,20 @@ function StreaksCard({ s }: { s: StreakStats }) {
       info="Streaks count trades in the order they closed; a break-even trade ends a streak. Days use the same dates as the calendar, and days with no trades are skipped."
     >
       <div className="space-y-3">
-        <Headline>{streakHeadline(s)}</Headline>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6">
+          <Headline>{streakHeadline(s)}</Headline>
+          {days > 0 ? (
+            <p className="shrink-0 font-mono text-[11px] text-muted">
+              Days in a row now{' '}
+              <span className={dayTone}>
+                {s.current_day_kind === 'none' ? '—' : `${s.current_day_count} ${s.current_day_kind === 'win' ? 'green' : 'red'}`}
+              </span>{' '}
+              · best <span className="text-positive">{s.longest_green_days} green</span> · worst{' '}
+              <span className="text-negative">{s.longest_red_days} red</span>
+            </p>
+          ) : null}
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
           <Cell
             label="Current streak"
             value={s.current_kind === 'none' ? '—' : plural(s.current_count, s.current_kind === 'win' ? 'win' : 'loss', s.current_kind === 'win' ? 'wins' : 'losses')}
@@ -226,16 +246,6 @@ function StreaksCard({ s }: { s: StreakStats }) {
             tone={s.worst_day ? toneText(s.worst_day.net_profit) : undefined}
           />
         </div>
-        {days > 0 ? (
-          <p className="border-t border-border-subtle pt-2.5 font-mono text-[11px] text-muted">
-            Days in a row now{' '}
-            <span className={dayTone}>
-              {s.current_day_kind === 'none' ? '—' : `${s.current_day_count} ${s.current_day_kind === 'win' ? 'green' : 'red'}`}
-            </span>{' '}
-            · best <span className="text-positive">{s.longest_green_days} green</span> · worst{' '}
-            <span className="text-negative">{s.longest_red_days} red</span>
-          </p>
-        ) : null}
       </div>
     </SectionCard>
   )
@@ -473,10 +483,8 @@ function WhenCard({ insights }: { insights: TradeInsights }) {
 export function InsightsSection({ insights }: { insights: TradeInsights }) {
   return (
     <>
-      <div className="grid items-start gap-4 lg:grid-cols-2">
-        <RulesCard rows={insights.rules} />
-        <StreaksCard s={insights.streaks} />
-      </div>
+      <RulesCard rows={insights.rules} />
+      <StreaksCard s={insights.streaks} />
       <WhenCard insights={insights} />
     </>
   )

@@ -5,8 +5,8 @@ import { ColorLegend } from '../common/Sentiment'
 import { InfoTip } from '../common/InfoTip'
 import { formatPercent, formatUsd } from '../../lib/format'
 import { InsightsSection } from './InsightsSection'
+import { MoneySplitCard, TradingProfileCard } from './AnalyticsBreakdowns'
 import { MonthlyCalendar } from './MonthlyCalendar'
-import { RadarChart } from './RadarChart'
 import { SplitBar } from './SplitBar'
 
 function signedUsd(v: number): string {
@@ -23,27 +23,6 @@ function holdTime(mins: number): string {
   const h = Math.floor((mins % 1440) / 60)
   const m = Math.floor(mins % 60)
   return d > 0 ? `${d}d ${h}h ${m}m` : `${h}h ${m}m`
-}
-
-/** Horizontal P&L bar row — width encodes |net_profit| against the row max. */
-function PnlBar({ label, value, max, sub }: { label: string; value: number; max: number; sub?: string }) {
-  const pct = max > 0 ? (Math.abs(value) / max) * 100 : 0
-  return (
-    <div className="flex items-center gap-2 py-1 text-[11px]">
-      <span className="w-24 shrink-0 truncate font-mono text-secondary" title={label}>{label}</span>
-      <div className="relative h-3 flex-1 rounded bg-surface-elevated/40">
-        <div
-          className={`absolute inset-y-0 rounded ${value >= 0 ? 'bg-positive/50 left-1/2' : 'bg-negative/50 right-1/2'}`}
-          style={{ width: `${pct / 2}%` }}
-        />
-        <div className="absolute inset-y-0 left-1/2 w-px bg-border" />
-      </div>
-      <span className={`w-24 shrink-0 text-right font-mono tabular-nums ${value > 0 ? 'text-positive' : value < 0 ? 'text-negative' : 'text-secondary'}`}>
-        {signedUsd(value)}
-      </span>
-      {sub ? <span className="w-14 shrink-0 text-right font-mono text-muted">{sub}</span> : null}
-    </div>
-  )
 }
 
 export function AnalyticsView({ data }: { data: AnalyticsPerformanceResponse }) {
@@ -63,8 +42,9 @@ export function AnalyticsView({ data }: { data: AnalyticsPerformanceResponse }) 
 
   const balance = data.official_balance ?? m.final_balance
   const initialBalance = data.filters_applied.initial_balance || 10000
-  const symMax = Math.max(1, ...data.symbol_breakdown.map((r) => Math.abs(r.net_profit)))
-  const tagMax = Math.max(1, ...data.tag_breakdown.map((r) => Math.abs(r.net_profit)))
+  // Tags the trader typed themselves — the one-tap rule answers have their own card, and a lone "Untagged" row says nothing.
+  const RULE_TAGS = ['untagged', 'by my rules', 'bent my rules', 'rushed']
+  const ownTags = data.tag_breakdown.filter((r) => !RULE_TAGS.includes(r.setup_tag.trim().toLowerCase()))
 
   const scores = [
     { label: 'Profitability', v: clamp(50 + m.gain_pct * 2) },
@@ -176,8 +156,13 @@ export function AnalyticsView({ data }: { data: AnalyticsPerformanceResponse }) 
           )}
         </SectionCard>
 
-        <SectionCard title="Period returns" info="Return over rolling windows relative to now: average day, this week, this month, and the annualised figure. Percentages are of the starting balance.">
-          <div className="grid grid-cols-2 gap-2">
+        <SectionCard
+          title="Period returns"
+          info="Return over rolling windows relative to now: average day, this week, this month, and the annualised figure. Percentages are of the starting balance."
+          // fill the row's height beside the taller balance curve instead of leaving a hole under the cells
+          className="flex flex-col [&>.tl-card-body]:flex [&>.tl-card-body]:flex-1 [&>.tl-card-body]:flex-col"
+        >
+          <div className="grid flex-1 auto-rows-fr grid-cols-2 gap-2">
             <PeriodCell label="Avg daily" pct={pr.avg_daily_pct} />
             <PeriodCell label="This week" pct={pr.weekly_pct} usd={pr.weekly_pnl} />
             <PeriodCell label="This month" pct={pr.monthly_pct} usd={pr.monthly_pnl} />
@@ -187,60 +172,23 @@ export function AnalyticsView({ data }: { data: AnalyticsPerformanceResponse }) 
         </SectionCard>
       </div>
 
-      <div className="grid items-start gap-4 lg:grid-cols-2">
-        <SectionCard title="Net P&L by symbol" info="Which instruments made or lost money over the filtered period, with trade count and win rate. Bars extend right for profit, left for loss.">
-          {data.symbol_breakdown.length === 0 ? (
-            <OpsUnavailable>No symbols in range.</OpsUnavailable>
-          ) : (
-            <div>
-              {data.symbol_breakdown.map((r) => (
-                <PnlBar key={r.symbol} label={r.symbol} value={r.net_profit} max={symMax} sub={`${r.trades}t ${r.win_rate.toFixed(0)}%`} />
-              ))}
-            </div>
-          )}
-        </SectionCard>
+      <MoneySplitCard
+        title="Where you make and lose money"
+        info="Net profit or loss per market over the filtered period, split into the markets that are making you money and the ones losing it, with trade count and win rate."
+        noun="market"
+        rows={data.symbol_breakdown.map((r) => ({ label: r.symbol, net: r.net_profit, trades: r.trades, winRate: r.win_rate }))}
+      />
 
-        <SectionCard title="Net P&L by strategy tag" info="Same P&L breakdown but grouped by the setup tag you assigned in the journal. Untagged trades are grouped together.">
-          {data.tag_breakdown.length === 0 ? (
-            <OpsUnavailable>No tagged trades in range.</OpsUnavailable>
-          ) : (
-            <div>
-              {data.tag_breakdown.map((r) => (
-                <PnlBar key={r.setup_tag} label={r.setup_tag} value={r.net_profit} max={tagMax} sub={`${r.trades}t`} />
-              ))}
-            </div>
-          )}
-        </SectionCard>
-      </div>
+      {ownTags.length ? (
+        <MoneySplitCard
+          title="Your own tags"
+          info="The same split, grouped by tags you typed yourself in the journal. The one-tap answers (By my rules / Bent / Rushed) are in the rules card above; untagged trades are left out here."
+          noun="tag"
+          rows={ownTags.map((r) => ({ label: r.setup_tag, net: r.net_profit, trades: r.trades }))}
+        />
+      ) : null}
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <SectionCard title="Direction split" info="Long vs short: how many trades, win rate and net P&L on each side. A big skew can mean a directional bias worth examining.">
-          <div className="grid grid-cols-2 gap-2 text-[11px]">
-            <DirCell label="Long" s={m.long_stats} />
-            <DirCell label="Short" s={m.short_stats} />
-          </div>
-        </SectionCard>
-
-        <SectionCard title="Performance index" info="Five 0-100 presentation scores derived from the metrics above (profitability, win rate, risk-reward, capital protection, consistency). Not a grade - a shape to eyeball. Green >=60, red <=40.">
-          <div className="text-accent">
-            <RadarChart axes={scores.map((s) => ({ label: s.label, value: s.v }))} />
-          </div>
-          <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px] text-muted sm:grid-cols-3">
-            {scores.map((s) => (
-              <span key={s.label} className="tabular-nums">
-                {s.label}{' '}
-                <span className={s.v >= 60 ? 'text-positive' : s.v <= 40 ? 'text-negative' : 'text-secondary'}>
-                  {s.v.toFixed(0)}
-                </span>
-              </span>
-            ))}
-          </div>
-          <p className="mt-1 text-[10px] text-muted">
-            Presentation-only 0–100 index scores. <span className="text-positive">60+ green</span> ·{' '}
-            <span className="text-negative">40− red</span>.
-          </p>
-        </SectionCard>
-      </div>
+      <TradingProfileCard scores={scores} long={m.long_stats} short={m.short_stats} />
 
       <ColorLegend
         className="border-t border-border-subtle pt-2"
@@ -261,22 +209,11 @@ function clamp(v: number): number {
 function PeriodCell({ label, pct, usd }: { label: string; pct: number; usd?: number }) {
   const t = pct > 0 ? 'text-positive' : pct < 0 ? 'text-negative' : 'text-secondary'
   return (
-    <div className="rounded border border-border-subtle bg-surface-elevated/30 px-2.5 py-2">
+    <div className="flex flex-col justify-center rounded border border-border-subtle bg-surface-elevated/30 px-3 py-2.5">
       <p className="text-[10px] uppercase tracking-wider text-muted">{label}</p>
-      <p className={`mt-0.5 font-mono text-sm tabular-nums ${t}`}>{pct >= 0 ? '+' : ''}{pct.toFixed(2)}%</p>
+      <p className={`mt-1 font-mono text-lg tabular-nums ${t}`}>{pct >= 0 ? '+' : ''}{pct.toFixed(2)}%</p>
       {usd != null ? <p className="font-mono text-[10px] text-muted">{signedUsd(usd)}</p> : null}
     </div>
   )
 }
 
-function DirCell({ label, s }: { label: string; s: { trades: number; win_rate: number; pnl: number } }) {
-  return (
-    <div className="rounded border border-border-subtle bg-surface-elevated/30 px-2.5 py-2">
-      <p className="text-[10px] uppercase tracking-wider text-muted">{label}</p>
-      <p className={`mt-0.5 font-mono text-sm tabular-nums ${s.pnl > 0 ? 'text-positive' : s.pnl < 0 ? 'text-negative' : 'text-secondary'}`}>
-        {signedUsd(s.pnl)}
-      </p>
-      <p className="font-mono text-[10px] text-muted">{s.trades} trades · {s.win_rate.toFixed(1)}% win</p>
-    </div>
-  )
-}

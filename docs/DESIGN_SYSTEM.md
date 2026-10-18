@@ -252,6 +252,13 @@ device (`tl.privacy`).
 - **Results before settings:** e.g. Analytics shows your numbers first and
   the prop-challenge setup below them.
 - **Figure rows** (`.tl-figures`) instead of rows of stat cards.
+- **No short card beside a tall one.** A two-column row only pairs cards of
+  similar height (or the shorter one stretches its content to fill, like
+  Period returns); otherwise each card is a full-width row that balances
+  itself inside — winners | losers columns ("Where you make and lose money"),
+  radar | score bars ("Your trading profile"), a slim one-line prompt when a
+  card has nothing to show yet ("Your rules vs. your results" before any trade
+  is marked). A card that would only say "Untagged" is hidden.
 - **Insight cards lead with one sentence** (Analytics' `InsightsSection.tsx`):
   "Breaking your rules has cost you $384.90 over 41 trades", then the numbers.
   Their column chart diverges from a baseline (profit up, loss down, 4px
@@ -305,7 +312,8 @@ Don't run the full `pytest` suite at the same time: its fixtures delete
 | 2026-10-08 | `230c301` | New logo and all brand assets, login and legal screens, branded reset email; see [BRAND.md](BRAND.md) |
 | 2026-10-08 | (this change) | Link chips + link editor on notes and trade cards; see [JOURNAL_LINKS.md](JOURNAL_LINKS.md) |
 | 2026-10-18 | `d121904` | Analytics calendar: a Week total card at the end of each row |
-| 2026-10-18 | (this change) | Analytics insights (rules vs. results, streaks & best days, when you trade best) + privacy mode |
+| 2026-10-18 | `73f37d2` | Analytics insights (rules vs. results, streaks & best days, when you trade best) + privacy mode |
+| 2026-10-18 | (this change) | Analytics lower half re-laid out: full-width rows, winners/losers split, trading profile card, no half-empty cards |
 
 ## Phone app
 
