@@ -548,6 +548,12 @@ there); each slice reports them as `skipped` / `oldest_skipped` and the page's f
 stops early is distinguishable from one Capital.com simply doesn't serve. Capital.com answers 429 to a login per slice (it is stricter than its documented 1/s), which stopped the first live import partway: the import now logs in once and reuses the session tokens for ~8 min (it renews itself on a 401), retries a refused login after 2/4/8 s, and marks a still-refused slice `retryable` so the page waits 20 s and redoes it (up to 8 times) instead of stopping. `capital_sync` now exposes `reconstruct_closed_trades` and
 `sync_open_positions` so both paths share one implementation. Tests: `test_capital_backfill.py` (Capital faked).
 
+**Weekly totals on the Analytics calendar (2026-10-18).** `MonthlyCalendar.tsx` now ends every calendar row with a
+"Week N" card — net P&L, trading days and trade count for that week (TradeZella-style). Computed client-side from the
+same `daily_pnl` the day cells use, counting only days inside the shown month, so the week cards add up to the month's
+P&L chip; no API change. From tablet width the card is an 8th grid column; on a phone it becomes a thin bar under each
+week row (the seven day cells already fill the width). Weeks are Monday–Sunday and numbered by position in the month.
+
 ---
 
 ### W10 — native email + password auth (SHIPPED 2026-09-10)

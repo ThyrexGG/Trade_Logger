@@ -50,7 +50,7 @@ const GUIDES: Record<string, GuideContent> = {
       'Pick an account at the top so different accounts aren’t mixed together.',
       'Win rate is how often you win; profit factor is money won divided by money lost (above 1 means you’re making money overall).',
       'Look at which symbols and setups make or lose you the most — that’s where to focus.',
-      'Click a day in the calendar to see the trades from that day.',
+      'Click a day in the calendar to see the trades from that day. The “Week” box at the end of each row adds up that whole week.',
     ],
   },
   '/workspace/assistant': {

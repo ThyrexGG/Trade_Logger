@@ -35,6 +35,35 @@ interface DayCell {
   data?: DailyPnl
 }
 
+/** Seven day columns plus, from tablet width up, a "Week" total column. On a
+ * phone the week total drops to its own thin bar under the row instead. */
+const WEEK_GRID = 'grid grid-cols-7 gap-2 md:grid-cols-[repeat(7,minmax(0,1fr))_7rem]'
+
+/** One week's total, summed from only the days that fall inside the shown month
+ * (so the weeks add up to the month's P&L chip). Straight from `daily_pnl`. */
+function WeekSummary({ index, week }: { index: number; week: DayCell[] }) {
+  const days = week.filter((c) => c.inMonth && c.data).map((c) => c.data as DailyPnl)
+  const net = days.reduce((s, d) => s + d.net_profit, 0)
+  const trades = days.reduce((s, d) => s + d.trades, 0)
+  const tone = days.length === 0 ? 'text-muted' : net >= 0 ? 'text-positive' : 'text-negative'
+  const bar = days.length === 0 ? '' : net >= 0 ? 'border-positive/30' : 'border-negative/30'
+  return (
+    <div
+      className={`col-span-7 flex items-center justify-between gap-2 rounded-xl border bg-surface-elevated/40 px-2.5 py-1.5 md:col-span-1 md:min-h-[92px] md:flex-col md:items-start md:justify-center md:py-2.5 ${
+        bar || 'border-border-subtle/60'
+      }`}
+    >
+      <span className="text-[10px] uppercase tracking-wide text-muted">Week {index}</span>
+      <span className={`font-mono text-sm font-semibold tabular-nums ${tone}`}>
+        {days.length ? signedUsd(net) : formatUsd(0)}
+      </span>
+      <span className="font-mono text-[10px] text-muted">
+        {days.length} day{days.length === 1 ? '' : 's'} · {trades}t
+      </span>
+    </div>
+  )
+}
+
 /**
  * Month calendar of daily P&L — the signature view from the legacy analytics
  * page. Full width, one uniform grid; read-only, every figure straight from
@@ -468,6 +497,8 @@ export function MonthlyCalendar({
     cells.push({ day, iso, inMonth: true, data: byIso.get(iso) })
   }
   while (cells.length % 7 !== 0) cells.push({ day: 0, iso: `trail-${cells.length}`, inMonth: false })
+  const weeks: DayCell[][] = []
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7))
 
   const monthDays = cells.filter((c) => c.inMonth && c.data).map((c) => c.data as DailyPnl)
   const summary = monthDays.reduce(
@@ -535,16 +566,18 @@ export function MonthlyCalendar({
         </div>
       </div>
 
-      <div className="grid grid-cols-7 text-[10px] font-medium uppercase tracking-wider text-muted">
+      <div className={`${WEEK_GRID} text-[10px] font-medium uppercase tracking-wider text-muted`}>
         {WEEKDAYS.map((w) => (
-          <div key={w} className="px-2 pb-1.5">
+          <div key={w} className="px-2.5 pb-1.5">
             {w}
           </div>
         ))}
+        <div className="hidden px-2.5 pb-1.5 md:block">Week</div>
       </div>
-      <div className="grid grid-cols-7 gap-2">
-        {cells.map((c, i) => {
-          const col = i % 7
+      <div className="space-y-2">
+        {weeks.map((week, wi) => (
+        <div key={wi} className={WEEK_GRID}>
+        {week.map((c, col) => {
           const weekend = col >= 5
 
           if (!c.inMonth) {
@@ -629,6 +662,9 @@ export function MonthlyCalendar({
             </div>
           )
         })}
+        <WeekSummary index={wi + 1} week={week} />
+        </div>
+        ))}
       </div>
 
       {hover && byIso.get(hover.iso) ? (
