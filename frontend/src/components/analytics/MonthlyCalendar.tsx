@@ -10,6 +10,7 @@ import { ScreenshotStrip } from '../journal/ScreenshotStrip'
 import { StarRating } from '../journal/StarRating'
 import { TagRecord, invalidateTagRecord } from '../journal/TagRecord'
 import { formatPercent, formatUsd } from '../../lib/format'
+import { useTodayIso } from '../../lib/dates'
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const MONTHS = [
@@ -25,8 +26,6 @@ function signedUsd(v: number): string {
 function mondayIndex(d: Date): number {
   return (d.getDay() + 6) % 7
 }
-
-const TODAY_ISO = new Date().toISOString().slice(0, 10)
 
 interface DayCell {
   day: number
@@ -450,6 +449,7 @@ export function MonthlyCalendar({
   account: string
   symbols: string[]
 }) {
+  const todayIso = useTodayIso()
   const [selected, setSelected] = useState<string | null>(null)
   const selectDay = useCallback(
     (iso: string) => setSelected((cur) => (cur === iso ? null : iso)),
@@ -590,7 +590,7 @@ export function MonthlyCalendar({
           }
 
           const d = c.data
-          const isToday = c.iso === TODAY_ISO
+          const isToday = c.iso === todayIso
           const isSelected = c.iso === selected
           const intensity = d ? Math.min(0.18, 0.06 + (Math.abs(d.net_profit) / dayMax) * 0.12) : 0
           const bg = d

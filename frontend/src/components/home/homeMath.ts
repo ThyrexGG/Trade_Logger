@@ -1,6 +1,7 @@
 import type { DailyPnl } from '../../types/analytics'
+import { localDayIso } from '../../lib/dates'
 
-/** One square in the heatmap: a single UTC calendar day. */
+/** One square in the heatmap: a single calendar day on the viewer's clock. */
 export interface HeatCell {
   iso: string
   col: number
@@ -24,18 +25,25 @@ export interface HeatGrid {
   todayIso: string
 }
 
-const DAY_MS = 86_400_000
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
+/** YYYY-MM-DD of the LOCAL day — same buckets as the API's `daily_pnl` (it gets our timezone). */
 export function isoDay(ms: number): string {
-  return new Date(ms).toISOString().slice(0, 10)
+  return localDayIso(ms)
 }
 
-/** UTC midnight of the Monday that starts the window ending this week. */
+/** Local midnight of the Monday that starts the window ending this week. */
 export function windowStartMs(weeks: number, now: number = Date.now()): number {
-  const today = Date.UTC(new Date(now).getUTCFullYear(), new Date(now).getUTCMonth(), new Date(now).getUTCDate())
-  const dow = (new Date(today).getUTCDay() + 6) % 7
-  return today - dow * DAY_MS - (weeks - 1) * 7 * DAY_MS
+  const d = new Date(now)
+  const dow = (d.getDay() + 6) % 7
+  // calendar-day arithmetic (not "minus N × 24h"), so a daylight-saving change can't shift a day
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() - dow - (weeks - 1) * 7).getTime()
+}
+
+/** Local midnight `days` calendar days after `startMs`. */
+function addDays(startMs: number, days: number): number {
+  const d = new Date(startMs)
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + days).getTime()
 }
 
 export function buildGrid(daily: DailyPnl[], weeks: number, now: number = Date.now()): HeatGrid {
@@ -47,14 +55,14 @@ export function buildGrid(daily: DailyPnl[], weeks: number, now: number = Date.n
   let running = 0
   let lastMonth = -1
   for (let i = 0; i < weeks * 7; i++) {
-    const ms = start + i * DAY_MS
+    const ms = addDays(start, i)
     const iso = isoDay(ms)
     const col = Math.floor(i / 7)
     const row = i % 7
     const data = byDay.get(iso)
     if (data) running += data.net_profit
     cells.push({ iso, col, row, future: iso > todayIso, data, cumulative: running })
-    const month = new Date(ms).getUTCMonth()
+    const month = new Date(ms).getMonth()
     if (row === 0 && month !== lastMonth) {
       // only label a month once its first Monday is in view, and keep labels from colliding
       if (!monthMarks.length || col - monthMarks[monthMarks.length - 1].col >= 3) {

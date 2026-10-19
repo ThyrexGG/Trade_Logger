@@ -114,7 +114,7 @@ def _period_returns(filtered: pd.DataFrame, initial_balance: float) -> PeriodRet
     if filtered.empty:
         return PeriodReturns(avg_daily_pct=0.0, weekly_pct=0.0, monthly_pct=0.0,
                              annualized_pct=0.0, weekly_pnl=0.0, monthly_pnl=0.0)
-    daily = filtered.groupby(filtered["exit_time"].dt.date)["net_profit"].sum()
+    daily = filtered.groupby("_day" if "_day" in filtered.columns else filtered["exit_time"].dt.date)["net_profit"].sum()
     daily_rets = daily / initial_balance * 100.0
     avg_daily = float(daily_rets.mean()) if not daily_rets.empty else 0.0
 
@@ -167,7 +167,7 @@ def get_performance(
     start: Optional[str] = Query(default=None, description="ISO date, filters exit_time >= start"),
     end: Optional[str] = Query(default=None, description="ISO date, filters exit_time <= end (inclusive day)"),
     initial_balance: float = Query(default=10000.0, gt=0, description="starting balance for the equity curve"),
-    tz: Optional[str] = Query(default=None, max_length=64, description="viewer's IANA timezone for the day/hour insights; UTC if omitted or unknown"),
+    tz: Optional[str] = Query(default=None, max_length=64, description="viewer's IANA timezone: calendar days, date filters and insights are on this clock; UTC if omitted or unknown"),
 ) -> AnalyticsPerformanceResponse:
     """
     Account / symbol / date-filtered trading performance for the closed-trade
@@ -193,10 +193,15 @@ def get_performance(
     acc_label = acc if (acc and acc.upper() != "ALL") else "ALL"
 
     acc_df = df if acc_label == "ALL" else df[df["account_id"].astype(str) == acc_label]
+    # The viewer's calendar day for each trade (times are stored UTC): a trade closed at 01:00 Monday
+    # in Manila belongs on Monday's square, not Sunday's.
+    tz_name = insights.resolve_tz(tz)
+    if not acc_df.empty:
+        acc_df = acc_df.assign(_day=insights.local_dates(acc_df["exit_time"], tz_name))
 
     avail_symbols = sorted(acc_df["symbol"].astype(str).str.upper().unique()) if not acc_df.empty else []
-    date_min = acc_df["exit_time"].min().date().isoformat() if not acc_df.empty else None
-    date_max = acc_df["exit_time"].max().date().isoformat() if not acc_df.empty else None
+    date_min = acc_df["_day"].min().isoformat() if not acc_df.empty else None
+    date_max = acc_df["_day"].max().isoformat() if not acc_df.empty else None
 
     # "Starting balance" can't come from closed_trades (it only ever records
     # trade-level P&L, never a deposit) — but for one selected account we can
@@ -237,10 +242,10 @@ def get_performance(
     filtered = acc_df
     if requested_symbols:
         filtered = filtered[filtered["symbol"].astype(str).str.upper().isin(requested_symbols)]
-    if start_ts is not None:
-        filtered = filtered[filtered["exit_time"] >= start_ts]
-    if end_ts is not None:
-        filtered = filtered[filtered["exit_time"] < end_ts + pd.Timedelta(days=1)]
+    if start_ts is not None and not filtered.empty:
+        filtered = filtered[filtered["_day"] >= start_ts.date()]
+    if end_ts is not None and not filtered.empty:
+        filtered = filtered[filtered["_day"] <= end_ts.date()]
 
     filters_echo = AnalyticsFiltersEcho(
         account=acc_label,
@@ -270,13 +275,13 @@ def get_performance(
 
     daily = (
         filtered.assign(_win=(filtered["net_profit"] > 0).astype(int))
-        .groupby(filtered["exit_time"].dt.date)
+        .groupby("_day")
         .agg(net_profit=("net_profit", "sum"), trades=("net_profit", "size"), wins=("_win", "sum"))
         .reset_index()
-        .sort_values(by="exit_time")
+        .sort_values(by="_day")
     )
     daily_pnl = [
-        DailyPnl(date=pd.Timestamp(r["exit_time"]).date().isoformat(),
+        DailyPnl(date=r["_day"].isoformat(),
                  net_profit=round(float(r["net_profit"]), 2), trades=int(r["trades"]),
                  wins=int(r["wins"]))
         for _, r in daily.iterrows()
@@ -375,9 +380,10 @@ def get_day_trades(
     date: str = Query(..., description="ISO date YYYY-MM-DD — trades whose exit_time falls on this day"),
     account: Optional[str] = Query(default=None),
     symbols: Optional[str] = Query(default=None, description="comma-separated symbols; omit for all"),
+    tz: Optional[str] = Query(default=None, max_length=64, description="viewer's IANA timezone the day is on; UTC if omitted"),
 ) -> AnalyticsDayTradesResponse:
-    """Closed trades for one calendar day, honouring the same account / symbol
-    filters as `/performance`. Powers the calendar day drill-down. Read-only."""
+    """Closed trades for one calendar day on the viewer's clock, honouring the same
+    account / symbol filters as `/performance`. Powers the calendar day drill-down. Read-only."""
     day = _parse_date(date, "date")
     df = _load_trades()
 
@@ -392,7 +398,7 @@ def get_day_trades(
         df = df[df["symbol"].astype(str).str.upper().isin(wanted)]
 
     if not df.empty:
-        df = df[(df["exit_time"] >= day) & (df["exit_time"] < day + pd.Timedelta(days=1))]
+        df = df[insights.local_dates(df["exit_time"], insights.resolve_tz(tz)) == day.date()]
         df = df.sort_values(by="exit_time")
 
     trades = [] if df.empty else [_trade_item(r) for _, r in df.iterrows()]

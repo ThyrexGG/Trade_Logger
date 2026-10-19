@@ -12,8 +12,8 @@ from `analytics.py` is reimplemented here.
 Timezone: day-of-week and hour use the trade's ENTRY time converted to the
 viewer's timezone (the browser sends its IANA name), because "I trade badly
 after 9pm" only means something on your own clock. Best/worst day and the
-day streaks use the exit date exactly as the calendar's `daily_pnl` does, so
-they agree with the calendar.
+day streaks use the exit date on that same clock (`local_dates`), exactly as
+the calendar's `daily_pnl` does, so they agree with the calendar.
 """
 from typing import Dict, List, Optional
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -54,6 +54,15 @@ def resolve_tz(name: Optional[str]) -> str:
         except (ZoneInfoNotFoundError, ValueError):
             pass
     return "UTC"
+
+
+def local_dates(series: pd.Series, tz: str) -> pd.Series:
+    """Naive-UTC timestamps -> the calendar date on the viewer's clock. Every "which day" in
+    Analytics (calendar squares, best/worst day, the day drill-down, date filters) goes through
+    this, so a trade closed at 01:00 Monday in Manila is a Monday trade, not Sunday's (UTC)."""
+    if series.empty:
+        return pd.Series([], dtype=object, index=series.index)
+    return series.dt.tz_localize("UTC").dt.tz_convert(tz).dt.date
 
 
 def _bucket(key: str, label: str, g: pd.DataFrame) -> InsightBucket:
@@ -123,12 +132,12 @@ def _kind(sign: int) -> str:
     return "win" if sign > 0 else "loss" if sign < 0 else "none"
 
 
-def _streaks(df: pd.DataFrame) -> StreakStats:
+def _streaks(df: pd.DataFrame, tz: str = "UTC") -> StreakStats:
     ordered = df.sort_values(by="exit_time")
     trade_signs = [1 if v > 0 else -1 if v < 0 else 0 for v in ordered["net_profit"]]
     t = _run_lengths(trade_signs)
 
-    daily = ordered.groupby(ordered["exit_time"].dt.date)["net_profit"].sum().sort_index()
+    daily = ordered.groupby(local_dates(ordered["exit_time"], tz))["net_profit"].sum().sort_index()
     day_signs = [1 if v > 0 else -1 if v < 0 else 0 for v in daily]
     d = _run_lengths(day_signs)
 
@@ -190,5 +199,5 @@ def build_insights(filtered: pd.DataFrame, tz_name: Optional[str] = None) -> Tra
         by_hold=by_hold,
         open_unknown=int((~known).sum()),
         rules=_rules(df),
-        streaks=_streaks(df),
+        streaks=_streaks(df, tz),
     )

@@ -1,6 +1,15 @@
 import type { AnalyticsDayTradesResponse, AnalyticsPerformanceResponse, AnalyticsQuery } from '../types/analytics'
 import { apiGet, apiPost } from './client'
 
+/** The phone's IANA timezone, so the server's calendar days match the phone's clock, not UTC. */
+function viewerTimeZone(): string | null {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || null
+  } catch {
+    return null
+  }
+}
+
 /** GET /api/analytics/performance — account / date filtered performance. */
 export function getAnalyticsPerformance(query: AnalyticsQuery, signal?: AbortSignal): Promise<AnalyticsPerformanceResponse> {
   const p = new URLSearchParams()
@@ -9,6 +18,8 @@ export function getAnalyticsPerformance(query: AnalyticsQuery, signal?: AbortSig
   if (query.start) p.set('start', query.start)
   if (query.end) p.set('end', query.end)
   if (query.initial_balance != null) p.set('initial_balance', String(query.initial_balance))
+  const tz = viewerTimeZone()
+  if (tz) p.set('tz', tz)
   const qs = p.toString()
   return apiGet<AnalyticsPerformanceResponse>(`/api/analytics/performance${qs ? `?${qs}` : ''}`, signal)
 }
@@ -23,5 +34,7 @@ export function saveInitialBalance(account: string, value: number): Promise<{ ac
 export function getDayTrades(date: string, account?: string, signal?: AbortSignal): Promise<AnalyticsDayTradesResponse> {
   const p = new URLSearchParams({ date })
   if (account && account !== 'ALL') p.set('account', account)
+  const tz = viewerTimeZone()
+  if (tz) p.set('tz', tz)
   return apiGet<AnalyticsDayTradesResponse>(`/api/analytics/day?${p.toString()}`, signal)
 }

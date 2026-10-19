@@ -31,6 +31,7 @@ Trade Logger: a personal trading journal, analytics and research platform for MT
 5. Commit messages end with the Co-Authored-By line given in the session's system reminder.
 6. MT5 is read-only; do not re-enable any order-placing path.
 7. Be honest about research results. Do not tune a rule until it looks good (that is curve-fitting); say plainly when there is no edge.
+8. **Days are the user's local days, never UTC.** Trade times are stored UTC; the user is UTC+7/+8, where the UTC date is still yesterday until morning. In the apps, get "today" / "which day" only from `frontend/src/lib/dates.ts` (`localDayIso`, `todayIso`, `useTodayIso` — the last one rolls over at midnight, because the desktop app stays open for days), never `toISOString().slice(0, 10)` or a module-level `TODAY` constant. Any API call that buckets by day sends `tz` (the viewer's IANA zone) and the server converts with `api/insights.local_dates`. `tests/test_frontend_local_dates.py` enforces this.
 
 ## What the research concluded (so you do not redo it)
 

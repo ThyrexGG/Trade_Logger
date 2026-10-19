@@ -1,4 +1,5 @@
 import { apiGet, apiPost } from './client'
+import { viewerTimeZone } from '../lib/dates'
 import type {
   AnalyticsDayTradesResponse,
   AnalyticsPerformanceResponse,
@@ -16,13 +17,9 @@ export function getAnalyticsPerformance(
   if (query.start) p.set('start', query.start)
   if (query.end) p.set('end', query.end)
   if (query.initial_balance != null) p.set('initial_balance', String(query.initial_balance))
-  // The day / hour insights are bucketed on the viewer's own clock.
-  try {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
-    if (tz) p.set('tz', tz)
-  } catch {
-    /* very old browser — the server falls back to UTC */
-  }
+  // Calendar days, date filters and the day / hour insights are all on the viewer's own clock.
+  const tz = viewerTimeZone()
+  if (tz) p.set('tz', tz)
   const qs = p.toString()
   return apiGet<AnalyticsPerformanceResponse>(
     `/api/analytics/performance${qs ? `?${qs}` : ''}`,
@@ -46,5 +43,7 @@ export function getDayTrades(
   const p = new URLSearchParams({ date })
   if (query.account && query.account !== 'ALL') p.set('account', query.account)
   if (query.symbols && query.symbols.length) p.set('symbols', query.symbols.join(','))
+  const tz = viewerTimeZone()
+  if (tz) p.set('tz', tz)
   return apiGet<AnalyticsDayTradesResponse>(`/api/analytics/day?${p.toString()}`, { signal })
 }

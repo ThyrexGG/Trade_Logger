@@ -126,3 +126,33 @@ def test_route_returns_insights_that_reconcile_with_the_page():
 def test_route_empty_window_still_has_insights():
     d = TestClient(app).get("/api/analytics/performance?start=1990-01-01&end=1990-01-02").json()
     assert d["insights"]["streaks"]["current_kind"] == "none"
+
+
+# --- calendar days are on the viewer's clock, not UTC -------------------------------------------------
+def _route_with(monkeypatch, df):
+    from api.routers import analytics as router
+    monkeypatch.setattr(router, "_load_trades", lambda: df.assign(account_id="ACC", symbol="EURUSD", direction="LONG", volume=1.0,
+                                                                   entry_price=1.0, exit_price=1.1, commission=0.0, swap=0.0,
+                                                                   gross_profit=df["net_profit"], trade_id=[f"T{i}" for i in range(len(df))]))
+    return TestClient(app)
+
+
+def test_a_trade_closed_after_local_midnight_lands_on_the_local_day(monkeypatch):
+    # closes 17:30 UTC Sunday 18 Oct = 01:30 Monday 19 Oct in Manila (UTC+8)
+    client = _route_with(monkeypatch, _df([("2026-10-18 17:00", 30, 5, "")]))
+    manila = client.get("/api/analytics/performance?tz=Asia/Manila").json()
+    utc = client.get("/api/analytics/performance").json()
+    assert [d["date"] for d in manila["daily_pnl"]] == ["2026-10-19"]
+    assert [d["date"] for d in utc["daily_pnl"]] == ["2026-10-18"]
+    assert manila["available"]["date_max"] == "2026-10-19"
+    assert manila["insights"]["streaks"]["best_day"]["date"] == "2026-10-19"
+    # a date filter for "Monday" finds it on the Manila clock
+    assert client.get("/api/analytics/performance?tz=Asia/Manila&start=2026-10-19&end=2026-10-19").json()["matched_trades"] == 1
+    assert client.get("/api/analytics/performance?tz=Asia/Manila&start=2026-10-18&end=2026-10-18").json()["matched_trades"] == 0
+
+
+def test_the_day_drill_down_uses_the_same_local_day(monkeypatch):
+    client = _route_with(monkeypatch, _df([("2026-10-18 17:00", 30, 5, "")]))
+    assert client.get("/api/analytics/day?date=2026-10-19&tz=Asia/Manila").json()["count"] == 1
+    assert client.get("/api/analytics/day?date=2026-10-18&tz=Asia/Manila").json()["count"] == 0
+    assert client.get("/api/analytics/day?date=2026-10-18").json()["count"] == 1      # no tz = UTC, as before

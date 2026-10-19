@@ -572,6 +572,16 @@ through `formatUsd`, and is switched from the account menu or the Analytics head
 yet from the gap list: playbooks, R-multiples, a day-level journal, shareable stats links, CSV import, customizable
 dashboard. Tests: `test_analytics_insights.py`.
 
+**Local days, not UTC (2026-10-19).** The Analytics calendar marked Sunday as today on a Monday morning in the user's
+timezone: the page took "today" from the UTC date and froze it at page load (the desktop app stays open for days),
+and the server bucketed `daily_pnl` by UTC date, so trades closed after local midnight landed on the day before (the
+Overview's "Today" figure also only reset at 08:00 local). Now `/api/analytics/performance` and `/api/analytics/day`
+take `tz` and put every day on the viewer's clock (`api/insights.local_dates`): calendar squares, the start/end date
+filter, the available date range, the average daily return, best/worst day and day streaks. Omitting `tz` keeps the old
+UTC behaviour. The web app, the phone app and the Overview heatmap all send it; `frontend/src/lib/dates.ts` is the only
+place the web app computes a day (`useTodayIso` re-renders at local midnight and on wake/focus). Economic News groups
+events by the viewer's day and reads their times as UTC. Guard: `tests/test_frontend_local_dates.py`.
+
 ---
 
 ### W10 — native email + password auth (SHIPPED 2026-09-10)

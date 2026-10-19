@@ -20,19 +20,15 @@ function parseTime(iso: string): number {
   return Number.isNaN(t) ? 0 : t
 }
 
-/** The local calendar day (YYYY-MM-DD) a timestamp falls on — the same "what day did I actually see this"
- * bucketing the rest of the journal's date filters use, not the trade's UTC day. */
-export function localDayIso(ms: number): string {
-  const d = new Date(ms)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
+import { localDayIso, useTodayIso } from '../../lib/dates'
+
+export { localDayIso }
 
 /** Monday-indexed weekday (0 = Mon … 6 = Sun). */
 function mondayIndex(d: Date): number {
   return (d.getDay() + 6) % 7
 }
 
-const TODAY_ISO = localDayIso(Date.now())
 
 interface DayCell {
   day: number
@@ -159,6 +155,7 @@ export function JournalDayPicker({
 }) {
   const [open, setOpen] = useState(false)
   const boxRef = useRef<HTMLDivElement>(null)
+  const todayIso = useTodayIso()
 
   const byDayTrades = useMemo(() => {
     // A trade belongs to the day it was OPENED, not the day it happened to close -- a trade opened late
@@ -219,7 +216,7 @@ export function JournalDayPicker({
   )
 
   const [cursor, setCursor] = useState(() => {
-    const base = new Date(`${selected ?? latestIso ?? TODAY_ISO}T00:00:00`)
+    const base = new Date(`${selected ?? latestIso ?? todayIso}T00:00:00`)
     return { y: base.getFullYear(), m: base.getMonth() }
   })
 
@@ -227,9 +224,9 @@ export function JournalDayPicker({
   // whatever month you last scrolled to.
   useEffect(() => {
     if (!open) return
-    const base = new Date(`${selected ?? latestIso ?? TODAY_ISO}T00:00:00`)
+    const base = new Date(`${selected ?? latestIso ?? todayIso}T00:00:00`)
     setCursor({ y: base.getFullYear(), m: base.getMonth() })
-  }, [open, selected, latestIso])
+  }, [open, selected, latestIso, todayIso])
 
   useEffect(() => {
     if (!open) return
@@ -322,7 +319,7 @@ export function JournalDayPicker({
           <div className="grid grid-cols-7 gap-0.5">
             {cells.map((c) => {
               if (!c.inMonth) return <div key={c.iso} className="aspect-square" />
-              const isToday = c.iso === TODAY_ISO
+              const isToday = c.iso === todayIso
               const isSelected = c.iso === selected
               const hasTrades = c.trades > 0
               const intensity = hasTrades ? Math.min(0.32, 0.08 + (Math.abs(c.net) / dayMax) * 0.24) : 0

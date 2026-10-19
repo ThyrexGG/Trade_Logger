@@ -15,6 +15,7 @@ import { SessionRail } from '../components/home/SessionRail'
 import { PositionTracks } from '../components/home/PositionTracks'
 import { useCountUp } from '../components/home/useCountUp'
 import { bestAndWorst, buildGrid, currentStreak, monthSummary, prettyDate, windowStartMs, isoDay } from '../components/home/homeMath'
+import { useTodayIso } from '../lib/dates'
 
 const WEEKS_MAX = 26
 const WEEKS_MIN = 13
@@ -63,7 +64,10 @@ export function HomePage() {
   const [account, setAccount] = useState<string | null>(loadAccount)
   const [hovered, setHovered] = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
-  const start = useMemo(() => isoDay(windowStartMs(WEEKS_MAX)), [])
+  // Local "today" that rolls over at midnight by itself (the desktop app stays open for days).
+  const todayIso = useTodayIso()
+  // recompute the window when the day changes
+  const start = useMemo(() => isoDay(windowStartMs(WEEKS_MAX)), [todayIso])
   const { state, data, error, refetch } = useAnalytics({ account: account ?? 'ALL', start })
   const accounts = useMemo(() => sortAccounts(data?.available.accounts ?? []), [data])
   const positions = useOpenPositions()
@@ -88,7 +92,6 @@ export function HomePage() {
     }
   }
 
-  const todayIso = isoDay(Date.now())
   const todayTrades = useCachedResource(
     `home:day:${account ?? 'ALL'}:${todayIso}`,
     (signal) => getDayTrades(todayIso, { account: account ?? 'ALL' }, signal),
@@ -103,8 +106,9 @@ export function HomePage() {
     const since = Math.ceil((Date.now() - Date.parse(`${first.slice(0, 10)}T00:00:00Z`)) / (7 * 86_400_000)) + 1
     return Math.max(WEEKS_MIN, Math.min(WEEKS_MAX, since))
   }, [daily, narrow])
-  const grid = useMemo(() => buildGrid(daily, weeks), [daily, weeks])
-  const month = useMemo(() => monthSummary(daily), [daily])
+  // both read the clock; todayIso re-runs them at midnight
+  const grid = useMemo(() => buildGrid(daily, weeks), [daily, weeks, todayIso])
+  const month = useMemo(() => monthSummary(daily), [daily, todayIso])
   const today = useMemo(() => daily.find((d) => d.date.slice(0, 10) === todayIso) ?? null, [daily, todayIso])
   const streak = useMemo(() => currentStreak(daily), [daily])
   const { best, worst } = useMemo(() => bestAndWorst(daily), [daily])

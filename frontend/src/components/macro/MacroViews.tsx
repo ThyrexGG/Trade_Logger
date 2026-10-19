@@ -10,6 +10,8 @@ import { SectionCard } from '../intelligence/primitives'
 import { OpsMetric, OpsStatusTag, OpsUnavailable } from '../operations/primitives'
 import { ColorLegend, SentimentBadge } from '../common/Sentiment'
 import { InfoTip } from '../common/InfoTip'
+import { parseUtcMs } from '../../lib/format'
+import { localDayIso, useTodayIso } from '../../lib/dates'
 
 type ProvEnv = MacroEnvelope
 
@@ -225,16 +227,20 @@ function impactBar(impact: string): string {
   return 'bg-warning/35'
 }
 
+/** The viewer's local day an event falls on. A bare date (no time) is already a day — keep it as is. */
 function dayKey(iso: string | null): string {
-  return (iso ?? '').slice(0, 10)
+  if (!iso) return ''
+  if (iso.length <= 10) return iso
+  const ms = parseUtcMs(iso)
+  return ms == null ? iso.slice(0, 10) : localDayIso(ms)
 }
 function dayLabel(iso: string): string {
   const d = new Date(`${iso}T00:00:00`)
   return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
 }
 function evTime(iso: string | null): string {
-  if (!iso) return ''
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const ms = parseUtcMs(iso)
+  return ms == null ? '' : new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
 export function MacroCalendar({ data }: { data: MacroEventsResponse }) {
@@ -267,7 +273,7 @@ export function MacroCalendar({ data }: { data: MacroEventsResponse }) {
     return [...m.entries()]
   }, [rows])
 
-  const todayKey = new Date().toISOString().slice(0, 10)
+  const todayKey = useTodayIso()
   const cal = data.calendar
 
   const selectClass = 'rounded border border-border bg-background px-2 py-1 text-xs text-primary'

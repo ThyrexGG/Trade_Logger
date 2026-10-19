@@ -9,7 +9,8 @@ import { PageContainer } from '../components/shell/PageContainer'
 import { downloadCsv, tradesToCsv } from '../lib/csvExport'
 import { JournalSummary, JournalView } from '../components/operations/JournalView'
 import { JournalFeed } from '../components/journal/JournalFeed'
-import { JournalDayPicker, localDayIso } from '../components/journal/JournalDayPicker'
+import { JournalDayPicker } from '../components/journal/JournalDayPicker'
+import { localDayIso, todayIso } from '../lib/dates'
 import { describeAccount } from '../lib/accountLabel'
 import { FreeEntries } from '../components/journal/FreeEntries'
 import type { JournalResponse } from '../types/operations'
@@ -179,7 +180,7 @@ export function JournalPage() {
 
   function exportCsv() {
     if (!viewData || viewData.entries.length === 0) return
-    const stamp = new Date().toISOString().slice(0, 10)
+    const stamp = todayIso()
     const scope = account === 'ALL' ? 'all-accounts' : account
     downloadCsv(`tradelogger-journal-${scope}-${stamp}.csv`, tradesToCsv(viewData.entries))
   }
