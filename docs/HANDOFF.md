@@ -51,6 +51,7 @@ Trade Logger: a personal trading journal, analytics and research platform for MT
 
 ## Journal (one tap)
 
+- It is on both Journal views: Cards, and a "Your rules?" column in the Table (`journal/RulesTap.tsx`, plus a "Not marked" filter). Any new trade list must carry it too.
 - Each trade card has one question: **By my rules / Bent my rules / Rushed**, stored in `setup_tag`. Everything else (stop placement, how it ended, stars, links, own tag) is behind "More details". Never add another required field. See `docs/JOURNAL_ONE_TAP.md`.
 - Same row on the phone (`mobile/src/components/AnnotationEditor.tsx`). Constants: `QUICK_TAGS` in `frontend/src/components/journal/reviewOptions.ts`.
 - Not yet checked on the phone: opening a trade card to see the one-tap row.

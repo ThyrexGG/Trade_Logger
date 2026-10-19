@@ -14,6 +14,7 @@ import { ExitsBadge, TradeLegs, exitCount } from '../journal/TradeLegs'
 import { AccountBadge } from '../common/AccountBadge'
 import { describeAccount } from '../../lib/accountLabel'
 import { TagRecord, invalidateTagRecord } from '../journal/TagRecord'
+import { RulesTap, isRulesMarked } from '../journal/RulesTap'
 import { useToast } from '../../lib/toast'
 
 type Outcome = 'all' | 'win' | 'loss'
@@ -223,6 +224,7 @@ export function JournalView({
   const [account, setAccount] = useState('all')
   const [outcome, setOutcome] = useState<Outcome>('all')
   const [query, setQuery] = useState('')
+  const [unmarkedOnly, setUnmarkedOnly] = useState(false)
   const [limit, setLimit] = useState(PAGE)
   const [editing, setEditing] = useState<string | null>(null)
   const [showLegs, setShowLegs] = useState<string | null>(null)
@@ -248,6 +250,7 @@ export function JournalView({
       if (account !== 'all' && e.account_id !== account) return false
       if (outcome === 'win' && e.net_profit <= 0) return false
       if (outcome === 'loss' && e.net_profit >= 0) return false
+      if (unmarkedOnly && isRulesMarked(e)) return false
       if (
         q &&
         !e.symbol.toLowerCase().includes(q) &&
@@ -259,14 +262,15 @@ export function JournalView({
       }
       return true
     })
-  }, [data.entries, account, outcome, query])
+  }, [data.entries, account, outcome, query, unmarkedOnly])
 
   const shown = filtered.slice(0, limit)
+  const unmarkedCount = useMemo(() => data.entries.filter((e) => !isRulesMarked(e)).length, [data.entries])
 
   // With a single broker account, a column of identical 19-digit ids is pure
   // noise — only surface the account filter + column when there's more than one.
   const multiAccount = data.accounts.length > 1
-  const colCount = multiAccount ? 12 : 11
+  const colCount = multiAccount ? 13 : 12
 
   if (data.entries.length === 0) {
     return (
@@ -316,6 +320,17 @@ export function JournalView({
             {o === 'all' ? 'All' : o === 'win' ? 'Wins' : 'Losses'}
           </button>
         ))}
+        <button
+          type="button"
+          aria-pressed={unmarkedOnly}
+          onClick={() => { setUnmarkedOnly((v) => !v); setLimit(PAGE) }}
+          title="Only trades where you have not yet tapped By rules, Bent or Rushed"
+          className={`rounded border px-2 py-0.5 text-[11px] ${
+            unmarkedOnly ? 'border-accent/40 bg-accent/10 text-accent' : 'border-border text-secondary hover:text-primary'
+          }`}
+        >
+          Not marked ({unmarkedCount})
+        </button>
         <span className="ml-auto font-mono text-[11px] text-muted">{filtered.length} / {data.entries.length}</span>
       </div>
 
@@ -334,6 +349,7 @@ export function JournalView({
                 <th className="px-2 py-1.5 text-right font-medium">Entry</th>
                 <th className="px-2 py-1.5 text-right font-medium">Exit</th>
                 <th className="px-2 py-1.5 text-right font-medium">Net P&L</th>
+                <th className="px-2 py-1.5 text-left font-medium" title="One tap per trade: did you follow your rules? It feeds Analytics → Your rules vs. your results">Your rules?</th>
                 <th className="px-2 py-1.5 text-left font-medium">Setup / note</th>
                 <th className="px-2 py-1.5 text-left font-medium">Rating</th>
                 {multiAccount ? <th className="px-2 py-1.5 text-left font-medium">Account</th> : null}
@@ -380,9 +396,12 @@ export function JournalView({
                     <td className={`px-2 py-1.5 text-right font-mono tabular-nums ${e.net_profit > 0 ? 'text-positive' : e.net_profit < 0 ? 'text-negative' : 'text-secondary'}`}>
                       {formatSignedAmount(e.net_profit)}
                     </td>
+                    <td className="px-2 py-1.5">
+                      <RulesTap entry={e} onSaved={(updated) => onEntryUpdated?.(updated)} />
+                    </td>
                     <td className="max-w-[16rem] px-2 py-1.5 text-secondary">
-                      {e.setup_tag ? <span className="mr-1 rounded bg-surface-elevated px-1 text-[10px] text-muted">{e.setup_tag}</span> : null}
-                      {e.notes ?? (e.setup_tag ? '' : <span className="text-muted">—</span>)}
+                      {e.setup_tag && !isRulesMarked(e) ? <span className="mr-1 rounded bg-surface-elevated px-1 text-[10px] text-muted">{e.setup_tag}</span> : null}
+                      {e.notes ?? (e.setup_tag && !isRulesMarked(e) ? '' : <span className="text-muted">—</span>)}
                       {e.screenshot_count ? (
                         <span className="ml-1 text-[10px] text-muted">📷 {e.screenshot_count}</span>
                       ) : null}

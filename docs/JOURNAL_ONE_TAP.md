@@ -15,5 +15,10 @@ Tap again to clear. It autosaves like the rest of the card.
 - The note box is optional and two lines tall.
 - Page guide text for the journal updated.
 
-Files: `frontend/src/components/journal/JournalFeed.tsx`, `reviewOptions.ts` (`QUICK_TAGS`), `frontend/src/lib/pageGuides.ts`.
+### Also in the Table view (2026-10-20)
+The tap first existed only in Cards, and the Table view (which the user prefers, and which Analytics' "Mark the other N" link lands on) had nothing but Edit, so there was no way to mark a trade there.
+The table now has a **Your rules?** column on every row: `By rules` / `Bent` / `Rushed` (`journal/RulesTap.tsx`), same setup tag, same save, tap the lit one to clear. A **Not marked (N)** filter chip next to All/Wins/Losses lists only the trades still to mark.
+Rule: any new way of listing trades must carry this tap; Analytics' rules card is empty without it.
+
+Files: `frontend/src/components/journal/JournalFeed.tsx`, `RulesTap.tsx` (table), `operations/JournalView.tsx`, `reviewOptions.ts` (`QUICK_TAGS`), `frontend/src/lib/pageGuides.ts`.
 Verified in a browser (dark + light, 1360px + 390px, isolated sqlite): the tap saves, survives a reload, clears, no horizontal scroll.

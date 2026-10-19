@@ -97,7 +97,7 @@ function RulesCard({ rows }: { rows: RulesRow[] }) {
           <div className="min-w-0 space-y-1">
             <Headline>You haven’t marked any trades yet, so this can’t show what breaking your rules costs.</Headline>
             <p className="text-xs text-secondary">
-              Under each trade in the Journal, tap <span className="text-primary">By my rules</span>,{' '}
+              In the Journal, tap <span className="text-primary">By my rules</span>,{' '}
               <span className="text-primary">Bent my rules</span> or <span className="text-primary">Rushed</span>. One tap per trade.
             </p>
           </div>
