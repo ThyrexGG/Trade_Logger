@@ -171,6 +171,12 @@ def consistency_meter(daily_sums: Dict[Any, float], limit_pct: float) -> Dict[st
     return out
 
 
+def phase_target_amount_for_cap(cfg: Dict[str, Any], phase: str, phase_start_balance: float) -> float:
+    """The profit (in dollars) this phase has to reach, or 0 when there is no target (a funded account)."""
+    pct = {"1": cfg.get("phase1_target_pct"), "2": cfg.get("phase2_target_pct")}.get(phase)
+    return phase_start_balance * float(pct) / 100.0 if pct else 0.0
+
+
 def _empty_status(account: str) -> Dict[str, Any]:
     return {
         "configured": False, "account_id": account, "config": None,
@@ -184,6 +190,7 @@ def _empty_status(account: str) -> Dict[str, Any]:
         "consistency_status": None, "consistency_limit_pct": None, "consistency_best_day_pct": None,
         "consistency_best_day_amount": None, "consistency_best_day_date": None, "consistency_total_profit": None,
         "consistency_budget_used_ratio": None, "consistency_extra_needed": None, "consistency_next_day_max": None,
+        "consistency_cap_at_target": None,
         "first_trade_date": None,
         "disclaimer": DISCLAIMER, "timestamp": datetime.now(timezone.utc).isoformat(),
     }
@@ -249,6 +256,11 @@ def compute_status(account: str) -> Dict[str, Any]:
     # a config saved before this rule existed has no value: it gets the default, an explicit 0 stays off
     limit = cfg.get("consistency_pct")
     consistency = consistency_meter(phase_daily, float(DEFAULTS["consistency_pct"] if limit is None else limit))
+    # reaching the target is when the rule bites: the biggest single day that still passes at exactly the target
+    cap_limit = consistency["consistency_limit_pct"]
+    consistency["consistency_cap_at_target"] = (
+        round(phase_target_amount_for_cap(cfg, phase, phase_start_balance) * cap_limit / 100.0, 2) if cap_limit else None
+    )
 
     # --- phase progress (no target once funded) ---
     phase_target_pct: Optional[float] = None

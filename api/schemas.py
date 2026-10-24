@@ -1578,6 +1578,7 @@ class ChallengeStatusResponse(BaseModel):
     consistency_budget_used_ratio: Optional[float] = None  # 0-1 of the limit, drives the gauge
     consistency_extra_needed: Optional[float] = None      # more profit (on other days) that would make it pass
     consistency_next_day_max: Optional[float] = None      # while passing: the biggest next day that still passes
+    consistency_cap_at_target: Optional[float] = None     # the biggest single day that still passes once the phase target is hit
 
     disclaimer: str = (
         "Estimated from your synced balance and closed trades — verify against "

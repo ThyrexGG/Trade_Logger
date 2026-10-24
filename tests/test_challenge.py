@@ -268,6 +268,7 @@ def test_status_reports_consistency_for_the_phase(monkeypatch):
     assert d["consistency_best_day_amount"] == 100.0
     assert d["consistency_total_profit"] == 150.0
     assert d["consistency_extra_needed"] == 100.0                # needs 250 in total
+    assert d["consistency_cap_at_target"] == 200.0               # 40% of the $500 phase-1 target (10% of 5000)
     _seed_trade(_ACCOUNT, 3, 100)                                # another 100-dollar day: 100 / 250 = 40% exactly
     d = client.get(f"/api/challenge/status?account={_ACCOUNT}").json()
     assert d["consistency_status"] == "pass"

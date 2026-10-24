@@ -100,7 +100,12 @@ function ConsistencyMeter({ s, onSetLimit }: { s: ChallengeStatus; onSetLimit: (
 
   let line: ReactNode
   if (status === 'no_profit') {
-    line = 'The rule compares your best day with your total profit, so it starts once you are net up this phase.'
+    line = (
+      <>
+        You are {money(s.consistency_total_profit)} net since {shortDay(s.config?.phase_start_date ?? null)}. The rule compares your
+        best day with your total profit, so it starts once you are net up.
+      </>
+    )
   } else if (share == null) {
     line = 'No winning day yet.'
   } else {
@@ -142,6 +147,14 @@ function ConsistencyMeter({ s, onSetLimit }: { s: ChallengeStatus; onSetLimit: (
       {status === 'pass' && s.consistency_next_day_max != null ? (
         <p className="mt-0.5 text-[10.5px] text-secondary">
           Your next day can make up to {money(s.consistency_next_day_max)} and you would still pass.
+        </p>
+      ) : null}
+      {s.consistency_cap_at_target != null ? (
+        <p className={`mt-0.5 text-[10.5px] ${(s.consistency_best_day_amount ?? 0) > s.consistency_cap_at_target ? 'text-negative' : 'text-secondary'}`}>
+          At your {money(s.phase_target_amount)} target, one day can make at most {money(s.consistency_cap_at_target)}.{' '}
+          {s.consistency_best_day_amount != null
+            ? `Your best day so far is ${money(s.consistency_best_day_amount)}${s.consistency_best_day_amount > s.consistency_cap_at_target ? ', already over, so you would need more profit than the target to pass.' : ', inside it.'}`
+            : 'You have no winning day yet.'}
         </p>
       ) : null}
       {status === 'off' ? (

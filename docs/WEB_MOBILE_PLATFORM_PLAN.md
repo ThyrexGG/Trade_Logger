@@ -708,7 +708,7 @@ than a single planned workstream:
   (`first_trade_date` in the status). It sets the phase start (profit days, consistency); in Phase 1 or
   Funded it also moves the drawdown start, in Phase 2 only the phase window. A save that omits it leaves it
   alone, and it cannot be in the future. Web only for now; the phone types carry the fields but
-  ChallengeScreen does not show them yet.
+  ChallengeScreen does not show them yet. While net profit is zero or negative the meter still shows the best day so far and the biggest single day that would pass once the phase target is hit (`consistency_cap_at_target`).
   `tests/test_challenge.py` (22 tests).
 - **Journal split by account** (`JournalPage.tsx`) — an account filter
   (dropdown, persisted to localStorage) when more than one account has

@@ -81,6 +81,7 @@ export interface ChallengeStatus {
   consistency_budget_used_ratio: number | null
   consistency_extra_needed: number | null
   consistency_next_day_max: number | null
+  consistency_cap_at_target: number | null
 
   disclaimer: string
   timestamp: string
