@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import {
   advanceChallengePhase,
   deleteChallengeConfig,
@@ -70,6 +70,90 @@ const DEFAULTS: Omit<ChallengeConfigInput, 'account_id' | 'account_size'> = {
   min_profit_days: 3,
   profit_day_threshold_pct: 0.5,
   drawdown_mode: 'trailing',
+  consistency_pct: 0,
+}
+
+/** "2026-10-19" as a short local date; built from its parts so it never shifts a day. */
+function shortDay(iso: string | null): string {
+  if (!iso) return ''
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(y, (m ?? 1) - 1, d ?? 1).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+/**
+ * The consistency rule as a meter: how much of the profit one day made, against the firm's limit.
+ * The bar is "your best day as a share of your profit" (0-100%); the tick is the firm's limit, so
+ * the fill staying left of the tick is a pass.
+ */
+function ConsistencyMeter({ s, onSetLimit }: { s: ChallengeStatus; onSetLimit: () => void }) {
+  const status = s.consistency_status
+  const share = s.consistency_best_day_pct
+  const limit = s.consistency_limit_pct
+  const fill = Math.min(100, Math.max(0, share ?? 0))
+  const fail = status === 'fail'
+  const verdict =
+    status === 'pass' ? { text: 'Would pass', tone: 'border-positive/30 bg-positive/10 text-positive' }
+    : fail ? { text: 'Would fail', tone: 'border-negative/30 bg-negative/10 text-negative' }
+    : status === 'no_profit' ? { text: 'No profit yet', tone: 'border-border bg-surface-elevated text-muted' }
+    : { text: 'No limit set', tone: 'border-border bg-surface-elevated text-muted' }
+
+  let line: ReactNode
+  if (status === 'no_profit') {
+    line = 'The rule compares your best day with your total profit, so it starts once you are net up this phase.'
+  } else if (share == null) {
+    line = 'No winning day yet.'
+  } else {
+    line = (
+      <>
+        Best day {money(s.consistency_best_day_amount)} ({shortDay(s.consistency_best_day_date)}) is {share.toFixed(1)}% of your{' '}
+        {money(s.consistency_total_profit)} profit this phase
+        {limit != null ? <> · limit {limit}%</> : null}.
+      </>
+    )
+  }
+
+  return (
+    <div className="sm:col-span-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+        <span className="text-muted">Consistency rule (best day vs total profit)</span>
+        <span className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase ${verdict.tone}`}>{verdict.text}</span>
+      </div>
+      <div className="relative mt-1.5 h-2 w-full rounded-full bg-surface-elevated">
+        <span
+          className={`block h-full rounded-full ${status === 'pass' ? 'bg-positive' : fail ? 'bg-negative' : 'bg-secondary/50'}`}
+          style={{ width: `${fill}%` }}
+        />
+        {limit != null ? (
+          <span
+            className="absolute -top-1 h-4 w-0.5 rounded bg-primary"
+            style={{ left: `calc(${Math.min(100, limit)}% - 1px)` }}
+            title={`Your firm's limit: ${limit}%`}
+          />
+        ) : null}
+      </div>
+      <p className="mt-1 text-[10.5px] text-muted">{line}</p>
+      {fail && s.consistency_extra_needed != null ? (
+        <p className="mt-0.5 text-[10.5px] text-secondary">
+          To pass you need about {money(s.consistency_extra_needed)} more profit from other days, without a new day bigger than{' '}
+          {money(s.consistency_best_day_amount)}.
+        </p>
+      ) : null}
+      {status === 'pass' && s.consistency_next_day_max != null ? (
+        <p className="mt-0.5 text-[10.5px] text-secondary">
+          Your next day can make up to {money(s.consistency_next_day_max)} and you would still pass.
+        </p>
+      ) : null}
+      {status === 'off' ? (
+        <p className="mt-0.5 text-[10.5px] text-muted">
+          Many prop firms cap how much of your profit one day can make.{' '}
+          <button type="button" onClick={onSetLimit} className="text-accent hover:underline">
+            Set your firm's limit
+          </button>{' '}
+          to see if you would pass.
+        </p>
+      ) : null}
+    </div>
+  )
 }
 
 function SetupForm({
@@ -93,6 +177,7 @@ function SetupForm({
     min_profit_days: existing?.min_profit_days ?? DEFAULTS.min_profit_days ?? 3,
     profit_day_threshold_pct: existing?.profit_day_threshold_pct ?? DEFAULTS.profit_day_threshold_pct ?? 0.5,
     drawdown_mode: existing?.drawdown_mode ?? DEFAULTS.drawdown_mode ?? 'trailing',
+    consistency_pct: existing?.consistency_pct ?? DEFAULTS.consistency_pct ?? 0,
   })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -143,6 +228,7 @@ function SetupForm({
         {field('daily_loss_pct', 'Daily loss limit (%)')}
         {field('min_profit_days', 'Min profit days', '1')}
         {field('profit_day_threshold_pct', 'Profit day threshold (%)')}
+        {field('consistency_pct', 'Consistency: best day max (% of profit, 0 = none)', '1')}
         <label className="flex flex-col gap-1 text-[11px] text-muted">
           Drawdown mode
           <select
@@ -158,6 +244,10 @@ function SetupForm({
       <p className="text-[10.5px] text-muted">
         Drawdown mode isn't confirmed against your firm's own methodology — trailing is the more conservative
         assumption. Check your firm's dashboard if this ever gets close to mattering.
+      </p>
+      <p className="text-[10.5px] text-muted">
+        Consistency rule: some firms say your best day may be at most a set share of your total profit (for example
+        40%). Type your firm's number from their rules page; leave 0 if they have no such rule.
       </p>
       {error ? <p className="text-xs text-negative">{error}</p> : null}
       <div className="flex gap-2">
@@ -435,6 +525,8 @@ export function ChallengeTracker({ account }: { account?: string }) {
             />
           </>
         ) : null}
+
+        <ConsistencyMeter s={s} onSetLimit={() => setEditing(true)} />
       </div>
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border-subtle pt-2.5">

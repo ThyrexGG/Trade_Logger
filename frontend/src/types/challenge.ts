@@ -17,6 +17,8 @@ export interface ChallengeConfig {
   min_profit_days: number
   profit_day_threshold_pct: number
   drawdown_mode: ChallengeDrawdownMode
+  /** consistency rule: best day may be at most this % of total profit; 0 = no rule set */
+  consistency_pct: number
   phase: ChallengePhase
   phase_start_balance: number
   phase_start_date: string
@@ -34,7 +36,10 @@ export interface ChallengeConfigInput {
   min_profit_days?: number
   profit_day_threshold_pct?: number
   drawdown_mode?: ChallengeDrawdownMode
+  consistency_pct?: number
 }
+
+export type ConsistencyStatus = 'off' | 'no_profit' | 'pass' | 'fail'
 
 export interface ChallengeStatus {
   configured: boolean
@@ -63,6 +68,16 @@ export interface ChallengeStatus {
   profit_days_count: number | null
   min_profit_days: number | null
   profit_day_dates: string[]
+
+  consistency_status: ConsistencyStatus | null
+  consistency_limit_pct: number | null
+  consistency_best_day_pct: number | null
+  consistency_best_day_amount: number | null
+  consistency_best_day_date: string | null
+  consistency_total_profit: number | null
+  consistency_budget_used_ratio: number | null
+  consistency_extra_needed: number | null
+  consistency_next_day_max: number | null
 
   disclaimer: string
   timestamp: string

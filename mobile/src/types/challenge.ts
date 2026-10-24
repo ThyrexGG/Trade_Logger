@@ -63,6 +63,10 @@ export interface ChallengeStatus {
   min_profit_days: number | null
   profit_day_dates: string[]
 
+  // consistency rule (best day vs total profit); the phone does not show it yet
+  consistency_status?: 'off' | 'no_profit' | 'pass' | 'fail' | null
+  consistency_best_day_pct?: number | null
+
   disclaimer: string
   timestamp: string
 }

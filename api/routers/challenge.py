@@ -33,7 +33,10 @@ def save_challenge_config(body: ChallengeConfigRequest) -> ChallengeStatusRespon
     config edits its rules in place — phase progress is untouched; use
     `/reset` to actually restart the attempt."""
     account = body.account_id.strip()
-    engine.save_config(account, body.model_dump(exclude={"account_id"}))
+    rules = body.model_dump(exclude={"account_id"})
+    if rules.get("consistency_pct") is None:
+        rules.pop("consistency_pct", None)  # not sent: keep whatever rule is already saved
+    engine.save_config(account, rules)
     return ChallengeStatusResponse(**engine.compute_status(account))
 
 

@@ -41,6 +41,7 @@ DEFAULTS: Dict[str, Any] = {
     "min_profit_days": 3,
     "profit_day_threshold_pct": 0.5,
     "drawdown_mode": "trailing",  # conservative default; the firm may actually use "static"
+    "consistency_pct": 0.0,  # firms differ (and many have none), so no rule is assumed until the user sets theirs
 }
 
 DISCLAIMER = (
@@ -121,6 +122,46 @@ def _load_trades(account: str) -> pd.DataFrame:
     return df
 
 
+def consistency_meter(daily_sums: Dict[Any, float], limit_pct: float) -> Dict[str, Any]:
+    """The usual prop-firm consistency rule: the best single day may be at most `limit_pct` of the
+    total profit made so far. `daily_sums` maps each trading day to its net P&L.
+
+    With no profit yet the rule cannot be judged ("no_profit"). With no limit set ("off") the share is
+    still reported so the trader can see where they stand before choosing a firm."""
+    total = float(sum(daily_sums.values())) if daily_sums else 0.0
+    best_day, best = (max(daily_sums.items(), key=lambda kv: kv[1]) if daily_sums else (None, 0.0))
+    best = float(best)
+    limit = float(limit_pct or 0.0)
+    out: Dict[str, Any] = {
+        "consistency_status": "off" if limit <= 0 else "no_profit",
+        "consistency_limit_pct": limit if limit > 0 else None,
+        "consistency_best_day_pct": None,
+        "consistency_best_day_amount": round(best, 2) if best > 0 else None,
+        "consistency_best_day_date": str(best_day) if best > 0 else None,
+        "consistency_total_profit": round(total, 2),
+        "consistency_budget_used_ratio": None,
+        "consistency_extra_needed": None,
+        "consistency_next_day_max": None,
+    }
+    if best <= 0 or total <= 0:
+        return out
+    share = best / total * 100.0
+    out["consistency_best_day_pct"] = round(share, 2)
+    if limit <= 0:
+        return out
+    out["consistency_status"] = "pass" if share <= limit else "fail"
+    out["consistency_budget_used_ratio"] = round(min(1.0, share / limit), 4)
+    needed_total = best / (limit / 100.0)  # total profit at which this best day is exactly at the limit
+    if needed_total > total:
+        out["consistency_extra_needed"] = round(needed_total - total, 2)
+    elif limit < 100:
+        # the biggest next day that still passes: a day no bigger than today's best only dilutes it,
+        # a bigger one D becomes the best day and needs D / (total + D) <= limit
+        frac = limit / 100.0
+        out["consistency_next_day_max"] = round(max(best, frac * total / (1.0 - frac)), 2)
+    return out
+
+
 def _empty_status(account: str) -> Dict[str, Any]:
     return {
         "configured": False, "account_id": account, "config": None,
@@ -131,6 +172,9 @@ def _empty_status(account: str) -> Dict[str, Any]:
         "drawdown_used_pct": None, "drawdown_budget_used_ratio": None,
         "daily_loss_today_amount": None, "daily_loss_used_pct": None, "daily_loss_budget_used_ratio": None,
         "profit_days_count": None, "min_profit_days": None, "profit_day_dates": [],
+        "consistency_status": None, "consistency_limit_pct": None, "consistency_best_day_pct": None,
+        "consistency_best_day_amount": None, "consistency_best_day_date": None, "consistency_total_profit": None,
+        "consistency_budget_used_ratio": None, "consistency_extra_needed": None, "consistency_next_day_max": None,
         "disclaimer": DISCLAIMER, "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -181,9 +225,13 @@ def compute_status(account: str) -> Dict[str, Any]:
     phase_df = df[df["exit_time"] >= pd.Timestamp(cfg["phase_start_date"])] if not df.empty else df
     threshold_amount = account_size * float(cfg["profit_day_threshold_pct"]) / 100.0
     profit_day_dates: List[str] = []
+    phase_daily: Dict[Any, float] = {}
     if not phase_df.empty:
         daily_sums = phase_df.groupby(phase_df["exit_time"].dt.date)["net_profit"].sum()
         profit_day_dates = sorted(str(d) for d, v in daily_sums.items() if float(v) >= threshold_amount)
+        phase_daily = {d: float(v) for d, v in daily_sums.items()}
+    # same days and same window as the profit-day counter, so the two always agree
+    consistency = consistency_meter(phase_daily, float(cfg.get("consistency_pct") or 0.0))
 
     # --- phase progress (no target once funded) ---
     phase_target_pct: Optional[float] = None
@@ -222,6 +270,7 @@ def compute_status(account: str) -> Dict[str, Any]:
         "profit_days_count": len(profit_day_dates),
         "min_profit_days": int(cfg["min_profit_days"]),
         "profit_day_dates": profit_day_dates,
+        **consistency,
         "disclaimer": DISCLAIMER,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }

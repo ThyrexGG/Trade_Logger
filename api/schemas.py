@@ -1490,6 +1490,7 @@ class ChallengeConfig(BaseModel):
     min_profit_days: int
     profit_day_threshold_pct: float
     drawdown_mode: Literal["trailing", "static"]
+    consistency_pct: float = 0.0  # 0 = the firm has no consistency rule (or it isn't set yet)
     phase: Literal["1", "2", "funded"]
     phase_start_balance: float
     phase_start_date: str
@@ -1508,6 +1509,8 @@ class ChallengeConfigRequest(BaseModel):
     min_profit_days: int = Field(default=3, ge=0, le=30)
     profit_day_threshold_pct: float = Field(default=0.5, gt=0, le=100)
     drawdown_mode: Literal["trailing", "static"] = "trailing"
+    # None = "not sent": an older client (the phone) saving other rules must not wipe a rule set on the web.
+    consistency_pct: Optional[float] = Field(default=None, ge=0, le=100)
 
 
 class ChallengeAdvanceRequest(BaseModel):
@@ -1552,6 +1555,17 @@ class ChallengeStatusResponse(BaseModel):
     profit_days_count: Optional[int] = None
     min_profit_days: Optional[int] = None
     profit_day_dates: List[str] = []
+
+    # Consistency rule: "your best day may be at most N% of your total profit this phase".
+    consistency_status: Optional[Literal["off", "no_profit", "pass", "fail"]] = None
+    consistency_limit_pct: Optional[float] = None         # the firm's N, null when no rule is set
+    consistency_best_day_pct: Optional[float] = None      # best day / total profit, null with no profit yet
+    consistency_best_day_amount: Optional[float] = None
+    consistency_best_day_date: Optional[str] = None
+    consistency_total_profit: Optional[float] = None      # net profit this phase, all days
+    consistency_budget_used_ratio: Optional[float] = None  # 0-1 of the limit, drives the gauge
+    consistency_extra_needed: Optional[float] = None      # more profit (on other days) that would make it pass
+    consistency_next_day_max: Optional[float] = None      # while passing: the biggest next day that still passes
 
     disclaimer: str = (
         "Estimated from your synced balance and closed trades — verify against "

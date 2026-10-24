@@ -696,7 +696,16 @@ than a single planned workstream:
   exactly like the saved-initial-balance feature; phase advance/reset are
   manual buttons (no auto-detection of a pass/fail). Pure read/compute over
   `get_closed_trades` + `get_account_balances` — no execution path.
-  `tests/test_challenge.py` (14 tests).
+  **Consistency meter (2026-10-24):** a full-width row under the gauges answers "would I pass a
+  consistency rule?": best single day as a share of the phase's total profit, a bar with a tick at the
+  firm's limit, a Would pass / Would fail / No profit yet / No limit set badge, and a plain line
+  ("you need about $N more profit from other days" when failing, "your next day can make up to $N and you
+  still pass" when passing). The limit is a new editable rule `consistency_pct` (0 = no rule, the default,
+  because firms differ and many have none, so no number is assumed). Same days and window as the
+  profit-day counter, so the two always agree (`api/challenge.py: consistency_meter`). A save that omits
+  the field (the phone) keeps the saved rule. Web only for now; the phone types carry the fields but
+  ChallengeScreen does not show them yet.
+  `tests/test_challenge.py` (18 tests).
 - **Journal split by account** (`JournalPage.tsx`) — an account filter
   (dropdown, persisted to localStorage) when more than one account has
   closed trades; previously every account was mixed into one feed/table.

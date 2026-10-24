@@ -67,6 +67,7 @@ def _cleanup(*accounts):
     finally:
         conn.close()
     database.invalidate_db_cache("closed_trades")
+    database.invalidate_db_cache("setting_")  # get_setting caches for 30s; a deleted row must not linger
 
 
 @pytest.fixture(autouse=True)
@@ -224,6 +225,62 @@ def test_reset_restarts_from_phase_1_at_account_size(monkeypatch):
     d = r.json()
     assert d["phase"] == "1"
     assert d["phase_start_balance"] == 5000.0
+
+
+# --- consistency rule (best day as a share of total profit) -----------------
+
+def test_consistency_meter_pass_and_fail():
+    days = {"d1": 100.0, "d2": 50.0, "d3": 50.0}                 # best 100 of 200 = 50%
+    fail = engine.consistency_meter(days, 40)
+    assert fail["consistency_status"] == "fail"
+    assert fail["consistency_best_day_pct"] == 50.0
+    assert fail["consistency_budget_used_ratio"] == 1.0           # over the limit: clamped to a full bar
+    assert fail["consistency_extra_needed"] == 50.0               # 100 / 0.40 = 250 total needed, 200 made
+    ok = engine.consistency_meter(days, 50)
+    assert ok["consistency_status"] == "pass" and ok["consistency_extra_needed"] is None
+    assert ok["consistency_budget_used_ratio"] == 1.0             # exactly at the limit still passes
+    assert ok["consistency_next_day_max"] == 200.0                # a 200 day makes it 200 / 400 = 50%, still a pass
+    roomy = engine.consistency_meter(days, 80)                    # at 80% a bigger day is fine: 0.8*200/0.2 = 800
+    assert roomy["consistency_status"] == "pass" and roomy["consistency_next_day_max"] == 800.0
+    assert engine.consistency_meter(days, 100)["consistency_next_day_max"] is None   # no rule to break
+
+
+def test_consistency_meter_no_rule_and_no_profit():
+    off = engine.consistency_meter({"d1": 80.0, "d2": 20.0}, 0)
+    assert off["consistency_status"] == "off" and off["consistency_limit_pct"] is None
+    assert off["consistency_best_day_pct"] == 80.0                # still shown so the trader can see where they stand
+    assert engine.consistency_meter({}, 40)["consistency_status"] == "no_profit"
+    losing = engine.consistency_meter({"d1": 30.0, "d2": -90.0}, 40)
+    assert losing["consistency_status"] == "no_profit" and losing["consistency_best_day_pct"] is None
+
+
+def test_status_reports_consistency_for_the_phase(monkeypatch):
+    monkeypatch.setattr(database, "get_account_balances", lambda ttl_sec=2.0: {})
+    client.post("/api/challenge/config", json={"account_id": _ACCOUNT, "account_size": 5000, "consistency_pct": 40})
+    _backdate(_ACCOUNT, 4)
+    _seed_trade(_ACCOUNT, 2, 100)   # best day
+    _seed_trade(_ACCOUNT, 1, 30)
+    _seed_trade(_ACCOUNT, 0, 20)
+    d = client.get(f"/api/challenge/status?account={_ACCOUNT}").json()
+    assert d["config"]["consistency_pct"] == 40.0
+    assert d["consistency_status"] == "fail"                     # 100 / 150 = 66.7% against a 40% limit
+    assert d["consistency_best_day_pct"] == pytest.approx(66.67, abs=0.01)
+    assert d["consistency_best_day_amount"] == 100.0
+    assert d["consistency_total_profit"] == 150.0
+    assert d["consistency_extra_needed"] == 100.0                # needs 250 in total
+    _seed_trade(_ACCOUNT, 3, 100)                                # another 100-dollar day: 100 / 250 = 40% exactly
+    d = client.get(f"/api/challenge/status?account={_ACCOUNT}").json()
+    assert d["consistency_status"] == "pass"
+
+
+def test_consistency_is_off_until_a_rule_is_set_and_survives_a_save_that_omits_it():
+    d = client.post("/api/challenge/config", json={"account_id": _ACCOUNT, "account_size": 5000}).json()
+    assert d["config"]["consistency_pct"] == 0.0 and d["consistency_status"] == "off"
+    client.post("/api/challenge/config", json={"account_id": _ACCOUNT, "account_size": 5000, "consistency_pct": 30})
+    # the phone saves its own rules without this field: that must not switch the rule off
+    d = client.post("/api/challenge/config", json={"account_id": _ACCOUNT, "account_size": 5000, "daily_loss_pct": 4}).json()
+    assert d["config"]["consistency_pct"] == 30.0
+    assert client.post("/api/challenge/config", json={"account_id": _ACCOUNT, "account_size": 5000, "consistency_pct": 101}).status_code == 422
 
 
 # --- execution isolation ----------------------------------------------------
