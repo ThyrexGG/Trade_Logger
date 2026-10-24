@@ -5,7 +5,9 @@ Stage 2 & Stage 3 Read-Only Vertical Slice Models
 """
 import re
 from typing import Dict, List, Literal, Optional, Any
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from datetime import date as _date
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 # -------------------------------------------------------------------------
@@ -1490,7 +1492,7 @@ class ChallengeConfig(BaseModel):
     min_profit_days: int
     profit_day_threshold_pct: float
     drawdown_mode: Literal["trailing", "static"]
-    consistency_pct: float = 0.0  # 0 = the firm has no consistency rule (or it isn't set yet)
+    consistency_pct: float = 40.0  # 0 = the firm has no consistency rule
     phase: Literal["1", "2", "funded"]
     phase_start_balance: float
     phase_start_date: str
@@ -1511,6 +1513,15 @@ class ChallengeConfigRequest(BaseModel):
     drawdown_mode: Literal["trailing", "static"] = "trailing"
     # None = "not sent": an older client (the phone) saving other rules must not wipe a rule set on the web.
     consistency_pct: Optional[float] = Field(default=None, ge=0, le=100)
+    # The day this phase (or the funded account) began: trades before it are not counted. None = leave as is.
+    start_date: Optional[_date] = None
+
+    @field_validator("start_date")
+    @classmethod
+    def _not_in_the_future(cls, v):
+        if v is not None and v > _date.today():
+            raise ValueError("start_date cannot be in the future")
+        return v
 
 
 class ChallengeAdvanceRequest(BaseModel):
@@ -1555,6 +1566,7 @@ class ChallengeStatusResponse(BaseModel):
     profit_days_count: Optional[int] = None
     min_profit_days: Optional[int] = None
     profit_day_dates: List[str] = []
+    first_trade_date: Optional[str] = None  # earliest closed trade on this account: a one-click "start counting here"
 
     # Consistency rule: "your best day may be at most N% of your total profit this phase".
     consistency_status: Optional[Literal["off", "no_profit", "pass", "fail"]] = None

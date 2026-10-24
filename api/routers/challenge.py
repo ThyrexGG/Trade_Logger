@@ -36,6 +36,10 @@ def save_challenge_config(body: ChallengeConfigRequest) -> ChallengeStatusRespon
     rules = body.model_dump(exclude={"account_id"})
     if rules.get("consistency_pct") is None:
         rules.pop("consistency_pct", None)  # not sent: keep whatever rule is already saved
+    if rules.get("start_date") is None:
+        rules.pop("start_date", None)  # not sent: keep the current start
+    else:
+        rules["start_date"] = rules["start_date"].isoformat()
     engine.save_config(account, rules)
     return ChallengeStatusResponse(**engine.compute_status(account))
 

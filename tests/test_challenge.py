@@ -273,14 +273,60 @@ def test_status_reports_consistency_for_the_phase(monkeypatch):
     assert d["consistency_status"] == "pass"
 
 
-def test_consistency_is_off_until_a_rule_is_set_and_survives_a_save_that_omits_it():
+def test_consistency_defaults_to_40_zero_turns_it_off_and_a_save_that_omits_it_keeps_it():
     d = client.post("/api/challenge/config", json={"account_id": _ACCOUNT, "account_size": 5000}).json()
-    assert d["config"]["consistency_pct"] == 0.0 and d["consistency_status"] == "off"
+    assert d["config"]["consistency_pct"] == 40.0 and d["consistency_limit_pct"] == 40.0
+    off = client.post("/api/challenge/config", json={"account_id": _ACCOUNT, "account_size": 5000, "consistency_pct": 0}).json()
+    assert off["consistency_status"] == "off" and off["consistency_limit_pct"] is None
     client.post("/api/challenge/config", json={"account_id": _ACCOUNT, "account_size": 5000, "consistency_pct": 30})
     # the phone saves its own rules without this field: that must not switch the rule off
     d = client.post("/api/challenge/config", json={"account_id": _ACCOUNT, "account_size": 5000, "daily_loss_pct": 4}).json()
     assert d["config"]["consistency_pct"] == 30.0
     assert client.post("/api/challenge/config", json={"account_id": _ACCOUNT, "account_size": 5000, "consistency_pct": 101}).status_code == 422
+
+
+def test_a_config_saved_before_the_rule_existed_gets_the_default_not_off(monkeypatch):
+    monkeypatch.setattr(database, "get_account_balances", lambda ttl_sec=2.0: {})
+    client.post("/api/challenge/config", json={"account_id": _ACCOUNT, "account_size": 5000})
+    cfg = engine.get_config(_ACCOUNT)
+    cfg.pop("consistency_pct")
+    database.set_setting(engine._key(_ACCOUNT), json.dumps(cfg))
+    assert client.get(f"/api/challenge/status?account={_ACCOUNT}").json()["consistency_limit_pct"] == 40.0
+
+
+# --- counting from the day the funded account started -----------------------
+
+def test_start_date_decides_which_trades_count(monkeypatch):
+    monkeypatch.setattr(database, "get_account_balances", lambda ttl_sec=2.0: {})
+    _seed_trade(_ACCOUNT, 6, 100)                 # before the funded account's first day
+    _seed_trade(_ACCOUNT, 2, 30)
+    _seed_trade(_ACCOUNT, 1, 20)
+    started = (date.today() - timedelta(days=3)).isoformat()
+    d = client.post("/api/challenge/config", json={"account_id": _ACCOUNT, "account_size": 5000, "start_date": started}).json()
+    assert d["config"]["phase_start_date"] == started and d["config"]["created_at"] == started
+    assert d["consistency_total_profit"] == 50.0           # the 100 from day -6 is not counted
+    assert d["first_trade_date"] == (date.today() - timedelta(days=6)).isoformat()
+    earlier = (date.today() - timedelta(days=7)).isoformat()
+    d = client.post("/api/challenge/config", json={"account_id": _ACCOUNT, "account_size": 5000, "start_date": earlier}).json()
+    assert d["consistency_total_profit"] == 150.0          # moving the start back brings it in
+    # a save that omits the date leaves it alone
+    d = client.post("/api/challenge/config", json={"account_id": _ACCOUNT, "account_size": 5000, "daily_loss_pct": 4}).json()
+    assert d["config"]["phase_start_date"] == earlier
+
+
+def test_start_date_in_phase_2_moves_only_this_phase_window():
+    client.post("/api/challenge/config", json={"account_id": _ACCOUNT, "account_size": 5000})
+    client.post("/api/challenge/advance", json={"account_id": _ACCOUNT, "to": "2"})
+    created = engine.get_config(_ACCOUNT)["created_at"]
+    day = (date.today() - timedelta(days=2)).isoformat()
+    d = client.post("/api/challenge/config", json={"account_id": _ACCOUNT, "account_size": 5000, "start_date": day}).json()
+    assert d["config"]["phase_start_date"] == day and d["config"]["created_at"] == created
+
+
+def test_start_date_cannot_be_in_the_future_or_garbage():
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    assert client.post("/api/challenge/config", json={"account_id": _ACCOUNT, "account_size": 5000, "start_date": tomorrow}).status_code == 422
+    assert client.post("/api/challenge/config", json={"account_id": _ACCOUNT, "account_size": 5000, "start_date": "banana"}).status_code == 422
 
 
 # --- execution isolation ----------------------------------------------------

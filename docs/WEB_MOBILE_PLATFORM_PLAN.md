@@ -700,12 +700,16 @@ than a single planned workstream:
   consistency rule?": best single day as a share of the phase's total profit, a bar with a tick at the
   firm's limit, a Would pass / Would fail / No profit yet / No limit set badge, and a plain line
   ("you need about $N more profit from other days" when failing, "your next day can make up to $N and you
-  still pass" when passing). The limit is a new editable rule `consistency_pct` (0 = no rule, the default,
-  because firms differ and many have none, so no number is assumed). Same days and window as the
+  still pass" when passing). The limit is a new editable rule `consistency_pct`, default 40 (the owner's
+  firm; 0 turns it off; configs saved before the rule existed also get 40). Same days and window as the
   profit-day counter, so the two always agree (`api/challenge.py: consistency_meter`). A save that omits
-  the field (the phone) keeps the saved rule. Web only for now; the phone types carry the fields but
+  the field (the phone) keeps the saved rule. **Counting from the funded start:** the setup/edit form has
+  "Count my trades from" (`start_date`), with a one-click "Use my first trade on this account"
+  (`first_trade_date` in the status). It sets the phase start (profit days, consistency); in Phase 1 or
+  Funded it also moves the drawdown start, in Phase 2 only the phase window. A save that omits it leaves it
+  alone, and it cannot be in the future. Web only for now; the phone types carry the fields but
   ChallengeScreen does not show them yet.
-  `tests/test_challenge.py` (18 tests).
+  `tests/test_challenge.py` (22 tests).
 - **Journal split by account** (`JournalPage.tsx`) — an account filter
   (dropdown, persisted to localStorage) when more than one account has
   closed trades; previously every account was mixed into one feed/table.

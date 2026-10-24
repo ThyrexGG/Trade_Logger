@@ -12,6 +12,7 @@ import type { ChallengeConfig, ChallengeConfigInput, ChallengeStatus } from '../
 import { describeAccount } from '../../lib/accountLabel'
 import { formatUsd } from '../../lib/format'
 import { amountsHidden } from '../../lib/privacy'
+import { todayIso } from '../../lib/dates'
 
 const money = (n: number | null) =>
   n === null ? '—' : amountsHidden() ? formatUsd(n) : n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
@@ -70,7 +71,7 @@ const DEFAULTS: Omit<ChallengeConfigInput, 'account_id' | 'account_size'> = {
   min_profit_days: 3,
   profit_day_threshold_pct: 0.5,
   drawdown_mode: 'trailing',
-  consistency_pct: 0,
+  consistency_pct: 40,
 }
 
 /** "2026-10-19" as a short local date; built from its parts so it never shifts a day. */
@@ -106,7 +107,7 @@ function ConsistencyMeter({ s, onSetLimit }: { s: ChallengeStatus; onSetLimit: (
     line = (
       <>
         Best day {money(s.consistency_best_day_amount)} ({shortDay(s.consistency_best_day_date)}) is {share.toFixed(1)}% of your{' '}
-        {money(s.consistency_total_profit)} profit this phase
+        {money(s.consistency_total_profit)} profit since {shortDay(s.config?.phase_start_date ?? null)}
         {limit != null ? <> · limit {limit}%</> : null}.
       </>
     )
@@ -159,11 +160,13 @@ function ConsistencyMeter({ s, onSetLimit }: { s: ChallengeStatus; onSetLimit: (
 function SetupForm({
   accountId,
   existing,
+  firstTradeDate,
   onSaved,
   onCancel,
 }: {
   accountId: string
   existing: ChallengeConfig | null
+  firstTradeDate: string | null
   onSaved: (s: ChallengeStatus) => void
   onCancel?: () => void
 }) {
@@ -177,8 +180,11 @@ function SetupForm({
     min_profit_days: existing?.min_profit_days ?? DEFAULTS.min_profit_days ?? 3,
     profit_day_threshold_pct: existing?.profit_day_threshold_pct ?? DEFAULTS.profit_day_threshold_pct ?? 0.5,
     drawdown_mode: existing?.drawdown_mode ?? DEFAULTS.drawdown_mode ?? 'trailing',
-    consistency_pct: existing?.consistency_pct ?? DEFAULTS.consistency_pct ?? 0,
+    consistency_pct: existing?.consistency_pct ?? DEFAULTS.consistency_pct ?? 40,
   })
+  const today = todayIso()
+  const savedStart = existing?.phase_start_date ?? today
+  const [startDate, setStartDate] = useState(savedStart)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -200,7 +206,12 @@ function SetupForm({
     setBusy(true)
     setError(null)
     try {
-      const s = await saveChallengeConfig({ account_id: accountId, ...form })
+      // only send the start when it was changed: sending it again would move the drawdown start too
+      const s = await saveChallengeConfig({
+        account_id: accountId,
+        ...form,
+        ...(startDate && startDate !== savedStart ? { start_date: startDate } : {}),
+      })
       onSaved(s)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save the challenge config.')
@@ -240,6 +251,27 @@ function SetupForm({
             <option value="static">Static (from initial size)</option>
           </select>
         </label>
+      </div>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1 text-[11px] text-muted">
+          Count my trades from
+          <input
+            type="date"
+            value={startDate}
+            max={today}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="tl-input"
+          />
+        </label>
+        {firstTradeDate && startDate !== firstTradeDate ? (
+          <button type="button" onClick={() => setStartDate(firstTradeDate)} className="pb-2 text-[11px] text-accent hover:underline">
+            Use my first trade on this account ({shortDay(firstTradeDate)})
+          </button>
+        ) : null}
+        <p className="basis-full text-[10.5px] text-muted">
+          Set this to the day your funded account started. Only trades from that day on count towards profit days,
+          the consistency meter and the drawdown.
+        </p>
       </div>
       <p className="text-[10.5px] text-muted">
         Drawdown mode isn't confirmed against your firm's own methodology — trailing is the more conservative
@@ -410,6 +442,7 @@ export function ChallengeTracker({ account }: { account?: string }) {
           <SetupForm
             accountId={acc}
             existing={status?.config ?? null}
+            firstTradeDate={status?.first_trade_date ?? null}
             onSaved={(s) => {
               setStatus(s)
               setEditing(false)

@@ -41,7 +41,7 @@ DEFAULTS: Dict[str, Any] = {
     "min_profit_days": 3,
     "profit_day_threshold_pct": 0.5,
     "drawdown_mode": "trailing",  # conservative default; the firm may actually use "static"
-    "consistency_pct": 0.0,  # firms differ (and many have none), so no rule is assumed until the user sets theirs
+    "consistency_pct": 40.0,  # the user's firm: best day at most 40% of total profit; 0 turns the rule off
 }
 
 DISCLAIMER = (
@@ -69,14 +69,23 @@ def save_config(account: str, rules: Dict[str, Any]) -> Dict[str, Any]:
     Phase progress (phase / phase_start_balance / phase_start_date /
     created_at) is preserved on an update — editing a rule isn't a restart;
     use `reset_challenge` for that."""
+    rules = dict(rules)
+    start_date = rules.pop("start_date", None)  # "count my trades from this day" (YYYY-MM-DD), not a stored rule
     existing = get_config(account)
     today = date.today().isoformat()
     if existing is None:
+        first_day = start_date or today
         cfg = {**DEFAULTS, **rules, "account_id": account,
                "phase": "1", "phase_start_balance": float(rules.get("account_size", DEFAULTS["account_size"])),
-               "phase_start_date": today, "created_at": today}
+               "phase_start_date": first_day, "created_at": first_day}
     else:
         cfg = {**existing, **rules, "account_id": account}
+        if start_date:
+            cfg["phase_start_date"] = start_date
+            # Phase 1 / a funded account is one run from its first day, so the drawdown peak starts there too;
+            # in phase 2 the attempt began earlier, so only this phase's window moves.
+            if cfg.get("phase") in ("1", "funded"):
+                cfg["created_at"] = start_date
     database.set_setting(_key(account), json.dumps(cfg))
     return cfg
 
@@ -175,6 +184,7 @@ def _empty_status(account: str) -> Dict[str, Any]:
         "consistency_status": None, "consistency_limit_pct": None, "consistency_best_day_pct": None,
         "consistency_best_day_amount": None, "consistency_best_day_date": None, "consistency_total_profit": None,
         "consistency_budget_used_ratio": None, "consistency_extra_needed": None, "consistency_next_day_max": None,
+        "first_trade_date": None,
         "disclaimer": DISCLAIMER, "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -182,12 +192,17 @@ def _empty_status(account: str) -> Dict[str, Any]:
 def compute_status(account: str) -> Dict[str, Any]:
     cfg = get_config(account)
     if cfg is None:
-        return _empty_status(account)
+        empty = _empty_status(account)
+        trades = _load_trades(account)
+        # so the setup card can offer "start counting from my first trade"
+        empty["first_trade_date"] = str(trades["exit_time"].min().date()) if not trades.empty else None
+        return empty
 
     account_size = float(cfg["account_size"])
     phase = cfg["phase"]
     phase_start_balance = float(cfg["phase_start_balance"])
     df = _load_trades(account)
+    first_trade_date = str(df["exit_time"].min().date()) if not df.empty else None
 
     balances = database.get_account_balances()
     entry = balances.get(account)
@@ -231,7 +246,9 @@ def compute_status(account: str) -> Dict[str, Any]:
         profit_day_dates = sorted(str(d) for d, v in daily_sums.items() if float(v) >= threshold_amount)
         phase_daily = {d: float(v) for d, v in daily_sums.items()}
     # same days and same window as the profit-day counter, so the two always agree
-    consistency = consistency_meter(phase_daily, float(cfg.get("consistency_pct") or 0.0))
+    # a config saved before this rule existed has no value: it gets the default, an explicit 0 stays off
+    limit = cfg.get("consistency_pct")
+    consistency = consistency_meter(phase_daily, float(DEFAULTS["consistency_pct"] if limit is None else limit))
 
     # --- phase progress (no target once funded) ---
     phase_target_pct: Optional[float] = None
@@ -271,6 +288,7 @@ def compute_status(account: str) -> Dict[str, Any]:
         "min_profit_days": int(cfg["min_profit_days"]),
         "profit_day_dates": profit_day_dates,
         **consistency,
+        "first_trade_date": first_trade_date,
         "disclaimer": DISCLAIMER,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }

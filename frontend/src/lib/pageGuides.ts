@@ -53,7 +53,7 @@ const GUIDES: Record<string, GuideContent> = {
       'Click a day in the calendar to see the trades from that day. The “Week” box at the end of each row adds up that whole week.',
       '“Your rules vs. your results” shows what breaking your own rules costs — it fills in as you tap By my rules, Bent my rules or Rushed under each trade in the Journal.',
       '“When you trade best” shows which days, hours and holding times make or lose you money. Fewer than 3 trades in a group is too few to read much into.',
-      'Tracking a prop-firm challenge? Pick that one account and the tracker at the bottom shows your progress, and a consistency meter: how much of your profit your best single day made. Enter your firm’s limit under Edit and it tells you whether you would pass.',
+      'Tracking a prop-firm challenge? Pick that one account and the tracker at the bottom shows your progress, and a consistency meter: how much of your profit your best single day made. It starts at a 40% limit; change it, and set “Count my trades from” to the day your funded account started, under Edit.',
       'Recording your screen? “Hide $” at the top (or in your account menu) hides every dollar amount and keeps the percentages.',
     ],
   },

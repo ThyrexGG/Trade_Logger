@@ -37,6 +37,8 @@ export interface ChallengeConfigInput {
   profit_day_threshold_pct?: number
   drawdown_mode?: ChallengeDrawdownMode
   consistency_pct?: number
+  /** the day to start counting trades from (YYYY-MM-DD); omit to leave it as it is */
+  start_date?: string
 }
 
 export type ConsistencyStatus = 'off' | 'no_profit' | 'pass' | 'fail'
@@ -68,6 +70,7 @@ export interface ChallengeStatus {
   profit_days_count: number | null
   min_profit_days: number | null
   profit_day_dates: string[]
+  first_trade_date: string | null
 
   consistency_status: ConsistencyStatus | null
   consistency_limit_pct: number | null
