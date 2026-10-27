@@ -13,11 +13,13 @@ stand-in to keep working while the cloud is down, not a mirror of it.
 Usage:
     python run_local_fallback.py [--sync-now] [--port 8010]
 
-    --sync-now   Pull your real trade history into the local DB before
-                 serving: Capital.com via the same CAPITAL_* credentials from
+    --sync-now   Pull your real trade history into the local DB straight away:
+                 Capital.com via the same CAPITAL_* credentials from
                  .env, and MT5 via this machine's own terminal (both talk
                  directly to the broker / MetaTrader -- neither goes through
-                 Neon, so both work fine while the cloud DB is down).
+                 Neon, so both work fine while the cloud DB is down). Runs in
+                 the background so the page opens at once (the auto-sync loop
+                 below does it either way; the flag is kept for the desktop app).
 
 Once serving, positions/closed trades keep refreshing on their own every
 TL_SYNC_INTERVAL_SEC (default 60s here) via the same background sync loop
@@ -74,6 +76,11 @@ os.environ["MT5_ENABLED"] = "1"      # safe here: this script only ever runs on 
 # billing in the cloud -- this DB is local sqlite, so that cost doesn't exist here. A
 # shorter interval keeps positions/closed trades genuinely live while this stands in.
 os.environ.setdefault("TL_SYNC_INTERVAL_SEC", "60")
+# api/main.py's start-up warm-up requests seven pages (market data, macro, news, calendar) one after the
+# other BEFORE uvicorn accepts a connection. On the cloud that buys a fast first click; here it is only delay,
+# and it was the bulk of the ~70 s start-up that made the desktop app give up at its 90 s wait (2026-10-27:
+# 120 failed switches in the app's fallback.log). Skip it: the page opens in seconds and caches fill on use.
+os.environ.setdefault("TL_SKIP_WARMUP", "1")
 
 
 def _local_connect():
@@ -142,21 +149,17 @@ def main() -> None:
     print(f"Local fallback DB: {DB_PATH}")
     print("Auth: disabled (single-user, this machine only -- do not port-forward this)")
 
-    if args.sync_now:
-        print("Syncing Capital.com + MT5 history into the local DB ...")
-        import auto_sync
-        # This runs unattended -- the desktop app starts it automatically when
-        # the cloud fails two health checks -- so it must never be what opens a
-        # MetaTrader you closed. A terminal that's already open still syncs.
-        result = auto_sync.run_sync_cycle(set(), logfn=print, require_mt5_already_running=True)
-        print(f"  done: {result.get('new_closed_trades', 0)} new closed trades, "
-              f"capital_ok={result.get('capital_ok')}, mt5_ok={result.get('mt5_ok')}")
-
-    # Keep positions/closed trades live for as long as this stands in for the cloud --
-    # without this, sync only ever happened once (at --sync-now) and open positions /
-    # floating P&L would silently go stale the whole time the cloud stayed down.
+    # Keep positions/closed trades live for as long as this stands in for the cloud. The first cycle
+    # starts the moment the server is up, so history is pulled in right away -- in the background, so a
+    # slow or missing internet connection can never keep the page from opening. (--sync-now used to run
+    # one more blocking sync here first; that doubled the start-up time and, with the internet down,
+    # could block it for minutes. The flag is still accepted, and now just says so.)
+    # The loop is unattended -- the desktop app starts this automatically when the cloud fails two health
+    # checks -- and never opens a MetaTrader you closed: a terminal that is already open still syncs.
     import api.sync_service as sync_service
     sync_service.set_auto(True)
+    if args.sync_now:
+        print("Sync: pulling Capital.com + MT5 history in the background as soon as the server is up.")
     print(f"Auto-sync: on, every {sync_service.INTERVAL_SEC}s")
 
     import uvicorn

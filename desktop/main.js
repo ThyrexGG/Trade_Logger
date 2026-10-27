@@ -41,7 +41,10 @@ const FALLBACK_PORT = 8010
 const FALLBACK_URL = `http://127.0.0.1:${FALLBACK_PORT}/`
 const FALLBACK_HEALTH_URL = `http://127.0.0.1:${FALLBACK_PORT}/api/health`
 const FALLBACK_FAILURE_THRESHOLD = 2
-const FALLBACK_START_TIMEOUT_MS = 90_000 // --sync-now can take a while (MT5 + Capital.com history)
+// The server now opens in well under a minute (it skips its start-up warm-up and syncs in the background).
+// This is the safety net, not the expected time: at 90 s the old start-up (~94 s) was killed just before it
+// became ready, again and again (120 failed switches, 2026-10-27).
+const FALLBACK_START_TIMEOUT_MS = 180_000
 
 // --- on-demand local MT5 push (agent/mt5_push_agent.py --once) -----------
 // The cloud backend (Render, Linux) can never reach this PC's MT5 terminal --

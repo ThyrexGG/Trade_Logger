@@ -11,7 +11,7 @@ Trade Logger: a personal trading journal, analytics and research platform for MT
 | Backend | `api/` (FastAPI, `api.main:app`) | Postgres (Neon) via `DATABASE_URL`, SQLite fallback |
 | Web app | `frontend/` (React 19, Vite, Tailwind v4) | Design system "Precision" (navy + ice cyan), see `docs/DESIGN_SYSTEM.md` |
 | Phone app | `mobile/` (Expo SDK 57, Android) | Same Precision tokens in `mobile/src/theme.ts`; build steps in `docs/MOBILE_ANDROID_BUILD.md` |
-| Desktop | `desktop/` (Electron shell around the web app) | |
+| Desktop | `desktop/` (Electron shell around the web app) | Switches to `run_local_fallback.py` (port 8010) when the cloud API fails two health checks; log at `%APPDATA%\TradeLogger\fallback.log`, see `desktop/README.md` |
 | MT5 push agent | `agent/` | Sends trades from the user's PC to the cloud |
 | TradingView scripts | `tradingview/` | Pine scripts, see `tradingview/README.md` |
 | Research | root `phaseNNN_*.py` + `docs/PHASE_NNN_*.md` | Phases 62–135 |
