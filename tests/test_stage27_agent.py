@@ -185,3 +185,46 @@ def test_read_snapshot_corrects_the_broker_clock_offset(agent, monkeypatch):
         event_true_utc, tz=timezone.utc
     ).isoformat()
     assert snap["deals"][0]["timestamp"] == event_true_utc
+
+
+# --- run log (2026-11-11: the hidden scheduled task printed into the void, so "my sync stopped" could not be
+# diagnosed afterwards). Everything an automatic run prints is mirrored into mt5_sync.log. ---------------------
+def _fresh_log(agent, monkeypatch, tmp_path):
+    monkeypatch.setattr(agent, "app_dir", lambda: tmp_path)
+    monkeypatch.setattr(agent, "_run_log", None)
+    monkeypatch.setattr("sys.stdout", None)    # pythonw.exe: no stdout at all
+    monkeypatch.setattr("sys.stderr", None)
+
+
+def test_run_log_captures_prints_even_with_no_stdout(agent, monkeypatch, tmp_path):
+    _fresh_log(agent, monkeypatch, tmp_path)
+    agent.start_run_log("once")
+    print("MetaTrader 5 isn't open - skipping this sync")      # goes through the tee into the file
+    agent._log_line("--- run ended (ok)")
+    text = (tmp_path / "mt5_sync.log").read_text(encoding="utf-8")
+    assert "run started" in text and "once" in text
+    assert "MetaTrader 5 isn't open - skipping this sync" in text
+    assert "run ended (ok)" in text
+
+
+def test_run_log_rotates_past_the_cap(agent, monkeypatch, tmp_path):
+    (tmp_path / "mt5_sync.log").write_text("x" * (agent._LOG_MAX_BYTES + 10), encoding="utf-8")
+    _fresh_log(agent, monkeypatch, tmp_path)
+    agent.start_run_log("once")
+    assert (tmp_path / "mt5_sync.log.1").exists()
+    assert (tmp_path / "mt5_sync.log").stat().st_size < 1000
+
+
+def test_run_log_failure_never_breaks_a_sync(agent, monkeypatch, tmp_path):
+    _fresh_log(agent, monkeypatch, tmp_path / "does" / "not" / "exist")    # unwritable folder
+    agent.start_run_log("once")                                            # must not raise
+    print("still prints fine")
+    agent._log_line("ignored")
+
+
+def test_the_task_is_allowed_to_run_on_battery(agent):
+    # schtasks /Create defaults to "don't start on batteries": on a laptop the sync silently stopped whenever
+    # the charger was out. install_task() must clear it after creating the task.
+    src = _AGENT.read_text(encoding="utf-8")
+    assert "DisallowStartIfOnBatteries=$false" in src
+    assert src.index("_allow_task_on_battery()") < src.index("write_uninstall_shortcut()", src.index("def install_task"))

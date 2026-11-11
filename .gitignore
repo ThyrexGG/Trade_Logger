@@ -35,6 +35,9 @@ agent/dist/
 # Written to the agent's own folder the first time setup runs on a machine — per-install, not source.
 agent/mt5_sync_hidden.vbs
 agent/Uninstall TradeLogger Sync.bat
+agent/.sync.lock
+agent/mt5_sync.log
+agent/mt5_sync.log.1
 agent/*.spec
 agent/mt5_sync_hidden.vbs
 agent/.sync.lock

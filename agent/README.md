@@ -40,6 +40,25 @@ icon any time to bring it back up.
 
 ---
 
+## If a sync seems to have stopped
+
+The background task runs hidden, so it writes what it did to **`mt5_sync.log`** in the same folder as the
+program (newest at the bottom, trimmed automatically). Each run has a `run started` line and a `run ended`
+line. What you will see:
+
+| Log says | Meaning |
+|---|---|
+| `MetaTrader 5 isn't open — skipping this sync` | MetaTrader was closed. Open it and the next run catches up. |
+| `Login failed` / `TradeLogger login failed` | Cloud down or wrong email/password. |
+| `run started` with no `run ended` after it | That run was killed part-way. |
+| No new lines at all for a while | Windows did not start the task (PC asleep or off). |
+
+Laptop note: Windows tasks do **not** start on battery by default, which silently stopped the sync whenever the
+charger was out. Since agent 1.3.2 the installer clears that option. An older install can fix it in
+Task Scheduler: *TradeLogger MT5 Sync* → Properties → Conditions → untick "Start the task only if the computer is on AC power".
+
+---
+
 ## Uninstalling
 
 Double-click **`Uninstall TradeLogger Sync.bat`** in the same folder as the

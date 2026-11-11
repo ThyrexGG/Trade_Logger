@@ -49,6 +49,7 @@ import subprocess
 import sys
 import threading
 import time
+import traceback
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -69,8 +70,10 @@ except ImportError:
 # for the instant it takes the command to run. getattr() because the constant only exists on Windows.
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
-AGENT_VERSION = "1.3.1"
+AGENT_VERSION = "1.3.2"
 TASK_NAME = "TradeLogger MT5 Sync"
+LOG_NAME = "mt5_sync.log"
+_LOG_MAX_BYTES = 256 * 1024
 HISTORY_FALLBACK_START = datetime(2020, 1, 1, tzinfo=timezone.utc)
 
 # MT5's position/deal ``.time`` is the BROKER SERVER's wall clock, epoch-encoded as if it
@@ -141,6 +144,84 @@ def app_dir() -> Path:
 
 def config_path() -> Path:
     return app_dir() / "mt5_agent_config.json"
+
+
+# --------------------------------------------------------------------------- #
+#  Run log
+# --------------------------------------------------------------------------- #
+# The scheduled task runs hidden (pythonw), so everything this agent prints used to vanish -- a sync that
+# was skipped (MetaTrader closed), refused (login / cloud down) or killed left no trace, and "my sync is not
+# working" could not be answered after the fact (2026-11-11). Everything printed during an automatic run is
+# now also appended to mt5_sync.log next to the program. Each run writes a "run started" line and a
+# "run ended" line, so a run that was killed shows up as a start with no end. Capped at ~256 KB (one old
+# copy kept), never holds the password, and can never make a sync fail.
+class _Tee:
+    def __init__(self, stream: Any, log: Any) -> None:
+        self._stream = stream
+        self._log = log
+
+    def write(self, text: str) -> int:
+        if self._stream is not None:       # pythonw.exe has no stdout at all
+            try:
+                self._stream.write(text)
+            except Exception:
+                pass
+        try:
+            self._log.write(text)
+            self._log.flush()
+        except Exception:
+            pass
+        return len(text)
+
+    def flush(self) -> None:
+        for s in (self._stream, self._log):
+            try:
+                if s is not None:
+                    s.flush()
+            except Exception:
+                pass
+
+    def isatty(self) -> bool:
+        try:
+            return bool(self._stream and self._stream.isatty())
+        except Exception:
+            return False
+
+    def __getattr__(self, name: str) -> Any:   # encoding, fileno, ... -> the real stream
+        return getattr(self._stream, name)
+
+
+_run_log: Any = None
+
+
+def log_path() -> Path:
+    return app_dir() / LOG_NAME
+
+
+def _log_line(text: str) -> None:
+    if _run_log is None:
+        return
+    try:
+        stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
+        _run_log.write(f"[{stamp}] {text}\n")
+        _run_log.flush()
+    except Exception:
+        pass
+
+
+def start_run_log(mode: str) -> None:
+    """Mirror stdout/stderr into mt5_sync.log for this run. Best-effort: any problem -> no log, sync unaffected."""
+    global _run_log
+    try:
+        path = log_path()
+        if path.exists() and path.stat().st_size > _LOG_MAX_BYTES:
+            os.replace(path, path.with_name(path.name + ".1"))
+        _run_log = open(path, "a", encoding="utf-8", errors="replace")
+        sys.stdout = _Tee(sys.stdout, _run_log)
+        sys.stderr = _Tee(sys.stderr, _run_log)
+        _log_line(f"--- run started (agent {AGENT_VERSION}, {mode}, pid {os.getpid()})")
+    except Exception:
+        _run_log = None
 
 
 def load_config(path: Optional[Path] = None) -> Dict[str, Any]:
@@ -715,6 +796,21 @@ def write_uninstall_shortcut() -> Path:
     return bat
 
 
+def _allow_task_on_battery() -> None:
+    """schtasks /Create gives every task "don't start if on batteries" -- on a laptop that silently stops the
+    sync whenever the charger is out (the owner's PC, 2026-11-11). Clear it. Best-effort, cosmetic if it fails."""
+    ps = (
+        f"$s=(Get-ScheduledTask -TaskName '{TASK_NAME}').Settings;"
+        "$s.DisallowStartIfOnBatteries=$false;$s.StopIfGoingOnBatteries=$false;"
+        f"Set-ScheduledTask -TaskName '{TASK_NAME}' -Settings $s | Out-Null"
+    )
+    try:
+        subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+                       capture_output=True, text=True, timeout=30, creationflags=_NO_WINDOW)
+    except Exception:
+        pass
+
+
 def install_task(poll_minutes: int = 15) -> bool:
     if platform.system() != "Windows":
         print("  automatic scheduling is Windows-only — run with --daemon instead.")
@@ -729,6 +825,7 @@ def install_task(poll_minutes: int = 15) -> bool:
         creationflags=_NO_WINDOW,
     )
     if res.returncode == 0:
+        _allow_task_on_battery()
         write_uninstall_shortcut()
         print(f"  background task '{TASK_NAME}' installed — syncs every {poll_minutes} min while this PC is on.")
         print(f"  to remove it later, double-click '{UNINSTALL_BAT_NAME}' in this folder.")
@@ -1000,6 +1097,10 @@ def main() -> None:
     )
     args = ap.parse_args()
 
+    # The automatic paths (and a manual resync) keep a run log -- see start_run_log().
+    if args.once or args.daemon or args.full_resync:
+        start_run_log("once" if args.once else "daemon" if args.daemon else "full-resync")
+
     # Whatever happens — success, a handled error, or an unexpected crash — a
     # double-clicked window must stay open long enough to read the message.
     # The hidden scheduled task (no console) is unaffected.
@@ -1008,14 +1109,19 @@ def main() -> None:
     except SystemExit as exc:
         if isinstance(exc.code, str):     # sys.exit("message")
             print(exc.code)
+        _log_line(f"--- run ended (exit {exc.code if exc.code is not None else 0})")
         _pause_if_interactive()
         raise SystemExit(exc.code if isinstance(exc.code, int) else (0 if not exc.code else 1))
     except KeyboardInterrupt:
+        _log_line("--- run ended (interrupted)")
         raise SystemExit(130)
     except Exception as exc:  # noqa: BLE001 - last-resort so the window doesn't vanish
         print(f"\nUnexpected error: {exc!r}")
+        traceback.print_exc()
+        _log_line("--- run ended (crashed)")
         _pause_if_interactive()
         raise SystemExit(1)
+    _log_line("--- run ended (ok)")
     _pause_if_interactive()
 
 
