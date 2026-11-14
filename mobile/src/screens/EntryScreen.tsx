@@ -1,15 +1,18 @@
+import { Ionicons } from '@expo/vector-icons'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import * as Haptics from 'expo-haptics'
 import { useLayoutEffect, useState } from 'react'
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { createEntry, deleteEntry, updateEntry } from '../api/entries'
 import { ScreenshotGallery } from '../components/ScreenshotGallery'
+import { Text } from '../components/Text'
+import { Button, Card, Chip, ChipRow, Field, Notice, ui } from '../components/ui'
 import type { RootStackParamList } from '../navigation/RootStack'
-import { colors, radius, spacing } from '../theme'
+import { colors, spacing, type } from '../theme'
 import type { EntryKind, JournalEntry } from '../types/entries'
-import { KIND_COLOR, KIND_LABEL } from './EntriesScreen'
+import { KIND_LABEL } from './EntriesScreen'
 
 const KINDS: EntryKind[] = ['idea', 'review', 'observation', 'plan', 'skipped']
 
@@ -99,97 +102,43 @@ export function EntryScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.screen} edges={['bottom']}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={styles.kinds}>
-            {KINDS.map((k) => {
-              const active = kind === k
-              return (
-                <Pressable
-                  key={k}
-                  onPress={() => setKind(k)}
-                  accessibilityRole="button"
-                  style={[styles.kindChip, active && { borderColor: KIND_COLOR[k], backgroundColor: 'rgba(255,255,255,0.06)' }]}
-                >
-                  <Text style={[styles.kindText, active && { color: KIND_COLOR[k], fontWeight: '700' }]}>{KIND_LABEL[k]}</Text>
-                </Pressable>
-              )
-            })}
-          </View>
+    <SafeAreaView style={ui.screen} edges={['bottom']}>
+      <KeyboardAvoidingView style={ui.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={ui.content} keyboardShouldPersistTaps="handled">
+          <ChipRow wrap>
+            {KINDS.map((k) => (
+              <Chip key={k} label={KIND_LABEL[k]} on={kind === k} onPress={() => setKind(k)} />
+            ))}
+          </ChipRow>
 
-          <Text style={styles.label}>Instrument</Text>
-          <TextInput
-            style={styles.input}
-            value={instrument}
-            onChangeText={setInstrument}
-            placeholder="e.g. US500, XAUUSD (optional)"
-            placeholderTextColor={colors.textMuted}
-            autoCapitalize="characters"
-            autoCorrect={false}
-            maxLength={60}
-          />
+          <Card>
+            <Field label="Market" value={instrument} onChangeText={setInstrument} placeholder="e.g. US500, XAUUSD (optional)" autoCapitalize="characters" maxLength={60} />
+            <Field label="Title" value={title} onChangeText={setTitle} placeholder="A short headline (optional)" autoCapitalize="sentences" maxLength={200} />
+            <Field label="Note" value={body} onChangeText={setBody} placeholder="What are you seeing? What's the plan? What did you learn?" autoCapitalize="sentences" multiline />
+            <Field label="Tags, separated by commas" value={tags} onChangeText={setTags} placeholder="e.g. weekly, london, risk" />
+          </Card>
 
-          <Text style={styles.label}>Title</Text>
-          <TextInput
-            style={styles.input}
-            value={title}
-            onChangeText={setTitle}
-            placeholder="A short headline (optional)"
-            placeholderTextColor={colors.textMuted}
-            maxLength={200}
-          />
-
-          <Text style={styles.label}>Note</Text>
-          <TextInput
-            style={[styles.input, styles.body]}
-            value={body}
-            onChangeText={setBody}
-            placeholder="What are you seeing? What's the plan? What did you learn?"
-            placeholderTextColor={colors.textMuted}
-            multiline
-            textAlignVertical="top"
-            scrollEnabled={false}
-          />
-
-          <Text style={styles.label}>Tags (comma separated)</Text>
-          <TextInput
-            style={styles.input}
-            value={tags}
-            onChangeText={setTags}
-            placeholder="e.g. weekly, london, risk"
-            placeholderTextColor={colors.textMuted}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? <Notice>{error}</Notice> : null}
 
           <View style={styles.actions}>
-            <Pressable
-              onPress={() => void save()}
-              disabled={busy || !dirty}
-              accessibilityRole="button"
-              style={({ pressed }) => [styles.saveBtn, (busy || !dirty) && styles.disabled, pressed && { opacity: 0.8 }]}
-            >
-              {busy ? <ActivityIndicator color={colors.background} /> : <Text style={styles.saveText}>{baseline ? 'Save changes' : 'Save note'}</Text>}
-            </Pressable>
-            {savedAt && !dirty ? <Text style={styles.saved}>✓ Saved</Text> : null}
+            <Button label={baseline ? 'Save changes' : 'Save note'} busy={busy} disabled={!dirty} onPress={() => void save()} style={ui.flex} />
+            {savedAt && !dirty ? (
+              <View style={styles.saved}>
+                <Ionicons name="checkmark" size={14} color={colors.positive} />
+                <Text style={styles.savedText}>Saved</Text>
+              </View>
+            ) : null}
           </View>
 
           {baseline ? (
-            <View style={styles.card}>
+            <Card>
               <ScreenshotGallery ownerId={baseline.id} />
-            </View>
+            </Card>
           ) : (
-            <Text style={styles.hint}>Save the note first, then you can attach screenshots.</Text>
+            <Text style={ui.muted}>Save the note first, then you can attach screenshots.</Text>
           )}
 
-          {baseline ? (
-            <Pressable onPress={confirmDelete} disabled={busy} accessibilityRole="button" style={styles.deleteBtn}>
-              <Text style={styles.deleteText}>Delete note</Text>
-            </Pressable>
-          ) : null}
+          {baseline ? <Button label="Delete note" kind="danger" icon="trash-outline" disabled={busy} onPress={confirmDelete} style={styles.delete} /> : null}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -197,39 +146,8 @@ export function EntryScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
-  flex: { flex: 1 },
-  content: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xl * 2 },
-  kinds: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  kindChip: { borderColor: colors.border, borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: spacing.md + 2, paddingVertical: spacing.sm },
-  kindText: { color: colors.textSecondary, fontSize: 13 },
-  label: { color: colors.textMuted, fontSize: 12, marginTop: spacing.sm },
-  input: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    color: colors.textPrimary,
-    fontSize: 15,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  body: { minHeight: 160, lineHeight: 21 },
-  error: { color: colors.negative, fontSize: 13, marginTop: spacing.sm },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.md },
-  saveBtn: { backgroundColor: colors.accent, borderRadius: radius.md, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, minWidth: 140, alignItems: 'center' },
-  disabled: { opacity: 0.4 },
-  saveText: { color: colors.background, fontSize: 15, fontWeight: '700' },
-  saved: { color: colors.positive, fontSize: 13 },
-  card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    marginTop: spacing.md,
-  },
-  hint: { color: colors.textMuted, fontSize: 12, marginTop: spacing.md },
-  deleteBtn: { alignItems: 'center', paddingVertical: spacing.md, marginTop: spacing.lg },
-  deleteText: { color: colors.negative, fontSize: 14, fontWeight: '600' },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  saved: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  savedText: { ...type.small, color: colors.positive },
+  delete: { marginTop: spacing.sm },
 })

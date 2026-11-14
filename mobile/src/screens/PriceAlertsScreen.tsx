@@ -1,23 +1,19 @@
+import { Ionicons } from '@expo/vector-icons'
 import { useFocusEffect } from '@react-navigation/native'
 import { useCallback, useMemo, useState } from 'react'
-import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native'
+import { Alert, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { createAlert, deleteAlert, getAlerts } from '../api/alerts'
+import { Text, TextInput } from '../components/Text'
+import { Button, Card, Chip, ChipRow, Empty, Loading, Notice, Pill, Rows, Seg, ui } from '../components/ui'
 import { formatPrice, formatUpdated } from '../format'
-import { colors, radius, spacing } from '../theme'
+import { colors, spacing, type } from '../theme'
 import type { AlertCondition, AlertItem, AlertsResponse } from '../types/alerts'
+
+const CONDITIONS: { key: AlertCondition; label: string }[] = [
+  { key: 'ABOVE', label: 'Goes above' },
+  { key: 'BELOW', label: 'Goes below' },
+]
 
 /** Price-target alerts: create, review and delete. Notification only — nothing here can place a trade. */
 export function PriceAlertsScreen() {
@@ -99,92 +95,73 @@ export function PriceAlertsScreen() {
   const triggered = data?.alerts.filter((a) => a.status !== 'ACTIVE') ?? []
 
   return (
-    <SafeAreaView style={styles.screen} edges={['bottom']}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <SafeAreaView style={ui.screen} edges={['bottom']}>
+      <KeyboardAvoidingView style={ui.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={ui.content}
           keyboardShouldPersistTaps="handled"
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} tintColor={colors.accent} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} tintColor={colors.accent} colors={[colors.accent]} />}
         >
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>New alert</Text>
-            <TextInput
-              value={symbol}
-              onChangeText={setSymbol}
-              placeholder="Symbol, e.g. XAUUSD"
-              placeholderTextColor={colors.textMuted}
-              autoCapitalize="characters"
-              autoCorrect={false}
-              style={styles.input}
-            />
-            {suggestions.length > 0 ? (
-              <View style={styles.suggestRow}>
-                {suggestions.map((s) => (
-                  <Pressable key={s} onPress={() => setSymbol(s)} style={styles.suggest} accessibilityRole="button">
-                    <Text style={styles.suggestText}>{s}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
-            <View style={styles.condRow}>
-              {(['ABOVE', 'BELOW'] as const).map((c) => (
-                <Pressable
-                  key={c}
-                  onPress={() => setCondition(c)}
-                  style={[styles.cond, condition === c && styles.condOn]}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: condition === c }}
-                >
-                  <Text style={[styles.condText, condition === c && styles.condTextOn]}>
-                    {c === 'ABOVE' ? 'Price goes above ▲' : 'Price goes below ▼'}
-                  </Text>
-                </Pressable>
-              ))}
+          <Card title="New alert">
+            <View style={ui.cols}>
+              <TextInput
+                value={symbol}
+                onChangeText={setSymbol}
+                placeholder="Market, e.g. XAUUSD"
+                placeholderTextColor={colors.textMuted}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                accessibilityLabel="Market symbol"
+                style={[ui.input, ui.flex]}
+              />
+              <TextInput
+                value={price}
+                onChangeText={setPrice}
+                placeholder="Price"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="decimal-pad"
+                accessibilityLabel="Target price"
+                style={[ui.input, styles.price]}
+              />
             </View>
-            <TextInput
-              value={price}
-              onChangeText={setPrice}
-              placeholder="Target price"
-              placeholderTextColor={colors.textMuted}
-              keyboardType="decimal-pad"
-              style={styles.input}
-            />
-            <TextInput
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Note (optional)"
-              placeholderTextColor={colors.textMuted}
-              maxLength={500}
-              style={styles.input}
-            />
-            {formError ? <Text style={styles.error}>{formError}</Text> : null}
-            <Pressable onPress={() => void submit()} disabled={saving} style={[styles.primary, saving && { opacity: 0.6 }]} accessibilityRole="button">
-              {saving ? <ActivityIndicator color={colors.accentInk} /> : <Text style={styles.primaryText}>Add alert</Text>}
-            </Pressable>
+            {suggestions.length > 0 ? (
+              <ChipRow wrap>
+                {suggestions.map((s) => (
+                  <Chip key={s} label={s} on={false} onPress={() => setSymbol(s)} />
+                ))}
+              </ChipRow>
+            ) : null}
+            <Seg options={CONDITIONS} value={condition} onChange={setCondition} />
+            <TextInput value={notes} onChangeText={setNotes} placeholder="Note (optional)" placeholderTextColor={colors.textMuted} maxLength={500} style={ui.input} />
+            {formError ? <Notice>{formError}</Notice> : null}
+            <Button label="Add alert" icon="notifications-outline" busy={saving} onPress={() => void submit()} />
             <Text style={styles.note}>
-              The server checks alerts about every 2 minutes against public market prices, which can differ slightly from your broker's. You get a notification when one is hit. This only notifies you — it never places a trade.
+              The server checks alerts about every 2 minutes against public market prices, which can differ slightly from your broker's. You get a notification when one is hit. It only tells you; it never places a trade.
             </Text>
-          </View>
+          </Card>
 
-          {loading && !data ? <ActivityIndicator color={colors.accent} size="large" style={{ marginTop: spacing.lg }} /> : null}
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {loading && !data ? <Loading /> : null}
+          {error ? <Notice>{error}</Notice> : null}
 
-          {data ? (
-            <>
-              <Text style={styles.section}>Active · {active.length}</Text>
-              {active.length === 0 ? <Text style={styles.muted}>No active alerts.</Text> : null}
-              {active.map((a) => (
-                <AlertRow key={a.id} a={a} onDelete={() => confirmDelete(a)} />
-              ))}
-              {triggered.length > 0 ? (
-                <>
-                  <Text style={styles.section}>Triggered · {triggered.length}</Text>
-                  {triggered.map((a) => (
-                    <AlertRow key={a.id} a={a} onDelete={() => confirmDelete(a)} />
-                  ))}
-                </>
-              ) : null}
-            </>
+          {data && active.length === 0 && triggered.length === 0 ? <Empty icon="notifications-off-outline" title="No alerts yet" text="Add a market and a price above. You will get a notification when the price crosses it." /> : null}
+
+          {active.length > 0 ? (
+            <Card title="Waiting" right={String(active.length)} flush>
+              <Rows>
+                {active.map((a) => (
+                  <AlertRow key={a.id} a={a} onDelete={() => confirmDelete(a)} />
+                ))}
+              </Rows>
+            </Card>
+          ) : null}
+          {triggered.length > 0 ? (
+            <Card title="Already hit" right={String(triggered.length)} flush>
+              <Rows>
+                {triggered.map((a) => (
+                  <AlertRow key={a.id} a={a} onDelete={() => confirmDelete(a)} />
+                ))}
+              </Rows>
+            </Card>
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -194,90 +171,34 @@ export function PriceAlertsScreen() {
 
 function AlertRow({ a, onDelete }: { a: AlertItem; onDelete: () => void }) {
   const isActive = a.status === 'ACTIVE'
+  const above = a.condition === 'ABOVE'
   return (
     <View style={styles.row}>
-      <View style={{ flex: 1 }}>
-        <View style={styles.rowTop}>
-          <Text style={styles.rowSymbol}>{a.symbol}</Text>
-          <View style={[styles.pill, { borderColor: isActive ? colors.accent : colors.positive }]}>
-            <Text style={[styles.pillText, { color: isActive ? colors.accent : colors.positive }]}>{isActive ? 'ACTIVE' : 'TRIGGERED'}</Text>
-          </View>
+      <View style={styles.rowMain}>
+        <View style={ui.rowWrap}>
+          <Text style={ui.heading}>{a.symbol}</Text>
+          <Ionicons name={above ? 'arrow-up' : 'arrow-down'} size={12} color={colors.textSecondary} />
+          <Text style={styles.target}>
+            {above ? 'above' : 'below'} {formatPrice(a.target_price)}
+          </Text>
+          {isActive ? null : <Pill text="Hit" color={colors.positive} />}
         </View>
-        <Text style={styles.rowTarget}>
-          {a.condition === 'ABOVE' ? '▲ above' : '▼ below'} {formatPrice(a.target_price)}
-        </Text>
-        {a.notes ? <Text style={styles.rowNotes}>{a.notes}</Text> : null}
-        <Text style={styles.rowMeta}>
-          {a.triggered_at ? `Triggered ${formatUpdated(a.triggered_at)}` : `Created ${formatUpdated(a.created_at)}`}
-        </Text>
+        {a.notes ? <Text style={ui.sub}>{a.notes}</Text> : null}
+        <Text style={styles.meta}>{a.triggered_at ? `Hit ${formatUpdated(a.triggered_at)}` : `Added ${formatUpdated(a.created_at)}`}</Text>
       </View>
       <Pressable onPress={onDelete} hitSlop={10} style={styles.del} accessibilityRole="button" accessibilityLabel={`Delete ${a.symbol} alert`}>
-        <Text style={styles.delText}>Delete</Text>
+        <Ionicons name="trash-outline" size={18} color={colors.textMuted} />
       </Pressable>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xl * 2 },
-  card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  cardTitle: { color: colors.textSecondary, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },
-  input: {
-    color: colors.textPrimary,
-    backgroundColor: colors.surfaceElevated,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    fontSize: 15,
-  },
-  suggestRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  suggest: { borderColor: colors.border, borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
-  suggestText: { color: colors.textSecondary, fontSize: 13 },
-  condRow: { flexDirection: 'row', gap: spacing.sm },
-  cond: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  condOn: { borderColor: colors.accentLine, backgroundColor: colors.accentSoft },
-  condText: { color: colors.textSecondary, fontSize: 13, fontWeight: '600' },
-  condTextOn: { color: colors.accent },
-  primary: { backgroundColor: colors.accent, borderRadius: radius.md, alignItems: 'center', paddingVertical: spacing.md },
-  primaryText: { color: colors.accentInk, fontWeight: '700', fontSize: 15 },
-  note: { color: colors.textMuted, fontSize: 11 },
-  error: { color: colors.negative, fontSize: 13 },
-  section: { color: colors.textSecondary, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginTop: spacing.md },
-  muted: { color: colors.textMuted, fontSize: 13 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-  },
-  rowTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  rowSymbol: { color: colors.textPrimary, fontSize: 17, fontWeight: '700' },
-  pill: { borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 1 },
-  pillText: { fontSize: 10, fontWeight: '700' },
-  rowTarget: { color: colors.textPrimary, fontSize: 15, marginTop: 2, fontVariant: ['tabular-nums'] },
-  rowNotes: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
-  rowMeta: { color: colors.textMuted, fontSize: 11, marginTop: 4 },
-  del: { paddingHorizontal: spacing.sm, paddingVertical: spacing.sm },
-  delText: { color: colors.negative, fontSize: 13, fontWeight: '600' },
+  price: { width: 120, fontVariant: ['tabular-nums'] },
+  note: { ...type.small, fontSize: 11, lineHeight: 15 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+  rowMain: { flex: 1, gap: 3, minWidth: 0 },
+  target: { ...type.num },
+  meta: { ...type.small, fontSize: 11, fontVariant: ['tabular-nums'] },
+  del: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
 })

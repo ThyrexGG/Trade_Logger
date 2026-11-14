@@ -1,5 +1,6 @@
 import { Fragment, type ReactNode } from 'react'
-import { StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, View } from 'react-native'
+import { Text } from './Text'
 import { colors, spacing } from '../theme'
 
 /** **bold**, *italic* and `code` inside one line of text; bold and italic may contain the other styles. */
@@ -82,11 +83,12 @@ export function SimpleMarkdown({ text, color = colors.textPrimary }: { text: str
 
 const styles = StyleSheet.create({
   text: { fontSize: 15, lineHeight: 21 },
-  heading: { fontWeight: '700', marginTop: spacing.xs },
-  bold: { fontWeight: '700' },
+  heading: { fontWeight: '600', marginTop: spacing.xs },
+  bold: { fontWeight: '600' },
   italic: { fontStyle: 'italic' },
-  rule: { height: 1, backgroundColor: 'rgba(255,255,255,0.12)', marginVertical: spacing.sm },
-  code: { fontFamily: 'monospace', backgroundColor: 'rgba(255,255,255,0.08)' },
+  rule: { height: 1, backgroundColor: colors.border, marginVertical: spacing.sm },
+  // mono comes from the tabular-nums mark (see components/Text)
+  code: { fontVariant: ['tabular-nums'], backgroundColor: colors.surfaceElevated },
   listRow: { flexDirection: 'row', gap: spacing.sm, paddingRight: spacing.sm },
   listText: { flex: 1 },
 })

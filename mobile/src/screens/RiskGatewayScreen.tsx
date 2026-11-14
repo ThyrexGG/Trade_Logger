@@ -1,27 +1,23 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useRoute, type RouteProp } from '@react-navigation/native'
 import { useEffect, useMemo, useState } from 'react'
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native'
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { postRiskPreview } from '../api/risk'
+import { Text } from '../components/Text'
+import { Button, Card, Chip, ChipRow, Field, Figures, Footnote, Notice, Seg, Stat, ui } from '../components/ui'
 import { formatMoney, formatPrice } from '../format'
 import { useJournal } from '../journal/JournalContext'
 import type { RootStackParamList } from '../navigation/RootStack'
-import { colors, radius, spacing } from '../theme'
+import { colors, spacing, type } from '../theme'
 import type { RiskPreviewRequest, RiskPreviewResponse } from '../types/risk'
 
 const PREFS_KEY = 'tl.risk.prefs'
 const DEFAULT_SYMBOLS = ['XAUUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 'US500']
+const SIDES = [
+  { key: 'BUY', label: 'Buy' },
+  { key: 'SELL', label: 'Sell' },
+] as const
 
 const num = (s: string): number | null => {
   if (!s.trim()) return null
@@ -31,51 +27,6 @@ const num = (s: string): number | null => {
 
 const lots = (v: number) => (Number.isFinite(v) ? v.toFixed(2) : '—')
 const usd = (v: number) => formatMoney(v, false)
-
-function Field({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  error,
-  half,
-  caps,
-}: {
-  label: string
-  value: string
-  onChangeText: (t: string) => void
-  placeholder?: string
-  error?: string
-  half?: boolean
-  caps?: boolean
-}) {
-  return (
-    <View style={[styles.field, half && { flex: 1 }]}>
-      <Text style={styles.label}>{label}</Text>
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={colors.textMuted}
-        keyboardType={caps ? 'default' : 'decimal-pad'}
-        autoCapitalize={caps ? 'characters' : 'none'}
-        autoCorrect={false}
-        style={[styles.input, error ? { borderColor: colors.negative } : null]}
-      />
-      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
-    </View>
-  )
-}
-
-function Metric({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <View style={styles.metric}>
-      <Text style={styles.label}>{label}</Text>
-      <Text style={styles.metricValue}>{value}</Text>
-      {sub ? <Text style={styles.metricSub}>{sub}</Text> : null}
-    </View>
-  )
-}
 
 /** Pre-trade position sizing — the server's risk gateway does the maths. Planning only; nothing is ever placed. */
 export function RiskGatewayScreen() {
@@ -170,115 +121,76 @@ export function RiskGatewayScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.screen} edges={['bottom']}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={styles.lock}>
-            <Text style={styles.lockText}>🔒 Planning only — nothing is executed and no order is ever sent.</Text>
-          </View>
+    <SafeAreaView style={ui.screen} edges={['bottom']}>
+      <KeyboardAvoidingView style={ui.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={ui.content} keyboardShouldPersistTaps="handled">
+          <Text style={ui.muted}>Works out how big the trade should be so that a hit stop costs only the share of your account you choose.</Text>
 
-          <Field label="Symbol" value={symbol} onChangeText={setSymbol} caps error={show('symbol')} />
-          <View style={styles.chips}>
-            {symbolChips.map((s) => (
-              <Pressable key={s} onPress={() => setSymbol(s)} style={[styles.chip, symbol.toUpperCase() === s && styles.chipOn]} accessibilityRole="button">
-                <Text style={[styles.chipText, symbol.toUpperCase() === s && styles.chipTextOn]}>{s}</Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <View style={styles.sideRow}>
-            {(['BUY', 'SELL'] as const).map((d) => {
-              const on = side === d
-              const c = d === 'BUY' ? colors.positive : colors.negative
-              return (
-                <Pressable
-                  key={d}
-                  onPress={() => setSide(d)}
-                  style={[styles.side, { borderColor: on ? c : colors.border, backgroundColor: on ? `${c}22` : 'transparent' }]}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: on }}
-                >
-                  <Text style={[styles.sideText, { color: on ? c : colors.textSecondary }]}>{d}</Text>
-                </Pressable>
-              )
-            })}
-          </View>
-
-          <View style={styles.row}>
-            <Field half label="Account balance ($)" value={balance} onChangeText={setBalance} error={show('balance')} />
-            <Field half label="Risk per trade (%)" value={riskPct} onChangeText={setRiskPct} error={show('riskPct')} />
-          </View>
-          <View style={styles.row}>
-            <Field half label="Entry price" value={entry} onChangeText={setEntry} error={show('entry')} />
-            <Field half label="Stop loss" value={stop} onChangeText={setStop} error={show('stop')} />
-          </View>
-          <View style={styles.row}>
-            <Field half label="Take profit 1 (optional)" value={tp1} onChangeText={setTp1} error={show('tp1')} />
-            <Field half label="Take profit 2 (optional)" value={tp2} onChangeText={setTp2} error={show('tp2')} />
-          </View>
-
-          <Pressable onPress={() => void calculate()} disabled={busy} style={[styles.primary, busy && { opacity: 0.6 }]} accessibilityRole="button">
-            {busy ? <ActivityIndicator color={colors.accentInk} /> : <Text style={styles.primaryText}>Calculate risk</Text>}
-          </Pressable>
-
-          {error ? (
-            <View style={styles.box}>
-              <Text style={styles.errorTitle}>Risk preview unavailable</Text>
-              <Text style={styles.muted}>{error}</Text>
+          <Card title="The trade">
+            <Field label="Market" value={symbol} onChangeText={setSymbol} autoCapitalize="characters" error={show('symbol')} />
+            <ChipRow wrap>
+              {symbolChips.map((s) => (
+                <Chip key={s} label={s} on={symbol.toUpperCase() === s} onPress={() => setSymbol(s)} />
+              ))}
+            </ChipRow>
+            <Seg options={SIDES} value={side} onChange={setSide} />
+            <View style={ui.cols}>
+              <Field half label="Entry price" value={entry} onChangeText={setEntry} keyboardType="decimal-pad" error={show('entry')} />
+              <Field half label="Stop loss" value={stop} onChangeText={setStop} keyboardType="decimal-pad" error={show('stop')} />
             </View>
-          ) : null}
+            <View style={ui.cols}>
+              <Field half label="Target 1 (optional)" value={tp1} onChangeText={setTp1} keyboardType="decimal-pad" error={show('tp1')} />
+              <Field half label="Target 2 (optional)" value={tp2} onChangeText={setTp2} keyboardType="decimal-pad" error={show('tp2')} />
+            </View>
+          </Card>
+
+          <Card title="Your risk">
+            <View style={ui.cols}>
+              <Field half label="Account balance ($)" value={balance} onChangeText={setBalance} keyboardType="decimal-pad" error={show('balance')} />
+              <Field half label="Risk per trade (%)" value={riskPct} onChangeText={setRiskPct} keyboardType="decimal-pad" error={show('riskPct')} />
+            </View>
+          </Card>
+
+          <Button label="Work out the size" icon="calculator-outline" busy={busy} onPress={() => void calculate()} />
+
+          {error ? <Notice>Couldn't work it out: {error}</Notice> : null}
 
           {result ? (
-            <View style={[styles.box, stale && { opacity: 0.55 }]}>
-              {stale ? <Text style={styles.stale}>Inputs changed — calculate again for an updated size.</Text> : null}
+            <View style={[styles.result, stale && { opacity: 0.55 }]}>
+              {stale ? <Notice tone="warn">The numbers above changed. Work it out again for an updated size.</Notice> : null}
 
-              {result.errors.length > 0 ? (
-                <View style={styles.errBox}>
-                  <Text style={styles.errorTitle}>Invalid trade setup</Text>
-                  {result.errors.map((e, i) => (
-                    <Text key={i} style={styles.errorLine}>
-                      • {e}
-                    </Text>
-                  ))}
-                </View>
-              ) : null}
+              {result.errors.length > 0 ? <Notice>This trade setup isn't valid: {result.errors.join(' ')}</Notice> : null}
 
               {result.is_valid ? (
-                <>
-                  <Text style={styles.label}>Recommended position</Text>
-                  <Text style={styles.lots}>
-                    {lots(result.calculated_lot_size)} <Text style={styles.lotsUnit}>lots</Text>
-                  </Text>
-                  <Text style={styles.metricSub}>
-                    {result.symbol} · {result.side}
-                  </Text>
-                  <View style={styles.metrics}>
-                    <Metric label="Estimated risk" value={usd(result.actual_risk_usd)} />
-                    <Metric label="Risk %" value={`${result.actual_risk_pct.toFixed(2)}%`} />
-                    <Metric label="Stop distance" value={formatPrice(Math.abs(result.entry_price - result.stop_loss))} sub="price units" />
-                    <Metric label="Est. margin" value={usd(result.estimated_margin_usd)} />
-                    <Metric label="Target risk" value={usd(result.target_risk_usd)} sub="from risk %" />
-                    {result.take_profit_1 > 0 ? <Metric label="Reward TP1" value={usd(result.reward_tp1_usd)} sub={`${result.reward_tp1_pct.toFixed(2)}%`} /> : null}
-                    {result.take_profit_1 > 0 ? <Metric label="Risk : reward" value={result.risk_reward_ratio} /> : null}
-                    {result.take_profit_2 > 0 ? <Metric label="Reward TP2" value={usd(result.reward_tp2_usd)} sub={`${result.reward_tp2_pct.toFixed(2)}%`} /> : null}
+                <Card feature flush>
+                  <View style={styles.heroBlock}>
+                    <Text style={styles.heroLabel}>Trade this size</Text>
+                    <Text style={styles.lots}>
+                      {lots(result.calculated_lot_size)} <Text style={styles.lotsUnit}>lots</Text>
+                    </Text>
+                    <Text style={ui.muted}>
+                      {result.symbol} · {result.side === 'BUY' ? 'buy' : 'sell'}
+                    </Text>
                   </View>
-                </>
+                  <Figures style={styles.topRule}>
+                    <Stat small label="You risk" value={usd(result.actual_risk_usd)} sub={`${result.actual_risk_pct.toFixed(2)}% of the account`} />
+                    <Stat small label="You asked for" value={usd(result.target_risk_usd)} sub="from your risk %" />
+                    <Stat small label="Stop distance" value={formatPrice(Math.abs(result.entry_price - result.stop_loss))} sub="in price" />
+                    <Stat small label="Margin needed" value={usd(result.estimated_margin_usd)} sub="estimate" />
+                    {result.take_profit_1 > 0 ? <Stat small label="Target 1 pays" value={usd(result.reward_tp1_usd)} sub={`${result.reward_tp1_pct.toFixed(2)}%`} /> : null}
+                    {result.take_profit_1 > 0 ? <Stat small label="Risk : reward" value={result.risk_reward_ratio} /> : null}
+                    {result.take_profit_2 > 0 ? <Stat small label="Target 2 pays" value={usd(result.reward_tp2_usd)} sub={`${result.reward_tp2_pct.toFixed(2)}%`} /> : null}
+                  </Figures>
+                </Card>
               ) : result.errors.length > 0 ? (
-                <Text style={styles.muted}>No valid position size — fix the problems above.</Text>
+                <Text style={ui.muted}>No size to suggest until the problems above are fixed.</Text>
               ) : null}
 
-              {result.warnings.length > 0 ? (
-                <View style={styles.warnBox}>
-                  <Text style={styles.warnTitle}>Warnings</Text>
-                  {result.warnings.map((w, i) => (
-                    <Text key={i} style={styles.warnLine}>
-                      • {w}
-                    </Text>
-                  ))}
-                </View>
-              ) : null}
+              {result.warnings.length > 0 ? <Notice tone="warn">{result.warnings.join(' ')}</Notice> : null}
             </View>
           ) : null}
+
+          <Footnote>Planning only. Nothing is executed and no order is ever sent.</Footnote>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -286,47 +198,10 @@ export function RiskGatewayScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl * 2 },
-  lock: { borderColor: colors.negativeLine, borderWidth: 1, backgroundColor: colors.negativeSoft, borderRadius: radius.md, padding: spacing.md },
-  lockText: { color: colors.negative, fontSize: 12 },
-  field: { gap: 4 },
-  row: { flexDirection: 'row', gap: spacing.md },
-  label: { color: colors.textMuted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6 },
-  input: {
-    color: colors.textPrimary,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    fontSize: 15,
-  },
-  fieldError: { color: colors.negative, fontSize: 11 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  chip: { borderColor: colors.border, borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
-  chipOn: { borderColor: colors.accentLine, backgroundColor: colors.accentSoft },
-  chipText: { color: colors.textSecondary, fontSize: 12 },
-  chipTextOn: { color: colors.accent },
-  sideRow: { flexDirection: 'row', gap: spacing.sm },
-  side: { flex: 1, alignItems: 'center', paddingVertical: spacing.md, borderRadius: radius.md, borderWidth: 1 },
-  sideText: { fontWeight: '700', fontSize: 14 },
-  primary: { backgroundColor: colors.accent, borderRadius: radius.md, alignItems: 'center', paddingVertical: spacing.md + 2 },
-  primaryText: { color: colors.accentInk, fontWeight: '700', fontSize: 16 },
-  box: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.sm },
-  muted: { color: colors.textMuted, fontSize: 13 },
-  stale: { color: colors.warning, fontSize: 12 },
-  errBox: { backgroundColor: colors.negativeSoft, borderColor: colors.negativeLine, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, gap: 2 },
-  errorTitle: { color: colors.negative, fontWeight: '700', fontSize: 13 },
-  errorLine: { color: colors.negative, fontSize: 13 },
-  lots: { color: colors.textPrimary, fontSize: 34, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  lotsUnit: { color: colors.textMuted, fontSize: 16, fontWeight: '400' },
-  metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: spacing.sm },
-  metric: { width: '47%' },
-  metricValue: { color: colors.textPrimary, fontSize: 16, fontWeight: '600', fontVariant: ['tabular-nums'], marginTop: 2 },
-  metricSub: { color: colors.textMuted, fontSize: 11 },
-  warnBox: { backgroundColor: colors.warningSoft, borderColor: colors.warningLine, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, gap: 2 },
-  warnTitle: { color: colors.warning, fontWeight: '700', fontSize: 12 },
-  warnLine: { color: colors.warning, fontSize: 13 },
+  result: { gap: spacing.md },
+  heroBlock: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.md, gap: 2 },
+  heroLabel: { ...type.label },
+  lots: { ...type.hero },
+  lotsUnit: { ...type.sub, fontSize: 16, fontWeight: '400', letterSpacing: 0 },
+  topRule: { borderTopWidth: 1, borderTopColor: colors.borderSubtle },
 })

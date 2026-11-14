@@ -1,6 +1,7 @@
 import { Image } from 'expo-image'
 import { useEffect, useState } from 'react'
-import { Linking, Pressable, StyleSheet, Text } from 'react-native'
+import { Linking, Pressable, StyleSheet } from 'react-native'
+import { Text } from './Text'
 import { isLinkable, resolveChartImage } from '../lib/chartImage'
 import { colors, radius, spacing } from '../theme'
 
@@ -23,7 +24,7 @@ export function ChartLinkPreview({ url }: { url: string }) {
   if (!image || broken) {
     return (
       <Pressable onPress={() => void Linking.openURL(link)} accessibilityRole="link">
-        <Text style={styles.link}>Open link ↗</Text>
+        <Text style={styles.link}>Open link</Text>
       </Pressable>
     )
   }

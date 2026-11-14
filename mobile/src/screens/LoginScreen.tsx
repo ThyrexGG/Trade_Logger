@@ -1,17 +1,11 @@
+import { Image } from 'expo-image'
 import { useRef, useState } from 'react'
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-} from 'react-native'
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '../auth/AuthContext'
-import { colors, radius, spacing } from '../theme'
+import { Text, TextInput } from '../components/Text'
+import { Button, Notice, ui } from '../components/ui'
+import { colors, radius, spacing, type } from '../theme'
 
 export function LoginScreen() {
   const { signIn, notice } = useAuth()
@@ -36,65 +30,59 @@ export function LoginScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <SafeAreaView style={ui.screen}>
+      <KeyboardAvoidingView style={ui.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <Text style={styles.brand}>TradeLogger</Text>
-          <Text style={styles.subtitle}>Sign in to your account</Text>
+          <View style={styles.brandBlock}>
+            <Image source={require('../../assets/icon.png')} style={styles.logo} contentFit="cover" accessibilityIgnoresInvertColors />
+            <Text style={styles.brand}>TradeLogger</Text>
+            <Text style={styles.subtitle}>Your trading journal. Sign in to continue.</Text>
+          </View>
 
-          {notice && !error ? <Text style={styles.notice}>{notice}</Text> : null}
-          {error ? (
-            <Text style={styles.error} accessibilityRole="alert">
-              {error}
-            </Text>
-          ) : null}
+          {notice && !error ? <Notice tone="warn">{notice}</Notice> : null}
+          {error ? <Notice>{error}</Notice> : null}
 
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-            placeholder="you@example.com"
-            placeholderTextColor={colors.textMuted}
-            autoCapitalize="none"
-            autoComplete="email"
-            autoCorrect={false}
-            keyboardType="email-address"
-            textContentType="username"
-            returnKeyType="next"
-            editable={!busy}
-            onSubmitEditing={() => passwordRef.current?.focus()}
-          />
+          <View style={styles.field}>
+            <Text style={ui.fieldLabel}>Email</Text>
+            <TextInput
+              style={ui.input}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="you@example.com"
+              placeholderTextColor={colors.textMuted}
+              autoCapitalize="none"
+              autoComplete="email"
+              autoCorrect={false}
+              keyboardType="email-address"
+              textContentType="username"
+              returnKeyType="next"
+              editable={!busy}
+              onSubmitEditing={() => passwordRef.current?.focus()}
+            />
+          </View>
 
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            ref={passwordRef}
-            style={styles.input}
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Your password"
-            placeholderTextColor={colors.textMuted}
-            secureTextEntry
-            autoCapitalize="none"
-            autoComplete="current-password"
-            textContentType="password"
-            returnKeyType="go"
-            editable={!busy}
-            onSubmitEditing={submit}
-          />
+          <View style={styles.field}>
+            <Text style={ui.fieldLabel}>Password</Text>
+            <TextInput
+              ref={passwordRef}
+              style={ui.input}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Your password"
+              placeholderTextColor={colors.textMuted}
+              secureTextEntry
+              autoCapitalize="none"
+              autoComplete="current-password"
+              textContentType="password"
+              returnKeyType="go"
+              editable={!busy}
+              onSubmitEditing={submit}
+            />
+          </View>
 
-          <Pressable
-            onPress={submit}
-            disabled={!canSubmit}
-            accessibilityRole="button"
-            style={({ pressed }) => [styles.button, !canSubmit && styles.buttonDisabled, pressed && styles.buttonPressed]}
-          >
-            {busy ? <ActivityIndicator color={colors.background} /> : <Text style={styles.buttonText}>Sign in</Text>}
-          </Pressable>
+          <Button label="Sign in" onPress={() => void submit()} busy={busy} disabled={!canSubmit} style={styles.submit} />
 
-          <Text style={styles.footnote}>
-            No account yet? Accounts are created at tradelogger.site — the app only signs in.
-          </Text>
+          <Text style={styles.footnote}>No account yet? Create one at tradelogger.site. The app only signs in.</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -102,51 +90,12 @@ export function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
-  flex: { flex: 1 },
-  content: { flexGrow: 1, justifyContent: 'center', padding: spacing.xl, gap: spacing.sm },
-  brand: { color: colors.accent, fontSize: 34, fontWeight: '700', textAlign: 'center' },
-  subtitle: { color: colors.textSecondary, fontSize: 15, textAlign: 'center', marginBottom: spacing.xl },
-  notice: {
-    color: colors.warning,
-    backgroundColor: colors.warningSoft,
-    borderColor: colors.warningLine,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    fontSize: 13,
-    marginBottom: spacing.sm,
-  },
-  error: {
-    color: colors.negative,
-    backgroundColor: colors.negativeSoft,
-    borderColor: colors.negativeLine,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    fontSize: 13,
-    marginBottom: spacing.sm,
-  },
-  label: { color: colors.textMuted, fontSize: 12, marginTop: spacing.sm },
-  input: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    color: colors.textPrimary,
-    fontSize: 16,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  button: {
-    backgroundColor: colors.accent,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md + 2,
-    alignItems: 'center',
-    marginTop: spacing.xl,
-  },
-  buttonDisabled: { opacity: 0.4 },
-  buttonPressed: { opacity: 0.8 },
-  buttonText: { color: colors.background, fontSize: 16, fontWeight: '700' },
-  footnote: { color: colors.textMuted, fontSize: 12, textAlign: 'center', marginTop: spacing.xl },
+  content: { flexGrow: 1, justifyContent: 'center', padding: spacing.xl, gap: spacing.md },
+  brandBlock: { alignItems: 'center', gap: spacing.sm, marginBottom: spacing.lg },
+  logo: { width: 60, height: 60, borderRadius: radius.lg + 4, marginBottom: spacing.xs },
+  brand: { ...type.title, fontSize: 26, lineHeight: 32 },
+  subtitle: { ...type.sub, textAlign: 'center' },
+  field: { gap: 6 },
+  submit: { marginTop: spacing.sm },
+  footnote: { ...type.small, textAlign: 'center', marginTop: spacing.md },
 })

@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native'
+import { StyleSheet, View, type LayoutChangeEvent } from 'react-native'
+import { Text } from '../Text'
 import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop } from 'react-native-svg'
 import { formatMoney } from '../../format'
-import { colors, spacing } from '../../theme'
+import { colors, spacing, type } from '../../theme'
 import type { EquityAnchor } from '../../types/analytics'
 
 const HEIGHT = 150
@@ -38,7 +39,7 @@ export function EquityChart({ points, startingBalance }: { points: EquityAnchor[
         <Svg width={width} height={HEIGHT}>
           <Defs>
             <LinearGradient id="eqFill" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={stroke} stopOpacity={0.28} />
+              <Stop offset="0" stopColor={stroke} stopOpacity={0.18} />
               <Stop offset="1" stopColor={stroke} stopOpacity={0} />
             </LinearGradient>
           </Defs>
@@ -72,7 +73,7 @@ export function EquityChart({ points, startingBalance }: { points: EquityAnchor[
       )}
       <View style={styles.axis}>
         <Text style={styles.axisText}>Low {formatMoney(lo, false)}</Text>
-        <Text style={styles.axisText}>Dashed = starting balance</Text>
+        <Text style={styles.axisNote}>dashed line = starting balance</Text>
         <Text style={styles.axisText}>High {formatMoney(hi, false)}</Text>
       </View>
     </View>
@@ -80,7 +81,8 @@ export function EquityChart({ points, startingBalance }: { points: EquityAnchor[
 }
 
 const styles = StyleSheet.create({
-  empty: { color: colors.textMuted, fontSize: 13, paddingVertical: spacing.lg },
-  axis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.xs },
-  axisText: { color: colors.textMuted, fontSize: 11 },
+  empty: { ...type.small, fontSize: 13, paddingVertical: spacing.lg },
+  axis: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.xs, gap: spacing.sm },
+  axisText: { ...type.small, fontSize: 11, fontVariant: ['tabular-nums'] },
+  axisNote: { ...type.small, fontSize: 11, flexShrink: 1, textAlign: 'center' },
 })

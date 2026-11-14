@@ -1,27 +1,9 @@
-import { Pressable, StyleSheet, Text } from 'react-native'
 import { useHealth } from '../HealthContext'
-import { colors, radius, spacing } from '../theme'
+import { Notice } from './ui'
 
 /** Shown only when the server can't be reached — tells the user the screen is showing saved data. */
 export function ConnectionBanner() {
   const { state, recheck } = useHealth()
   if (state !== 'unreachable') return null
-  return (
-    <Pressable onPress={recheck} accessibilityRole="button" accessibilityLabel="Retry connection" style={styles.banner}>
-      <Text style={styles.text}>Can't reach the server — showing the last data we loaded. Tap to retry.</Text>
-    </Pressable>
-  )
+  return <Notice onPress={recheck}>Can't reach the server. Showing the last data we loaded. Tap to retry.</Notice>
 }
-
-const styles = StyleSheet.create({
-  banner: {
-    backgroundColor: colors.negativeSoft,
-    borderColor: colors.negativeLine,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
-    padding: spacing.md,
-  },
-  text: { color: colors.negative, fontSize: 12 },
-})

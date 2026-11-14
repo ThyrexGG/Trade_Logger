@@ -1,11 +1,14 @@
+import { Ionicons } from '@expo/vector-icons'
 import { Image } from 'expo-image'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import { Text } from './Text'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { authHeaders } from '../api/client'
 import { deleteScreenshot, getScreenshots, screenshotUrl, uploadScreenshot } from '../api/screenshots'
 import { PickError, pickScreenshot, type PickSource } from '../journal/pickImage'
-import { colors, radius, spacing } from '../theme'
+import { colors, radius, spacing, type } from '../theme'
+import { Button } from './ui'
 import { ZoomableImage } from './ZoomableImage'
 import type { JournalScreenshotMeta } from '../types/screenshots'
 
@@ -95,14 +98,7 @@ export function ScreenshotGallery({ ownerId, onCountChange }: Props) {
     <View style={styles.wrap}>
       <View style={styles.header}>
         <Text style={styles.title}>Screenshots{shots && shots.length ? ` (${shots.length})` : ''}</Text>
-        <Pressable
-          onPress={chooseSource}
-          disabled={busy}
-          accessibilityRole="button"
-          style={({ pressed }) => [styles.addBtn, (busy || pressed) && { opacity: 0.6 }]}
-        >
-          {busy ? <ActivityIndicator size="small" color={colors.accent} /> : <Text style={styles.addText}>＋ Add</Text>}
-        </Pressable>
+        <Button label="Add" icon="add" size="sm" kind="secondary" busy={busy} onPress={chooseSource} />
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -111,7 +107,8 @@ export function ScreenshotGallery({ ownerId, onCountChange }: Props) {
         <ActivityIndicator color={colors.accent} style={styles.loading} />
       ) : shots.length === 0 ? (
         <Pressable onPress={chooseSource} disabled={busy} accessibilityRole="button" style={styles.empty}>
-          <Text style={styles.emptyText}>No screenshots yet — tap to add a chart photo</Text>
+          <Ionicons name="image-outline" size={20} color={colors.textMuted} />
+          <Text style={styles.emptyText}>No screenshots yet. Tap to add a chart photo.</Text>
         </Pressable>
       ) : (
         shots.map((s) => (
@@ -158,24 +155,7 @@ export function ScreenshotGallery({ ownerId, onCountChange }: Props) {
 const styles = StyleSheet.create({
   wrap: { gap: spacing.sm },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: {
-    color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-  },
-  addBtn: {
-    minWidth: 64,
-    alignItems: 'center',
-    borderColor: colors.accentLine,
-    backgroundColor: colors.accentSoft,
-    borderWidth: 1,
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-  },
-  addText: { color: colors.accent, fontSize: 13, fontWeight: '600' },
+  title: { ...type.heading, fontSize: 14 },
   error: { color: colors.negative, fontSize: 12 },
   loading: { paddingVertical: spacing.lg },
   empty: {
@@ -185,11 +165,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingVertical: spacing.xl,
     alignItems: 'center',
+    gap: spacing.sm,
   },
-  emptyText: { color: colors.textMuted, fontSize: 13 },
+  emptyText: { ...type.small, fontSize: 13 },
   // 16:10, contain: the whole chart is visible, never cropped.
-  shot: { width: '100%', aspectRatio: 16 / 10, borderRadius: radius.md, backgroundColor: colors.background },
-  viewer: { flex: 1, backgroundColor: '#000' },
+  shot: { width: '100%', aspectRatio: 16 / 10, borderRadius: radius.md, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.borderSubtle },
+  viewer: { flex: 1, backgroundColor: colors.background },
   viewerBar: { flexDirection: 'row', justifyContent: 'space-between', padding: spacing.lg },
   viewerBtn: { color: colors.accent, fontSize: 16, fontWeight: '600' },
   zoom: { flex: 1 },

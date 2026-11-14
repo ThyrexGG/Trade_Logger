@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { StyleSheet, Text } from 'react-native'
+import { StyleSheet } from 'react-native'
+import { Text } from './Text'
 import { getJournalTagStats, type JournalTagStat } from '../api/journal'
 import { colors } from '../theme'
 
@@ -59,6 +60,6 @@ export function TagRecord({ tag }: { tag: string }) {
 }
 
 const styles = StyleSheet.create({
-  text: { color: colors.textMuted, fontSize: 12 },
-  strong: { color: colors.textSecondary },
+  text: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },
+  strong: { color: colors.textSecondary, fontVariant: ['tabular-nums'] },
 })

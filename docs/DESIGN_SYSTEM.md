@@ -1,8 +1,9 @@
 # TradeLogger design system: "Precision"
 
-Last updated 2026-10-08. Covers the web app (`frontend/`). The desktop app is a
+Last updated 2026-11-14. Covers the web app (`frontend/`). The desktop app is a
 window around the same site, so it inherits all of this. The Android app
-(`mobile/`) has the new icons but its screens still use the old gold theme.
+(`mobile/`) follows the same system; its tokens, kit and rules are in the
+"Phone app" section at the end.
 Logo, voice and brand assets are in [BRAND.md](BRAND.md).
 
 ---
@@ -293,8 +294,8 @@ Don't run the full `pytest` suite at the same time: its fixtures delete
 
 ## 12. Not yet converted
 
-- **Android app** screens (`mobile/`): new icons and splash only; screens are
-  still gold.
+- **Android app** (`mobile/`): converted 2026-11-14. Still to do there: a light
+  theme (the phone is dark-only).
 - **Find setups**, **Economic News** and Analytics' detail charts use the new
   styling but still carry expert-level content; they're next for plain-English
   simplification.
@@ -314,7 +315,64 @@ Don't run the full `pytest` suite at the same time: its fixtures delete
 | 2026-10-18 | `d121904` | Analytics calendar: a Week total card at the end of each row |
 | 2026-10-18 | `73f37d2` | Analytics insights (rules vs. results, streaks & best days, when you trade best) + privacy mode |
 | 2026-10-18 | (this change) | Analytics lower half re-laid out: full-width rows, winners/losers split, trading profile card, no half-empty cards |
+| 2026-11-14 | (this change) | Phone app rebuilt on the system: Geist type, one shared kit, Today tab, grouped More menu, consistency meter on the challenge tracker; see "Phone app" |
 
 ## Phone app
 
-`mobile/src/theme.ts` mirrors the dark tokens above (navy ground, ice-cyan accent `#5ad1f5`, green `#3ddc97` / red `#f87171` / amber `#f5b23d`, radii 5/8/10), so the phone matches the desktop app. Selected chips and outlined buttons use `colors.accentSoft` / `colors.accentLine`; text on the accent fill uses `colors.accentInk`. The phone is dark-only and still uses the system font (Geist is not bundled). Change the tokens in `theme.ts`, never hard-code gold or old reds in a screen.
+Rebuilt 2026-11-14: every screen in `mobile/` is on this system. The phone is dark-only.
+
+**Where it lives**
+
+| File | What it is |
+|---|---|
+| `mobile/src/theme.ts` | the tokens: `colors` (mirror of the dark tokens above), `spacing`, `radius` (5/8/10), `fonts`, the `type` scale, `pnlColor()` |
+| `mobile/src/components/Text.tsx` | `Text` and `TextInput` in **Geist**. Always import them from here, never from `react-native` |
+| `mobile/src/components/ui.tsx` | the kit (the phone's `kit.css`). Every screen is built from it |
+| `mobile/src/components/TradeRows.tsx` | the open-trade and closed-trade rows every list shares |
+
+**Type.** Geist and Geist Mono are bundled (`@expo-google-fonts/geist*`, loaded in `App.tsx`; the splash stays
+up until they are in). A bundled font has no weights on Android, so each weight is its own file. Screens still
+write `fontWeight`; `Text` picks the file (400, 500, 600; anything heavier becomes 600) and switches to
+**Geist Mono when the style has `fontVariant: ['tabular-nums']`**, which is how a price, P&L, time or count is
+marked. The one big number on a screen (`type.hero`) is sans, because mono's wide decimal point looks broken
+at that size.
+
+**The kit**
+
+| Piece | Use |
+|---|---|
+| `ScreenHeader` | a tab screen's title: mono eyebrow, title, one line, actions on the right |
+| `Card` (`title`, `right`, `action`, `feature`, `flush`) | the standard panel. `feature` = the one card that matters most (cyan edge). `flush` = no body padding, for rows and figures |
+| `Figures` + `Stat` | statistics as **one divided panel**, 2 to 4 across. Replaces grids of small boxes |
+| `Rows`, `Row`, `Fact`, `Divider` | lists and "label ... value" tables as rows split by hairlines **inside one card** |
+| `Button` (`primary` / `secondary` / `ghost` / `danger`, `size="sm"`, `icon`) | one primary per screen; secondary is neutral |
+| `Seg`, `Chip`, `ChipRow`, `ToggleRow`, `Field` (`error`, `hint`) | controls |
+| `MoreDetails` | expert detail behind a toggle |
+| `Notice` (error / warn / info / ok), `Empty`, `Loading`, `Footnote` | states |
+| `DirTag`, `LiveDot`, `Pill`, `Tag`, `Bar`, `SectionLabel`, `Label` | small marks |
+| `ui.*` | shared layout and input styles (`ui.screen`, `ui.content`, `ui.input`, `ui.cols`, `ui.muted`...) |
+
+**Rules on the phone** (same reasons as the web, section 1)
+
+- Cyan only means "you can act here / this is now": the primary button, a selected chip, the live dot, the
+  active tab. Sync, Edit and the like are neutral secondary buttons.
+- Green and red only on money. Trade direction shows an arrow plus the word. Market direction (trend up /
+  down) is neutral, with an icon.
+- Icons are Ionicons, never an emoji or a text arrow or star (they render differently on every phone).
+- No separate boxed card per list item, no grid of stat boxes, no hard-coded colour in a screen.
+- Results first, settings last (Analytics' starting balance and the weekly-summary switch sit under the numbers).
+- `tests/test_mobile_design_guard.py` fails on a `Text` import from `react-native`, a colour literal outside
+  `theme.ts`, a weight above 600, or a glyph used as an icon.
+
+**Navigation.** Five tabs in the order of a trader's day: **Today** (opens here: today's P&L, open trades,
+closed today, the market), **Positions**, **Journal**, **Analytics**, **More**. More is grouped like the web
+sidebar (Plan / Review / Settings) and uses the web's page names: Find setups, Position size, Ask AI, Rules &
+setups, Notes, Settings. Pushed screens share the page ground (no header bar colour, no shadow line).
+
+**Checking phone UI.** The app also runs in a browser at phone size, which is how the redesign was checked
+(`react-dom`, `react-native-web` and `@expo/metro-runtime` are installed for this only; they are not in the
+Android build). From `mobile/`: `EXPO_PUBLIC_API_URL=http://127.0.0.1:<port> npx expo start --web --port 8090`
+against an **isolated** backend (a copy of a local SQLite file, multiuser auth, no broker or AI keys; never
+the production `DATABASE_URL`), then Playwright at 393x852, `isMobile`. Push notifications, the app lock and
+the native date picker do not exist in a browser, so those still need a real phone. `npx expo export
+--platform android` proves the Android bundle builds.

@@ -1,6 +1,6 @@
 # Handoff — start here
 
-*Last updated 2026-10-10. Read this first in a new session; it is the shortest path to being useful. The older `PROJECT_STATE.md` (to Phase 100 + web/mobile) and `CURRENT_STATE.md` (to Phase 74) are history, not the current picture.*
+*Last updated 2026-11-14. Read this first in a new session; it is the shortest path to being useful. The older `PROJECT_STATE.md` (to Phase 100 + web/mobile) and `CURRENT_STATE.md` (to Phase 74) are history, not the current picture.*
 
 ## What this project is
 
@@ -10,7 +10,7 @@ Trade Logger: a personal trading journal, analytics and research platform for MT
 | :-- | :-- | :-- |
 | Backend | `api/` (FastAPI, `api.main:app`) | Postgres (Neon) via `DATABASE_URL`, SQLite fallback |
 | Web app | `frontend/` (React 19, Vite, Tailwind v4) | Design system "Precision" (navy + ice cyan), see `docs/DESIGN_SYSTEM.md` |
-| Phone app | `mobile/` (Expo SDK 57, Android) | Same Precision tokens in `mobile/src/theme.ts`; build steps in `docs/MOBILE_ANDROID_BUILD.md` |
+| Phone app | `mobile/` (Expo SDK 57, Android) | Rebuilt on Precision 2026-11-14: tokens in `mobile/src/theme.ts`, Geist text in `components/Text.tsx`, one kit in `components/ui.tsx` (see `docs/DESIGN_SYSTEM.md`, "Phone app"); build steps in `docs/MOBILE_ANDROID_BUILD.md` |
 | Desktop | `desktop/` (Electron shell around the web app) | Switches to `run_local_fallback.py` (port 8010) when the cloud API fails two health checks; log at `%APPDATA%\TradeLogger\fallback.log`, see `desktop/README.md` |
 | MT5 push agent | `agent/` | Sends trades from the user's PC to the cloud every 15 min via a hidden scheduled task. Run log: `agent/mt5_sync.log` (start/end line per run, skips and errors). Skips silently when MT5 is closed; task must be allowed on battery (laptop) |
 | TradingView scripts | `tradingview/` | Pine scripts, see `tradingview/README.md` |
@@ -53,7 +53,7 @@ Trade Logger: a personal trading journal, analytics and research platform for MT
 
 - It is on both Journal views: Cards, and a "Your rules?" column in the Table (`journal/RulesTap.tsx`, plus a "Not marked" filter). Any new trade list must carry it too.
 - Each trade card has one question: **By my rules / Bent my rules / Rushed**, stored in `setup_tag`. Everything else (stop placement, how it ended, stars, links, own tag) is behind "More details". Never add another required field. See `docs/JOURNAL_ONE_TAP.md`.
-- Same row on the phone (`mobile/src/components/AnnotationEditor.tsx`). Constants: `QUICK_TAGS` in `frontend/src/components/journal/reviewOptions.ts`.
+- Same row on the phone (`mobile/src/components/AnnotationEditor.tsx`); it is the first card on a trade's screen. Constants: `QUICK_TAGS` in `frontend/src/components/journal/reviewOptions.ts`.
 - Not yet checked on the phone: opening a trade card to see the one-tap row.
 - Journal state at last check (live phone data, 2026-10-10): 210 trades, net −$143.60. USDJPY was the main leak; NY-open Nasdaq trades were the profitable ones. Zero tags until the one-tap change, so the next useful step is for the user to tag about 50 trades, then compare their picks with mechanical rules.
 
@@ -63,7 +63,10 @@ Trade Logger: a personal trading journal, analytics and research platform for MT
 - Install: `adb install -r <apk>`. adb lives in `%LOCALAPPDATA%\Android\Sdk\platform-tools` (not on PATH). Phone is a Xiaomi 24090RA29G.
 - **Before tapping anything, check `dumpsys window | grep mCurrentFocus` is `site.tradelogger.mobile`.** The user uses the phone while it is plugged in; find labels with uiautomator dump, never blind-tap coordinates.
 - Latest: build 5 (EAS 34393082) with the Precision theme, then a Journal/Positions overlap fix (commit 56bb5f9, rebuilt and installed). Free EAS builds are limited each month (about 11 left in October).
-- Not done: Geist font on the phone (needs per-weight families on every style), light theme.
+- **Redesign (2026-11-14), not yet on the phone:** every screen was rebuilt on one kit with Geist type, a Today tab that opens first, a grouped More menu and the challenge tracker's consistency meter and "Count my trades from" date. It was checked in a browser at phone size and the Android bundle builds, but **no APK has been built or installed since**, so it has not been seen on the real phone. Next step: one EAS build, install, and look at it (fonts, the tab bar's bottom inset, the date picker, the app lock).
+- A new phone screen is built from `components/ui.tsx`; never give a screen its own card, button or chip styles. `tests/test_mobile_design_guard.py` enforces the basics.
+- Checking phone UI without a build: run it in a browser (`npx expo start --web`) against an isolated backend; recipe in `docs/DESIGN_SYSTEM.md`, "Phone app".
+- Not done: light theme.
 
 ## Pending items for the user (not code)
 

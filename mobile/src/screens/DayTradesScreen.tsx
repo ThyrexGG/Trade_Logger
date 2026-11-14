@@ -1,13 +1,16 @@
+import { Ionicons } from '@expo/vector-icons'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useEffect, useState } from 'react'
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { getDayTrades } from '../api/analytics'
 import { describeAccount } from '../accountLabel'
-import { formatMoney, formatUpdated, isBuy } from '../format'
+import { Text } from '../components/Text'
+import { Card, DirTag, Loading, Notice, Rows, Tag, ui } from '../components/ui'
+import { formatMoney, formatUpdated } from '../format'
 import type { RootStackParamList } from '../navigation/RootStack'
-import { colors, radius, spacing } from '../theme'
+import { colors, pnlColor, spacing, type } from '../theme'
 import type { AnalyticsDayTradesResponse } from '../types/analytics'
 
 /** The trades that closed on one calendar day (opened from the Analytics calendar). */
@@ -35,48 +38,51 @@ export function DayTradesScreen() {
   })
 
   return (
-    <SafeAreaView style={styles.screen} edges={['bottom']}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.date}>{pretty}</Text>
-        {!data && !error ? <ActivityIndicator color={colors.accent} size="large" style={{ marginTop: spacing.xl }} /> : null}
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        {data ? (
-          <>
-            <Text style={[styles.total, { color: data.net_profit > 0 ? colors.positive : data.net_profit < 0 ? colors.negative : colors.textSecondary }]}>
-              {formatMoney(data.net_profit)}
-            </Text>
-            <Text style={styles.sub}>
-              {data.count} trade{data.count === 1 ? '' : 's'} · {data.wins} win{data.wins === 1 ? '' : 's'}
-            </Text>
-            {data.trades.map((t) => {
-              const dirColor = isBuy(t.direction) ? colors.positive : colors.negative
-              const net = t.net_profit
-              return (
+    <SafeAreaView style={ui.screen} edges={['bottom']}>
+      <ScrollView contentContainerStyle={ui.content}>
+        <View style={styles.hero}>
+          <Text style={styles.date}>{pretty}</Text>
+          {data ? (
+            <>
+              <Text style={[styles.total, { color: pnlColor(data.net_profit) }]} numberOfLines={1} adjustsFontSizeToFit>
+                {formatMoney(data.net_profit)}
+              </Text>
+              <Text style={ui.muted}>
+                {data.count} trade{data.count === 1 ? '' : 's'} · {data.wins} win{data.wins === 1 ? '' : 's'}
+                {params.account ? ` · ${describeAccount(params.account).label}` : ''}
+              </Text>
+            </>
+          ) : null}
+        </View>
+        {!data && !error ? <Loading /> : null}
+        {error ? <Notice>{error}</Notice> : null}
+        {data && data.trades.length > 0 ? (
+          <Card flush>
+            <Rows>
+              {data.trades.map((t) => (
                 <Pressable
                   key={t.trade_id}
                   onPress={() => navigation.navigate('TradeDetail', { tradeId: t.trade_id })}
-                  style={({ pressed }) => [styles.row, pressed && { opacity: 0.75 }]}
+                  style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.surfaceHover }]}
                   accessibilityRole="button"
                 >
-                  <View style={styles.rowTop}>
-                    <View style={styles.symbolRow}>
-                      <Text style={styles.symbol}>{t.symbol}</Text>
-                      <View style={[styles.dirPill, { borderColor: dirColor }]}>
-                        <Text style={[styles.dirText, { color: dirColor }]}>{t.direction.toUpperCase()}</Text>
-                      </View>
+                  <View style={styles.main}>
+                    <View style={ui.rowWrap}>
+                      <Text style={ui.heading}>{t.symbol}</Text>
+                      <DirTag direction={t.direction} />
                     </View>
-                    <Text style={[styles.net, { color: net > 0 ? colors.positive : net < 0 ? colors.negative : colors.textSecondary }]}>
-                      {formatMoney(net)}
-                    </Text>
+                    <View style={ui.rowWrap}>
+                      <Text style={styles.time}>{formatUpdated(t.exit_time)}</Text>
+                      {!params.account ? <Text style={ui.muted}>{describeAccount(t.account_id).label}</Text> : null}
+                      {t.setup_tag ? <Tag text={t.setup_tag} /> : null}
+                    </View>
                   </View>
-                  <Text style={styles.meta}>
-                    {describeAccount(t.account_id).label} · closed {formatUpdated(t.exit_time)}
-                    {t.setup_tag ? ` · ${t.setup_tag}` : ''}
-                  </Text>
+                  <Text style={[styles.net, { color: pnlColor(t.net_profit) }]}>{formatMoney(t.net_profit)}</Text>
+                  <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
                 </Pressable>
-              )
-            })}
-          </>
+              ))}
+            </Rows>
+          </Card>
         ) : null}
       </ScrollView>
     </SafeAreaView>
@@ -84,25 +90,11 @@ export function DayTradesScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.lg, gap: spacing.sm },
-  date: { color: colors.textSecondary, fontSize: 14 },
-  total: { fontSize: 30, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  sub: { color: colors.textMuted, fontSize: 13, marginBottom: spacing.sm },
-  error: { color: colors.negative },
-  row: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    gap: 4,
-  },
-  rowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  symbolRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  symbol: { color: colors.textPrimary, fontSize: 17, fontWeight: '700' },
-  dirPill: { borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 1 },
-  dirText: { fontSize: 11, fontWeight: '700' },
-  net: { fontSize: 17, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  meta: { color: colors.textMuted, fontSize: 12 },
+  hero: { gap: 2, paddingBottom: spacing.xs },
+  date: { ...type.label },
+  total: { ...type.hero },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+  main: { flex: 1, minWidth: 0, gap: 5 },
+  time: { ...type.small, fontVariant: ['tabular-nums'] },
+  net: { ...type.num, fontSize: 15, fontWeight: '600', flexShrink: 0 },
 })

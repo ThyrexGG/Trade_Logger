@@ -1,15 +1,17 @@
+import { Ionicons } from '@expo/vector-icons'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Image } from 'expo-image'
 import { useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { analyzeChartImage, analyzeChartLink } from '../api/chartAnalysis'
-import { Button, Card, Pill } from '../components/ui'
+import { Text, TextInput } from '../components/Text'
+import { Button, Card, Fact, Footnote, Notice, Pill, Rows, ui } from '../components/ui'
 import { formatPrice } from '../format'
 import { PickError, pickScreenshot, type PickSource } from '../journal/pickImage'
 import type { RootStackParamList } from '../navigation/RootStack'
-import { colors, radius, spacing } from '../theme'
+import { colors, radius, spacing, type } from '../theme'
 import type { ChartAnalysisResponse } from '../types/chartAnalysis'
 
 const TV_LINK = /^https:\/\/(www\.)?tradingview\.com\/x\/[A-Za-z0-9]+\/?(\?.*)?$/i
@@ -17,15 +19,6 @@ const TV_LINK = /^https:\/\/(www\.)?tradingview\.com\/x\/[A-Za-z0-9]+\/?(\?.*)?$
 function ratingColor(n: number | null): string {
   if (n == null) return colors.textMuted
   return n >= 7 ? colors.positive : n >= 4 ? colors.warning : colors.negative
-}
-
-function Row({ label, value, color }: { label: string; value: string; color?: string }) {
-  return (
-    <View style={styles.fact}>
-      <Text style={styles.factLabel}>{label}</Text>
-      <Text style={[styles.factValue, color ? { color } : null]}>{value}</Text>
-    </View>
-  )
 }
 
 /** The note "Save as note" pre-fills: what the analysis read, laid out as text. */
@@ -118,15 +111,15 @@ export function ChartAnalyzerScreen() {
   const dirColor = r?.direction === 'long' ? colors.positive : r?.direction === 'short' ? colors.negative : colors.textSecondary
 
   return (
-    <SafeAreaView style={styles.screen} edges={['bottom']}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <Text style={styles.intro}>
-            Give it a chart screenshot with your entry, stop and target drawn on it. An AI reads what is visible and returns the levels, the reward-to-risk and an opinion on the setup. It only sees that one image, so it can be wrong — it is a second look, not a signal.
+    <SafeAreaView style={ui.screen} edges={['bottom']}>
+      <KeyboardAvoidingView style={ui.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={ui.content} keyboardShouldPersistTaps="handled">
+          <Text style={ui.muted}>
+            Give it a chart screenshot with your entry, stop and target drawn on it. An AI reads what is visible and returns the levels, the reward compared with the risk, and an opinion. It only sees that one image, so it can be wrong. Treat it as a second look, not a signal.
           </Text>
 
           <Card title="Analyze a chart">
-            <Button label="Choose or take a screenshot" busy={busy} onPress={chooseSource} />
+            <Button label="Choose or take a screenshot" icon="image-outline" busy={busy} onPress={chooseSource} />
             <Text style={styles.or}>or paste a TradingView share link</Text>
             <TextInput
               value={link}
@@ -136,7 +129,7 @@ export function ChartAnalyzerScreen() {
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="url"
-              style={styles.input}
+              style={ui.input}
               onSubmitEditing={analyzeLink}
             />
             <Button label="Analyze link" kind="secondary" disabled={busy || !link.trim()} onPress={analyzeLink} />
@@ -145,65 +138,65 @@ export function ChartAnalyzerScreen() {
           {busy ? (
             <Card>
               <ActivityIndicator color={colors.accent} />
-              <Text style={styles.centerMuted}>Reading the chart… this usually takes 10–30 seconds.</Text>
+              <Text style={styles.or}>Reading the chart. This usually takes 10 to 30 seconds.</Text>
             </Card>
           ) : null}
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? <Notice>{error}</Notice> : null}
 
           {r ? (
             <>
               {preview ? <Image source={{ uri: preview }} style={styles.preview} contentFit="contain" accessibilityLabel="The analysed chart" /> : null}
 
-              <Card title="What it read">
+              <Card title="What it read" flush>
                 <View style={styles.pills}>
-                  {r.symbol ? <Pill text={r.symbol} color={colors.accent} /> : null}
+                  {r.symbol ? <Pill text={r.symbol} color={colors.textPrimary} /> : null}
                   {r.timeframe ? <Pill text={r.timeframe} color={colors.textSecondary} /> : null}
                   {r.direction ? <Pill text={r.direction.toUpperCase()} color={dirColor} /> : null}
                   {r.extraction_confidence ? <Pill text={`${r.extraction_confidence} confidence`} color={colors.textSecondary} /> : null}
                 </View>
-                <Row label="Entry" value={r.entry != null ? formatPrice(r.entry) : 'not visible'} />
-                <Row label="Stop" value={r.stop_loss != null ? formatPrice(r.stop_loss) : 'not visible'} color={r.stop_loss != null ? colors.negative : undefined} />
-                <Row label="Target" value={r.take_profit != null ? formatPrice(r.take_profit) : 'not visible'} color={r.take_profit != null ? colors.positive : undefined} />
-                {r.additional_targets.length > 0 ? <Row label="More targets" value={r.additional_targets.map(formatPrice).join(' · ')} /> : null}
-                <Row label="Reward : risk" value={r.risk_reward != null ? `${r.risk_reward}` : '—'} />
+                <Rows inset={0}>
+                  <Fact label="Entry" value={r.entry != null ? formatPrice(r.entry) : 'not visible'} />
+                  <Fact label="Stop" value={r.stop_loss != null ? formatPrice(r.stop_loss) : 'not visible'} />
+                  <Fact label="Target" value={r.take_profit != null ? formatPrice(r.take_profit) : 'not visible'} />
+                  {r.additional_targets.length > 0 ? <Fact label="More targets" value={r.additional_targets.map(formatPrice).join(' · ')} /> : null}
+                  <Fact label="Reward for each 1 risked" value={r.risk_reward != null ? `${r.risk_reward}` : '—'} />
+                </Rows>
               </Card>
 
               <Card title="Setup rating">
                 <Text style={[styles.rating, { color: ratingColor(r.setup_rating) }]}>{r.setup_rating != null ? `${r.setup_rating} / 10` : 'no rating'}</Text>
-                {r.rating_reasoning ? <Text style={styles.body}>{r.rating_reasoning}</Text> : null}
-                {r.pattern ? <Text style={styles.body}>Pattern: {r.pattern}</Text> : null}
+                {r.rating_reasoning ? <Text style={ui.body}>{r.rating_reasoning}</Text> : null}
+                {r.pattern ? <Text style={ui.sub}>Pattern: {r.pattern}</Text> : null}
                 {r.confluences.map((c) => (
-                  <Text key={c} style={styles.bullet}>
-                    ✓ {c}
-                  </Text>
+                  <View key={c} style={styles.bullet}>
+                    <Ionicons name="checkmark" size={14} color={colors.textSecondary} style={styles.bulletIcon} />
+                    <Text style={[ui.sub, ui.flex]}>{c}</Text>
+                  </View>
                 ))}
-                {r.caveats ? <Text style={styles.caveat}>Unclear: {r.caveats}</Text> : null}
+                {r.caveats ? <Notice tone="warn">Unclear: {r.caveats}</Notice> : null}
               </Card>
 
               <View style={styles.actions}>
-                <View style={{ flex: 1 }}>
-                  <Button
-                    label="Size this trade"
-                    disabled={r.entry == null || r.stop_loss == null}
-                    onPress={() =>
-                      navigation.navigate('RiskGateway', {
-                        prefill: {
-                          symbol: r.symbol ?? undefined,
-                          side: r.direction === 'short' ? 'SELL' : 'BUY',
-                          entry: r.entry ?? undefined,
-                          stop: r.stop_loss ?? undefined,
-                          tp1: r.take_profit ?? undefined,
-                          tp2: r.additional_targets[0],
-                        },
-                      })
-                    }
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Button label="Save as note" kind="secondary" onPress={() => navigation.navigate('Entry', { prefill: noteFor(r) })} />
-                </View>
+                <Button
+                  label="Size this trade"
+                  disabled={r.entry == null || r.stop_loss == null}
+                  style={ui.flex}
+                  onPress={() =>
+                    navigation.navigate('RiskGateway', {
+                      prefill: {
+                        symbol: r.symbol ?? undefined,
+                        side: r.direction === 'short' ? 'SELL' : 'BUY',
+                        entry: r.entry ?? undefined,
+                        stop: r.stop_loss ?? undefined,
+                        tp1: r.take_profit ?? undefined,
+                        tp2: r.additional_targets[0],
+                      },
+                    })
+                  }
+                />
+                <Button label="Save as note" kind="secondary" style={ui.flex} onPress={() => navigation.navigate('Entry', { prefill: noteFor(r) })} />
               </View>
-              <Text style={styles.disclaimer}>{r.disclaimer}</Text>
+              <Footnote>{r.disclaimer}</Footnote>
             </>
           ) : null}
         </ScrollView>
@@ -213,31 +206,11 @@ export function ChartAnalyzerScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl * 2 },
-  intro: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },
-  or: { color: colors.textMuted, fontSize: 12, textAlign: 'center' },
-  input: {
-    backgroundColor: colors.surfaceElevated,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    color: colors.textPrimary,
-    fontSize: 14,
-  },
-  centerMuted: { color: colors.textMuted, fontSize: 12, textAlign: 'center' },
-  error: { color: colors.negative, fontSize: 13 },
-  preview: { width: '100%', aspectRatio: 1.6, backgroundColor: colors.surface, borderRadius: radius.md },
-  pills: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  fact: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomColor: colors.borderSubtle, borderBottomWidth: 1 },
-  factLabel: { color: colors.textMuted, fontSize: 13 },
-  factValue: { color: colors.textPrimary, fontSize: 14, fontVariant: ['tabular-nums'], flexShrink: 1, textAlign: 'right' },
-  rating: { fontSize: 32, fontWeight: '700' },
-  body: { color: colors.textPrimary, fontSize: 14, lineHeight: 20 },
-  bullet: { color: colors.textSecondary, fontSize: 13, lineHeight: 19 },
-  caveat: { color: colors.warning, fontSize: 12, lineHeight: 17 },
+  or: { ...type.small, textAlign: 'center' },
+  preview: { width: '100%', aspectRatio: 1.6, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border },
+  pills: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderSubtle },
+  rating: { ...type.hero, fontSize: 30, lineHeight: 36 },
+  bullet: { flexDirection: 'row', gap: spacing.sm },
+  bulletIcon: { marginTop: 2 },
   actions: { flexDirection: 'row', gap: spacing.sm },
-  disclaimer: { color: colors.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'center' },
 })

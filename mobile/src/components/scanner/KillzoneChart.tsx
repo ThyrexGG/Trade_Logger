@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native'
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View, type LayoutChangeEvent } from 'react-native'
+import { Text } from '../Text'
 import Svg, { Circle, G, Line, Polygon, Rect, Text as SvgText } from 'react-native-svg'
 import { getCandles } from '../../api/market'
 import { formatPrice } from '../../format'

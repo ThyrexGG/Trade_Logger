@@ -1,12 +1,15 @@
+import { Ionicons } from '@expo/vector-icons'
 import { useFocusEffect, useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useCallback, useRef, useState } from 'react'
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
+import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { listEntries } from '../api/entries'
+import { Text } from '../components/Text'
+import { Button, Empty, Loading, Notice, Tag, ui } from '../components/ui'
 import { formatUpdated } from '../format'
 import type { RootStackParamList } from '../navigation/RootStack'
-import { colors, radius, spacing } from '../theme'
+import { colors, radius, spacing, type } from '../theme'
 import type { EntryKind, JournalEntry } from '../types/entries'
 
 export const KIND_LABEL: Record<EntryKind, string> = {
@@ -16,39 +19,41 @@ export const KIND_LABEL: Record<EntryKind, string> = {
   plan: 'Trade plan',
   skipped: 'Skipped setup',
 }
-export const KIND_COLOR: Record<EntryKind, string> = {
-  idea: colors.accent,
-  review: colors.warning,
-  observation: colors.textSecondary,
-  plan: colors.positive,
-  skipped: colors.textMuted,
+/** One icon per kind: the shape tells the kinds apart, so colour doesn't have to. */
+export const KIND_ICON: Record<EntryKind, keyof typeof Ionicons.glyphMap> = {
+  idea: 'bulb-outline',
+  review: 'refresh-circle-outline',
+  observation: 'eye-outline',
+  plan: 'map-outline',
+  skipped: 'play-skip-forward-outline',
 }
 
 function EntryCard({ entry, onPress }: { entry: JournalEntry; onPress: () => void }) {
-  const color = KIND_COLOR[entry.kind] ?? colors.textSecondary
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [styles.card, pressed && { opacity: 0.7 }]}>
+    <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [styles.card, pressed && { backgroundColor: colors.surfaceHover }]}>
       <View style={styles.cardTop}>
-        <View style={[styles.kind, { borderColor: color }]}>
-          <Text style={[styles.kindText, { color }]}>{KIND_LABEL[entry.kind] ?? entry.kind}</Text>
-        </View>
+        <Ionicons name={KIND_ICON[entry.kind] ?? 'document-text-outline'} size={14} color={colors.textSecondary} />
+        <Text style={styles.kind}>{KIND_LABEL[entry.kind] ?? entry.kind}</Text>
         {entry.instrument ? <Text style={styles.instrument}>{entry.instrument}</Text> : null}
         <Text style={styles.date}>{formatUpdated(entry.updated_at || entry.created_at)}</Text>
       </View>
-      {entry.title ? <Text style={styles.title}>{entry.title}</Text> : null}
+      {entry.title ? <Text style={ui.heading}>{entry.title}</Text> : null}
       {entry.body ? (
-        <Text style={styles.body} numberOfLines={3}>
+        <Text style={ui.sub} numberOfLines={3}>
           {entry.body}
         </Text>
       ) : null}
       {entry.tags.length > 0 || entry.screenshot_count > 0 ? (
-        <View style={styles.meta}>
+        <View style={ui.rowWrap}>
           {entry.tags.map((t) => (
-            <Text key={t} style={styles.tag}>
-              {t}
-            </Text>
+            <Tag key={t} text={t} />
           ))}
-          {entry.screenshot_count > 0 ? <Text style={styles.metaText}>📷 {entry.screenshot_count}</Text> : null}
+          {entry.screenshot_count > 0 ? (
+            <View style={styles.shots}>
+              <Ionicons name="image-outline" size={12} color={colors.textMuted} />
+              <Text style={ui.muted}>{entry.screenshot_count}</Text>
+            </View>
+          ) : null}
         </View>
       ) : null}
     </Pressable>
@@ -94,12 +99,9 @@ export function EntriesScreen() {
   const sorted = entries ? [...entries].sort((a, b) => (b.updated_at || b.created_at).localeCompare(a.updated_at || a.created_at)) : null
 
   return (
-    <SafeAreaView style={styles.screen} edges={['bottom']}>
-      {error ? <Text style={styles.err}>{entries ? `Showing last loaded notes — refresh failed: ${error}` : error}</Text> : null}
+    <SafeAreaView style={ui.screen} edges={['bottom']}>
       {sorted === null && !error ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.accent} size="large" />
-        </View>
+        <Loading fill />
       ) : (
         <FlatList
           data={sorted ?? []}
@@ -108,18 +110,12 @@ export function EntriesScreen() {
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.accent} colors={[colors.accent]} />}
           ListHeaderComponent={
-            <Pressable onPress={() => navigation.navigate('Entry', {})} accessibilityRole="button" style={styles.newBtn}>
-              <Text style={styles.newText}>＋ New note</Text>
-            </Pressable>
+            <View style={styles.head}>
+              {error ? <Notice>{entries ? `Showing the last loaded notes. Refresh failed: ${error}` : error}</Notice> : null}
+              <Button label="New note" icon="add" onPress={() => navigation.navigate('Entry', {})} />
+            </View>
           }
-          ListEmptyComponent={
-            sorted ? (
-              <View style={styles.empty}>
-                <Text style={styles.emptyTitle}>No notes yet</Text>
-                <Text style={styles.emptyText}>Capture a market idea, a weekly review or a trade plan — with screenshots.</Text>
-              </View>
-            ) : null
-          }
+          ListEmptyComponent={sorted ? <Empty icon="document-text-outline" title="No notes yet" text="Capture a market idea, a weekly review or a trade plan, with screenshots." /> : null}
         />
       )}
     </SafeAreaView>
@@ -127,55 +123,12 @@ export function EntriesScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  err: {
-    color: colors.negative,
-    backgroundColor: colors.negativeSoft,
-    borderColor: colors.negativeLine,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    margin: spacing.lg,
-    padding: spacing.md,
-    fontSize: 12,
-  },
-  list: { padding: spacing.lg, gap: spacing.md, flexGrow: 1 },
-  newBtn: {
-    alignItems: 'center',
-    borderColor: colors.accentLine,
-    backgroundColor: colors.accentSoft,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-  },
-  newText: { color: colors.accent, fontSize: 15, fontWeight: '600' },
-  card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.borderSubtle,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  cardTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  kind: { borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 1 },
-  kindText: { fontSize: 11, fontWeight: '700' },
-  instrument: { color: colors.textPrimary, fontSize: 13, fontWeight: '600' },
-  date: { color: colors.textMuted, fontSize: 12, marginLeft: 'auto' },
-  title: { color: colors.textPrimary, fontSize: 16, fontWeight: '600' },
-  body: { color: colors.textSecondary, fontSize: 14, lineHeight: 20 },
-  meta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.sm },
-  tag: {
-    color: colors.textSecondary,
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    fontSize: 11,
-    overflow: 'hidden',
-  },
-  metaText: { color: colors.textMuted, fontSize: 12 },
-  empty: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: spacing.xl, gap: spacing.sm },
-  emptyTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '600' },
-  emptyText: { color: colors.textMuted, fontSize: 13, textAlign: 'center' },
+  list: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.xxl, gap: spacing.md, flexGrow: 1 },
+  head: { gap: spacing.md },
+  card: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.sm },
+  cardTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  kind: { ...type.label, color: colors.textSecondary },
+  instrument: { ...type.label, color: colors.textPrimary, marginLeft: spacing.xs },
+  date: { ...type.small, fontVariant: ['tabular-nums'], marginLeft: 'auto' },
+  shots: { flexDirection: 'row', alignItems: 'center', gap: 3 },
 })

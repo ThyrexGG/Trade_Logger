@@ -1,21 +1,13 @@
+import { Ionicons } from '@expo/vector-icons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native'
+import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { getAIStatus, postAIChat } from '../api/ai'
 import { SimpleMarkdown } from '../components/SimpleMarkdown'
-import { colors, radius, spacing } from '../theme'
+import { Text, TextInput } from '../components/Text'
+import { Button, Card, Row, Rows, ui } from '../components/ui'
+import { colors, radius, spacing, type } from '../theme'
 import type { AIUsage } from '../types/ai'
 
 interface Turn {
@@ -147,23 +139,16 @@ export function AssistantScreen() {
   }
 
   const lastIsError = turns[turns.length - 1]?.error === true
+  const canSend = !sending && draft.trim().length > 0
 
   return (
-    <SafeAreaView style={styles.screen} edges={['bottom']}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
+    <SafeAreaView style={ui.screen} edges={['bottom']}>
+      <KeyboardAvoidingView style={ui.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
         <View style={styles.topBar}>
           <Text style={styles.topText} numberOfLines={1}>
-            {configured === false
-              ? 'Assistant is not set up on the server'
-              : usage
-                ? `${usage.day_requests}/${usage.day_budget} messages used today`
-                : 'Read-only — it can analyse, never trade'}
+            {configured === false ? 'Ask AI is not set up on the server' : usage ? `${usage.day_requests} of ${usage.day_budget} messages used today` : 'Read-only: it can explain, never trade'}
           </Text>
-          {turns.length > 0 ? (
-            <Pressable onPress={clear} hitSlop={10} accessibilityRole="button">
-              <Text style={styles.clear}>Clear</Text>
-            </Pressable>
-          ) : null}
+          {turns.length > 0 ? <Button label="Clear" kind="ghost" size="sm" onPress={clear} /> : null}
         </View>
 
         <FlatList
@@ -176,12 +161,14 @@ export function AssistantScreen() {
             loaded ? (
               <View style={styles.empty}>
                 <Text style={styles.emptyTitle}>Ask about your trading</Text>
-                <Text style={styles.emptySub}>Answers use your journal, positions and analytics. Try one:</Text>
-                {SUGGESTIONS.map((s) => (
-                  <Pressable key={s} onPress={() => send(s)} style={styles.suggest} accessibilityRole="button">
-                    <Text style={styles.suggestText}>{s}</Text>
-                  </Pressable>
-                ))}
+                <Text style={ui.sub}>Answers use your own journal, open trades and numbers. Try one:</Text>
+                <Card flush style={styles.suggestCard}>
+                  <Rows>
+                    {SUGGESTIONS.map((s) => (
+                      <Row key={s} title={s} chevron onPress={() => send(s)} />
+                    ))}
+                  </Rows>
+                </Card>
               </View>
             ) : null
           }
@@ -199,35 +186,19 @@ export function AssistantScreen() {
           ListFooterComponent={
             sending ? (
               <View style={styles.thinking}>
-                <ActivityIndicator color={colors.accent} size="small" />
-                <Text style={styles.thinkingText}>Thinking…</Text>
+                <ActivityIndicator color={colors.textMuted} size="small" />
+                <Text style={ui.muted}>Thinking…</Text>
               </View>
             ) : lastIsError ? (
-              <Pressable onPress={retry} style={styles.retry} accessibilityRole="button">
-                <Text style={styles.retryText}>Try again</Text>
-              </Pressable>
+              <Button label="Try again" kind="secondary" size="sm" icon="refresh-outline" onPress={retry} style={styles.retry} />
             ) : null
           }
         />
 
         <View style={styles.composer}>
-          <TextInput
-            value={draft}
-            onChangeText={setDraft}
-            placeholder="Ask about your trades…"
-            placeholderTextColor={colors.textMuted}
-            multiline
-            maxLength={2000}
-            style={styles.input}
-          />
-          <Pressable
-            onPress={() => send(draft)}
-            disabled={sending || !draft.trim()}
-            style={[styles.send, (sending || !draft.trim()) && { opacity: 0.4 }]}
-            accessibilityRole="button"
-            accessibilityLabel="Send"
-          >
-            <Text style={styles.sendText}>Send</Text>
+          <TextInput value={draft} onChangeText={setDraft} placeholder="Ask about your trades…" placeholderTextColor={colors.textMuted} multiline maxLength={2000} style={styles.input} />
+          <Pressable onPress={() => send(draft)} disabled={!canSend} style={[styles.send, !canSend && styles.sendOff]} accessibilityRole="button" accessibilityLabel="Send">
+            <Ionicons name="arrow-up" size={20} color={canSend ? colors.accentInk : colors.textMuted} />
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -236,37 +207,32 @@ export function AssistantScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
-  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
-  topText: { color: colors.textMuted, fontSize: 12, flexShrink: 1 },
-  clear: { color: colors.accent, fontSize: 13, fontWeight: '600' },
+  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.lg, minHeight: 36 },
+  topText: { ...type.small, flexShrink: 1 },
   list: { padding: spacing.lg, gap: spacing.md, flexGrow: 1 },
-  empty: { gap: spacing.sm, paddingTop: spacing.lg },
-  emptyTitle: { color: colors.textPrimary, fontSize: 20, fontWeight: '700' },
-  emptySub: { color: colors.textMuted, fontSize: 13, marginBottom: spacing.sm },
-  suggest: { borderColor: colors.border, borderWidth: 1, backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.md },
-  suggestText: { color: colors.textSecondary, fontSize: 14 },
-  userBubble: { alignSelf: 'flex-end', maxWidth: '85%', backgroundColor: colors.accentSoftStrong, borderRadius: radius.lg, padding: spacing.md },
-  userText: { color: colors.textPrimary, fontSize: 15, lineHeight: 21 },
-  botBubble: { alignSelf: 'flex-start', maxWidth: '95%', backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: radius.lg, padding: spacing.md },
-  botError: { borderColor: colors.negativeLine, backgroundColor: colors.negativeSoft },
+  empty: { gap: spacing.sm, paddingTop: spacing.md },
+  emptyTitle: { ...type.title, fontSize: 20, lineHeight: 26 },
+  suggestCard: { marginTop: spacing.sm },
+  userBubble: { alignSelf: 'flex-end', maxWidth: '85%', backgroundColor: colors.surfaceElevated, borderColor: colors.border, borderWidth: 1, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: 10 },
+  userText: { ...type.body, fontSize: 15, lineHeight: 21 },
+  botBubble: { alignSelf: 'flex-start', maxWidth: '96%' },
+  botError: { borderColor: colors.negativeLine, backgroundColor: colors.negativeSoft, borderWidth: 1, borderRadius: radius.lg, padding: spacing.md },
   thinking: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm },
-  thinkingText: { color: colors.textMuted, fontSize: 13 },
-  retry: { alignSelf: 'flex-start', borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
-  retryText: { color: colors.accent, fontWeight: '600' },
-  composer: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm, padding: spacing.md, borderTopColor: colors.borderSubtle, borderTopWidth: 1 },
+  retry: { alignSelf: 'flex-start' },
+  composer: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderTopColor: colors.borderSubtle, borderTopWidth: 1 },
   input: {
     flex: 1,
     maxHeight: 120,
+    minHeight: 44,
     color: colors.textPrimary,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceElevated,
     borderColor: colors.border,
     borderWidth: 1,
     borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    paddingVertical: 11,
     fontSize: 15,
   },
-  send: { backgroundColor: colors.accent, borderRadius: radius.lg, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
-  sendText: { color: colors.accentInk, fontWeight: '700' },
+  send: { width: 44, height: 44, borderRadius: radius.lg, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
+  sendOff: { backgroundColor: colors.surfaceElevated },
 })

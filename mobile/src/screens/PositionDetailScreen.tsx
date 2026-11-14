@@ -1,16 +1,18 @@
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { patchPosition } from '../api/positions'
 import { describeAccount } from '../accountLabel'
 import { AnnotationEditor } from '../components/AnnotationEditor'
 import { ScreenshotGallery } from '../components/ScreenshotGallery'
-import { formatMoney, formatPrice, formatUpdated, isBuy } from '../format'
+import { Text } from '../components/Text'
+import { Button, Card, DirTag, Empty, Fact, LiveDot, Rows, ui } from '../components/ui'
+import { formatMoney, formatPrice, formatUpdated } from '../format'
 import { useTagSuggestions } from '../journal/useTagSuggestions'
 import type { RootStackParamList } from '../navigation/RootStack'
 import { usePositionsContext } from '../positions/PositionsContext'
-import { colors, radius, spacing } from '../theme'
+import { colors, pnlColor, spacing, type } from '../theme'
 
 /** Journal an open trade while it's still running — the notes carry over to the closed trade automatically. */
 export function PositionDetailScreen() {
@@ -22,49 +24,33 @@ export function PositionDetailScreen() {
 
   if (!position) {
     return (
-      <SafeAreaView style={styles.screen}>
+      <SafeAreaView style={ui.screen}>
         <View style={styles.missing}>
-          <Text style={styles.missingText}>
-            This trade is no longer open. If it just closed, find it in the Journal tab — your notes carried over.
-          </Text>
-          <Pressable onPress={() => navigation.goBack()} style={styles.backBtn} accessibilityRole="button">
-            <Text style={styles.backText}>Go back</Text>
-          </Pressable>
+          <Empty icon="checkmark-done-outline" title="This trade is no longer open" text="If it just closed, find it in the Journal tab. Your notes carried over.">
+            <Button label="Go back" kind="secondary" size="sm" onPress={() => navigation.goBack()} />
+          </Empty>
         </View>
       </SafeAreaView>
     )
   }
 
-  const dirColor = isBuy(position.direction) ? colors.positive : colors.negative
-  const pnlColor = position.floating_pnl > 0 ? colors.positive : position.floating_pnl < 0 ? colors.negative : colors.textSecondary
-
   return (
-    <SafeAreaView style={styles.screen} edges={['bottom']}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <SafeAreaView style={ui.screen} edges={['bottom']}>
+      <KeyboardAvoidingView style={ui.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={ui.content} keyboardShouldPersistTaps="handled">
           <View style={styles.hero}>
-            <View style={styles.heroTop}>
-              <View style={styles.liveDot} />
+            <View style={ui.rowWrap}>
+              <LiveDot size={8} />
               <Text style={styles.symbol}>{position.symbol}</Text>
-              <View style={[styles.dirPill, { borderColor: dirColor }]}>
-                <Text style={[styles.dirText, { color: dirColor }]}>{position.direction.toUpperCase()}</Text>
-              </View>
+              <DirTag direction={position.direction} />
             </View>
-            <Text style={[styles.pnl, { color: pnlColor }]}>{formatMoney(position.floating_pnl)}</Text>
-            <Text style={styles.sub}>{describeAccount(position.account_id).label} · floating P&L, still open</Text>
+            <Text style={[styles.pnl, { color: pnlColor(position.floating_pnl) }]} numberOfLines={1} adjustsFontSizeToFit>
+              {formatMoney(position.floating_pnl)}
+            </Text>
+            <Text style={ui.muted}>{describeAccount(position.account_id).label} · still open, so this number moves</Text>
           </View>
 
-          <View style={styles.card}>
-            <ScreenshotGallery
-              ownerId={position.position_id}
-              onCountChange={(n) => {
-                if ((position.screenshot_count ?? 0) !== n) applyPosition({ ...position, screenshot_count: n })
-              }}
-            />
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Journal</Text>
+          <Card feature>
             <AnnotationEditor
               key={position.position_id}
               initial={{
@@ -74,74 +60,44 @@ export function PositionDetailScreen() {
                 rating: position.rating ?? 0,
               }}
               tagSuggestions={tagSuggestions}
-              notesLabel="Notes — the plan and how it's playing out"
+              notesLabel="Note: the plan and how it's playing out"
               save={async (patch) => {
                 const res = await patchPosition(position.position_id, patch)
                 applyPosition(res.entry)
               }}
             />
-            <Text style={styles.carry}>Carries over to the closed trade automatically once this position closes.</Text>
-          </View>
+            <Text style={styles.carry}>Carries over to the closed trade once this position closes.</Text>
+          </Card>
 
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Position</Text>
-            {position.open_time ? <Fact label="Opened" value={formatUpdated(position.open_time)} /> : null}
-            <Fact label="Volume" value={String(position.volume)} />
-            <Fact label="Entry" value={formatPrice(position.entry_price)} />
-            <Fact label="Current" value={formatPrice(position.current_price)} />
-            <Fact label="Stop" value={position.sl ? formatPrice(position.sl) : '—'} />
-            <Fact label="Target" value={position.tp ? formatPrice(position.tp) : '—'} last />
-          </View>
+          <Card>
+            <ScreenshotGallery
+              ownerId={position.position_id}
+              onCountChange={(n) => {
+                if ((position.screenshot_count ?? 0) !== n) applyPosition({ ...position, screenshot_count: n })
+              }}
+            />
+          </Card>
+
+          <Card title="Position" flush>
+            <Rows inset={0}>
+              {position.open_time ? <Fact label="Opened" value={formatUpdated(position.open_time)} /> : null}
+              <Fact label="Size" value={String(position.volume)} />
+              <Fact label="Entry price" value={formatPrice(position.entry_price)} />
+              <Fact label="Price now" value={formatPrice(position.current_price)} />
+              <Fact label="Stop loss" value={position.sl ? formatPrice(position.sl) : 'None set'} color={position.sl ? undefined : colors.warning} />
+              <Fact label="Target" value={position.tp ? formatPrice(position.tp) : '—'} />
+            </Rows>
+          </Card>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   )
 }
 
-function Fact({ label, value, last }: { label: string; value: string; last?: boolean }) {
-  return (
-    <View style={[styles.fact, !last && styles.factBorder]}>
-      <Text style={styles.factLabel}>{label}</Text>
-      <Text style={styles.factValue}>{value}</Text>
-    </View>
-  )
-}
-
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
-  flex: { flex: 1 },
-  content: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl * 2 },
-  hero: { gap: spacing.xs },
-  heroTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  liveDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.accent },
-  symbol: { color: colors.textPrimary, fontSize: 26, fontWeight: '700' },
-  dirPill: { borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 2 },
-  dirText: { fontSize: 12, fontWeight: '700' },
-  pnl: { fontSize: 34, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  sub: { color: colors.textMuted, fontSize: 13 },
-  card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  sectionTitle: {
-    color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    marginBottom: spacing.xs,
-  },
-  carry: { color: colors.textMuted, fontSize: 11, marginTop: spacing.md },
-  fact: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.md, gap: spacing.lg },
-  factBorder: { borderBottomColor: colors.borderSubtle, borderBottomWidth: 1 },
-  factLabel: { color: colors.textMuted, fontSize: 13 },
-  factValue: { color: colors.textPrimary, fontSize: 14, fontVariant: ['tabular-nums'] },
-  missing: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.lg, padding: spacing.xl },
-  missingText: { color: colors.textSecondary, fontSize: 15, textAlign: 'center' },
-  backBtn: { borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.xl, paddingVertical: spacing.md },
-  backText: { color: colors.textPrimary, fontSize: 15, fontWeight: '600' },
+  hero: { gap: 2, paddingBottom: spacing.xs },
+  symbol: { ...type.title, fontSize: 20, lineHeight: 26 },
+  pnl: { ...type.hero },
+  carry: { ...type.small, fontSize: 11, marginTop: spacing.xs },
+  missing: { flex: 1, justifyContent: 'center' },
 })

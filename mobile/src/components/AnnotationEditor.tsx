@@ -1,10 +1,13 @@
+import { Ionicons } from '@expo/vector-icons'
 import * as Haptics from 'expo-haptics'
 import { useEffect, useState } from 'react'
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native'
 import { ChartLinkPreview } from './ChartLinkPreview'
 import { invalidateTagRecord, TagRecord } from './TagRecord'
+import { Text, TextInput } from './Text'
+import { ui } from './ui'
 import { useAutosave, type AnnotationFields, type SaveStatus } from '../journal/useAutosave'
-import { colors, radius, spacing } from '../theme'
+import { colors, radius, spacing, type } from '../theme'
 import type { JournalUpdateRequest } from '../types/journal'
 
 /** The ONE tap per trade (same three answers as the web Journal; stored as the setup tag so the tag record works with no backend change). */
@@ -26,7 +29,7 @@ function StatusLine({ status, error, onRetry }: { status: SaveStatus; error: str
   if (status === 'saving') {
     return (
       <View style={styles.statusRow}>
-        <ActivityIndicator size="small" color={colors.accent} />
+        <ActivityIndicator size="small" color={colors.textMuted} />
         <Text style={styles.statusText}>Saving…</Text>
       </View>
     )
@@ -34,7 +37,8 @@ function StatusLine({ status, error, onRetry }: { status: SaveStatus; error: str
   if (status === 'saved') {
     return (
       <View style={styles.statusRow}>
-        <Text style={[styles.statusText, { color: colors.positive }]}>✓ Saved</Text>
+        <Ionicons name="checkmark" size={13} color={colors.positive} />
+        <Text style={[styles.statusText, { color: colors.positive }]}>Saved</Text>
       </View>
     )
   }
@@ -47,7 +51,7 @@ function StatusLine({ status, error, onRetry }: { status: SaveStatus; error: str
   }
   return (
     <View style={styles.statusRow}>
-      <Text style={styles.statusText}>Changes save automatically</Text>
+      <Text style={styles.statusText}>Saves on its own</Text>
     </View>
   )
 }
@@ -65,7 +69,7 @@ function StarRating({ value, onChange }: { value: number; onChange: (n: number) 
           accessibilityLabel={`${n} star${n > 1 ? 's' : ''}`}
           style={styles.starBtn}
         >
-          <Text style={[styles.star, n <= value ? styles.starOn : styles.starOff]}>{n <= value ? '★' : '☆'}</Text>
+          <Ionicons name={n <= value ? 'star' : 'star-outline'} size={26} color={n <= value ? colors.warning : colors.textMuted} />
         </Pressable>
       ))}
     </View>
@@ -76,7 +80,7 @@ function StarRating({ value, onChange }: { value: number; onChange: (n: number) 
  * One-tap trade label, optional note, and the rest behind More details, with autosave — the same fields
  * and behaviour as the web Journal, for both closed and still-open trades.
  */
-export function AnnotationEditor({ initial, save, tagSuggestions, notesLabel = 'Notes' }: Props) {
+export function AnnotationEditor({ initial, save, tagSuggestions, notesLabel = 'Note' }: Props) {
   const { fields, update, status, error, retry } = useAutosave(initial, async (patch) => {
     await save(patch)
     if ('setup_tag' in patch) invalidateTagRecord() // the record line should reflect the new tag next time
@@ -93,9 +97,10 @@ export function AnnotationEditor({ initial, save, tagSuggestions, notesLabel = '
 
   return (
     <View style={styles.wrap}>
-      <StatusLine status={status} error={error} onRetry={() => void retry()} />
-
-      <Text style={styles.label}>How was this trade? One tap is enough.</Text>
+      <View style={ui.rowBetween}>
+        <Text style={styles.question}>How was this trade?</Text>
+        <StatusLine status={status} error={error} onRetry={() => void retry()} />
+      </View>
       <View style={styles.quickRow}>
         {QUICK_TAGS.map((t) => {
           const on = tag === t.value
@@ -107,7 +112,9 @@ export function AnnotationEditor({ initial, save, tagSuggestions, notesLabel = '
               accessibilityState={{ selected: on }}
               style={[styles.quickBtn, on && styles.quickBtnOn]}
             >
-              <Text style={[styles.quickText, on && styles.quickTextOn]}>{t.label}</Text>
+              <Text style={[styles.quickText, on && styles.quickTextOn]} numberOfLines={2}>
+                {t.label}
+              </Text>
             </Pressable>
           )
         })}
@@ -116,7 +123,7 @@ export function AnnotationEditor({ initial, save, tagSuggestions, notesLabel = '
 
       <Text style={styles.label}>{notesLabel} (optional)</Text>
       <TextInput
-        style={[styles.input, styles.notes]}
+        style={[ui.input, ui.inputMultiline]}
         value={fields.notes}
         onChangeText={(notes) => update({ notes })}
         placeholder="One line on what you saw and why you took it"
@@ -128,8 +135,9 @@ export function AnnotationEditor({ initial, save, tagSuggestions, notesLabel = '
       />
 
       <Pressable onPress={() => setMoreOpen((o) => !o)} accessibilityRole="button" accessibilityState={{ expanded: moreOpen }} style={styles.moreBtn}>
-        <Text style={styles.moreText}>{moreOpen ? '▾' : '›'} More details</Text>
-        <Text style={styles.moreHint}>stars, your own tag, chart link</Text>
+        <Text style={styles.moreText}>More details</Text>
+        {!moreOpen ? <Text style={styles.moreHint}>stars, your own tag, chart link</Text> : <View style={ui.flex} />}
+        <Ionicons name={moreOpen ? 'chevron-up' : 'chevron-down'} size={15} color={colors.textMuted} />
       </Pressable>
 
       {moreOpen ? (
@@ -139,7 +147,7 @@ export function AnnotationEditor({ initial, save, tagSuggestions, notesLabel = '
 
           <Text style={styles.label}>Your own tag</Text>
           <TextInput
-            style={styles.input}
+            style={ui.input}
             value={isQuick ? '' : fields.setup_tag}
             onChangeText={(setup_tag) => update({ setup_tag })}
             placeholder="optional, e.g. London sweep"
@@ -159,7 +167,7 @@ export function AnnotationEditor({ initial, save, tagSuggestions, notesLabel = '
 
           <Text style={styles.label}>Chart link</Text>
           <TextInput
-            style={styles.input}
+            style={ui.input}
             value={fields.chart_snapshot_url}
             onChangeText={(chart_snapshot_url) => update({ chart_snapshot_url })}
             placeholder="https://www.tradingview.com/x/…"
@@ -177,46 +185,32 @@ export function AnnotationEditor({ initial, save, tagSuggestions, notesLabel = '
 
 const styles = StyleSheet.create({
   wrap: { gap: spacing.sm },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 20 },
-  statusText: { color: colors.textMuted, fontSize: 12 },
-  label: { color: colors.textMuted, fontSize: 12, marginTop: spacing.sm },
-  input: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    color: colors.textPrimary,
-    fontSize: 15,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  notes: { minHeight: 80, lineHeight: 21 },
-  quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  question: { ...type.heading, flexShrink: 1 },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 20, flexShrink: 1 },
+  statusText: { ...type.small, fontSize: 11 },
+  label: { ...type.small, color: colors.textSecondary, marginTop: spacing.sm },
+  quickRow: { flexDirection: 'row', gap: spacing.sm },
   quickBtn: {
+    flex: 1,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.surfaceElevated,
     borderColor: colors.border,
     borderWidth: 1,
     borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
   },
-  quickBtnOn: { borderColor: colors.accent, backgroundColor: colors.background },
-  quickText: { color: colors.textSecondary, fontSize: 14 },
-  quickTextOn: { color: colors.accent, fontWeight: '700' },
-  moreBtn: { marginTop: spacing.sm, paddingVertical: spacing.sm },
-  moreText: { color: colors.textPrimary, fontSize: 14, fontWeight: '600' },
-  moreHint: { color: colors.textMuted, fontSize: 12 },
+  quickBtnOn: { borderColor: colors.accentLine, backgroundColor: colors.accentSoft },
+  quickText: { color: colors.textSecondary, fontSize: 13, lineHeight: 17, fontWeight: '500', textAlign: 'center' },
+  quickTextOn: { color: colors.accent, fontWeight: '600' },
+  moreBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm, paddingTop: spacing.md, minHeight: 40, borderTopWidth: 1, borderTopColor: colors.borderSubtle },
+  moreText: { ...type.sub, fontWeight: '500' },
+  moreHint: { ...type.small, flex: 1, textAlign: 'right' },
   stars: { flexDirection: 'row', gap: spacing.xs },
   starBtn: { padding: spacing.xs },
-  star: { fontSize: 30 },
-  starOn: { color: colors.warning },
-  starOff: { color: colors.textMuted },
   suggestions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  suggestion: {
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-  },
+  suggestion: { backgroundColor: colors.surfaceElevated, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 2 },
   suggestionText: { color: colors.textSecondary, fontSize: 12 },
 })

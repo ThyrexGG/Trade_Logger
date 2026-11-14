@@ -16,6 +16,16 @@ export function isBuy(direction: string): boolean {
   return d.includes('BUY') || d.includes('LONG')
 }
 
+/** For tight cells: today -> { main: "3:42 PM" }, another day -> { main: "Nov 12", sub: "3:42 PM" }. */
+export function formatWhen(iso: string | null | undefined): { main: string; sub?: string } {
+  if (!iso) return { main: '—' }
+  const d = new Date(/[zZ]|[+-]\d\d:\d\d$/.test(iso) ? iso : `${iso}Z`)
+  if (Number.isNaN(d.getTime())) return { main: '—' }
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  if (d.toDateString() === new Date().toDateString()) return { main: time }
+  return { main: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), sub: time }
+}
+
 /** "3:42 PM" for today's timestamps, otherwise "Sep 19, 3:42 PM". */
 export function formatUpdated(iso: string | null | undefined): string {
   if (!iso) return '—'

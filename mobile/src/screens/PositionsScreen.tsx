@@ -1,67 +1,58 @@
+import { Ionicons } from '@expo/vector-icons'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
+import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { AccountTag } from '../components/AccountTag'
 import { ConnectionBanner } from '../components/ConnectionBanner'
-import { formatMoney, formatPrice, formatUpdated, isBuy } from '../format'
-import { colors, radius, spacing } from '../theme'
-import type { PositionItem } from '../types/positions'
+import { Text } from '../components/Text'
+import { Button, DirTag, Empty, Figures, LiveDot, Loading, Notice, ScreenHeader, Stat, Tag, ui } from '../components/ui'
+import { formatMoney, formatPrice, formatUpdated, formatWhen } from '../format'
 import type { RootStackParamList } from '../navigation/RootStack'
 import { usePositionsContext } from '../positions/PositionsContext'
-import { AccountTag } from '../components/AccountTag'
+import { colors, pnlColor, radius, spacing, type } from '../theme'
+import type { PositionItem } from '../types/positions'
 
-function pnlColor(v: number): string {
-  return v > 0 ? colors.positive : v < 0 ? colors.negative : colors.textSecondary
-}
-
+/** One open trade: what and how it is doing on the first line, the numbers as one divided panel, your note under it. */
 function PositionCard({ p, onPress, showAccount }: { p: PositionItem; onPress: () => void; showAccount: boolean }) {
-  const buy = isBuy(p.direction)
-  const dirColor = buy ? colors.positive : colors.negative
+  const opened = formatWhen(p.open_time)
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [styles.card, pressed && { opacity: 0.75 }]}>
+    <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [styles.card, pressed && { backgroundColor: colors.surfaceHover }]}>
       <View style={styles.cardTop}>
         <View style={styles.symbolRow}>
-          <View style={styles.liveDot} />
+          <LiveDot />
           <Text style={styles.symbol}>{p.symbol}</Text>
-          <View style={[styles.dirPill, { borderColor: dirColor }]}>
-            <Text style={[styles.dirText, { color: dirColor }]}>{p.direction.toUpperCase()}</Text>
-          </View>
+          <DirTag direction={p.direction} />
           {showAccount ? <AccountTag accountId={p.account_id} /> : null}
         </View>
         <Text style={[styles.pnl, { color: pnlColor(p.floating_pnl) }]}>{formatMoney(p.floating_pnl)}</Text>
       </View>
 
-      <View style={styles.grid}>
-        {p.open_time ? <Stat label="Opened" value={formatUpdated(p.open_time)} /> : null}
-        <Stat label="Volume" value={String(p.volume)} />
-        <Stat label="Entry" value={formatPrice(p.entry_price)} />
-        <Stat label="Current" value={formatPrice(p.current_price)} />
-        {p.sl ? <Stat label="Stop" value={formatPrice(p.sl)} /> : null}
-        {p.tp ? <Stat label="Target" value={formatPrice(p.tp)} /> : null}
-      </View>
+      <Figures columns={3} style={styles.figures}>
+        <Stat small label="Entry" value={formatPrice(p.entry_price)} />
+        <Stat small label="Now" value={formatPrice(p.current_price)} />
+        <Stat small label="Size" value={String(p.volume)} />
+        <Stat small label="Stop" value={p.sl ? formatPrice(p.sl) : 'None'} color={p.sl ? undefined : colors.warning} />
+        <Stat small label="Target" value={p.tp ? formatPrice(p.tp) : '—'} />
+        <Stat small label="Opened" value={opened.main} sub={opened.sub} />
+      </Figures>
 
-      {p.setup_tag || p.notes || p.screenshot_count ? (
-        <View style={styles.noteRow}>
-          {p.setup_tag ? <Text style={styles.tag}>{p.setup_tag}</Text> : null}
-          {p.screenshot_count ? <Text style={styles.meta}>📷 {p.screenshot_count}</Text> : null}
-          {p.notes ? (
-            <Text style={styles.note} numberOfLines={2}>
-              {p.notes}
-            </Text>
+      <View style={styles.foot}>
+        <View style={styles.footLeft}>
+          {p.setup_tag ? <Tag text={p.setup_tag} /> : null}
+          {p.screenshot_count ? (
+            <View style={styles.shots}>
+              <Ionicons name="image-outline" size={12} color={colors.textMuted} />
+              <Text style={ui.muted}>{p.screenshot_count}</Text>
+            </View>
           ) : null}
+          <Text style={styles.note} numberOfLines={1}>
+            {p.notes || (p.setup_tag ? '' : 'Add a note while it runs')}
+          </Text>
         </View>
-      ) : null}
-      <Text style={styles.tapHint}>Tap to journal this trade ›</Text>
+        <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
+      </View>
     </Pressable>
-  )
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.stat}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
-    </View>
   )
 }
 
@@ -73,43 +64,16 @@ export function PositionsScreen() {
   const multiAccount = new Set(positions.map((p) => p.account_id)).size > 1
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
-      <View style={styles.header}>
-        <View style={styles.headerText}>
-          <Text style={styles.title}>Open positions</Text>
-          <Text style={styles.updated}>
-            {data ? `${data.total_open} open · updated ${formatUpdated(data.timestamp)}` : 'Loading…'}
-          </Text>
-        </View>
-        <Pressable
-          onPress={() => void syncNow()}
-          disabled={syncing}
-          accessibilityRole="button"
-          style={({ pressed }) => [styles.syncBtn, (syncing || pressed) && { opacity: 0.6 }]}
-        >
-          {syncing ? <ActivityIndicator size="small" color={colors.accent} /> : <Text style={styles.syncText}>Sync now</Text>}
-        </Pressable>
-      </View>
-
-      {data ? (
-        <View style={styles.totalCard}>
-          <Text style={styles.totalLabel}>Total floating P&L</Text>
-          <Text style={[styles.totalValue, { color: pnlColor(total) }]}>{formatMoney(total)}</Text>
-        </View>
-      ) : null}
-
-      <ConnectionBanner />
-      {syncError ? <Text style={styles.warn}>Sync: {syncError}</Text> : null}
-      {error ? (
-        <Text style={styles.err}>
-          {data ? `Showing last loaded data — refresh failed: ${error}` : error}
-        </Text>
-      ) : null}
+    <SafeAreaView style={ui.screen} edges={['top']}>
+      <ScreenHeader
+        eyebrow="Open now"
+        title="Positions"
+        sub={data ? `Updated ${formatUpdated(data.timestamp)}` : undefined}
+        right={<Button label="Sync" icon="sync-outline" size="sm" kind="secondary" busy={syncing} onPress={() => void syncNow()} />}
+      />
 
       {loading && !data ? (
-        <View style={styles.centerFill}>
-          <ActivityIndicator color={colors.accent} size="large" />
-        </View>
+        <Loading fill />
       ) : (
         <FlatList
           data={positions}
@@ -119,12 +83,29 @@ export function PositionsScreen() {
           )}
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.accent} colors={[colors.accent]} />}
+          ListHeaderComponent={
+            <View style={styles.head}>
+              <ConnectionBanner />
+              {syncError ? <Notice tone="warn">Sync: {syncError}</Notice> : null}
+              {error ? <Notice>{data ? `Showing the last loaded data. Refresh failed: ${error}` : error}</Notice> : null}
+              {data && positions.length > 0 ? (
+                <View style={styles.total}>
+                  <View>
+                    <Text style={styles.totalLabel}>Floating P&L</Text>
+                    <Text style={ui.muted}>
+                      {positions.length} open trade{positions.length === 1 ? '' : 's'}
+                    </Text>
+                  </View>
+                  <Text style={[styles.totalValue, { color: pnlColor(total) }]} numberOfLines={1} adjustsFontSizeToFit>
+                    {formatMoney(total)}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          }
           ListEmptyComponent={
             data ? (
-              <View style={styles.empty}>
-                <Text style={styles.emptyTitle}>No open positions</Text>
-                <Text style={styles.emptyText}>Open a trade on Capital.com, then tap Sync now or pull down to refresh.</Text>
-              </View>
+              <Empty icon="pulse-outline" title="No open trades" text="When you open a trade with your broker it shows up here. Tap Sync or pull down to check now." />
             ) : null
           }
         />
@@ -134,103 +115,20 @@ export function PositionsScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-    gap: spacing.md,
-  },
-  headerText: { flexShrink: 1 },
-  title: { color: colors.textPrimary, fontSize: 22, fontWeight: '700' },
-  updated: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
-  syncBtn: {
-    minWidth: 92,
-    alignItems: 'center',
-    borderColor: colors.accentLine,
-    backgroundColor: colors.accentSoft,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
-  },
-  syncText: { color: colors.accent, fontSize: 14, fontWeight: '600' },
-  totalCard: {
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  totalLabel: { color: colors.textSecondary, fontSize: 13 },
-  totalValue: { fontSize: 24, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  warn: {
-    color: colors.warning,
-    backgroundColor: colors.warningSoft,
-    borderColor: colors.warningLine,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
-    padding: spacing.md,
-    fontSize: 12,
-  },
-  err: {
-    color: colors.negative,
-    backgroundColor: colors.negativeSoft,
-    borderColor: colors.negativeLine,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
-    padding: spacing.md,
-    fontSize: 12,
-  },
-  list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl, gap: spacing.md, flexGrow: 1 },
-  centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.accentLine,
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  cardTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md },
+  list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.md, flexGrow: 1 },
+  head: { gap: spacing.md },
+  total: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, paddingVertical: spacing.xs },
+  totalLabel: { ...type.label },
+  totalValue: { ...type.hero, fontSize: 30, lineHeight: 36, flexShrink: 1 },
+  card: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: radius.lg, overflow: 'hidden' },
+  cardTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md, padding: spacing.lg },
   // the badges wrap onto a second line instead of running under the P&L
-  symbolRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm, flexShrink: 1, flex: 1 },
-  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent },
-  symbol: { color: colors.textPrimary, fontSize: 18, fontWeight: '700', flexShrink: 1 },
-  dirPill: { borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 2 },
-  dirText: { fontSize: 11, fontWeight: '700' },
-  pnl: { fontSize: 20, fontWeight: '700', fontVariant: ['tabular-nums'], flexShrink: 0 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.lg },
-  stat: { minWidth: 72 },
-  statLabel: { color: colors.textMuted, fontSize: 11 },
-  statValue: { color: colors.textPrimary, fontSize: 14, fontWeight: '500', fontVariant: ['tabular-nums'], marginTop: 2 },
-  noteRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.sm },
-  tag: {
-    color: colors.textSecondary,
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    fontSize: 11,
-    overflow: 'hidden',
-  },
-  tapHint: { color: colors.textMuted, fontSize: 12 },
-  meta: { color: colors.textMuted, fontSize: 12 },
-  note: { color: colors.textSecondary, fontSize: 13, flexBasis: '100%' },
-  empty: { alignItems: 'center', paddingVertical: 64, paddingHorizontal: spacing.xl, gap: spacing.sm },
-  emptyTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '600' },
-  emptyText: { color: colors.textMuted, fontSize: 13, textAlign: 'center' },
+  symbolRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: spacing.sm, rowGap: 4, flex: 1 },
+  symbol: { ...type.heading, fontSize: 17, lineHeight: 22 },
+  pnl: { ...type.figure, flexShrink: 0 },
+  figures: { borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.borderSubtle },
+  foot: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: 11 },
+  footLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minWidth: 0 },
+  shots: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  note: { ...type.small, flex: 1 },
 })

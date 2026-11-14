@@ -1,4 +1,7 @@
+import { Geist_400Regular, Geist_500Medium, Geist_600SemiBold } from '@expo-google-fonts/geist'
+import { GeistMono_400Regular, GeistMono_500Medium, GeistMono_600SemiBold } from '@expo-google-fonts/geist-mono'
 import { DarkTheme, NavigationContainer, type Theme } from '@react-navigation/native'
+import { useFonts } from 'expo-font'
 import * as SplashScreen from 'expo-splash-screen'
 import { StatusBar } from 'expo-status-bar'
 import { useEffect } from 'react'
@@ -14,7 +17,7 @@ import { RootStack } from './src/navigation/RootStack'
 import { PositionsProvider } from './src/positions/PositionsContext'
 import { PushBridge } from './src/push/PushBridge'
 import { LoginScreen } from './src/screens/LoginScreen'
-import { colors } from './src/theme'
+import { colors, fonts } from './src/theme'
 
 // Keep the branded splash up until we know whether the user is signed in / locked.
 void SplashScreen.preventAutoHideAsync().catch(() => {})
@@ -24,17 +27,24 @@ const navTheme: Theme = {
   colors: {
     ...DarkTheme.colors,
     background: colors.background,
-    card: colors.surface,
+    card: colors.background,
     text: colors.textPrimary,
     border: colors.borderSubtle,
     primary: colors.accent,
   },
+  // navigation's own text (headers, tab labels) in Geist too; each weight is its own font file
+  fonts: {
+    regular: { fontFamily: fonts.sans, fontWeight: 'normal' },
+    medium: { fontFamily: fonts.sansMedium, fontWeight: 'normal' },
+    bold: { fontFamily: fonts.sansSemi, fontWeight: 'normal' },
+    heavy: { fontFamily: fonts.sansSemi, fontWeight: 'normal' },
+  },
 }
 
-function Root() {
+function Root({ fontsReady }: { fontsReady: boolean }) {
   const { status } = useAuth()
   const lock = useLock()
-  const booting = status === 'loading' || !lock.ready
+  const booting = status === 'loading' || !lock.ready || !fontsReady
 
   useEffect(() => {
     if (!booting) void SplashScreen.hideAsync().catch(() => {})
@@ -71,12 +81,22 @@ function Root() {
 }
 
 export default function App() {
+  // Geist + Geist Mono (the web app's fonts). The splash stays up until they are in, so text never
+  // flashes in the system font; if loading fails the app still opens, in the system font.
+  const [fontsLoaded, fontError] = useFonts({
+    Geist_400Regular,
+    Geist_500Medium,
+    Geist_600SemiBold,
+    GeistMono_400Regular,
+    GeistMono_500Medium,
+    GeistMono_600SemiBold,
+  })
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
       <AuthProvider>
         <LockProvider>
-          <Root />
+          <Root fontsReady={fontsLoaded || fontError != null} />
         </LockProvider>
       </AuthProvider>
     </SafeAreaProvider>

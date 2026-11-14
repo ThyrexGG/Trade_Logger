@@ -1,6 +1,8 @@
+import { Ionicons } from '@expo/vector-icons'
 import { useMemo, useState } from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { colors, radius, spacing } from '../../theme'
+import { Pressable, StyleSheet, View } from 'react-native'
+import { Text } from '../Text'
+import { colors, pnlColor, radius, spacing, type } from '../../theme'
 import type { DailyPnl } from '../../types/analytics'
 
 const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
@@ -69,24 +71,24 @@ export function MonthCalendar({ daily, onDayPress }: { daily: DailyPnl[]; onDayP
       return { y: d.getFullYear(), m: d.getMonth() }
     })
 
-  const pnlColor = summary.pnl > 0 ? colors.positive : summary.pnl < 0 ? colors.negative : colors.textSecondary
+  const monthColor = pnlColor(summary.pnl)
 
   return (
     <View>
       <View style={styles.nav}>
         <Pressable onPress={() => shift(-1)} hitSlop={10} style={styles.navBtn} accessibilityLabel="Previous month">
-          <Text style={styles.navArrow}>‹</Text>
+          <Ionicons name="chevron-back" size={18} color={colors.textSecondary} />
         </Pressable>
         <Text style={styles.month}>
           {MONTHS[cursor.m]} {cursor.y}
         </Text>
         <Pressable onPress={() => shift(1)} hitSlop={10} style={styles.navBtn} accessibilityLabel="Next month">
-          <Text style={styles.navArrow}>›</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
         </Pressable>
       </View>
 
       <View style={styles.summary}>
-        <Text style={[styles.summaryPnl, { color: pnlColor }]}>{money(summary.pnl)}</Text>
+        <Text style={[styles.summaryPnl, { color: monthColor }]}>{money(summary.pnl)}</Text>
         <Text style={styles.summarySub}>
           {summary.trades} trades · {summary.wins} wins · {summary.greenDays} green / {summary.redDays} red days
         </Text>
@@ -116,7 +118,7 @@ export function MonthCalendar({ daily, onDayPress }: { daily: DailyPnl[]; onDayP
                   <Text style={styles.dayNum}>{c.day}</Text>
                   {v !== undefined ? (
                     <Text
-                      style={[styles.dayPnl, { color: v > 0 ? colors.positive : v < 0 ? colors.negative : colors.textSecondary }]}
+                      style={[styles.dayPnl, { color: pnlColor(v) }]}
                       numberOfLines={1}
                       adjustsFontSizeToFit
                     >
@@ -150,14 +152,13 @@ export function MonthCalendar({ daily, onDayPress }: { daily: DailyPnl[]; onDayP
 
 const styles = StyleSheet.create({
   nav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  navBtn: { paddingHorizontal: spacing.md, paddingVertical: 2 },
-  navArrow: { color: colors.accent, fontSize: 28, lineHeight: 30 },
-  month: { color: colors.textPrimary, fontSize: 16, fontWeight: '700' },
-  summary: { alignItems: 'center', marginVertical: spacing.sm },
-  summaryPnl: { fontSize: 20, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  summarySub: { color: colors.textMuted, fontSize: 12, marginTop: 2, textAlign: 'center' },
+  navBtn: { width: 36, height: 36, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceElevated, alignItems: 'center', justifyContent: 'center' },
+  month: { ...type.heading },
+  summary: { alignItems: 'center', marginVertical: spacing.md },
+  summaryPnl: { ...type.figure, fontSize: 22, lineHeight: 28 },
+  summarySub: { ...type.small, marginTop: 2, textAlign: 'center' },
   weekRow: { flexDirection: 'row', marginTop: spacing.xs },
-  weekday: { flex: 1, textAlign: 'center', color: colors.textMuted, fontSize: 11, paddingVertical: 4 },
+  weekday: { ...type.label, flex: 1, textAlign: 'center', paddingVertical: 4 },
   weekLine: { flexDirection: 'row' },
   cellWrap: { flex: 1, padding: 2 },
   cell: {
@@ -167,6 +168,6 @@ const styles = StyleSheet.create({
     padding: 3,
     justifyContent: 'space-between',
   },
-  dayNum: { color: colors.textMuted, fontSize: 10 },
-  dayPnl: { fontSize: 11, fontWeight: '700', textAlign: 'center', fontVariant: ['tabular-nums'] },
+  dayNum: { color: colors.textMuted, fontSize: 10, fontVariant: ['tabular-nums'] },
+  dayPnl: { fontSize: 10.5, fontWeight: '600', textAlign: 'center', fontVariant: ['tabular-nums'], letterSpacing: -0.3 },
 })

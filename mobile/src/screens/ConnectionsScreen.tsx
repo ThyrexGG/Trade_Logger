@@ -1,14 +1,15 @@
 import { useFocusEffect } from '@react-navigation/native'
 import { useCallback, useRef, useState } from 'react'
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native'
+import { Alert, KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { clearAnalyticsCache } from '../analytics/useAnalytics'
 import { createConnection, deleteConnection, listConnections, syncConnection, testConnection } from '../api/connections'
-import { Button, Card, Field, Pill } from '../components/ui'
+import { Text } from '../components/Text'
+import { Button, Card, Divider, Empty, Field, Loading, Notice, Pill, ToggleRow, ui } from '../components/ui'
 import { formatUpdated } from '../format'
 import { useJournal } from '../journal/JournalContext'
 import { usePositionsContext } from '../positions/PositionsContext'
-import { colors, spacing } from '../theme'
+import { colors, spacing, type } from '../theme'
 import type { BrokerConnection } from '../types/connections'
 
 /**
@@ -115,52 +116,45 @@ export function ConnectionsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.screen} edges={['bottom']}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <SafeAreaView style={ui.screen} edges={['bottom']}>
+      <KeyboardAvoidingView style={ui.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={ui.content}
           keyboardShouldPersistTaps="handled"
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load() }} tintColor={colors.accent} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load() }} tintColor={colors.accent} colors={[colors.accent]} />}
         >
-          <Text style={styles.intro}>
-            Connect your Capital.com account so your trades, balance and open positions sync in automatically. Read-only — the app can never place or change an order.
-          </Text>
+          <Text style={ui.muted}>Connect your Capital.com account so your trades, balance and open positions come in on their own. Read-only: the app can never place or change an order.</Text>
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          {notice ? <Text style={styles.notice}>{notice}</Text> : null}
+          {error ? <Notice>{error}</Notice> : null}
+          {notice ? <Notice tone="info">{notice}</Notice> : null}
 
           {loading ? (
-            <ActivityIndicator color={colors.accent} size="large" style={{ marginTop: spacing.xl }} />
+            <Loading />
           ) : !encOn ? (
-            <Card title="Not available">
-              <Text style={styles.body}>Broker connections are not switched on for this server (it has no encryption key). The person who runs the server turns this on.</Text>
-            </Card>
+            <Empty icon="lock-closed-outline" title="Not available on this server" text="Broker connections are switched off here (the server has no encryption key). The person who runs the server turns this on." />
           ) : (
             <>
-              <Card title={`Your connections · ${rows.length}`}>
-                {rows.length === 0 ? <Text style={styles.muted}>No connection yet — add one below.</Text> : null}
-                {rows.map((c) => (
-                  <View key={c.id} style={styles.conn}>
-                    <View style={styles.connTop}>
-                      <Text style={styles.connName} numberOfLines={1}>
-                        {c.label || c.account_id || 'Capital.com'}
+              <Card title="Your connections" right={String(rows.length)} flush>
+                {rows.length === 0 ? <Text style={styles.quiet}>No connection yet. Add one below.</Text> : null}
+                {rows.map((c, i) => (
+                  <View key={c.id}>
+                    {i > 0 ? <Divider /> : null}
+                    <View style={styles.conn}>
+                      <View style={ui.rowWrap}>
+                        <Text style={styles.connName} numberOfLines={1}>
+                          {c.label || c.account_id || 'Capital.com'}
+                        </Text>
+                        <Pill text={c.is_demo ? 'Demo' : 'Live'} color={c.is_demo ? colors.textSecondary : colors.accent} />
+                        {c.is_active ? null : <Pill text="Paused" color={colors.warning} />}
+                      </View>
+                      <Text style={[ui.muted, c.last_sync_ok === false && { color: colors.negative }]}>
+                        {c.last_sync_at ? `Last sync ${formatUpdated(c.last_sync_at)} · ${c.last_sync_ok ? 'ok' : 'failed'}` : 'Never synced'}
+                        {c.last_error ? `. ${c.last_error}` : ''}
                       </Text>
-                      <Pill text={c.is_demo ? 'DEMO' : 'LIVE'} color={c.is_demo ? colors.textSecondary : colors.accent} />
-                      {c.is_active ? null : <Pill text="PAUSED" color={colors.warning} />}
-                    </View>
-                    <Text style={[styles.muted, c.last_sync_ok === false && { color: colors.negative }]}>
-                      {c.last_sync_at ? `Last sync ${formatUpdated(c.last_sync_at)} · ${c.last_sync_ok ? 'ok' : 'failed'}` : 'Never synced'}
-                      {c.last_error ? ` — ${c.last_error}` : ''}
-                    </Text>
-                    <View style={styles.actions}>
-                      <View style={{ flex: 1 }}>
-                        <Button label="Test" kind="secondary" busy={busy === c.id} disabled={busy !== null} onPress={() => void act(c.id, 'Test', () => testConnection(c.id))} />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Button label="Sync now" busy={busy === c.id} disabled={busy !== null} onPress={() => void act(c.id, 'Sync', () => syncConnection(c.id))} />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Button label="Delete" kind="danger" disabled={busy !== null} onPress={() => confirmDelete(c)} />
+                      <View style={styles.actions}>
+                        <Button label="Sync now" size="sm" busy={busy === c.id} disabled={busy !== null} onPress={() => void act(c.id, 'Sync', () => syncConnection(c.id))} style={ui.flex} />
+                        <Button label="Test" size="sm" kind="secondary" disabled={busy !== null} onPress={() => void act(c.id, 'Test', () => testConnection(c.id))} style={ui.flex} />
+                        <Button label="Delete" size="sm" kind="danger" disabled={busy !== null} onPress={() => confirmDelete(c)} style={ui.flex} />
                       </View>
                     </View>
                   </View>
@@ -168,20 +162,17 @@ export function ConnectionsScreen() {
               </Card>
 
               <Card title="Add a Capital.com connection">
-                <Text style={styles.muted}>
-                  In Capital.com open Settings → API, create a key, then copy the key, your login email and the API password you chose. They are encrypted before they are stored.
-                </Text>
+                <Text style={ui.muted}>In Capital.com open Settings, then API, and create a key. Copy the key, your login email and the API password you chose. They are encrypted before they are stored.</Text>
                 <Field label="Label (optional)" value={label} onChangeText={setLabel} placeholder="e.g. Capital live" autoCapitalize="sentences" />
                 <Field label="Account ID" value={accountId} onChangeText={setAccountId} />
                 <Field label="API key" value={apiKey} onChangeText={setApiKey} secure />
                 <Field label="Login email" value={email} onChangeText={setEmail} keyboardType="email-address" />
                 <Field label="API password" value={password} onChangeText={setPassword} secure />
-                <View style={styles.switchRow}>
-                  <Text style={styles.body}>Demo account</Text>
-                  <Switch value={isDemo} onValueChange={setIsDemo} trackColor={{ true: colors.accentLine, false: colors.border }} thumbColor={isDemo ? colors.accent : colors.textMuted} />
+                <View style={styles.demo}>
+                  <ToggleRow title="Demo account" sub="Turn on if this key is for a practice account" value={isDemo} onChange={setIsDemo} />
                 </View>
-                {formError ? <Text style={styles.error}>{formError}</Text> : null}
-                <Button label="Add connection" busy={adding} onPress={() => void add()} />
+                {formError ? <Notice>{formError}</Notice> : null}
+                <Button label="Add connection" kind={rows.length === 0 ? 'primary' : 'secondary'} busy={adding} onPress={() => void add()} />
               </Card>
             </>
           )}
@@ -192,16 +183,10 @@ export function ConnectionsScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl * 2 },
-  intro: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },
-  body: { color: colors.textPrimary, fontSize: 14, lineHeight: 20 },
-  muted: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },
-  error: { color: colors.negative, fontSize: 13 },
-  notice: { color: colors.textSecondary, fontSize: 13 },
-  conn: { gap: spacing.sm, paddingVertical: spacing.sm, borderTopColor: colors.borderSubtle, borderTopWidth: 1 },
-  connTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  connName: { color: colors.textPrimary, fontSize: 16, fontWeight: '600', flexShrink: 1 },
-  actions: { flexDirection: 'row', gap: spacing.sm },
-  switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  quiet: { ...type.small, fontSize: 13, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+  conn: { gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+  connName: { ...type.heading, flexShrink: 1 },
+  actions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },
+  // the switch row brings its own side padding; pull it back to the card's edge
+  demo: { marginHorizontal: -spacing.lg },
 })

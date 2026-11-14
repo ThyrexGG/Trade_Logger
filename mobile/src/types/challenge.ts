@@ -20,6 +20,7 @@ export interface ChallengeConfig {
   phase_start_balance: number
   phase_start_date: string
   created_at: string
+  consistency_pct?: number
 }
 
 export interface ChallengeConfigInput {
@@ -33,6 +34,10 @@ export interface ChallengeConfigInput {
   min_profit_days?: number
   profit_day_threshold_pct?: number
   drawdown_mode?: ChallengeDrawdownMode
+  /** best day's allowed share of total profit, in %; 0 switches the rule off; left out = keep what is saved */
+  consistency_pct?: number
+  /** YYYY-MM-DD: count trades from this day (the day the account or phase started); left out = unchanged */
+  start_date?: string
 }
 
 export interface ChallengeStatus {
@@ -63,9 +68,19 @@ export interface ChallengeStatus {
   min_profit_days: number | null
   profit_day_dates: string[]
 
-  // consistency rule (best day vs total profit); the phone does not show it yet
+  /** date of the first trade on this account, for the "count from my first trade" shortcut */
+  first_trade_date?: string | null
+
+  // consistency rule: the best day may be at most N% of the phase's total profit (optional: older servers omit them)
   consistency_status?: 'off' | 'no_profit' | 'pass' | 'fail' | null
+  consistency_limit_pct?: number | null
   consistency_best_day_pct?: number | null
+  consistency_best_day_amount?: number | null
+  consistency_best_day_date?: string | null
+  consistency_total_profit?: number | null
+  consistency_extra_needed?: number | null
+  consistency_next_day_max?: number | null
+  consistency_cap_at_target?: number | null
 
   disclaimer: string
   timestamp: string

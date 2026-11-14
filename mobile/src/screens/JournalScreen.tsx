@@ -1,84 +1,31 @@
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useEffect, useMemo, useState } from 'react'
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { ConnectionBanner } from '../components/ConnectionBanner'
-import { ExitsPill } from '../components/TradeLegs'
-import { AccountTag } from '../components/AccountTag'
 import { describeAccount, groupByAccount } from '../accountLabel'
-import { formatMoney, formatUpdated, isBuy } from '../format'
+import { AccountTag } from '../components/AccountTag'
+import { ConnectionBanner } from '../components/ConnectionBanner'
+import { Text } from '../components/Text'
+import { ClosedTradeRow, OpenTradeRow } from '../components/TradeRows'
+import { Button, Card, Chip, ChipRow, Divider, Empty, Figures, Loading, Notice, Rows, ScreenHeader, SectionLabel, Seg, Stat, ui } from '../components/ui'
+import { formatMoney } from '../format'
 import { useJournal } from '../journal/JournalContext'
-import { DATE_FILTERS, filterEntries, summarize, type DateFilter } from '../journal/filters'
+import { filterEntries, summarize, type DateFilter } from '../journal/filters'
 import { loadPrefs, savePref } from '../journal/prefs'
 import type { RootStackParamList } from '../navigation/RootStack'
 import { usePositionsContext } from '../positions/PositionsContext'
-import { colors, radius, spacing } from '../theme'
-import type { JournalTradeItem } from '../types/journal'
-import type { PositionItem } from '../types/positions'
+import { colors, pnlColor, radius, spacing } from '../theme'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
-function pnlColor(v: number): string {
-  return v > 0 ? colors.positive : v < 0 ? colors.negative : colors.textSecondary
-}
-
-export function Stars({ n }: { n: number | null | undefined }) {
-  if (!n || n <= 0) return null
-  return <Text style={styles.stars}>{'★'.repeat(Math.min(5, n))}</Text>
-}
-
-function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} accessibilityRole="button" style={[styles.chip, active && styles.chipActive]}>
-      <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
-    </Pressable>
-  )
-}
-
-function OpenRow({ p, onPress }: { p: PositionItem; onPress: () => void }) {
-  const dirColor = isBuy(p.direction) ? colors.positive : colors.negative
-  return (
-    <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [styles.openRow, pressed && { opacity: 0.7 }]}>
-      <View style={styles.openLeft}>
-        <View style={styles.liveDot} />
-        <Text style={styles.openSymbol}>{p.symbol}</Text>
-        <Text style={[styles.openDir, { color: dirColor }]}>{p.direction.toUpperCase()}</Text>
-        <Text style={styles.openVol}>{p.volume}</Text>
-      </View>
-      <Text style={[styles.openPnl, { color: pnlColor(p.floating_pnl) }]}>{formatMoney(p.floating_pnl)}</Text>
-    </Pressable>
-  )
-}
-
-function TradeRow({ t, onPress, showAccount }: { t: JournalTradeItem; onPress: () => void; showAccount: boolean }) {
-  const dirColor = isBuy(t.direction) ? colors.positive : colors.negative
-  return (
-    <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [styles.tradeRow, pressed && { opacity: 0.7 }]}>
-      <View style={styles.tradeTop}>
-        <View style={styles.tradeLeft}>
-          <Text style={styles.symbol}>{t.symbol}</Text>
-          <Text style={[styles.dir, { color: dirColor }]}>{t.direction.toUpperCase()}</Text>
-          <Text style={styles.vol}>{t.volume}</Text>
-          <ExitsPill t={t} />
-          {showAccount ? <AccountTag accountId={t.account_id} /> : null}
-        </View>
-        <Text style={[styles.net, { color: pnlColor(t.net_profit) }]}>{formatMoney(t.net_profit)}</Text>
-      </View>
-      <View style={styles.tradeMeta}>
-        <Text style={styles.metaText}>{formatUpdated(t.exit_time)}</Text>
-        {t.setup_tag ? <Text style={styles.tag}>{t.setup_tag}</Text> : null}
-        <Stars n={t.rating} />
-        {t.screenshot_count ? <Text style={styles.metaText}>📷 {t.screenshot_count}</Text> : null}
-      </View>
-      {t.notes ? (
-        <Text style={styles.notes} numberOfLines={2}>
-          {t.notes}
-        </Text>
-      ) : null}
-    </Pressable>
-  )
-}
+// short labels so all four fit one segmented control on a phone
+const RANGES: { key: DateFilter; label: string }[] = [
+  { key: 'today', label: 'Today' },
+  { key: 'week', label: 'Week' },
+  { key: 'month', label: 'Month' },
+  { key: 'all', label: 'All' },
+]
 
 export function JournalScreen() {
   const navigation = useNavigation<Nav>()
@@ -112,6 +59,7 @@ export function JournalScreen() {
     const all = positions.data?.positions ?? []
     return effectiveAccount === 'ALL' ? all : all.filter((p) => p.account_id === effectiveAccount)
   }, [positions.data, effectiveAccount])
+  const openMultiAccount = new Set(openPositions.map((p) => p.account_id)).size > 1
 
   function pickDate(f: DateFilter) {
     setDateFilter(f)
@@ -127,96 +75,93 @@ export function JournalScreen() {
     await journal.refresh()
   }
 
+  const winRate = summary.total > 0 ? `${Math.round((summary.wins / summary.total) * 100)}%` : '—'
+
   const header = (
     <View style={styles.headerBlock}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-        {DATE_FILTERS.map((f) => (
-          <Chip key={f.key} label={f.label} active={dateFilter === f.key} onPress={() => pickDate(f.key)} />
-        ))}
-      </ScrollView>
+      <Seg options={RANGES} value={dateFilter} onChange={pickDate} />
 
       {accounts.length > 1 ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-          <Chip label="All accounts" active={effectiveAccount === 'ALL'} onPress={() => pickAccount('ALL')} />
+        <ChipRow>
+          <Chip label="All accounts" on={effectiveAccount === 'ALL'} onPress={() => pickAccount('ALL')} />
           {accounts.map((a) => (
-            <Chip key={a} label={describeAccount(a).label} active={effectiveAccount === a} onPress={() => pickAccount(a)} />
+            <Chip key={a} label={describeAccount(a).label} on={effectiveAccount === a} onPress={() => pickAccount(a)} />
           ))}
-        </ScrollView>
+        </ChipRow>
       ) : null}
 
-      <View style={styles.summary}>
-        <SummaryCell label="Trades" value={String(summary.total)} />
-        <SummaryCell label="Wins" value={String(summary.wins)} color={colors.positive} />
-        <SummaryCell label="Losses" value={String(summary.losses)} color={colors.negative} />
-        <SummaryCell label="Net P&L" value={formatMoney(summary.net)} color={pnlColor(summary.net)} />
-      </View>
+      <Figures columns={4} boxed>
+        <Stat small tight flex={1.7} label="Net" value={formatMoney(summary.net)} color={pnlColor(summary.net, colors.textPrimary)} />
+        <Stat small tight label="Trades" value={String(summary.total)} />
+        <Stat small tight label="Won" value={String(summary.wins)} />
+        <Stat small tight label="Win %" value={winRate} />
+      </Figures>
 
       <ConnectionBanner />
-      {positions.syncError ? <Text style={styles.warn}>Sync: {positions.syncError}</Text> : null}
-      {journal.error ? (
-        <Text style={styles.err}>
-          {journal.data ? `Showing last loaded journal — refresh failed: ${journal.error}` : journal.error}
-        </Text>
-      ) : null}
+      {positions.syncError ? <Notice tone="warn">Sync: {positions.syncError}</Notice> : null}
+      {journal.error ? <Notice>{journal.data ? `Showing the last loaded journal. Refresh failed: ${journal.error}` : journal.error}</Notice> : null}
 
       {openPositions.length > 0 ? (
-        <View style={styles.openBlock}>
-          <Text style={styles.sectionTitle}>Open now ({openPositions.length})</Text>
-          {new Set(openPositions.map((p) => p.account_id)).size > 1
-            ? groupByAccount(openPositions).map((g) => (
-                <View key={g.account} style={styles.accountGroup}>
-                  <View style={styles.accountGroupHeader}>
+        <>
+          <SectionLabel right={String(openPositions.length)}>Open now</SectionLabel>
+          <Card flush>
+            {openMultiAccount ? (
+              groupByAccount(openPositions).map((g, gi) => (
+                <View key={g.account}>
+                  {gi > 0 ? <Divider /> : null}
+                  <View style={styles.accountHead}>
                     <AccountTag accountId={g.account} />
-                    <Text style={styles.accountGroupCount}>({g.items.length})</Text>
+                    <Text style={ui.muted}>{g.items.length}</Text>
                   </View>
-                  {g.items.map((p) => (
-                    <OpenRow key={p.position_id} p={p} onPress={() => navigation.navigate('PositionDetail', { positionId: p.position_id })} />
-                  ))}
+                  <Rows>
+                    {g.items.map((p) => (
+                      <OpenTradeRow key={p.position_id} p={p} onPress={() => navigation.navigate('PositionDetail', { positionId: p.position_id })} />
+                    ))}
+                  </Rows>
                 </View>
               ))
-            : openPositions.map((p) => (
-                <OpenRow key={p.position_id} p={p} onPress={() => navigation.navigate('PositionDetail', { positionId: p.position_id })} />
-              ))}
-        </View>
+            ) : (
+              <Rows>
+                {openPositions.map((p) => (
+                  <OpenTradeRow key={p.position_id} p={p} onPress={() => navigation.navigate('PositionDetail', { positionId: p.position_id })} />
+                ))}
+              </Rows>
+            )}
+          </Card>
+        </>
       ) : null}
 
-      {entries.length > 0 ? <Text style={styles.sectionTitle}>Closed trades</Text> : null}
+      {entries.length > 0 ? <SectionLabel right={String(entries.length)}>Closed trades</SectionLabel> : null}
     </View>
   )
 
+  const last = entries.length - 1
+
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
-      <View style={styles.titleRow}>
-        <Text style={styles.title}>Journal</Text>
-        <View style={styles.titleActions}>
-        <Pressable
-          onPress={() => navigation.navigate('Entries')}
-          accessibilityRole="button"
-          style={({ pressed }) => [styles.notesBtn, pressed && { opacity: 0.6 }]}
-        >
-          <Text style={styles.notesText}>Ideas</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => void syncAndRefresh()}
-          disabled={positions.syncing}
-          accessibilityRole="button"
-          style={({ pressed }) => [styles.syncBtn, (positions.syncing || pressed) && { opacity: 0.6 }]}
-        >
-          {positions.syncing ? <ActivityIndicator size="small" color={colors.accent} /> : <Text style={styles.syncText}>Sync now</Text>}
-        </Pressable>
-        </View>
-      </View>
+    <SafeAreaView style={ui.screen} edges={['top']}>
+      <ScreenHeader
+        eyebrow="Review"
+        title="Journal"
+        right={
+          <>
+            <Button label="Notes" icon="document-text-outline" size="sm" kind="secondary" onPress={() => navigation.navigate('Entries')} />
+            <Button label="Sync" icon="sync-outline" size="sm" kind="secondary" busy={positions.syncing} onPress={() => void syncAndRefresh()} />
+          </>
+        }
+      />
 
       {journal.loading && !journal.data ? (
-        <View style={styles.centerFill}>
-          <ActivityIndicator color={colors.accent} size="large" />
-        </View>
+        <Loading fill />
       ) : (
         <FlatList
           data={entries}
           keyExtractor={(t) => t.trade_id}
-          renderItem={({ item }) => (
-            <TradeRow t={item} onPress={() => navigation.navigate('TradeDetail', { tradeId: item.trade_id })} showAccount={accounts.length > 1} />
+          // the closed trades read as one card: the first and last rows carry its rounded edge
+          renderItem={({ item, index }) => (
+            <View style={[styles.rowWrap, index === 0 && styles.rowFirst, index === last && styles.rowLast]}>
+              {index > 0 ? <Divider inset={spacing.lg} /> : null}
+              <ClosedTradeRow t={item} onPress={() => navigation.navigate('TradeDetail', { tradeId: item.trade_id })} showAccount={accounts.length > 1 && effectiveAccount === 'ALL'} />
+            </View>
           )}
           ListHeaderComponent={header}
           contentContainerStyle={styles.list}
@@ -232,12 +177,7 @@ export function JournalScreen() {
             />
           }
           ListEmptyComponent={
-            journal.data ? (
-              <View style={styles.empty}>
-                <Text style={styles.emptyTitle}>No closed trades in this range</Text>
-                <Text style={styles.emptyText}>Try “All time”, or tap Sync now if you just closed a trade.</Text>
-              </View>
-            ) : null
+            journal.data ? <Empty icon="book-outline" title="No closed trades in this range" text="Try “All”, or tap Sync if you just closed a trade." /> : null
           }
         />
       )}
@@ -245,155 +185,11 @@ export function JournalScreen() {
   )
 }
 
-function SummaryCell({ label, value, color }: { label: string; value: string; color?: string }) {
-  return (
-    <View style={styles.cell}>
-      <Text style={styles.cellLabel}>{label}</Text>
-      <Text style={[styles.cellValue, color ? { color } : null]}>{value}</Text>
-    </View>
-  )
-}
-
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-  },
-  title: { color: colors.textPrimary, fontSize: 22, fontWeight: '700' },
-  titleActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  notesBtn: { borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2 },
-  notesText: { color: colors.textPrimary, fontSize: 14, fontWeight: '600' },
-  syncBtn: {
-    minWidth: 92,
-    alignItems: 'center',
-    borderColor: colors.accentLine,
-    backgroundColor: colors.accentSoft,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
-  },
-  syncText: { color: colors.accent, fontSize: 14, fontWeight: '600' },
-  centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  list: { paddingBottom: spacing.xl, flexGrow: 1 },
-  headerBlock: { gap: spacing.md, paddingBottom: spacing.sm },
-  chipRow: { paddingHorizontal: spacing.lg, gap: spacing.sm },
-  chip: {
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.md + 2,
-    paddingVertical: spacing.sm,
-  },
-  chipActive: { backgroundColor: colors.accentSoft, borderColor: colors.accentLine },
-  chipText: { color: colors.textSecondary, fontSize: 13, fontWeight: '500' },
-  chipTextActive: { color: colors.accent, fontWeight: '600' },
-  summary: {
-    flexDirection: 'row',
-    marginHorizontal: spacing.lg,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    paddingVertical: spacing.md,
-  },
-  cell: { flex: 1, alignItems: 'center', gap: 2 },
-  cellLabel: { color: colors.textMuted, fontSize: 11 },
-  cellValue: { color: colors.textPrimary, fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  warn: {
-    color: colors.warning,
-    backgroundColor: colors.warningSoft,
-    borderColor: colors.warningLine,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    marginHorizontal: spacing.lg,
-    padding: spacing.md,
-    fontSize: 12,
-  },
-  err: {
-    color: colors.negative,
-    backgroundColor: colors.negativeSoft,
-    borderColor: colors.negativeLine,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    marginHorizontal: spacing.lg,
-    padding: spacing.md,
-    fontSize: 12,
-  },
-  sectionTitle: {
-    color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    paddingHorizontal: spacing.lg,
-  },
-  openBlock: { gap: spacing.sm },
-  accountGroup: { gap: spacing.sm },
-  accountGroupHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.lg,
-  },
-  accountGroupCount: {
-    color: colors.textMuted,
-    fontSize: 11,
-  },
-  openRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.surface,
-    borderColor: colors.accentLine,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    marginHorizontal: spacing.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  openLeft: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm, flexShrink: 1 },
-  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.accent },
-  openSymbol: { color: colors.textPrimary, fontSize: 15, fontWeight: '700' },
-  openDir: { fontSize: 11, fontWeight: '700' },
-  openVol: { color: colors.textMuted, fontSize: 12 },
-  openPnl: { fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'], flexShrink: 0 },
-  tradeRow: {
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.sm,
-    backgroundColor: colors.surface,
-    borderColor: colors.borderSubtle,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  tradeTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md },
-  // the badges wrap onto a second line instead of running under the P&L
-  tradeLeft: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm, flexShrink: 1, flex: 1 },
-  symbol: { color: colors.textPrimary, fontSize: 16, fontWeight: '700' },
-  dir: { fontSize: 11, fontWeight: '700' },
-  vol: { color: colors.textMuted, fontSize: 12 },
-  net: { fontSize: 16, fontWeight: '700', fontVariant: ['tabular-nums'], flexShrink: 0 },
-  tradeMeta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.sm },
-  metaText: { color: colors.textMuted, fontSize: 12 },
-  tag: {
-    color: colors.textSecondary,
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    fontSize: 11,
-    overflow: 'hidden',
-  },
-  stars: { color: colors.warning, fontSize: 12 },
-  notes: { color: colors.textSecondary, fontSize: 13 },
-  empty: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: spacing.xl, gap: spacing.sm },
-  emptyTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '600' },
-  emptyText: { color: colors.textMuted, fontSize: 13, textAlign: 'center' },
+  list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl, flexGrow: 1 },
+  headerBlock: { gap: spacing.md, paddingBottom: spacing.md },
+  accountHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  rowWrap: { backgroundColor: colors.surface, borderColor: colors.border, borderLeftWidth: 1, borderRightWidth: 1, overflow: 'hidden' },
+  rowFirst: { borderTopWidth: 1, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg },
+  rowLast: { borderBottomWidth: 1, borderBottomLeftRadius: radius.lg, borderBottomRightRadius: radius.lg },
 })
