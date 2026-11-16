@@ -70,7 +70,7 @@ except ImportError:
 # for the instant it takes the command to run. getattr() because the constant only exists on Windows.
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
-AGENT_VERSION = "1.3.2"
+AGENT_VERSION = "1.3.3"
 TASK_NAME = "TradeLogger MT5 Sync"
 LOG_NAME = "mt5_sync.log"
 _LOG_MAX_BYTES = 256 * 1024
@@ -886,12 +886,48 @@ def uninstall_task() -> None:
 _LOCK_STALE_SEC = 600
 
 
+def _pid_alive(pid: int) -> bool:
+    """Is that process still running? Never os.kill(pid, 0) here: on Windows
+    that TERMINATES the process instead of probing it."""
+    if pid <= 0:
+        return False
+    if os.name == "nt":
+        import ctypes
+        k32 = ctypes.windll.kernel32
+        h = k32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return False
+        try:
+            code = ctypes.c_ulong()
+            ok = k32.GetExitCodeProcess(h, ctypes.byref(code))
+            return bool(ok) and code.value == 259  # STILL_ACTIVE
+        finally:
+            k32.CloseHandle(h)
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _lock_holder_alive(lock: Path) -> bool:
+    try:
+        return _pid_alive(int(lock.read_text(encoding="utf-8").strip() or 0))
+    except (OSError, ValueError):
+        return True  # unreadable: fall back to the age check alone
+
+
 def _acquire_run_lock() -> Optional[Path]:
     """Stop the scheduled task from stacking: if a sync started less than
-    ~10 min ago and hasn't cleared its lock, this run bows out."""
+    ~10 min ago and hasn't cleared its lock, this run bows out. A lock left by
+    a run that died (crashed, killed, laptop slept) is taken over at once, so a
+    "Sync now" click is never skipped for a sync that is no longer running."""
     lock = app_dir() / ".sync.lock"
     try:
-        if lock.exists() and (time.time() - lock.stat().st_mtime) < _LOCK_STALE_SEC:
+        if (lock.exists() and (time.time() - lock.stat().st_mtime) < _LOCK_STALE_SEC
+                and _lock_holder_alive(lock)):
             return None
         lock.write_text(str(os.getpid()), encoding="utf-8")
         return lock

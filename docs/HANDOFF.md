@@ -12,7 +12,7 @@ Trade Logger: a personal trading journal, analytics and research platform for MT
 | Web app | `frontend/` (React 19, Vite, Tailwind v4) | Design system "Precision" (navy + ice cyan), see `docs/DESIGN_SYSTEM.md` |
 | Phone app | `mobile/` (Expo SDK 57, Android) | Rebuilt on Precision 2026-11-14: tokens in `mobile/src/theme.ts`, Geist text in `components/Text.tsx`, one kit in `components/ui.tsx` (see `docs/DESIGN_SYSTEM.md`, "Phone app"); build steps in `docs/MOBILE_ANDROID_BUILD.md` |
 | Desktop | `desktop/` (Electron shell around the web app) | Switches to `run_local_fallback.py` (port 8010) when the cloud API fails two health checks; log at `%APPDATA%\TradeLogger\fallback.log`, see `desktop/README.md` |
-| MT5 push agent | `agent/` | Sends trades from the user's PC to the cloud every 15 min via a hidden scheduled task. Run log: `agent/mt5_sync.log` (start/end line per run, skips and errors). Skips silently when MT5 is closed; task must be allowed on battery (laptop) |
+| MT5 push agent | `agent/` | Sends trades from the user's PC to the cloud every 15 min via a hidden scheduled task. Run log: `agent/mt5_sync.log` (start/end line per run, skips and errors). Skips silently when MT5 is closed; a lock left by a dead run is taken over at once (1.3.3), it no longer blocks "Sync now" for 10 min; task must be allowed on battery (laptop) |
 | TradingView scripts | `tradingview/` | Pine scripts, see `tradingview/README.md` |
 | Research | root `phaseNNN_*.py` + `docs/PHASE_NNN_*.md` | Phases 62–135 |
 

@@ -228,3 +228,23 @@ def test_the_task_is_allowed_to_run_on_battery(agent):
     src = _AGENT.read_text(encoding="utf-8")
     assert "DisallowStartIfOnBatteries=$false" in src
     assert src.index("_allow_task_on_battery()") < src.index("write_uninstall_shortcut()", src.index("def install_task"))
+
+
+def test_a_lock_left_by_a_dead_run_does_not_block_sync_now(agent, tmp_path, monkeypatch):
+    """2026-11-16: a run died mid-sync without clearing .sync.lock, and every "Sync now" for
+    the next 10 minutes said "another sync is already running" and did nothing."""
+    import os
+    monkeypatch.setattr(agent, "app_dir", lambda: tmp_path)
+    lock = tmp_path / ".sync.lock"
+    lock.write_text("999999999", encoding="utf-8")  # fresh lock, no such process
+    got = agent._acquire_run_lock()
+    assert got == lock and lock.read_text(encoding="utf-8") == str(os.getpid())
+    agent._release_run_lock(got)
+
+
+def test_a_lock_held_by_a_live_run_still_blocks(agent, tmp_path, monkeypatch):
+    import os
+    monkeypatch.setattr(agent, "app_dir", lambda: tmp_path)
+    (tmp_path / ".sync.lock").write_text(str(os.getppid()), encoding="utf-8")
+    assert agent._pid_alive(os.getpid())
+    assert agent._acquire_run_lock() is None

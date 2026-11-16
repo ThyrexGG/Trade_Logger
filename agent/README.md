@@ -50,7 +50,8 @@ line. What you will see:
 |---|---|
 | `MetaTrader 5 isn't open — skipping this sync` | MetaTrader was closed. Open it and the next run catches up. |
 | `Login failed` / `TradeLogger login failed` | Cloud down or wrong email/password. |
-| `run started` with no `run ended` after it | That run was killed part-way. |
+| `run started` with no `run ended` after it | That run was killed part-way. Since agent 1.3.3 the next run (or a "Sync now" click) takes over its lock straight away instead of waiting 10 minutes. |
+| `another sync is already running — skipping` | A sync really is still running (often retrying "waking the server" while the cloud starts up). Wait a minute. |
 | No new lines at all for a while | Windows did not start the task (PC asleep or off). |
 
 Laptop note: Windows tasks do **not** start on battery by default, which silently stopped the sync whenever the
